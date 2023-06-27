@@ -54,6 +54,39 @@ import ipyvuetify as v
 
 import imodels
 
+import json
+
+import seaborn as sns
+
+
+def create_save(liste=None, nom: str = "Default name", models: list = []):
+    # fonction qui permet de créer un fichier de sauvegarde
+    retour = dict()
+    retour["nom"] = nom
+    retour["liste"] = liste
+    retour["models"] = models
+    return retour
+
+
+def load_save(local: str = None):
+    # fonction qui permet de charger un fichier de sauvegarde
+    if local is None:
+        return "Aucun fichier de sauvegarde n'a été chargé"
+    with open(local) as json_file:
+        data = json.load(json_file)
+    for dictio in data:
+        dictio["models"] = eval(dictio["models"] + "()")
+    return data
+
+
+import fonction_auto
+
+
+def fonction_auto_clustering(X, SHAP, n_clusters):
+    X = X.to_numpy()
+    SHAP = SHAP.to_numpy()
+    return fonction_auto.clustering_dyadique(X, SHAP, n_clusters, 0.3, False)
+
 
 def red_PCA(X, n, default):
     # définition de la méthode du PCA, utilisée pour l'EE et l'EV
@@ -140,6 +173,22 @@ def fonction_score(y, y_chap):
     return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
 
 
+def add_tooltip(widget, text):
+    wid = v.Tooltip(
+        bottom=True,
+        v_slots=[
+            {
+                "name": "activator",
+                "variable": "tooltip",
+                "children": widget,
+            }
+        ],
+        children=[text],
+    )
+    widget.v_on = "tooltip.on"
+    return wid
+
+
 # on itinialise les listes pour pourvoir ensuite utiliser global {variable} dans les fonctions
 
 
@@ -171,11 +220,12 @@ def init_variables():
     liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
     couleur_selec = None
     model_choice = None
+    Y_auto = None
     globals().update(locals())
 
 
 class Xplainer(object):
-    def __init__(self, X: pd.DataFrame, Y=None, model: object = None):
+    def __init__(self, X: pd.DataFrame, Y: pd.Series = None, model: object = None):
         self.X = X
         self.Y = Y
         self.model = model
@@ -192,6 +242,7 @@ class Xplainer(object):
         X_all: pd.DataFrame = None,
         map: bool = False,
         models: list = None,
+        regions: list = None,
     ):
         self.explanation = explanation
         self.exp_val = exp_val
@@ -199,23 +250,28 @@ class Xplainer(object):
         self.X_all = X_all
         self.map = map
         self.models = models
+        self.regions = regions
         init_variables()
         return start(
-            self.X,
-            self.Y,
-            self.explanation,
-            self.exp_val,
-            self.model,
-            self.X_all,
-            self.default_projection,
-            self.map,
-            self.models,
+            X=self.X,
+            Y=self.Y,
+            explanation=self.explanation,
+            exp_val=self.exp_val,
+            model=self.model,
+            X_all=self.X_all,
+            default_projection=self.default_projection,
+            map=self.map,
+            models=self.models,
+            regions=self.regions,
         )
+
+    def result(self):
+        return get_regions()
 
 
 def start(
     X: pd.DataFrame,
-    Y=None,
+    Y: pd.Series = None,
     explanation: str = "None",
     exp_val: pd.DataFrame = None,
     model: object = None,
@@ -223,12 +279,16 @@ def start(
     default_projection: str = "PaCMAP",
     map: bool = False,
     models: list = None,
+    regions: list = None,
 ):
     # la fonction start pour démarrer le programme
 
     # on initialise une fois les variables : cas où on lance antakia.start() deux fois dans le même notebook !
     init_variables()
 
+    global tous_models
+    if models != None:
+        tous_models = models
     global liste_red
     X = X.reset_index(drop=True)
     global liste_tuiles
@@ -243,7 +303,7 @@ def start(
     nom_colonnes = X.columns.values[:3]
 
     # dans cette partie, on va vérfier que l'on a les informations nécéssaires, sinon on explique pourquoi ce n'est pas bon
-    if X_all is None and explanation != "None":
+    if X_all is None:
         X_all = X.copy()
 
     if explanation is None and exp_val is None:
@@ -294,7 +354,8 @@ def start(
     global X_entier
     X_entier = X.copy()
     X = pd.DataFrame(StandardScaler().fit_transform(X))
-    X.columns = columns_de_X
+    X.columns = [columns_de_X[i].replace(" ", "_") for i in range(len(X.columns))]
+    X_base.columns = X.columns
 
     # définition du de l'écran d'attente
     logo_antakia = widgets.Image(
@@ -378,7 +439,7 @@ def start(
     )
 
     # ici, on va définir les widgets qui vont être utilisés dans la suite du programme
-    if explanation == "SHAP" or explanation == "LIME":
+    if explanation == "SHAP" or explanation == "LIME" and exp_val == None:
         calculus = True
     else:
         calculus = False
@@ -420,12 +481,12 @@ def start(
         # permet de calculer les valeurs explicatives SHAP
         time_init = time.time()
         explainer = shap.Explainer(model.predict, X_all)
-        shap_values = X.copy()
+        shap_values = pd.DataFrame(X)
         j = list(X.columns)
         for i in range(len(j)):
             j[i] = j[i] + "_shap"
         for i in range(len(X)):
-            shap_value = explainer(X[i : i + 1])
+            shap_value = explainer(X[i : i + 1], max_evals=1400)
             shap_values.iloc[i] = shap_value.values
             progress_shap.v_model += 100 / len(X)
             prog_shap.children[2].children[0].children = generation_texte(
@@ -457,6 +518,11 @@ def start(
                 j, N, time_init, progress_shap.v_model
             )
         return LIME
+
+    """
+    if exp_val == None and explanation == "None":
+        explanation = "SHAP"
+    """
 
     if explanation == "SHAP":
         SHAP = get_SHAP(X, model)
@@ -800,11 +866,6 @@ def start(
 
     reinit_params_proj_EE.on_event("click", reinit_param_EE)
 
-    deux_cotes_EE_et_EV = widgets.HBox(
-        [params_proj_EV, params_proj_EE],
-        layout=Layout(width="100%", display="flex", align_items="center"),
-    )
-
     # permet de choisir la couleur des points en fonction de si ils sont dans la liste des tuiles ou non
     choix_coul = widgets.Checkbox(
         value=False,
@@ -830,8 +891,10 @@ def start(
                 v_model=True,
             ),
             v.Btn(
-                children=["Y^"],
+                icon=True,
+                children=[v.Icon(children=["mdi-alpha-y-circle"])],
                 value="Y^",
+                v_model=True,
             ),
             v.Btn(
                 icon=True,
@@ -852,8 +915,44 @@ def start(
                 children=[v.Icon(children=["mdi-select-off"])],
                 value="Non selec",
             ),
+            v.Btn(
+                icon=True,
+                children=[v.Icon(children=["mdi-star"])],
+                value="Clustering auto",
+            ),
         ],
     )
+
+    couleur_radio.children[0].children = [
+        add_tooltip(couleur_radio.children[0].children[0], "Valeurs réelles")
+    ]
+    couleur_radio.children[1].children = [
+        add_tooltip(couleur_radio.children[1].children[0], "Valeurs prédites")
+    ]
+    couleur_radio.children[2].children = [
+        add_tooltip(couleur_radio.children[2].children[0], "Résidus")
+    ]
+    couleur_radio.children[3].children = [
+        add_tooltip(
+            couleur_radio.children[3].children[0],
+            "Points de la séléction actuelle",
+        )
+    ]
+    couleur_radio.children[4].children = [
+        add_tooltip(couleur_radio.children[4].children[0], "Régions formées")
+    ]
+    couleur_radio.children[5].children = [
+        add_tooltip(
+            couleur_radio.children[5].children[0],
+            "Points non sélectionnés",
+        )
+    ]
+    couleur_radio.children[6].children = [
+        add_tooltip(
+            couleur_radio.children[6].children[0],
+            "Clusters dyadique automatique",
+        )
+    ]
 
     # fonction qui réinitialise les graphiques (pas seulement l'opacité, formes, couleurs etc...) -> à implémenter : le faire automatiquement quand on déselectionne !
     def fonction_reinit_opacite(*args):
@@ -935,6 +1034,7 @@ def start(
     def fonction_changement_couleur(*args):
         couleur = None
         scale = True
+        a_modifier = True
         if couleur_radio.v_model == "Y":
             couleur = Y
         elif couleur_radio.v_model == "Y^":
@@ -960,6 +1060,11 @@ def start(
                     for j in range(len(liste_tuiles)):
                         if i in liste_tuiles[j]:
                             couleur[i] = "grey"
+        elif couleur_radio.v_model == "Clustering auto":
+            global Y_auto
+            couleur = Y_auto
+            a_modifier = False
+            scale = False
         with fig1.batch_update():
             fig1.data[0].marker.color = couleur
             fig1.data[0].marker.opacity = 1
@@ -973,9 +1078,23 @@ def start(
         if scale:
             fig1.update_traces(marker=dict(showscale=True))
             fig1_3D.update_traces(marker=dict(showscale=True))
+            fig1.data[0].marker.colorscale = "Viridis"
+            fig1_3D.data[0].marker.colorscale = "Viridis"
+            fig2.data[0].marker.colorscale = "Viridis"
+            fig2_3D.data[0].marker.colorscale = "Viridis"
         else:
             fig1.update_traces(marker=dict(showscale=False))
             fig1_3D.update_traces(marker=dict(showscale=False))
+            if a_modifier:
+                fig1.data[0].marker.colorscale = "Plasma"
+                fig1_3D.data[0].marker.colorscale = "Plasma"
+                fig2.data[0].marker.colorscale = "Plasma"
+                fig2_3D.data[0].marker.colorscale = "Plasma"
+            else:
+                fig1.data[0].marker.colorscale = "Viridis"
+                fig1_3D.data[0].marker.colorscale = "Viridis"
+                fig2.data[0].marker.colorscale = "Viridis"
+                fig2_3D.data[0].marker.colorscale = "Viridis"
 
     couleur_radio.on_event("change", fonction_changement_couleur)
 
@@ -1012,12 +1131,24 @@ def start(
 
     fig_size_et_texte = v.Row(children=[fig_size, fig_size_text])
 
+    bouton_save = v.Btn(
+        icon=True, children=[v.Icon(children=["mdi-content-save"])], elevation=0
+    )
+    bouton_save.children = [
+        add_tooltip(bouton_save.children[0], "Gestion des sauvegardes")
+    ]
     bouton_settings = v.Btn(
         icon=True, children=[v.Icon(children=["mdi-tune"])], elevation=0
     )
+    bouton_settings.children = [
+        add_tooltip(bouton_settings.children[0], "Paramètres de l'interface")
+    ]
     bouton_website = v.Btn(
         icon=True, children=[v.Icon(children=["mdi-web"])], elevation=0
     )
+    bouton_website.children = [
+        add_tooltip(bouton_website.children[0], "Site web d'AI-Vidence")
+    ]
 
     import webbrowser
 
@@ -1044,19 +1175,51 @@ def start(
         children=[
             logo_aividence,
             v.Spacer(),
-            bouton_website,
+            bouton_save,
             bouton_settings,
+            bouton_website,
         ],
     )
 
     def dl_shap():
         return SHAP.to_csv()
 
+    def save_shap(*args):
+        import glob
+        import os
+        import sys
+
+        def blockPrint():
+            sys.stdout = open(os.devnull, "w")
+
+        def enablePrint():
+            sys.stdout = sys.__stdout__
+
+        blockPrint()
+        SHAP.to_csv("data_save/exp_val.csv")
+        enablePrint()
+
+    bouton_save_shap = v.Btn(
+        children=[
+            v.Icon(children=["mdi-content-save"]),
+            "Sauvegarder les valeurs explicatives calculées",
+        ],
+        elevation=4,
+        class_="ma-4",
+    )
+
+    bouton_save_shap.on_event("click", save_shap)
+
     dialogue_size = v.Dialog(
         children=[
             v.Card(
                 children=[
-                    v.CardTitle(children=[v.Icon(children=["mdi-cogs"]), "Paramètres"]),
+                    v.CardTitle(
+                        children=[
+                            v.Icon(class_="mr-5", children=["mdi-cogs"]),
+                            "Paramètres",
+                        ]
+                    ),
                     v.CardText(children=[fig_size_et_texte]),
                     v.CardText(
                         children=[
@@ -1066,7 +1229,7 @@ def start(
                                     # solara.FileDownload.widget(
                                     # data=dl_shap, filename="shap_values.csv"
                                     # )
-                                    "Téléchargement des SHAP values : bientôt disponible",
+                                    bouton_save_shap
                                 ],
                             )
                         ]
@@ -1075,7 +1238,7 @@ def start(
                 width="100%",
             )
         ],
-        width="50%",
+        width="70%",
     )
     dialogue_size.v_model = False
 
@@ -1083,6 +1246,319 @@ def start(
         dialogue_size.v_model = True
 
     bouton_settings.on_event("click", ouvre_dialogue)
+
+    if regions == None:
+        regions = []
+
+    len_init_regions = len(regions)
+
+    def init_save(new: bool = False):
+        texte_regions = "Il n'y a pas de sauvegarde importée"
+        for i in range(len(regions)):
+            if len(regions[i]["liste"]) != len(X_all):
+                raise Exception("Votre sauvegarde n'est pas de la bonne taille !")
+                regions.pop(i)
+        if len(regions) > 0:
+            texte_regions = str(len(regions)) + " sauvegarde importée(s)"
+        table_save = []
+        for i in range(len(regions)):
+            sous_mod_bool = "Non"
+            new_or_not = "Importée"
+            if i > len_init_regions:
+                new_or_not = "Créée"
+            if len(regions[i]["models"]) == max(regions[i]["liste"]) + 1:
+                sous_mod_bool = "Oui"
+            table_save.append(
+                [
+                    i + 1,
+                    regions[i]["nom"],
+                    new_or_not,
+                    max(regions[i]["liste"]) + 1,
+                    sous_mod_bool,
+                ]
+            )
+        table_save = pd.DataFrame(
+            table_save,
+            columns=[
+                "Sauvegarde #",
+                "Nom",
+                "Origine",
+                "Nombre de régions",
+                "Sous-modèles ?",
+            ],
+        )
+
+        colonnes = [
+            {"text": c, "sortable": True, "value": c} for c in table_save.columns
+        ]
+
+        table_save = v.DataTable(
+            v_model=[],
+            show_select=True,
+            single_select=True,
+            headers=colonnes,
+            items=table_save.to_dict("records"),
+            item_value="Sauvegarde #",
+            item_key="Sauvegarde #",
+        )
+        return [table_save, texte_regions]
+
+    table_save = init_save()[0]
+
+    visu_save = v.Btn(
+        class_="ma-4",
+        children=[v.Icon(children=["mdi-eye"])],
+    )
+    visu_save.children = [
+        add_tooltip(visu_save.children[0], "Visualiser la sauvegarde sélectionnée")
+    ]
+    delete_save = v.Btn(
+        class_="ma-4",
+        children=[
+            v.Icon(children=["mdi-trash-can"]),
+        ],
+    )
+    delete_save.children = [
+        add_tooltip(delete_save.children[0], "Supprimer la sauvegarde sélectionnée")
+    ]
+    new_save = v.Btn(
+        class_="ma-4",
+        children=[
+            v.Icon(children=["mdi-plus"]),
+        ],
+    )
+    new_save.children = [
+        add_tooltip(new_save.children[0], "Créer une nouvelle sauvegarde")
+    ]
+
+    nom_sauvegarde = v.TextField(
+        label="Nom de la sauvegarde",
+        v_model="Default name",
+        class_="ma-4",
+    )
+
+    def delete_save_fonction(*args):
+        if table_save.v_model == []:
+            return
+        table_save = carte_save.children[1]
+        indice = table_save.v_model[0]["Sauvegarde #"] - 1
+        regions.pop(indice)
+        table_save = init_save(True)
+        carte_save.children = [table_save[1], table_save[0]] + carte_save.children[2:]
+
+    delete_save.on_event("click", delete_save_fonction)
+
+    def fonction_visu_save(*args):
+        table_save = carte_save.children[1]
+        if len(table_save.v_model) == 0:
+            return
+        indice = table_save.v_model[0]["Sauvegarde #"] - 1
+        global liste_tuiles
+        n = []
+        for i in range(int(max(regions[indice]["liste"])) + 1):
+            temp = []
+            for j in range(len(regions[indice]["liste"])):
+                if regions[indice]["liste"][j] == i:
+                    temp.append(j)
+            if len(temp) > 0:
+                n.append(temp)
+        liste_tuiles = n
+        couleur = deepcopy(regions[indice]["liste"])
+        global Y3
+        Y3 = deepcopy(couleur)
+        with fig1.batch_update():
+            fig1.data[0].marker.color = couleur
+            fig1.data[0].marker.opacity = 1
+        with fig2.batch_update():
+            fig2.data[0].marker.color = couleur
+            fig2.data[0].marker.opacity = 1
+        with fig1_3D.batch_update():
+            fig1_3D.data[0].marker.color = couleur
+        with fig2_3D.batch_update():
+            fig2_3D.data[0].marker.color = couleur
+        couleur_radio.v_model = "Régions"
+        fig1.update_traces(marker=dict(showscale=False))
+        fig2.update_traces(marker=dict(showscale=False))
+        global liste_models
+        if len(regions[indice]["models"]) != len(liste_tuiles):
+            liste_models = [[None, None, None]] * len(liste_tuiles)
+        else:
+            liste_models = []
+            for i in range(len(liste_tuiles)):
+                nom = regions[indice]["models"][i].__class__.__name__
+                indices_respectent = liste_tuiles[i]
+                score_init = fonction_score(
+                    Y.iloc[indices_respectent], Y_pred[indices_respectent]
+                )
+                regions[indice]["models"][i].fit(
+                    X.iloc[indices_respectent], Y.iloc[indices_respectent]
+                )
+                score_reg = fonction_score(
+                    Y.iloc[indices_respectent],
+                    regions[indice]["models"][i].predict(X.iloc[indices_respectent]),
+                )
+                if score_init == 0:
+                    l_compar = "inf"
+                else:
+                    l_compar = round(100 * (score_init - score_reg) / score_init, 1)
+                score = [score_reg, score_init, l_compar]
+                liste_models.append([nom, score, -1])
+        fonction_validation_une_tuile()
+
+    visu_save.on_event("click", fonction_visu_save)
+
+    def fonction_new_save(*args):
+        if len(nom_sauvegarde.v_model) == 0 or len(nom_sauvegarde.v_model) > 25:
+            return
+        l_m = []
+        if len(liste_models) == 0:
+            return
+        for i in range(len(liste_models)):
+            if liste_models[i][-1] == None:
+                l_m.append(None)
+            else:
+                l_m.append(models[liste_models[i][-1]])
+        save = create_save(Y3, nom_sauvegarde.v_model, l_m)
+        regions.append(save)
+        table_save = init_save(True)
+        carte_save.children = [table_save[1], table_save[0]] + carte_save.children[2:]
+
+    new_save.on_event("click", fonction_new_save)
+
+    bouton_save_all = v.Btn(
+        class_="ma-0",
+        children=[
+            v.Icon(children=["mdi-content-save"], class_="mr-2"),
+            "Sauvegarder",
+        ],
+    )
+
+    out_save = v.Alert(
+        class_="ma-4 white--text",
+        children=[
+            "Sauvegarde effectuée avec succès",
+        ],
+        v_model=False,
+    )
+
+    def fonction_save_all(*args):
+        emplacement = partie_local_save.children[1].children[1].v_model
+        fichier = partie_local_save.children[1].children[2].v_model
+        if len(emplacement) == 0 or len(fichier) == 0:
+            out_save.color = "error"
+            out_save.children = ["Veuillez remplir tous les champs"]
+            out_save.v_model = True
+            time.sleep(3)
+            out_save.v_model = False
+            return
+        destination = emplacement + "/" + fichier + ".json"
+        destination = destination.replace("//", "/")
+        destination = destination.replace(" ", "_")
+        import glob
+        import os
+        import sys
+
+        def blockPrint():
+            sys.stdout = open(os.devnull, "w")
+
+        def enablePrint():
+            sys.stdout = sys.__stdout__
+
+        for i in range(len(regions)):
+            regions[i]["liste"] = list(regions[i]["liste"])
+            regions[i]["models"] = regions[i]["models"].__class__.__name__
+        with open(destination, "w") as fp:
+            json.dump(regions, fp)
+        out_save.color = "success"
+        out_save.children = [
+            "Enregsitrement effectué avec à cet emplacement : ",
+            destination,
+        ]
+        out_save.v_model = True
+        time.sleep(3)
+        out_save.v_model = False
+        return
+
+    bouton_save_all.on_event("click", fonction_save_all)
+
+    partie_local_save = v.Col(
+        class_="text-center d-flex flex-column align-center justify-center",
+        children=[
+            v.Html(tag="h3", children=["Sauvegarder en local"]),
+            v.Row(
+                children=[
+                    v.Spacer(),
+                    v.TextField(
+                        prepend_icon="mdi-folder-search",
+                        class_="w-40 ma-3 mr-0",
+                        elevation=3,
+                        variant="outlined",
+                        style_="width: 30%;",
+                        v_model="data_save",
+                        label="Emplacement",
+                    ),
+                    v.TextField(
+                        prepend_icon="mdi-slash-forward",
+                        class_="w-50 ma-3 mr-0 ml-0",
+                        elevation=3,
+                        variant="outlined",
+                        style_="width: 50%;",
+                        v_model="ma_sauvegarde",
+                        label="Nom du fichier",
+                    ),
+                    v.Html(class_="mt-7 ml-0 pl-0", tag="p", children=[".json"]),
+                    v.Spacer(),
+                ]
+            ),
+            bouton_save_all,
+            out_save,
+        ],
+    )
+
+    carte_save = v.Card(
+        elevation=0,
+        children=[
+            v.Html(tag="h3", children=[init_save()[1]]),
+            table_save,
+            v.Row(
+                children=[
+                    v.Spacer(),
+                    visu_save,
+                    delete_save,
+                    v.Spacer(),
+                    new_save,
+                    nom_sauvegarde,
+                    v.Spacer(),
+                ]
+            ),
+            v.Divider(class_="mt mb-5"),
+            partie_local_save,
+        ],
+    )
+
+    dialogue_save = v.Dialog(
+        children=[
+            v.Card(
+                children=[
+                    v.CardTitle(
+                        children=[
+                            v.Icon(class_="mr-5", children=["mdi-content-save"]),
+                            "Gestion des sauvegardes",
+                        ]
+                    ),
+                    v.CardText(children=[carte_save]),
+                ],
+                width="100%",
+            )
+        ],
+        width="50%",
+    )
+    dialogue_save.v_model = False
+
+    def ouvre_save(*args):
+        dialogue_save.v_model = True
+
+    bouton_save.on_event("click", ouvre_save)
 
     # graphique de l'espace des valeurs
     fig1 = go.FigureWidget(
@@ -1128,6 +1604,10 @@ def start(
             v.Icon(children=["mdi-numeric-3-box"]),
             v.Icon(children=["mdi-alpha-d-box"]),
         ],
+    )
+
+    dimension_projection_text = add_tooltip(
+        dimension_projection_text, "Dimension des projections"
     )
 
     def fonction_dimension_projection(*args):
@@ -1669,20 +2149,12 @@ def start(
                             "0 point sélectionné : utilisez le lasso sur les graphiques ci-dessus ou utilisez l'outil de sélection automatique"
                         ],
                     ),
-                    v.Spacer(),
-                    v.Btn(
-                        disabled=True,
-                        children=[
-                            v.Icon(children=["mdi-lasso"]),
-                            "Sélection automatique",
-                        ],
-                    ),
                 ]
             ),
         ],
     )
 
-    # boutton qui applique skope-rules à la selection
+    # bouton qui applique skope-rules à la selection
 
     button_valider_skope = v.Btn(
         class_="ma-1",
@@ -1692,7 +2164,7 @@ def start(
         ],
     )
 
-    # boutton qui permet de revenir aux règles initiales dans la partie 2. Skope-rules
+    # bouton qui permet de revenir aux règles initiales dans la partie 2. Skope-rules
 
     boutton_reinit_skope = v.Btn(
         class_="ma-1",
@@ -1836,7 +2308,7 @@ def start(
     for i in range(len(mods.children)):
         mods.children[i].children[0].on_event("click", changement)
 
-    # boutton de validation de la selection ppur créer une région
+    # bouton de validation de la selection ppur créer une région
     valider_une_region = v.Btn(
         class_="ma-3",
         children=[
@@ -1844,7 +2316,7 @@ def start(
             "Valider la sélection",
         ],
     )
-    # boutton qui permet de supprimer toutes les régions
+    # bouton qui permet de supprimer toutes les régions
     supprimer_toutes_les_tuiles = v.Btn(
         class_="ma-3",
         children=[
@@ -2679,6 +3151,7 @@ def start(
         toutes_regles[0][4] = b
         une_carte_EV.children = generate_card(liste_to_string_skope(toutes_regles))
         tout_modifier_graphique()
+        fonction_scores_models(None)
 
     def fonction_change_valider_2(*change):
         global toutes_regles
@@ -2686,6 +3159,7 @@ def start(
         toutes_regles[1][4] = float(slider_skope2.v_model[1] / 100)
         une_carte_EV.children = generate_card(liste_to_string_skope(toutes_regles))
         tout_modifier_graphique()
+        fonction_scores_models(None)
 
     def fonction_change_valider_3(*change):
         global toutes_regles
@@ -2693,10 +3167,94 @@ def start(
         toutes_regles[2][4] = float(slider_skope3.v_model[1] / 100)
         une_carte_EV.children = generate_card(liste_to_string_skope(toutes_regles))
         tout_modifier_graphique()
+        fonction_scores_models(None)
 
     valider_change_1.on_event("click", fonction_change_valider_1)
     valider_change_2.on_event("click", fonction_change_valider_2)
     valider_change_3.on_event("click", fonction_change_valider_3)
+
+    def regles_to_indices():
+        indices_respectent_skope = []
+        liste_bool = [True] * len(X)
+        for i in range(len(X)):
+            for j in range(len(toutes_regles)):
+                colonne = list(X.columns).index(toutes_regles[j][2])
+                if (
+                    toutes_regles[j][0] > X_base.iloc[i, colonne]
+                    or X_base.iloc[i, colonne] > toutes_regles[j][4]
+                ):
+                    liste_bool[i] = False
+        indices_respectent_skope = [i for i in range(len(X)) if liste_bool[i]]
+        return indices_respectent_skope
+
+    def fonction_scores_models(indices_respectent_skope):
+        if indices_respectent_skope == None:
+            indices_respectent_skope = regles_to_indices()
+        result_models = fonction_models(
+            X.iloc[indices_respectent_skope, :], Y.iloc[indices_respectent_skope]
+        )
+        score_tot = []
+        for i in range(len(models)):
+            score_tot.append(
+                fonction_score(Y.iloc[indices_respectent_skope], result_models[i][-2])
+            )
+        score_init = fonction_score(
+            Y.iloc[indices_respectent_skope], Y_pred[indices_respectent_skope]
+        )
+        if score_init == 0:
+            l_compar = ["/"] * len(models)
+        else:
+            l_compar = [
+                round(100 * (score_init - score_tot[i]) / score_init, 1)
+                for i in range(len(models))
+            ]
+
+        global score_models
+        score_models = []
+        for i in range(len(models)):
+            score_models.append(
+                [
+                    score_tot[i],
+                    score_init,
+                    l_compar[i],
+                ]
+            )
+
+        def str_md(i):
+            if score_tot[i] == 0:
+                return (
+                    "MSE = "
+                    + str(score_tot[i])
+                    + " (contre "
+                    + str(score_init)
+                    + ", +"
+                    + "∞"
+                    + "%)"
+                )
+            else:
+                if round(100 * (score_init - score_tot[i]) / score_init, 1) > 0:
+                    return (
+                        "MSE = "
+                        + str(score_tot[i])
+                        + " (contre "
+                        + str(score_init)
+                        + ", +"
+                        + str(round(100 * (score_init - score_tot[i]) / score_init, 1))
+                        + "%)"
+                    )
+                else:
+                    return (
+                        "MSE = "
+                        + str(score_tot[i])
+                        + " (contre "
+                        + str(score_init)
+                        + ", "
+                        + str(round(100 * (score_init - score_tot[i]) / score_init, 1))
+                        + "%)"
+                    )
+
+        for i in range(len(models)):
+            mods.children[i].children[0].children[1].children = str_md(i)
 
     # quand on clique sur le bouton skope-rules
     def fonction_validation_skope(*sender):
@@ -3055,21 +3613,22 @@ def start(
                     if len(histogram1.data) > 1:
                         histogram1.data[1].x = liste_val_histo[0]
 
-                with histogram2.batch_update():
-                    histogram2.data[0].x = list(
-                        X_base[re_transform_string(chaine_carac[0])[0][1]]
-                    )
-                    if len(histogram2.data) > 1:
-                        histogram2.data[1].x = liste_val_histo[1]
-                    else:
-                        histogram2.add_trace(
-                            go.Histogram(
-                                x=liste_val_histo[1],
-                                bingroup=1,
-                                marker_color="LightSkyBlue",
-                                opacity=0.7,
-                            )
+                if len(nom_colonnes) > 1:
+                    with histogram2.batch_update():
+                        histogram2.data[0].x = list(
+                            X_base[re_transform_string(chaine_carac[0])[0][1]]
                         )
+                        if len(histogram2.data) > 1:
+                            histogram2.data[1].x = liste_val_histo[1]
+                        else:
+                            histogram2.add_trace(
+                                go.Histogram(
+                                    x=liste_val_histo[1],
+                                    bingroup=1,
+                                    marker_color="LightSkyBlue",
+                                    opacity=0.7,
+                                )
+                            )
 
                 if len(nom_colonnes) > 2:
                     with histogram3.batch_update():
@@ -3107,82 +3666,12 @@ def start(
                 ]
                 # texte_skopeEE.children[1].children = [widgets.HTML(chaine_carac[0])]
                 une_carte_EE.children = generate_card(chaine_carac[0])
-
-            result_models = fonction_models(
-                X.iloc[indices_respectent_skope, :], Y.iloc[indices_respectent_skope]
-            )
-            score_tot = []
-            for i in range(len(models)):
-                score_tot.append(
-                    fonction_score(
-                        Y.iloc[indices_respectent_skope], result_models[i][-2]
-                    )
-                )
-            score_init = fonction_score(
-                Y.iloc[indices_respectent_skope], Y_pred[indices_respectent_skope]
-            )
-            if score_init == 0:
-                l_compar = ["/"] * len(models)
-            else:
-                l_compar = [
-                    round(100 * (score_init - score_tot[i]) / score_init, 1)
-                    for i in range(len(models))
-                ]
-
-            global score_models
-            score_models = []
-            for i in range(len(models)):
-                score_models.append(
-                    [
-                        score_tot[i],
-                        score_init,
-                        l_compar[i],
-                    ]
-                )
-
-            def str_md(i):
-                if score_tot[i] == 0:
-                    return (
-                        "MSE = "
-                        + str(score_tot[i])
-                        + " (contre "
-                        + str(score_init)
-                        + ", +"
-                        + "∞"
-                        + "%)"
-                    )
-                else:
-                    if round(100 * (score_init - score_tot[i]) / score_init, 1) > 0:
-                        return (
-                            "MSE = "
-                            + str(score_tot[i])
-                            + " (contre "
-                            + str(score_init)
-                            + ", +"
-                            + str(
-                                round(100 * (score_init - score_tot[i]) / score_init, 1)
-                            )
-                            + "%)"
-                        )
-                    else:
-                        return (
-                            "MSE = "
-                            + str(score_tot[i])
-                            + " (contre "
-                            + str(score_init)
-                            + ", "
-                            + str(
-                                round(100 * (score_init - score_tot[i]) / score_init, 1)
-                            )
-                            + "%)"
-                        )
-
-            for i in range(len(models)):
-                mods.children[i].children[0].children[1].children = str_md(i)
             # button_valider_skope._click_handlers.callbacks = []
         slider_skope1.on_event("input", on_value_change_skope1)
         slider_skope2.on_event("input", on_value_change_skope2)
         slider_skope3.on_event("input", on_value_change_skope3)
+
+        fonction_scores_models(indices_respectent_skope)
 
         loading_models.class_ = "d-none"
 
@@ -3196,6 +3685,7 @@ def start(
         global toutes_regles
         toutes_regles = regles_save
         fonction_validation_skope(None)
+        fonction_scores_models(None)
 
     boutton_reinit_skope.on_event("click", reinit_skope)
 
@@ -3257,74 +3747,167 @@ def start(
 
     slider_clusters.on_event("input", fonct_texte_clusters)
 
-    choix_clusters = v.Select(
-        style_="width : max-content",
-        class_="mt-0 ml-6 mr-6 mb-0",
-        label=" ",
-        items=["Espace des valeurs", "Espace des explications"],
-        v_model="Espace des valeurs",
-    )
     partie_clusters = v.Layout(
         class_="d-flex flex-row",
         children=[
             trouve_clusters,
-            v.Layout(children=[choix_clusters]),
             slider_clusters,
             texte_slider_cluster,
         ],
     )
 
+    new_df = pd.DataFrame([], columns=["Régions #", "Nombre de points"])
+    colonnes = [{"text": c, "sortable": True, "value": c} for c in new_df.columns]
+    resultats_clusters_table = v.DataTable(
+        class_="w-100",
+        style_="width : 100%",
+        v_model=[],
+        show_select=False,
+        headers=colonnes,
+        items=new_df.to_dict("records"),
+        item_value="Régions #",
+        item_key="Régions #",
+    )
+    resultats_clusters = v.Row(
+        children=[
+            v.Layout(class_="flex-grow-0 flex-shrink-0", children=[""]),
+            v.Layout(
+                class_="flex-grow-1 flex-shrink-0",
+                children=[resultats_clusters_table],
+            ),
+        ],
+    )
+
     # permet de faire des cluster ssu rl'un ou l'autre des espaces
     def fonction_clusters(*b):
-        # kmeans = sklearn.cluster.KMeans(n_clusters=slider_clusters.v_model).fit(X_base)
-        if choix_clusters.v_model == "Espace des valeurs":
-            kmeans = sklearn.cluster.KMeans(n_clusters=slider_clusters.v_model).fit(
-                Espace_valeurs[liste_red.index(EV_proj.v_model)]
-            )
-        else:
-            kmeans = sklearn.cluster.KMeans(n_clusters=slider_clusters.v_model).fit(
-                Espace_explications[liste_red.index(EE_proj.v_model)]
-            )
+        result = fonction_auto_clustering(X, SHAP, slider_clusters.v_model)
+        labels = result[1]
+        global Y_auto
+        Y_auto = labels
         with fig1.batch_update():
-            fig1.data[0].marker.color = kmeans.labels_
+            fig1.data[0].marker.color = labels
             fig1.update_traces(marker=dict(showscale=False))
         with fig2.batch_update():
-            fig2.data[0].marker.color = kmeans.labels_
+            fig2.data[0].marker.color = labels
         with fig1_3D.batch_update():
-            fig1_3D.data[0].marker.color = kmeans.labels_
+            fig1_3D.data[0].marker.color = labels
             fig1_3D.update_traces(marker=dict(showscale=False))
         with fig2_3D.batch_update():
-            fig2_3D.data[0].marker.color = kmeans.labels_
+            fig2_3D.data[0].marker.color = labels
+        labels_regions = result[0]
+        new_df = []
+        for i in range(len(labels_regions)):
+            new_df.append(
+                [
+                    i + 1,
+                    len(labels_regions[i]),
+                    str(round(len(labels_regions[i]) / len(X) * 100, 5)) + "%",
+                ]
+            )
+        new_df = pd.DataFrame(
+            new_df, columns=["Régions #", "Nombre de points", "Pourcentage du total"]
+        )
+        donnees = new_df.to_dict("records")
+        colonnes = [{"text": c, "sortable": False, "value": c} for c in new_df.columns]
+        resultats_clusters_table = v.DataTable(
+            class_="w-100",
+            style_="width : 100%",
+            show_select=False,
+            single_select=True,
+            v_model=[],
+            headers=colonnes,
+            items=donnees,
+            item_value="Régions #",
+            item_key="Régions #",
+        )
+        all_chips = []
+        all_radio = []
+        N_etapes = len(labels_regions)
+        Multip = 100
+        debut = 0
+        fin = (N_etapes * Multip - 1) * (1 + 1 / (N_etapes - 1))
+        pas = (N_etapes * Multip - 1) / (N_etapes - 1)
+        scale_couleurs = np.arange(debut, fin, pas)
+        a = 0
+        for i in scale_couleurs:
+            color = sns.color_palette("viridis", N_etapes * Multip).as_hex()[round(i)]
+            all_chips.append(v.Chip(class_="rounded-circle", color=color))
+            all_radio.append(v.Radio(class_="mt-4", value=str(a)))
+            a += 1
+        all_radio[-1].class_ = "mt-4 mb-0 pb-0"
+        partie_radio = v.RadioGroup(
+            v_model=None,
+            class_="mt-10 ml-7",
+            style_="width : 10%",
+            children=all_radio,
+        )
+        partie_chips = v.Col(
+            class_="w-10 ma-5 mt-10 mb-12 pb-4 d-flex flex-column justify-space-between",
+            style_="width : 10%",
+            children=all_chips,
+        )
+        resultats_clusters = v.Row(
+            # class_="w-100",
+            # style_="width : 100%",
+            children=[
+                v.Layout(class_="flex-grow-0 flex-shrink-0", children=[partie_radio]),
+                v.Layout(class_="flex-grow-0 flex-shrink-0", children=[partie_chips]),
+                v.Layout(
+                    class_="flex-grow-1 flex-shrink-0",
+                    children=[resultats_clusters_table],
+                ),
+            ],
+        )
+        partie_selection.children = partie_selection.children[:-1] + [
+            resultats_clusters
+        ]
+
+        def fonction_choix_cluster(*args):
+            indice = partie_selection.children[-1].children[0].children[0].v_model
+            liste = [i for i, d in enumerate(labels) if d == float(indice)]
+            selection_fn(None, None, None, liste)
+            couleur_radio.v_model = "Clustering auto"
+
+        partie_selection.children[-1].children[0].children[0].on_event(
+            "change", fonction_choix_cluster
+        )
+
+        couleur_radio.v_model = "Clustering auto"
 
     trouve_clusters.on_event("click", fonction_clusters)
 
     # fonction qui est appelé dès la sélection de points (étape 1)
-    def selection_fn(trace, points, selector):
+    def selection_fn(trace, points, selector, *args):
         global X_train
         global SHAP_train
         global y_train
+        if len(args) > 0:
+            liste = args[0]
+            les_points = liste
+        else:
+            les_points = points.point_inds
         # fonction qui est appellée quand l'utilisateur fait une séléction
-        if len(points.point_inds) == 0:
+        if len(les_points) == 0:
             card_selec.children[0].children[1].children = "0 point !"
             texte_selec.value = texte_base_debut
             return
         card_selec.children[0].children[1].children = (
-            str(len(points.point_inds))
+            str(len(les_points))
             + " points sélectionnés ("
-            + str(round(len(points.point_inds) / len(X_base) * 100, 2))
+            + str(round(len(les_points) / len(X_base) * 100, 2))
             + "% de l'ensemble)"
         )
         texte_selec.value = (
             texte_base
-            + str(len(points.point_inds))
+            + str(len(les_points))
             + " points sélectionnés ("
-            + str(round(len(points.point_inds) / len(X_base) * 100, 2))
+            + str(round(len(les_points) / len(X_base) * 100, 2))
             + "% de l'ensemble)"
         )
         y_train = []
         opa = []
         for i in range(len(fig2.data[0].x)):
-            if i in points.point_inds:
+            if i in les_points:
                 opa.append(1)
                 y_train.append(1)
             else:
@@ -3338,7 +3921,7 @@ def start(
         X_train = X_base.copy()
         SHAP_train = SHAP.copy()
         global points_de_la_selection
-        points_de_la_selection = points.point_inds
+        points_de_la_selection = les_points
 
         X_mean = (
             pd.DataFrame(
@@ -3563,6 +4146,8 @@ def start(
                     liste_models.pop(indice - a)
                     fonction_validation_une_tuile()
                     a += 1
+                couleur_radio.v_model = "Régions"
+                fonction_changement_couleur()
 
             supprimer_toutes_les_tuiles.on_event("click", fonction_suppression_tuiles)
 
@@ -3711,7 +4296,7 @@ def start(
         global ensemble_histo
         ensemble_histo.append(new_histogram)
 
-        def new_change_valider(*change):
+        def new_fonction_change_valider(*change):
             global toutes_regles
             ii = -1
             for i in range(len(toutes_regles)):
@@ -3723,8 +4308,9 @@ def start(
             toutes_regles[ii][4] = b
             une_carte_EV.children = generate_card(liste_to_string_skope(toutes_regles))
             tout_modifier_graphique()
+            fonction_scores_models(None)
 
-        new_valider_change.on_event("click", new_change_valider)
+        new_valider_change.on_event("click", new_fonction_change_valider)
 
         new_bout_temps_reel_graph = v.Checkbox(
             v_model=False, label="Temps réel sur le graph.", class_="ma-3"
@@ -4023,6 +4609,13 @@ def start(
         offset_y=True,
     )
 
+    param_EV.v_slots[0]["children"].children = [
+        add_tooltip(
+            param_EV.v_slots[0]["children"].children[0],
+            "Paramètres de la projection dans l'EV",
+        )
+    ]
+
     param_EE = v.Menu(
         v_slots=[
             {
@@ -4047,6 +4640,12 @@ def start(
         close_on_content_click=False,
         offset_y=True,
     )
+    param_EE.v_slots[0]["children"].children = [
+        add_tooltip(
+            param_EE.v_slots[0]["children"].children[0],
+            "Paramètres de la projection dans l'EE",
+        )
+    ]
 
     projEV_et_load = widgets.HBox(
         [
@@ -4064,6 +4663,29 @@ def start(
     )
     # boutons = widgets.HBox([dimension_projection, projEV_et_load, projEE_et_load], layout=Layout(width="100%", display='flex', flex_flow='row', justify_content='flex-start'))
     # dimension_projection
+
+    bouton_reinit_opa = v.Btn(
+        icon=True,
+        children=[v.Icon(children=["mdi-opacity"])],
+        class_="ma-2 ml-6 pa-3",
+        elevation="3",
+    )
+
+    bouton_reinit_opa.children = [
+        add_tooltip(
+            bouton_reinit_opa.children[0],
+            "Réinitialiser l'opacité des points",
+        )
+    ]
+
+    def fonction_reinit_opa(*args):
+        with fig1.batch_update():
+            fig1.data[0].marker.opacity = 1
+        with fig2.batch_update():
+            fig2.data[0].marker.opacity = 1
+
+    bouton_reinit_opa.on_event("click", fonction_reinit_opa)
+
     boutons = widgets.HBox(
         [
             dimension_projection_text,
@@ -4071,11 +4693,15 @@ def start(
                 class_="pa-2 ma-2",
                 elevation="3",
                 children=[
-                    v.Icon(
-                        children=["mdi-format-color-fill"],
-                        class_="mr-4",
+                    add_tooltip(
+                        v.Icon(
+                            children=["mdi-format-color-fill"],
+                            class_="mr-4",
+                        ),
+                        "Régler la couleur des points",
                     ),
                     couleur_radio,
+                    bouton_reinit_opa,
                 ],
             ),
             v.Layout(children=[projEV_et_load, projEE_et_load]),
@@ -4118,7 +4744,9 @@ def start(
     deux_b = widgets.VBox([buttons_skope, texte_skope])
 
     # trois_modeles = v.Layout(class_="d-flex flex-row", children=[mod1, mod2, mod3])
-    partie_selection = widgets.VBox([card_selec, out_accordion, partie_clusters])
+    partie_selection = v.Col(
+        children=[card_selec, out_accordion, partie_clusters, resultats_clusters]
+    )
 
     loading_models = v.ProgressLinear(
         indeterminate=True,
@@ -4202,7 +4830,7 @@ def start(
     bouton_launch.on_click(fonction_launch)
 
     partie_data = widgets.VBox(
-        [barre_menu, dialogue_size, boutons, figures, etapes],
+        [barre_menu, dialogue_save, dialogue_size, boutons, figures, etapes],
         layout=Layout(width="100%"),
     )
 
@@ -4219,7 +4847,7 @@ def metier():
     return show_metier
 
 
-def regions():
+def get_regions():
     global X_entier
     L_f = []
     if len(liste_tuiles) == 0:
@@ -4262,7 +4890,7 @@ def launch():
         files = glob.glob("data_transfer/*")
         for f in files:
             os.remove(f)
-        ensemble = regions()
+        ensemble = get_regions()
         with open("data_transfer/nombre.txt", "w") as f:
             f.write(str(len(ensemble)))
         X_entier.to_csv("data_transfer/X_0.csv")

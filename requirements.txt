@@ -1,7 +1,5 @@
-imodels
 ipykernel
 ipython
-ipyvuetify
 ipywidgets
 jupyterlab
 jupyterlab-widgets
