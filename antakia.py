@@ -52,11 +52,19 @@ import sklearn.cluster
 
 import ipyvuetify as v
 
-import imodels
+import seaborn as sns
 
 import json
 
-import seaborn as sns
+
+def from_rules(df, liste_rules):
+    l = liste_rules
+    for i in range(len(liste_rules)):
+        regle1 = "df.loc[" + str(l[i][0]) + l[i][1] + "df['" + l[i][2] + "']]"
+        regle2 = "df.loc[" + "df['" + l[i][2] + "']" + l[i][3] + str(l[i][4]) + "]"
+        df = eval(regle1)
+        df = eval(regle2)
+    return df
 
 
 def create_save(liste=None, nom: str = "Default name", models: list = []):
@@ -221,6 +229,7 @@ def init_variables():
     couleur_selec = None
     model_choice = None
     Y_auto = None
+    ensemble_regles = []
     globals().update(locals())
 
 
@@ -690,10 +699,6 @@ def start(
         children=[v.Icon(left=True, children=["mdi-skip-backward"]), "Réinitialiser"],
     )
 
-    aucun_param_EV = widgets.HTML(
-        "<h3> Pas de modifications de paramètres pour cette projection </h3>",
-        layout=Layout(width="50%"),
-    )
     deux_boutons_params = widgets.HBox([valider_params_proj_EV, reinit_params_proj_EV])
     params_proj_EV = widgets.VBox(
         [tous_sliders_EV, deux_boutons_params], layout=Layout(width="100%")
@@ -1031,7 +1036,7 @@ def start(
     choix_coul.observe(fonction_choix_coul, "value")
     # choix_coul_regions.observe(fonction_changement_couleur, "value")
 
-    def fonction_changement_couleur(*args):
+    def fonction_changement_couleur(*args, opacity: bool = True):
         couleur = None
         scale = True
         a_modifier = True
@@ -1067,10 +1072,12 @@ def start(
             scale = False
         with fig1.batch_update():
             fig1.data[0].marker.color = couleur
-            fig1.data[0].marker.opacity = 1
+            if opacity:
+                fig1.data[0].marker.opacity = 1
         with fig2.batch_update():
             fig2.data[0].marker.color = couleur
-            fig2.data[0].marker.opacity = 1
+            if opacity:
+                fig2.data[0].marker.opacity = 1
         with fig1_3D.batch_update():
             fig1_3D.data[0].marker.color = couleur
         with fig2_3D.batch_update():
@@ -3103,7 +3110,7 @@ def start(
     )
     """
 
-    # 1.3 =< AveOccup =< 3.74 </br>35.47 < Latitude < 41.04
+    # 1.3 <= AveOccup <= 3.74 </br>35.47 < Latitude < 41.04
     def generate_card(chaine):
         chaine_carac = str(chaine).split()
         taille = int(len(chaine_carac) / 5)
@@ -3400,8 +3407,8 @@ def start(
                         une_regle[0] = f_rond(
                             float(min(list(X_base[nom_colonnes[i]].values)))
                         )
-                        une_regle[1] = "=<"
-                        une_regle[3] = "=<"
+                        une_regle[1] = "<="
+                        une_regle[3] = "<="
                         une_regle[4] = f_rond(float(valeurs[i]))
                         le_top.append(valeurs[i])
                         le_min.append(min(list(X_base[nom_colonnes[i]].values)))
@@ -3418,8 +3425,8 @@ def start(
                         liste_index[i] = X2
                     elif symbole[i] == ">=":
                         une_regle[0] = f_rond(float(valeurs[i]))
-                        une_regle[1] = "=<"
-                        une_regle[3] = "=<"
+                        une_regle[1] = "<="
+                        une_regle[3] = "<="
                         une_regle[4] = f_rond(
                             float(max(list(X_base[nom_colonnes[i]].values)))
                         )
@@ -3867,6 +3874,7 @@ def start(
             liste = [i for i, d in enumerate(labels) if d == float(indice)]
             selection_fn(None, None, None, liste)
             couleur_radio.v_model = "Clustering auto"
+            fonction_changement_couleur(opacity=False)
 
         partie_selection.children[-1].children[0].children[0].on_event(
             "change", fonction_choix_cluster
@@ -4145,6 +4153,8 @@ def start(
                     global liste_models
                     liste_models.pop(indice - a)
                     fonction_validation_une_tuile()
+                    global ensemble_regles
+                    ensemble_regles.pop(indice - a)
                     a += 1
                 couleur_radio.v_model = "Régions"
                 fonction_changement_couleur()
@@ -4152,6 +4162,12 @@ def start(
             supprimer_toutes_les_tuiles.on_event("click", fonction_suppression_tuiles)
 
             display(ensemble_tables)
+
+        a = [0] * 10
+        pas_avoir = [a, a, a, a, a, a, a, a, a, a]
+        if toutes_regles != pas_avoir:
+            global ensemble_regles
+            ensemble_regles.append(deepcopy(toutes_regles))
 
     valider_une_region.on_event("click", fonction_validation_une_tuile)
     button_valider_skope.on_event("click", fonction_validation_skope)
@@ -4851,7 +4867,7 @@ def get_regions():
     global X_entier
     L_f = []
     if len(liste_tuiles) == 0:
-        raise ValueError("Vous n'avez pas encore validé de région.")
+        return "Aucune région de validée !"
     for i in range(len(liste_tuiles)):
         dictio = dict()
         dictio["X"] = X_entier.iloc[liste_tuiles[i], :].reset_index(drop=True)
@@ -4866,6 +4882,7 @@ def get_regions():
             dictio["model_name"] = liste_models[i][0]
             dictio["model_score"] = liste_models[i][1]
             dictio["model"] = tous_models[liste_models[i][2]]
+        dictio["rules"] = ensemble_regles[i]
         L_f.append(dictio)
     return L_f
 

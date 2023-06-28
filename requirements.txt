@@ -1,5 +1,6 @@
 ipykernel
 ipython
+ipyvuetify
 ipywidgets
 jupyterlab
 jupyterlab-widgets
@@ -11,6 +12,7 @@ pandas
 plotly
 pre-commit
 scikit-learn
+seaborn
 shap
 shutup
 umap-learn
