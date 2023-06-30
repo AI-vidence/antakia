@@ -21,7 +21,7 @@ L'UI repose sur des ipywidgets.
 
 # Fonctionnement
 
-- Testez les notebooks fournis (extenson `.ipynb`)
+- Testez les notebooks fournis (extension `.ipynb`)
 
 # Notes sur les librairies utilisées
 
