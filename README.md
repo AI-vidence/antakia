@@ -7,22 +7,6 @@
     La solution XAI qui parle à tout le monde
   </p>
 
-<!-- Badges -->
-<p>
-<i>
-Insertion ici des badges
-</i>
-</p>
-   
-<h4>
-    <a href="https://github.com/Louis3797/awesome-readme-template/">View Demo</a>
-  <span> · </span>
-    <a href="https://github.com/Louis3797/awesome-readme-template">Documentation</a>
-  <span> · </span>
-    <a href="https://github.com/Louis3797/awesome-readme-template/issues/">Report Bug</a>
-  <span> · </span>
-    <a href="https://github.com/Louis3797/awesome-readme-template/issues/">Request Feature</a>
-  </h4>
 </div>
 
 <br />
@@ -32,14 +16,14 @@ Insertion ici des badges
 # :notebook_with_decorative_cover: Table of Contents
 
 - [About the Project](#star2-about-the-project)
-    - [Our idea](#idea)
+    - [Our idea](#thought_balloon-our-idea)
     - [Screenshots](#camera-screenshots)
-    - [Features](#dart-features)
-- [Getting Started](#toolbox-getting-started)
-  - [Installation using pip](#gear-installation)
-  - [Installation with Docker](#test_tube-running-tests)
+- [Getting Started](#computer-getting-started)
+  - [Installation using pip](#gear-installation-with-pip)
+  - [Installation with Docker](#whale-installation-with-docker)
 - [Usage](#eyes-usage)
-- [Data types](#compass-roadmap)
+- [Type of data currently supported](#chart_with_upwards_trend-type-of-data-currently-supported)
+- [Notes on some python librairies](#snake-comments-on-some-of-the-python-librairies-we-are-using)
 - [Contributing](#wave-contributing)
   - [Code of Conduct](#scroll-code-of-conduct)
 - [FAQ](#grey_question-faq)
@@ -131,11 +115,32 @@ display(explain.interface(explanation = SHAP, default_projection = "PaCMAP"))
 
 <!-- Roadmap -->
 
-## :compass: Type of data currently dealt with
+## :chart_with_upwards_trend: Type of data currently supported
 
 - [x] Tabular data
 - [ ] Time series
 - [ ] Images
+
+
+<!-- Note sur les librairies -->
+
+## :snake: Comments on some of the python librairies we are using
+
+### SHAP
+
+- Does not work with numpy >= 1.24 (see [here](https://github.com/slundberg/shap/issues/2911))
+- For the moment : version 1.23 in `requirements.txt`
+
+### Numba
+
+- Numba depreciated [here](https://github.com/slundberg/shap/issues/2909)
+- Waiting for the merge to be accepted [here](https://github.com/dsgibbons/shap/pull/9)
+- The exceptions are catched in the code !
+
+### Skope rules
+
+- [The repository](https://github.com/scikit-learn-contrib/skope-rules) is fine, but note the PyPi version.
+- Install it using github (like in `requirements.txt`) : `pip install git+https://github.com/scikit-learn-contrib/skope-rules.git`
 
 <!-- Contributing -->
 
@@ -161,7 +166,7 @@ Please read the [Code of Conduct](https://github.com/Louis3797/awesome-readme-te
 
 - Can I transfer my computations on a huge GPU ?
 
-  - Yes, very soon on the [ai-vidence](www.ai-vidence.com) website
+  - Yes, very soon on the [ai-vidence](http://www.ai-vidence.com) website
 
 <!-- License -->
 
@@ -173,7 +178,7 @@ Distributed under the no License. See LICENSE.txt for more information.
 
 ## :handshake: Contact
 
-:computer: [www.ai-vidence.com](www.ai-vidence.com)
+:computer: [www.ai-vidence.com](http://www.ai-vidence.com)
 
 :inbox_tray: laurent@ai-vidence.com
 
