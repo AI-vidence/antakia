@@ -1090,7 +1090,7 @@ def start(
             fig2_3D.data[0].marker.symbol = "circle"
 
     def fonction_changement_couleur(*args, opacity: bool = True):
-        # permet de changer la couleur des points
+        # permet de changer la couleur des points quand on clique sur les boutons
         couleur = None
         scale = True
         a_modifier = True
@@ -1229,6 +1229,7 @@ def start(
         class_="mt-1",
     )
 
+    # barre du menu (logo, liens etc...)
     barre_menu = v.AppBar(
         elevation="4",
         class_="ma-4",
@@ -1242,9 +1243,7 @@ def start(
         ],
     )
 
-    def dl_shap():
-        return SHAP.to_csv()
-
+    # fonction pour sauvegarder les valeurs explicatives calculées (éviter de refaire les calculs à chaque fois...)
     def save_shap(*args):
         import glob
         import os
@@ -1271,6 +1270,7 @@ def start(
 
     bouton_save_shap.on_event("click", save_shap)
 
+    # fonction pour ouvrir le dialogue des paramètres de la taille des figures notamment (avant de trouver mieux)
     dialogue_size = v.Dialog(
         children=[
             v.Card(
@@ -1313,6 +1313,7 @@ def start(
 
     len_init_regions = len(regions)
 
+    # pour la partie sur les régions
     def init_save(new: bool = False):
         texte_regions = "Il n'y a pas de sauvegarde importée"
         for i in range(len(regions)):
