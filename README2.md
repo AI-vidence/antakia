@@ -36,13 +36,10 @@ Insertion ici des badges
     - [Screenshots](#camera-screenshots)
     - [Features](#dart-features)
 - [Getting Started](#toolbox-getting-started)
-  - [Prerequisites](#bangbang-prerequisites)
-  - [Installation](#gear-installation)
-  - [Running Tests](#test_tube-running-tests)
-  - [Run Locally](#running-run-locally)
-  - [Deployment](#triangular_flag_on_post-deployment)
+  - [Installation using pip](#gear-installation)
+  - [Installation with Docker](#test_tube-running-tests)
 - [Usage](#eyes-usage)
-- [Roadmap](#compass-roadmap)
+- [Data types](#compass-roadmap)
 - [Contributing](#wave-contributing)
   - [Code of Conduct](#scroll-code-of-conduct)
 - [FAQ](#grey_question-faq)
@@ -66,124 +63,87 @@ Our Python library combines all the steps of our regional approach for your mode
 * For each region, a surrogate model is proposed from a library (including PiML and iModels)
 * Performance, continuity and completeness testing of the final model
 
-Insérer ici le GIF explicatif
-
-![gif antakia](assets_git/gif_antakia.gif)
+<div align="center"> 
+  <img src="(assets_git/gif_antakia.gif" alt="AntaKIA idea" />
+</div>
 
 <!-- Screenshots -->
 
 ### :camera: Screenshots
 
 <div align="center"> 
-  <img src="https://placehold.co/600x400?text=Your+Screenshot+here" alt="screenshot" />
+  <img src="assets_git/git_screen.png" alt="screenshot" />
 </div>
 
 
 <!-- Getting Started -->
 
-## :toolbox: Getting Started
-
-<!-- Prerequisites -->
-
-### :bangbang: Prerequisites
-
-This project uses Yarn as package manager
-
-```bash
- npm install --global yarn
-```
+## :computer: Getting Started
 
 <!-- Installation -->
 
-### :gear: Installation
+### :gear: Installation with pip
 
-Install my-project with npm
+Install using `pip`
 
-```bash
-  yarn install my-project
-  cd my-project
+```
+pip install antakia
 ```
 
-<!-- Running Tests -->
+<!-- V-env -->
 
-### :test_tube: Running Tests
+### :whale: Installation with docker
 
-To run tests, run the following command
+Be sure to have a Docker engine running on your computer.
 
-```bash
-  yarn test test
+```
+docker build -t antakia .
+docker run -p 8888:8888 antakia
 ```
 
-<!-- Run Locally -->
-
-### :running: Run Locally
-
-Clone the project
-
-```bash
-  git clone https://github.com/Louis3797/awesome-readme-template.git
-```
-
-Go to the project directory
-
-```bash
-  cd my-project
-```
-
-Install dependencies
-
-```bash
-  yarn install
-```
-
-Start the server
-
-```bash
-  yarn start
-```
-
-<!-- Deployment -->
-
-### :triangular_flag_on_post: Deployment
-
-To deploy this project run
-
-```bash
-  yarn deploy
-```
 
 <!-- Usage -->
 
 ## :eyes: Usage
 
-Use this space to tell a little more about your project and how it can be used. Show additional screenshots, code samples, demos or link to other resources.
+Example of usage (find more example in the <a href="https://code.ai-vidence.com/laurent/antakia/">example</a> folder)
 
-```javascript
-import Component from "my-project";
+In a notebook :
 
-function App() {
-  return <Component />;
-}
+```python
+import pandas as pd
+df = pd.read_csv('data/california_housing.csv')
+X = df.iloc[:,0:8]
+Y = df.iloc[:,9]
+```
+
+```python
+from sklearn.ensemble import GradientBoostingRegressor
+model = GradientBoostingRegressor(random_state = 9)
+model.fit(X, Y)
+```
+
+```python
+import antakia
+explain = antakia.Xplainer(X = X, Y = Y, model = model)
+display(explain.interface(explanation = SHAP, default_projection = "PaCMAP"))
 ```
 
 <!-- Roadmap -->
 
-## :compass: Roadmap
+## :compass: Type of data currently dealt with
 
-- [x] Todo 1
-- [ ] Todo 2
+- [x] Tabular data
+- [ ] Time series
+- [ ] Images
 
 <!-- Contributing -->
 
 ## :wave: Contributing
 
-<a href="https://github.com/Louis3797/awesome-readme-template/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Louis3797/awesome-readme-template" />
-</a>
-
 Contributions are always welcome!
 
-See `contributing.md` for ways to get started.
+See `CONTRIBUTING.md` for ways to get started.
 
 <!-- Code of Conduct -->
 
@@ -195,13 +155,13 @@ Please read the [Code of Conduct](https://github.com/Louis3797/awesome-readme-te
 
 ## :grey_question: FAQ
 
-- Question 1
+- Is AntakIA open source ?
 
-  - Answer 1
+  - Yes ! And forever !
 
-- Question 2
+- Can I transfer my computations on a huge GPU ?
 
-  - Answer 2
+  - Yes, very soon on the [ai-vidence](www.ai-vidence.com) website
 
 <!-- License -->
 
@@ -213,17 +173,16 @@ Distributed under the no License. See LICENSE.txt for more information.
 
 ## :handshake: Contact
 
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - email@email_client.com
+:computer: [www.ai-vidence.com](www.ai-vidence.com)
 
-Project Link: [https://github.com/Louis3797/awesome-readme-template](https://github.com/Louis3797/awesome-readme-template)
+:inbox_tray: laurent@ai-vidence.com
+
+:inbox_tray: david@ai-vidence.com
+
 
 <!-- Acknowledgments -->
 
 ## :gem: Acknowledgements
 
-Use this section to mention useful resources and libraries that you have used in your projects.
-
-- [Shields.io](https://shields.io/)
-- [Awesome README](https://github.com/matiassingers/awesome-readme)
-- [Emoji Cheat Sheet](https://github.com/ikatyang/emoji-cheat-sheet/blob/master/README.md#travel--places)
-- [Readme Template](https://github.com/othneildrew/Best-README-Template)
+We wrote this paper about AntakIA :
+[Antakia](www.ai-vidence.com)
