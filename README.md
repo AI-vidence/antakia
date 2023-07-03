@@ -1,8 +1,8 @@
 <div align="center">
 
-  <img src="assets/logo_ai-vidence.png" alt="logo" width="100" height="auto" />
+  <img src="assets/logo_ai-vidence.png" alt="logo" width="200" height="auto" />
   </br>
-  <img src="assets/logo_antakia.png" alt="logo" width="200" height="auto" />
+  <img src="assets/logo_antakia.png" alt="logo" width="300" height="auto" />
   <p>
     La solution XAI qui parle à tout le monde
   </p>
@@ -64,7 +64,7 @@ Our Python library combines all the steps of our regional approach for your mode
 * Performance, continuity and completeness testing of the final model
 
 <div align="center"> 
-  <img src="(assets_git/gif_antakia.gif" alt="AntaKIA idea" />
+  <img src="assets_git/gif_antakia.gif" alt="AntaKIA idea" />
 </div>
 
 <!-- Screenshots -->
