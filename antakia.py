@@ -39,8 +39,6 @@ warnings.filterwarnings("ignore")
 import lime
 import lime.lime_tabular
 
-from IPython.display import Math
-
 from sklearn import linear_model
 from sklearn import ensemble
 
@@ -85,23 +83,40 @@ def from_rules(df, rules_list):
     return df
 
 
-def create_save(liste=None, nom: str = "Default name", models: list = []):
-    # fonction qui permet de créer un fichier de sauvegarde
+def create_save(liste=None, nom: str = "Default name", sub_models: list = []):
+    """
+    Function that allows to create a save file from a list of pre-defined regions.
+    The save file is a json file that contains a list of dictionaries, usually generated in the interface (see antakia.interface).
+
+    Parameter
+    ---------
+    liste : list
+        The list of pre-defined regions to save.
+    nom : str
+        The name of the save file.
+    sub_models : list
+        The list of sub_models used to generate the pre-defined regions.
+
+    Returns
+    -------
+    retour : dict
+        A dictionary containing the name of the save file, the list of pre-defined regions and the list of sub_models used to generate the pre-defined regions.
+    """
     retour = dict()
     retour["nom"] = nom
     retour["liste"] = liste
-    retour["models"] = models
+    retour["sub_models"] = sub_models
     return retour
 
 
-def load_save(local: str = None):
+def load_save(local_path: str = None):
     """
     Function that allows to load a save file.
     The save file is a json file that contains a list of dictionaries, usually generated in the interface (see antakia.interface).
 
     Parameter
     ---------
-    local : str
+    local_path : str
         The path to the save file. If None, the function will return a message saying that no save file was loaded.
 
     Returns
@@ -109,12 +124,12 @@ def load_save(local: str = None):
     data : list
         A list of dictionaries, each dictionary being a save file. This list can directly be passed to the function antakia.interface so as to load the save file.
     """
-    if local is None:
+    if local_path is None:
         return "Aucun fichier de sauvegarde n'a été chargé"
-    with open(local) as json_file:
+    with open(local_path) as json_file:
         data = json.load(json_file)
     for dictio in data:
-        dictio["models"] = eval(dictio["models"] + "()")
+        dictio["sub_models"] = eval(dictio["sub_models"] + "()")
     return data
 
 
@@ -148,7 +163,7 @@ def fonction_auto_clustering(X, SHAP, n_clusters, default):
     return fonction_auto.clustering_dyadique(X, SHAP, n_clusters, default)
 
 
-# on itinialise les listes pour pourvoir ensuite utiliser global {variable} dans les fonctions
+# on initialise les listes pour pourvoir ensuite utiliser global {variable} dans les fonctions
 def init_variables():
     show_metier = None
     liste_tuiles = []
@@ -174,7 +189,6 @@ def init_variables():
     SHAP_entier = None
     y_col_metier = None
     ensemble_essaims_tot = None
-    liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
     couleur_selec = None
     model_choice = None
     Y_auto = None
@@ -185,13 +199,39 @@ def init_variables():
 
 
 class Xplainer(object):
+    """
+    Class that allows to create an Xplainer object.
+    This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
+    """
+
     def __init__(self, X: pd.DataFrame, Y: pd.Series = None, model: object = None):
+        """
+        Constructor of the class Xplainer.
+
+        Parameter
+        ---------
+        X : pandas dataframe
+            The dataframe containing the data to explain.
+        Y : pandas series
+            The series containing the target variable of the data to explain.
+        model : object
+            The model used to explain the data.
+            The only thing necessary for the model is that it has a method model.fit(X,Y) and model.predict(X) that takes as input a dataframe X and returns a series of predictions.
+
+        Returns
+        -------
+        Xplainer object
+            An Xplainer object.
+        """
         self.X = X
         self.Y = Y
         self.model = model
         init_variables()
 
     def __str__(self):
+        """
+        Function that allows to print the Xplainer object.
+        """
         print("Xplainer object")
 
     def interface(
@@ -201,15 +241,20 @@ class Xplainer(object):
         default_projection: str = "PaCMAP",
         X_all: pd.DataFrame = None,
         map: bool = False,
-        models: list = None,
+        sub_models: list = None,
         regions: list = None,
     ):
+        """
+        Function that allows to launch the interface.
+        The interface is a web application that allows to visualize the data and the explanations.
+        This application is meant to be used in a Jupyter Notebook (Jupyter Lab), and uses the package ipyvuetify.
+        """
         self.explanation = explanation
         self.exp_val = exp_val
         self.default_projection = default_projection
         self.X_all = X_all
         self.map = map
-        self.models = models
+        self.sub_models = sub_models
         self.regions = regions
         init_variables()
         return start(
@@ -221,11 +266,27 @@ class Xplainer(object):
             X_all=self.X_all,
             default_projection=self.default_projection,
             map=self.map,
-            models=self.models,
+            sub_models=self.sub_models,
             regions=self.regions,
         )
 
     def result(self):
+        """
+        Function that allows to get the result of the work you did with the interface.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the different regions created. Each region is a dictionary containing :
+            - "X" : the dataframe containing the data to explain.
+            - "Y" : the series containing the target variable of the data to explain.
+            - "SHAP" : the dataframe containing the SHAP values of the data to explain.
+            - "indices" : the indices of the data in the original dataframe X.
+            - "model" : the submodel used to explain the data in this region.
+            - "model_name" : the name of the model used to explain the data.
+            - "model_score" : the score of the model used to explain the data.
+            - "rules" : the rules used to define the region.
+        """
         return get_regions()
 
 
@@ -238,9 +299,22 @@ def start(
     X_all: pd.DataFrame = None,
     default_projection: str = "PaCMAP",
     map: bool = False,
-    models: list = None,
+    sub_models: list = None,
     regions: list = None,
 ):
+    """
+    On va définir ici les différentes variables (explicabilité du code en interne)
+    X : dataframe des données
+    Y : serie de la variable cible
+    explanation : type d'explication pour l'EE (SHAP de base, LIME, Banzhaf...)
+    exp_val : si les valeurs sont déjà calculées, on peut les passer en paramètre -> évite du temps de calcul
+    model : modèle utilisé par l'enrreprise que 'lon souhaite décortiquer
+    X_all : dataframe des données complètes (si X n'est pas déjà l'ensemble des données -> necessaire pour calculer les valeurs explicatives !)
+    default_projection : méthode de projection par défaut (PaCMAP, t-SNE, UMAP, PCA)
+    map : booléen pour savoir si on veut afficher la carte ou non
+    sub_models : liste des modèles de substitution
+    regions : liste des régions déjà créées (avec create_save etc...)
+    """
     # la fonction start pour démarrer le programme
 
     def red_PCA(X, n, default):
@@ -263,6 +337,7 @@ def start(
     def red_UMAP(X, n, default):
         # définition de la méthode du UMAP, utilisée pour l'EE et l'EV
         if default:
+            # default : pas de changement de paramètres !
             reducer = umap.UMAP(n_components=n)
         embedding = reducer.fit_transform(X)
         embedding = pd.DataFrame(embedding)
@@ -271,6 +346,7 @@ def start(
     def red_PACMAP(X, n, default, *args):
         # définition de la méthode du PACMAP, utilisée pour l'EE et l'EV
         if default:
+            # default : pas de changement de paramètres !
             reducer = pacmap.PaCMAP(n_components=n, random_state=9)
         else:
             reducer = pacmap.PaCMAP(
@@ -285,6 +361,7 @@ def start(
         return embedding
 
     # on définit ici la liste des modèles qui sera utilisée pour la fonction antakia.regions
+    # on utlisera ces modèles uniquement si l'utilisateur ne fournit pas de liste de modèles (dans sub_models)
     global tous_models
     tous_models = [
         linear_model.LinearRegression(),
@@ -302,15 +379,6 @@ def start(
                     gliste[i].pop(j - a)
                     a += 1
         return gliste
-
-    def conflict_handler_boolean(gliste):
-        # fonction qui permet de gérer les conflits dans la liste des régions, cette fois ci par vrai ou faux
-        for i in range(len(gliste)):
-            for j in range(len(gliste)):
-                if i != j:
-                    if set(gliste[i]) & set(gliste[j]):
-                        return True
-        return False
 
     def fonction_score(y, y_chap):
         # fonction qui permet de calculer le score d'un modèle de machine-learning
@@ -337,10 +405,10 @@ def start(
     # on initialise une fois les variables : cas où on lance antakia.start() deux fois dans le même notebook !
     init_variables()
 
-    if models != None:
+    if sub_models != None:
         global tous_models
-        tous_models = models
-    global liste_red
+        tous_models = sub_models
+    liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
     X = X.reset_index(drop=True)
     global liste_tuiles
     liste_tuiles = []
@@ -353,49 +421,61 @@ def start(
     global nom_colonnes
     nom_colonnes = X.columns.values[:3]
 
-    # dans cette partie, on va vérfier que l'on a les informations nécéssaires, sinon on explique pourquoi ce n'est pas bon
+    def check_all(X, Y, explanation, exp_val, model, X_all, default_projection, map):
+        # fonction qui permet de vérifier que l'on a bien toutes les informations nécéssaires
+        if explanation is None and exp_val is None:
+            return "Il faut renseigner soit un modèle d'explication, soit les valeurs de ces explications !"
+
+        if (
+            explanation != None
+            and type(exp_val) != pd.core.frame.DataFrame
+            and exp_val != None
+        ):
+            return "Il faut renseigner soit un modèle d'explication (dans Explanations), soit les valeurs déjà calculé de ces explications (dans exp_val), pas les deux !"
+
+        if (
+            explanation != None
+            and model == None
+            and type(exp_val) != pd.core.frame.DataFrame
+            and exp_val == None
+        ):
+            return "Il faut renseigner le modèle de machine-learning utilisé !"
+
+        if sub_models != None:
+            if len(sub_models) > 9:
+                return "Il faut renseigner moins de 10 modèles ! (changements à venir)"
+
+        return True
+
+    if (
+        check_all(X, Y, explanation, exp_val, model, X_all, default_projection, map)
+        != True
+    ):
+        return check_all(
+            X, Y, explanation, exp_val, model, X_all, default_projection, map
+        )
+
     if X_all is None:
         X_all = X.copy()
 
-    if explanation is None and exp_val is None:
-        return "Il faut renseigner soit un modèle d'explication, soit les valeurs de ces explications !"
-
-    if (
-        explanation != None
-        and type(exp_val) != pd.core.frame.DataFrame
-        and exp_val != None
-    ):
-        return "Il faut renseigner soit un modèle d'explication (dans Explanations), soit les valeurs déjà calculé de ces explications (dans exp_val), pas les deux !"
-
-    if (
-        explanation != None
-        and model == None
-        and type(exp_val) != pd.core.frame.DataFrame
-        and exp_val == None
-    ):
-        return "Il faut renseigner le modèle de machine-learning utilisé !"
-
-    if models != None:
-        if len(models) > 9:
-            return "Il faut renseigner moins de 10 modèles ! (changements à venir)"
-
-    if models == None:
-        models = [
+    if sub_models == None:
+        sub_models = [
             linear_model.LinearRegression(),
             RandomForestRegressor(),
             ensemble.GradientBoostingRegressor(),
         ]
 
     def fonction_models(X, Y):
+        # fonction qui renvoie une liste avec le nom/score/perf des différents modèles importée pour un X et un Y donné
         models_liste = []
-        for i in range(len(models)):
+        for i in range(len(sub_models)):
             l = []
-            models[i].fit(X, Y)
-            l.append(models[i].__class__.__name__)
-            l.append(str(round(models[i].score(X, Y), 3)))
+            sub_models[i].fit(X, Y)
+            l.append(sub_models[i].__class__.__name__)
+            l.append(str(round(sub_models[i].score(X, Y), 3)))
             l.append("MSE")
-            l.append(models[i].predict(X))
-            l.append(models[i])
+            l.append(sub_models[i].predict(X))
+            l.append(sub_models[i])
             models_liste.append(l)
         return models_liste
 
@@ -403,6 +483,7 @@ def start(
     columns_de_X = X.columns
     X_base = X.copy()
     global X_entier
+    # X_entier c'est le X de départ, avant la standardisation
     X_entier = X.copy()
     X = pd.DataFrame(StandardScaler().fit_transform(X))
     X.columns = [columns_de_X[i].replace(" ", "_") for i in range(len(X.columns))]
@@ -413,7 +494,7 @@ def start(
         value=open("assets/logo_antakia.png", "rb").read(), layout=Layout(width="230px")
     )
 
-    # définition des barres de progression de l'écran d'attente (à modifier plus tard)
+    # définition des barres de progression de l'écran d'attente
     progress_shap = v.ProgressLinear(
         style_="width: 80%",
         class_="py-0 mx-5",
@@ -500,6 +581,7 @@ def start(
         progress_shap.v_model = 100
         prog_shap.children[2].children[0].children = "Valeurs explicatives importées"
 
+    # on envoie le splash screen
     display(splash)
 
     def generation_texte(i, tot, time_init, progress):
@@ -547,7 +629,7 @@ def start(
         return shap_values
 
     def get_LIME(X, model):
-        # permet de calculer les valeurs explicatives LIME
+        # permet de calculer les valeurs explicatives LIME (NE FONCTIONNE PAS ENCORE)
         time_init = time.time()
         explainer = lime.lime_tabular.LimeTabularExplainer(
             X_all,
@@ -586,7 +668,7 @@ def start(
     choix_init_proj = 3
 
     # définition de la projection par défaut
-
+    # de base, on prend la projection PaCMAP
     if default_projection == "UMAP":
         prog_red.children[2].children[0].children = "Espace des valeurs... "
         choix_init_proj = 2
@@ -642,10 +724,6 @@ def start(
     # une fois tout cela effectué, le splash screen est supprimé
     splash.class_ = "d-none"
 
-    # gif loading qui se met en route au momenty des calculs
-    gif_address = "assets/loading.gif"
-    with open(gif_address, "rb") as f:
-        img = f.read()
     # loading_bar = widgets.Image(value=img, width=30, height=20)
     loading_bar = v.ProgressCircular(
         indeterminate=True, color="blue", width="6", size="35", class_="mx-4 my-3"
@@ -672,7 +750,6 @@ def start(
     EE_proj.v_model = EE_proj.items[choix_init_proj]
 
     # ici les sliders des paramètres pour l'EV !
-
     slider_param_PaCMAP_voisins_EV = v.Layout(
         class_="mt-3",
         children=[
@@ -698,6 +775,7 @@ def start(
     )
 
     def fonction_update_sliderEV(widget, event, data):
+        # fonction qui met à jour les valeurs quand il y a changement des sliders dans les parametres de PaCMAP pour l'EV
         if widget.label == "Nombre de voisins :":
             slider_param_PaCMAP_voisins_EV.children[1].children = [str(data)]
         elif widget.label == "MN ratio :":
@@ -715,6 +793,7 @@ def start(
         "input", fonction_update_sliderEV
     )
 
+    # sliders parametres EV
     tous_sliders_EV = widgets.VBox(
         [
             slider_param_PaCMAP_voisins_EV,
@@ -742,6 +821,7 @@ def start(
     )
 
     def changement_params_EV(*b):
+        # fonction qui met à jour les projections au moment de changer les paramètres de la projection
         n_neighbors = slider_param_PaCMAP_voisins_EV.children[0].v_model
         MN_ratio = slider_param_PaCMAP_mn_ratio_EV.children[0].v_model
         FP_ratio = slider_param_PaCMAP_fp_ratio_EV.children[0].v_model
@@ -763,6 +843,7 @@ def start(
     valider_params_proj_EV.on_event("click", changement_params_EV)
 
     def reinit_param_EV(*b):
+        # réinitialiser les paramètres de la projection
         if liste_red.index(EV_proj.v_model) == 3:
             out_loading1.layout.visibility = "visible"
             Espace_valeurs[3] = red_PACMAP(X, 2, True)
@@ -908,19 +989,8 @@ def start(
 
     reinit_params_proj_EE.on_event("click", reinit_param_EE)
 
-    # permet de choisir la couleur des points en fonction de si ils sont dans la liste des tuiles ou non
-    choix_coul = widgets.Checkbox(
-        value=False,
-        description="Visualiser les éléments non sélectionnés",
-        disabled=False,
-        indent=False,
-    )
-
-    # permet de choisir la couleur des points en fonction de leur région
-    choix_coul_regions = widgets.Checkbox(
-        value=False, description="Visualiser les régions", disabled=False, indent=False
-    )
-
+    # permet de choisir la couleur des points
+    # Y, Y chapeau, résidus, sélection actuelle, régions, points non selectionnés, clustering automatique
     couleur_radio = v.BtnToggle(
         color="blue",
         mandatory=True,
@@ -965,6 +1035,7 @@ def start(
         ],
     )
 
+    # ajout de tous les tooltips !
     couleur_radio.children[0].children = [
         add_tooltip(couleur_radio.children[0].children[0], "Valeurs réelles")
     ]
@@ -1018,62 +1089,8 @@ def start(
             fig2_3D.data[0].marker.color = Y
             fig2_3D.data[0].marker.symbol = "circle"
 
-    def fonction_choix_coul(*args):
-        # permet de modifier la couleur des points en fonction de si ils sont dans les régions ou non
-        l = []
-        new_y = []
-        new_y_opa = []
-        for i in range(len(liste_tuiles)):
-            l += liste_tuiles[i]
-        for i in range(len(X_base)):
-            if i in l:
-                new_y.append("grey")
-                new_y_opa.append(0.3)
-            else:
-                new_y.append("red")
-                new_y_opa.append(1)
-        if choix_coul.value:
-            fig1.data[0].marker.color = new_y
-            fig1.data[0].marker.opacity = new_y_opa
-            fig1.update_traces(marker=dict(showscale=False))
-
-            fig2.data[0].marker.color = new_y
-            fig2.data[0].marker.opacity = new_y_opa
-
-            fig1_3D.data[0].marker.color = new_y
-            fig1_3D.update_traces(marker=dict(showscale=False))
-
-            fig2_3D.data[0].marker.color = new_y
-        else:
-            fonction_reinit_opacite(None)
-
-    def fonction_choix_coul_regions(change):
-        # permet de modifier la couleur des points en fonction de leur région
-        y_coul_tuiles = [0] * len(X_base)
-        if choix_coul_regions.value:
-            y_coul_tuiles = [0] * len(X_base)
-            for i in range(len(X_base)):
-                for j in range(len(liste_tuiles)):
-                    if i in liste_tuiles[j]:
-                        y_coul_tuiles[i] = j + 1
-            with fig1.batch_update():
-                fig1.data[0].marker.color = y_coul_tuiles
-                fig1.update_traces(marker=dict(showscale=False))
-            with fig2.batch_update():
-                fig2.data[0].marker.color = y_coul_tuiles
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].marker.color = y_coul_tuiles
-                fig1_3D.update_traces(marker=dict(showscale=False))
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].marker.color = y_coul_tuiles
-        else:
-            fonction_reinit_opacite(None)
-
-    # observe les checkbox pour changer la couleur des points dans les figures 1 et 2 (+3D)
-    choix_coul.observe(fonction_choix_coul, "value")
-    # choix_coul_regions.observe(fonction_changement_couleur, "value")
-
     def fonction_changement_couleur(*args, opacity: bool = True):
+        # permet de changer la couleur des points
         couleur = None
         scale = True
         a_modifier = True
@@ -1310,7 +1327,7 @@ def start(
             new_or_not = "Importée"
             if i > len_init_regions:
                 new_or_not = "Créée"
-            if len(regions[i]["models"]) == max(regions[i]["liste"]) + 1:
+            if len(regions[i]["sub_models"]) == max(regions[i]["liste"]) + 1:
                 sous_mod_bool = "Oui"
             table_save.append(
                 [
@@ -1424,22 +1441,24 @@ def start(
         fig1.update_traces(marker=dict(showscale=False))
         fig2.update_traces(marker=dict(showscale=False))
         global liste_models
-        if len(regions[indice]["models"]) != len(liste_tuiles):
+        if len(regions[indice]["sub_models"]) != len(liste_tuiles):
             liste_models = [[None, None, None]] * len(liste_tuiles)
         else:
             liste_models = []
             for i in range(len(liste_tuiles)):
-                nom = regions[indice]["models"][i].__class__.__name__
+                nom = regions[indice]["sub_models"][i].__class__.__name__
                 indices_respectent = liste_tuiles[i]
                 score_init = fonction_score(
                     Y.iloc[indices_respectent], Y_pred[indices_respectent]
                 )
-                regions[indice]["models"][i].fit(
+                regions[indice]["sub_models"][i].fit(
                     X.iloc[indices_respectent], Y.iloc[indices_respectent]
                 )
                 score_reg = fonction_score(
                     Y.iloc[indices_respectent],
-                    regions[indice]["models"][i].predict(X.iloc[indices_respectent]),
+                    regions[indice]["sub_models"][i].predict(
+                        X.iloc[indices_respectent]
+                    ),
                 )
                 if score_init == 0:
                     l_compar = "inf"
@@ -1461,7 +1480,7 @@ def start(
             if liste_models[i][-1] == None:
                 l_m.append(None)
             else:
-                l_m.append(models[liste_models[i][-1]])
+                l_m.append(sub_models[liste_models[i][-1]])
         save = create_save(Y3, nom_sauvegarde.v_model, l_m)
         regions.append(save)
         table_save = init_save(True)
@@ -1510,7 +1529,7 @@ def start(
 
         for i in range(len(regions)):
             regions[i]["liste"] = list(regions[i]["liste"])
-            regions[i]["models"] = regions[i]["models"].__class__.__name__
+            regions[i]["sub_models"] = regions[i]["sub_models"].__class__.__name__
         with open(destination, "w") as fp:
             json.dump(regions, fp)
         out_save.color = "success"
@@ -1528,7 +1547,7 @@ def start(
     partie_local_save = v.Col(
         class_="text-center d-flex flex-column align-center justify-center",
         children=[
-            v.Html(tag="h3", children=["Sauvegarder en local"]),
+            v.Html(tag="h3", children=["Sauvegarder en local_path"]),
             v.Row(
                 children=[
                     v.Spacer(),
@@ -2306,7 +2325,7 @@ def start(
 
     # textes qui vont contenir les informations sur les sub_models
     liste_mods = []
-    for i in range(len(models)):
+    for i in range(len(sub_models)):
         nom_mdi = "mdi-numeric-" + str(i + 1) + "-box"
         mod = v.SlideItem(
             # style_="width: 30%",
@@ -2318,7 +2337,9 @@ def start(
                             class_="ml-5 mr-4",
                             children=[
                                 v.Icon(children=[nom_mdi]),
-                                v.CardTitle(children=[models[i].__class__.__name__]),
+                                v.CardTitle(
+                                    children=[sub_models[i].__class__.__name__]
+                                ),
                             ],
                         ),
                         v.CardText(
@@ -3239,7 +3260,7 @@ def start(
             X.iloc[indices_respectent_skope, :], Y.iloc[indices_respectent_skope]
         )
         score_tot = []
-        for i in range(len(models)):
+        for i in range(len(sub_models)):
             score_tot.append(
                 fonction_score(Y.iloc[indices_respectent_skope], result_models[i][-2])
             )
@@ -3247,16 +3268,16 @@ def start(
             Y.iloc[indices_respectent_skope], Y_pred[indices_respectent_skope]
         )
         if score_init == 0:
-            l_compar = ["/"] * len(models)
+            l_compar = ["/"] * len(sub_models)
         else:
             l_compar = [
                 round(100 * (score_init - score_tot[i]) / score_init, 1)
-                for i in range(len(models))
+                for i in range(len(sub_models))
             ]
 
         global score_models
         score_models = []
-        for i in range(len(models)):
+        for i in range(len(sub_models)):
             score_models.append(
                 [
                     score_tot[i],
@@ -3298,7 +3319,7 @@ def start(
                         + "%)"
                     )
 
-        for i in range(len(models)):
+        for i in range(len(sub_models)):
             mods.children[i].children[0].children[1].children = str_md(i)
 
     # quand on clique sur le bouton skope-rules
@@ -4067,7 +4088,7 @@ def start(
                 score_model = [1] * len(score_models[0])
                 indice_model = -1
             else:
-                nom_model = models[model_choice].__class__.__name__
+                nom_model = sub_models[model_choice].__class__.__name__
                 score_model = score_models[model_choice]
                 indice_model = model_choice
             """

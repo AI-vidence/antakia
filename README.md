@@ -7,6 +7,8 @@
 Ce projet propose la méthode d'analyse XAI AntakIA de façon intégrée à un notebook Jupyter.
 L'UI repose sur des ipywidgets.
 
+![gif antakia](assets_git/gif_antakia.gif)
+
 # Installation avec `pip`
 
 - Créer un environnement virtuel à partir de Python3.10 : `python3.10 -m venv .`
