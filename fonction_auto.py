@@ -93,7 +93,7 @@ def clustering_dyadique(X, SHAP, n_clusters, default):
             )
             skope_rules_clf.fit(X_train, y_train)
             if len(skope_rules_clf.rules_) == 0:
-                k = find_best_k(X, SHAP, y_train, indices, recall_min, precision_min)
+                k = find_best_k(X, indices, recall_min, precision_min)
                 kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
                 kmeans.fit(X.iloc[indices])
                 labels = np.array(kmeans.labels_) + max_

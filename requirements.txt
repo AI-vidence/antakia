@@ -5,6 +5,7 @@ ipywidgets
 jupyterlab
 jupyterlab-widgets
 lime
+mvlearn
 numba
 numpy==1.23.0
 pacmap

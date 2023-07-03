@@ -406,7 +406,6 @@ def start(
     init_variables()
 
     if sub_models != None:
-        global tous_models
         tous_models = sub_models
     liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
     X = X.reset_index(drop=True)
@@ -927,9 +926,6 @@ def start(
         children=[v.Icon(left=True, children=["mdi-skip-backward"]), "Réinitialiser"],
     )
 
-    aucun_param_EE = widgets.HTML(
-        "<h3> Pas de modifications de paramètres pour cette projection </h3>"
-    )
     deux_boutons_params_EE = widgets.HBox(
         [valider_params_proj_EE, reinit_params_proj_EE]
     )
