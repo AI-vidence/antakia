@@ -1,8 +1,8 @@
 <div align="center">
 
-  <img src="assets/logo_ai-vidence.png" alt="logo" width="200" height="auto" />
+  <img src="antakia/assets/logo_ai-vidence.png" alt="logo" width="200" height="auto" />
   </br>
-  <img src="assets/logo_antakia.png" alt="logo" width="300" height="auto" />
+  <img src="antakia/assets/logo_antakia.png" alt="logo" width="300" height="auto" />
   <p>
     La solution XAI qui parle à tout le monde
   </p>
