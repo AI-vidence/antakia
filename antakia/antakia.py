@@ -46,13 +46,16 @@ from sklearn.metrics import mean_squared_error
 
 import plotly.express as px
 
-import sklearn.cluster
-
 import ipyvuetify as v
 
 import seaborn as sns
 
 import json
+
+import webbrowser
+
+import os
+import sys
 
 
 def from_rules(df, rules_list):
@@ -133,7 +136,7 @@ def load_save(local_path: str = None):
     return data
 
 
-import fonction_auto
+import antakia.fonction_auto as fonction_auto
 
 
 def fonction_auto_clustering(X, SHAP, n_clusters, default):
@@ -489,8 +492,13 @@ def start(
     X_base.columns = X.columns
 
     # définition du de l'écran d'attente
+
+    from importlib.resources import files
+
+    data_path = files("antakia.assets").joinpath("logo_antakia.png")
+
     logo_antakia = widgets.Image(
-        value=open("assets/logo_antakia.png", "rb").read(), layout=Layout(width="230px")
+        value=open(data_path, "rb").read(), layout=Layout(width="230px")
     )
 
     # définition des barres de progression de l'écran d'attente
@@ -1188,6 +1196,8 @@ def start(
 
     fig_size_et_texte = v.Row(children=[fig_size, fig_size_text])
 
+    # les différents boutons du menu
+
     bouton_save = v.Btn(
         icon=True, children=[v.Icon(children=["mdi-content-save"])], elevation=0
     )
@@ -1207,14 +1217,12 @@ def start(
         add_tooltip(bouton_website.children[0], "Site web d'AI-Vidence")
     ]
 
-    import webbrowser
-
     bouton_website.on_event(
         "click", lambda *args: webbrowser.open_new_tab("https://ai-vidence.com/")
     )
 
-    image_adresse = "assets/logo_ai-vidence.png"
-    with open(image_adresse, "rb") as f:
+    data_path = files("antakia.assets").joinpath("logo_ai-vidence.png")
+    with open(data_path, "rb") as f:
         logo = f.read()
     logo_aividence1 = widgets.Image(
         value=logo, height=str(864 / 20) + "px", width=str(3839 / 20) + "px"
@@ -1241,10 +1249,6 @@ def start(
 
     # fonction pour sauvegarder les valeurs explicatives calculées (éviter de refaire les calculs à chaque fois...)
     def save_shap(*args):
-        import glob
-        import os
-        import sys
-
         def blockPrint():
             sys.stdout = open(os.devnull, "w")
 
@@ -1309,7 +1313,7 @@ def start(
 
     len_init_regions = len(regions)
 
-    # pour la partie sur les régions
+    # pour la partie sur les sauvegardes
     def init_save(new: bool = False):
         texte_regions = "Il n'y a pas de sauvegarde importée"
         for i in range(len(regions)):
@@ -1361,8 +1365,10 @@ def start(
         )
         return [table_save, texte_regions]
 
+    # le tableau qui contient les sauvegardes
     table_save = init_save()[0]
 
+    # visualiser une sauvegarde sélectionnée
     visu_save = v.Btn(
         class_="ma-4",
         children=[v.Icon(children=["mdi-eye"])],
@@ -1395,6 +1401,7 @@ def start(
         class_="ma-4",
     )
 
+    # sauvegarder une sauvegarde
     def delete_save_fonction(*args):
         if table_save.v_model == []:
             return
@@ -1406,6 +1413,7 @@ def start(
 
     delete_save.on_event("click", delete_save_fonction)
 
+    # pour visualiser une sauvegarde
     def fonction_visu_save(*args):
         table_save = carte_save.children[1]
         if len(table_save.v_model) == 0:
@@ -1467,6 +1475,7 @@ def start(
 
     visu_save.on_event("click", fonction_visu_save)
 
+    # créer une nouvelle sauvegarde avec les régions actuelles
     def fonction_new_save(*args):
         if len(nom_sauvegarde.v_model) == 0 or len(nom_sauvegarde.v_model) > 25:
             return
@@ -1485,6 +1494,7 @@ def start(
 
     new_save.on_event("click", fonction_new_save)
 
+    # sauvegarder les sauvegardes en local
     bouton_save_all = v.Btn(
         class_="ma-0",
         children=[
@@ -1501,6 +1511,7 @@ def start(
         v_model=False,
     )
 
+    # sauvegarde locale des sauvegardes !
     def fonction_save_all(*args):
         emplacement = partie_local_save.children[1].children[1].v_model
         fichier = partie_local_save.children[1].children[2].v_model
@@ -1514,15 +1525,6 @@ def start(
         destination = emplacement + "/" + fichier + ".json"
         destination = destination.replace("//", "/")
         destination = destination.replace(" ", "_")
-        import glob
-        import os
-        import sys
-
-        def blockPrint():
-            sys.stdout = open(os.devnull, "w")
-
-        def enablePrint():
-            sys.stdout = sys.__stdout__
 
         for i in range(len(regions)):
             regions[i]["liste"] = list(regions[i]["liste"])
@@ -1541,6 +1543,7 @@ def start(
 
     bouton_save_all.on_event("click", fonction_save_all)
 
+    # partie pour sauvegarder en local : choix du nom, de l'emplacement, etc...
     partie_local_save = v.Col(
         class_="text-center d-flex flex-column align-center justify-center",
         children=[
@@ -1575,6 +1578,7 @@ def start(
         ],
     )
 
+    # carte pour gérer les sauvegardes, qui s'ouvre
     carte_save = v.Card(
         elevation=0,
         children=[

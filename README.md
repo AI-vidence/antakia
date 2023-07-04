@@ -16,8 +16,8 @@
 # :notebook_with_decorative_cover: Table of Contents
 
 - [About the Project](#star2-about-the-project)
-    - [Our idea](#thought_balloon-our-idea)
-    - [Screenshots](#camera-screenshots)
+  - [Our idea](#thought_balloon-our-idea)
+  - [Screenshots](#camera-screenshots)
 - [Getting Started](#computer-getting-started)
   - [Installation using pip](#gear-installation-with-pip)
   - [Installation with Docker](#whale-installation-with-docker)
@@ -40,12 +40,13 @@
 ### :thought_balloon: Our idea
 
 Our Python library combines all the steps of our regional approach for your model:
-* Simultaneous "dyadic" exploration of the value and explanation spaces of your model to be explained,
-* Automatic recommendation of dyadic segmentation (regions that are both homogeneous in the 2 spaces) or manual selection
-* For each region, expression of the selection made by the input or explained variables (cf. "Skope rules")
-* Possibility of refining the definition of regions for each attribute (see "flows")
-* For each region, a surrogate model is proposed from a library (including PiML and iModels)
-* Performance, continuity and completeness testing of the final model
+
+- Simultaneous "dyadic" exploration of the value and explanation spaces of your model to be explained,
+- Automatic recommendation of dyadic segmentation (regions that are both homogeneous in the 2 spaces) or manual selection
+- For each region, expression of the selection made by the input or explained variables (cf. "Skope rules")
+- Possibility of refining the definition of regions for each attribute (see "flows")
+- For each region, a surrogate model is proposed from a library (including PiML and iModels)
+- Performance, continuity and completeness testing of the final model
 
 <div align="center"> 
   <img src="assets_git/gif_antakia.gif" alt="AntaKIA idea" />
@@ -58,7 +59,6 @@ Our Python library combines all the steps of our regional approach for your mode
 <div align="center"> 
   <img src="assets_git/git_screen.png" alt="screenshot" />
 </div>
-
 
 <!-- Getting Started -->
 
@@ -84,7 +84,6 @@ Be sure to have a Docker engine running on your computer.
 docker build -t antakia .
 docker run -p 8888:8888 antakia
 ```
-
 
 <!-- Usage -->
 
@@ -121,7 +120,6 @@ display(explain.interface(explanation = SHAP, default_projection = "PaCMAP"))
 - [ ] Time series
 - [ ] Images
 
-
 <!-- Note sur les librairies -->
 
 ## :snake: Comments on some of the python librairies we are using
@@ -135,7 +133,7 @@ display(explain.interface(explanation = SHAP, default_projection = "PaCMAP"))
 
 - Numba depreciated [here](https://github.com/slundberg/shap/issues/2909)
 - Waiting for the merge to be accepted [here](https://github.com/dsgibbons/shap/pull/9)
-- The exceptions are catched in the code !
+- The exceptions are caught in the code !
 
 ### Skope rules
 
@@ -183,7 +181,6 @@ Distributed under the no License. See LICENSE.txt for more information.
 :inbox_tray: laurent@ai-vidence.com
 
 :inbox_tray: david@ai-vidence.com
-
 
 <!-- Acknowledgments -->
 
