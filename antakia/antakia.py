@@ -1,32 +1,38 @@
-# Ici toutes les importations
 import os
-
 import shutup
-
 shutup.please()
+import json
+import webbrowser
+import sys
+import time
 
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
-import umap
 import pandas as pd
 import numpy as np
+
 import ipywidgets as widgets
 from ipywidgets import Layout
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
-import pacmap
-
-from copy import deepcopy
-
+from sklearn import linear_model
+from sklearn import ensemble
+from sklearn.metrics import mean_squared_error
 from IPython.display import display, clear_output, HTML
+import ipyvuetify as v
 
 import plotly.graph_objects as go
+import plotly.express as px
+import seaborn as sns
 
+from copy import deepcopy
 from skrules import SkopeRules
 
-import time
-
+import pacmap
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
+import umap
 import shap
+import lime
+import lime.lime_tabular
 
 import warnings
 from numba.core.errors import NumbaDeprecationWarning
@@ -36,28 +42,7 @@ warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
 warnings.filterwarnings("ignore")
 
-import lime
-import lime.lime_tabular
-
-from sklearn import linear_model
-from sklearn import ensemble
-
-from sklearn.metrics import mean_squared_error
-
-import plotly.express as px
-
-import ipyvuetify as v
-
-import seaborn as sns
-
-import json
-
-import webbrowser
-
-import os
-import sys
-
-
+## LM : dans unmodule util.py ?
 def from_rules(df, rules_list):
     """
     Function that allows to apply a list of rules to a dataframe.
