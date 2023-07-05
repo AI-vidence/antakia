@@ -1,7 +1,11 @@
 #   -------------------------------------------------------------
 #   Copyright (c) Ai-vidence Corporation. All rights reserved.
 #   -------------------------------------------------------------
-"""Python Package"""
+"""Package AntakIA de AI-vidence
+
+Deux modules : AntkIA et utils
+
+"""
 
 from .antakia import *
 from .utils import *

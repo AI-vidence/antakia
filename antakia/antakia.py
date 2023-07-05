@@ -1,17 +1,16 @@
 import pandas as pd
 import numpy as np
-import json
 
 import antakia._gui as _gui
 
 
 class Xplainer(_gui.Mixin):
     """
-    Class that allows to create an Xplainer object.
+    Xplainer object.
     This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
 
-    Variables
-    ---------
+    Attributes
+    -------
     X : pandas dataframe
         The dataframe containing the data to explain.
     Y : pandas series
@@ -26,7 +25,7 @@ class Xplainer(_gui.Mixin):
         """
         Constructor of the class Xplainer.
 
-        Parameter
+        Parameters
         ---------
         X : pandas dataframe
             The dataframe containing the data to explain.

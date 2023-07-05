@@ -1,9 +1,10 @@
+import pathlib
 import setuptools
 
-with open("requirements.txt") as f:
-    lines = f.read()
-
+lines = pathlib.Path("requirements.txt").read_text()
 requirements = [line for line in lines.split("\n") if line != ""]
+
+requirements += ["mkdocstrings-python", "mkdocs-material", "mkdocs", "mkdocstrings"]
 
 setuptools.setup(
     name="antakia",

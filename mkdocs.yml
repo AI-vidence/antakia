@@ -1,0 +1,20 @@
+site_name: AntakIA - Read the Docs
+
+site_url: https://ai-vidence.com/documentation-antakia/
+
+nav:
+  - Home: index.md
+  - About: about.md
+  - Documentation: doc.md
+
+theme:
+  name: material
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_section_style: list
+            show_source: false
+            show_bases: false
