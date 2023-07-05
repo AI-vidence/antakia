@@ -1,33 +1,34 @@
 # variables globales
 # on initialise les variables
-list_of_regions = []
-list_of_sub_models = []
-color_regions = []
-columns_names = None
-points_selected = []
-X_train = None
-y_train = None
-SHAP_train = None
-saved_rules = None
-other_columns = None
-elements_final_accordion = []
-valider_bool = False
+list_of_regions = [] # TODO à mettre dans AntakIA. Avec une fonction getRegions() publique pour le DS
+list_of_sub_models = [] #TODO dans AntakIA. Methode getSModels() réservée à GUI. N'intéresse pas le DS
+color_regions = [] # TODO. Pourrait être directement un dict : {"RED":255,0,0, ...}
+columns_names = None # TODO cf supra
+points_selected = [] # TODO ok Mais ce n'est pas une variable globale. Doit être visible du DS via un getSelection()
+X_train = None #TODO : dans AntakIA, et pas en global
+y_train = None #TODO : dans AntakIA, et pas en global
+SHAP_train = None # TODO : je pense que ce serait + lisible de mettre value space, test, Y, Ychapeu, midel, et explanation space dans une seule classe Dataset
+saved_rules = None #TODO quid d'une classe Potato qui aurait plusieurs états (des constantes LASSO, SKOPE, FINETUNE, FINAL) et, sauf LASSO, un jeu de règles associé. Les règles pourraient être dans un dict ?
+other_columns = None # TODO renommer ?
+elements_final_accordion = [] #TODO le parait interne à GUI, pas une variable globale
+valider_bool = False #TODO ça serait pas un attribut de la classe Potato ?
 a = [0] * 10
-all_rules = [a, a, a, a, a, a, a, a, a, a]
-all_histograms = []
-all_beeswarms = []
-all_color_choosers_beeswarms = []
-X_not_scaled = None
-Y_not_scaled = None
-SHAP_not_scaled = None
-colors_business_gui = None
-all_beeswarms_total = None
-model_choice = None
-Y_auto = None
-all_tiles_rules = []
-result_dyadic_clustering = None
-all_models = None
+all_rules = [a, a, a, a, a, a, a, a, a, a] #TODO ça serait pas une règle dans Potato ?
+all_histograms = [] # TODO devrait être interne à GUI
+all_beeswarms = [] # TODO devrait être interne à GUI
+all_color_choosers_beeswarms = [] # TODO devrait être interne à GUI
+X_not_scaled = None # TODO devrait être interne à GUI, pas global
+Y_not_scaled = None # TODO devrait être interne à GUI, pas global
+SHAP_not_scaled = None # TODO dans AntakIA?
+colors_business_gui = None  # TODO il faudrait virer le code de la vue métier, mais conserver un bouton "copy URL to setup a live session with collegues"
+all_beeswarms_total = None # TODO devrait être interne à GUI, pas global
+model_choice = None # TODO on choisit depuis GUI, mais c'est stocké dans AntakIA
+Y_auto = None # TODO pas encore pigé. Mais plus on place les variables dans une classe, + c'est facile à lire
+all_tiles_rules = [] # TODO idem
+result_dyadic_clustering = None # TODO idem
+all_models = None # TODO idem
 
+# TODO : grouper les imports
 import os
 
 import shutup
@@ -92,7 +93,10 @@ from antakia.utils.load_save import load_save
 from antakia.utils.fonction_auto import fonction_auto_clustering
 
 
+# TODO : faire une class GUI
+
 class Mixin:
+    
     def gui(
         self,
         explanation: str = "None",
@@ -109,23 +113,33 @@ class Mixin:
         ----------
         explanation : str
             The type of explanation to display. It can be "SHAP" or "LIME".
+            TODO : à mon avis, le GUI démarre en SHAP et permet de passer en LIME.
+            TODO : les calculs de SHAP ou LIME sont lancés depuis AntakIA en local ou envoyés à un serveur (avec GPU) distant. Je suggère que les fonctions de calcul long implémentent l'interface LongTask avec les métodes (start, update etc.)
         exp_val : pandas dataframe
             The dataframe containing the explanations of the model if already computed.
+            TODO : ok. On pourrait aussi appeler ça Explanations Space
         X_all : pandas dataframe
             The dataframe containing the entire data. It is used to compute the explanations if they are not already computed.
+            TODO : ok. Pourquoi "all" ? Sinon, Values Spaces irait aussi
         default_projection : str
             The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
+            TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
         map : bool
             If True, the map is displayed. If False, the map is not displayed.
+            # TODO : préciser que l'on parle d'une carte géographqiue à partir de lat/lon
         sub_models : list
-            The list of sub-models to display.
+            The list of sub-models to display
+            # TODO : qu'est-ce que ça fait là ? S'il s'agit du constructeur du GUI. EN outre, c'est plutôt à AntakIA à maintenir cette liste surrogates
         save_regions : list
             The list of regions to display.
+            # TODO : ce n'est pas au GUI de maintenir cette liste, mais à AntakIA
         """
 
         X = self.X
         Y = self.Y
         model = self.model
+
+        # TODO Mettre toutes ces fonctions dans un module compute.py (par ex). Ce ne sont que des implémentatiosn de la même interface DimensionReduc. Et leur ferai implémenter une 2ème interface, "LongTask"
 
         def red_PCA(X, n, default):
             # definition of the method PCA, used for the EE and the EV
@@ -169,6 +183,7 @@ class Mixin:
             embedding = pd.DataFrame(embedding)
             return embedding
 
+        # TODO : Ces submodels ont vocation à être nombreux. On pourrait créer un module surrogates.py, avec une classe abstraite Surrogate (ou bien une classe abstraite Model de Scikitlearn ?) et plusieurs implémentation. Il doit être facile à un développeur d'en importer d'autres
         # list of sub_models used
         # we will used these models only if the user do not give a list of sub_models
         global all_models
@@ -189,12 +204,14 @@ class Mixin:
                         a += 1
             return gliste
 
+        # TODO et si on mettait dans la classe Potato, en plus des règles, une instance d'un modèle de substiuttion. Du coup le score serait calculé dans Potato
         def fonction_score(y, y_chap):
             # function that calculates the score of a machine-learning model
             y = np.array(y)
             y_chap = np.array(y_chap)
             return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
 
+        # TODO GUI doit avoir un constructeur qui crée tous les widgets et leur définit un tooltip.
         def add_tooltip(widget, text):
             # function that allows you to add a tooltip to a widget
             wid = v.Tooltip(
@@ -298,7 +315,7 @@ class Mixin:
         X_base.columns = X.columns
 
         # wait screen definition
-
+        # TODO et pourquopi pas une sous classe Splash Screen ? Que l'on traiterait comme un widget
         from importlib.resources import files
 
         data_path = files("antakia.assets").joinpath("logo_antakia.png")
@@ -307,6 +324,7 @@ class Mixin:
             value=open(data_path, "rb").read(), layout=Layout(width="230px")
         )
 
+        #TODO ces barres de progresssion doivent refléter le travail d'une LongTask qui s'éxécute dans un Thread dédié
         # waiting screen progress bars definition
         progress_shap = v.ProgressLinear(
             style_="width: 80%",
@@ -399,6 +417,7 @@ class Mixin:
         # we send the splash screen
         display(splash)
 
+        # TODO Vivement que tout ce code avant et ci-dessous soit dans une sous-classe ad hoc! D'ailleurs, ce serait encore mieux de mettre ça dans un module SplashScreen.py
         def generation_texte(i, tot, time_init, progress):
             # allows to generate the progress text of the progress bar
             time_now = round((time.time() - time_init) / progress * 100, 1)
@@ -425,6 +444,7 @@ class Mixin:
                 + "s)"
             )
 
+        # TODO A mettre dans AntakIA et à exécuter dans un Thread LongTask
         def get_SHAP(X, model):
             # calculates SHAP explanatory values
             time_init = time.time()
@@ -442,7 +462,7 @@ class Mixin:
                 )
             shap_values.columns = j
             return shap_values
-
+        #TODO id
         def get_LIME(X, model):
             # allows to calculate LIME explanatory values ​​(NOT WORKING YET)
             time_init = time.time()
@@ -486,6 +506,8 @@ class Mixin:
 
         # definition of the default projection
         # base, we take the PaCMAP projection
+        # TODO : penser à traduire en EN
+        # TODO : on ne pourrait pas (comme SHAP) choisir PACMAC par défaut ?
         if default_projection == "UMAP":
             prog_red.children[2].children[0].children = "Espace des valeurs... "
             choix_init_proj = 2
@@ -643,6 +665,11 @@ class Mixin:
         params_proj_EV = widgets.VBox(
             [tous_sliders_EV, deux_boutons_params], layout=Layout(width="100%")
         )
+
+
+        #TODO : quitte à séparer GUI en plusieurs modules, on ne pourrait pas organiser le code selon les 4 étapes / onglets ? On gagnerait énormément en lisibilité
+
+
 
         def changement_params_EV(*b):
             # function that updates the projections when changing the parameters of the projection
