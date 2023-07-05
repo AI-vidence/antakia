@@ -1,4 +1,10 @@
+import pathlib
 import setuptools
+
+lines = pathlib.Path("requirements.txt").read_text()
+requirements = [line for line in lines.split("\n") if line != ""]
+
+requirements += ["mkdocstrings-python", "mkdocs-material", "mkdocs", "mkdocstrings"]
 
 setuptools.setup(
     name="antakia",
@@ -7,7 +13,6 @@ setuptools.setup(
     author_email="antoineedy@outlook.fr",
     description="XAI made simple",
     long_description=open("README.md").read(),
-    install_requires=[],
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
@@ -15,4 +20,5 @@ setuptools.setup(
     ],
     packages=setuptools.find_packages(),
     include_package_data=True,
+    install_requires=requirements,
 )

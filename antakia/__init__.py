@@ -1,10 +1,14 @@
 #   -------------------------------------------------------------
 #   Copyright (c) Ai-vidence Corporation. All rights reserved.
 #   -------------------------------------------------------------
-"""Python Package"""
+"""Package AntakIA de AI-vidence
+
+Deux modules : AntkIA et utils
+
+"""
 
 from .antakia import *
-from .fonction_auto import *
+from .utils import *
 
 __version__ = "0.1.1"
 __author__ = "AI-vidence (c)"

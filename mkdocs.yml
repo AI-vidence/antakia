@@ -1,0 +1,40 @@
+site_name: AntakIA - Read the Docs
+
+site_url: https://ai-vidence.com/documentation-antakia/
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Usage: usage.md
+  - Documentation:
+      - About the doc: documentation/index.md
+      - Xplainer: documentation/xplainer.md
+      - Utils: documentation/utils.md
+  - About: about.md
+
+theme:
+  name: material
+  palette:
+    primary: white
+  logo: img/logo_antakia_transp.png
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.path
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_section_style: list
+            show_source: false
+            show_bases: false
+
+markdown_extensions:
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
