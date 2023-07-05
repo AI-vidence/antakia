@@ -13,7 +13,7 @@ import sklearn.cluster
 
 
 def create_list_invert(liste, taille):
-    l = [[] for i in range(taille)]
+    l = [[] for _ in range(taille)]
     for i in range(len(liste)):
         l[liste[i]].append(i)
     return l
@@ -62,17 +62,13 @@ def find_best_k(X, indices, recall_min, precision_min):
                 break
         if a == False:
             break
-    if ind_f == 1:
-        return 2
-    return ind_f
+    return 2 if ind_f == 1 else ind_f
 
 
 def clustering_dyadique(X, SHAP, n_clusters, default):
     m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
     l = m_kmeans.fit_predict([X, SHAP])
-    if default == False:
-        return create_list_invert(l, max(l) + 1), l
-    else:
+    if default != False:
         X_train = pd.DataFrame(X.copy())
         recall_min = 0.8
         precision_min = 0.8
@@ -100,4 +96,31 @@ def clustering_dyadique(X, SHAP, n_clusters, default):
                 max_ += k
                 l[indices] = labels
         l = reset_list(l)
-        return create_list_invert(l, max(l) + 1), l
+    return create_list_invert(l, max(l) + 1), l
+
+
+def fonction_auto_clustering(X, SHAP, n_clusters, default):
+    """
+    Function that allows to cluster the data in a dyadic way : the clusters are both in the X and SHAP spaces.
+    The clustering is done by the function antakia.clustering_dyadique from the module fonction_auto (see fonction_auto.py).
+
+    Parameter
+    ---------
+    X : pandas dataframe
+        The dataframe containing the data to cluster.
+    SHAP : pandas dataframe
+        The dataframe containing the SHAP values of the data to cluster.
+    n_clusters : int
+        The number of clusters to create.
+    default : bool
+        If False, the clustering will be done with a fixed number of cluster (n_clusters). If True, the clustering will be done with a variable number of clusters.
+        The algorithm will then try to find the best number of clusters to use.
+
+    Returns
+    -------
+    clusters : list
+        A list of lists, each list being a cluster. Each cluster is a list of indices of the data in the dataframe X.
+    clusters_axis : list
+        A list of size len(X), each element being the axis of the cluster the corresponding data belongs to.
+    """
+    return clustering_dyadique(X, SHAP, n_clusters, default)

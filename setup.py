@@ -4,7 +4,6 @@ with open("requirements.txt") as f:
     lines = f.read()
 
 requirements = [line for line in lines.split("\n") if line != ""]
-print(requirements)
 
 setuptools.setup(
     name="antakia",
