@@ -39,5 +39,5 @@ markdown_extensions:
       emoji_index: !!python/name:materialx.emoji.twemoji
       emoji_generator: !!python/name:materialx.emoji.to_svg
 
-repo_url: https://github.com/AI-vidence
+repo_url: https://github.com/AI-vidence/antakia
 repo_name: ai-vidence/antakia

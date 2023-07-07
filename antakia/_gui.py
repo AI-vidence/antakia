@@ -1,33 +1,34 @@
-# variables globales
-# on initialise les variables
-list_of_regions = []
-list_of_sub_models = []
-color_regions = []
-columns_names = None
-points_selected = []
-X_train = None
-y_train = None
-SHAP_train = None
-saved_rules = None
-other_columns = None
-elements_final_accordion = []
-valider_bool = False
+# on initialise les variables globales
+list_of_regions = (
+    []
+)  # TODO à mettre dans AntakIA. Avec une fonction getRegions() publique pour le DS
+list_of_sub_models = (
+    []
+)  # TODO dans AntakIA. Methode getSModels() réservée à GUI. N'intéresse pas le DS
+color_regions = []  # TODO. Pourrait être directement un dict : {"RED":255,0,0, ...}
+columns_names = None  # TODO cf supra
+points_selected = (
+    []
+)  # TODO ok Mais ce n'est pas une variable globale. Doit être visible du DS via un getSelection()
+SHAP_train = None  # TODO : je pense que ce serait + lisible de mettre value space, test, Y, Ychapeu, midel, et explanation space dans une seule classe Dataset
+saved_rules = None  # TODO quid d'une classe Potato qui aurait plusieurs états (des constantes LASSO, SKOPE, FINETUNE, FINAL) et, sauf LASSO, un jeu de règles associé. Les règles pourraient être dans un dict ?
+other_columns = None  # TODO renommer ?
+valider_bool = False  # TODO ça serait pas un attribut de la classe Potato ?
 a = [0] * 10
-all_rules = [a, a, a, a, a, a, a, a, a, a]
-all_histograms = []
-all_beeswarms = []
-all_color_choosers_beeswarms = []
-X_not_scaled = None
-Y_not_scaled = None
-SHAP_not_scaled = None
-colors_business_gui = None
-all_beeswarms_total = None
-model_choice = None
-Y_auto = None
-all_tiles_rules = []
-result_dyadic_clustering = None
-all_models = None
+all_rules = [a, a, a, a, a, a, a, a, a, a]  # TODO ça serait pas une règle dans Potato ?
+X_not_scaled = None  # TODO devrait être interne à GUI, pas global
+Y_not_scaled = None  # TODO devrait être interne à GUI, pas global
+SHAP_not_scaled = None  # TODO dans AntakIA?
+colors_business_gui = None  # TODO il faudrait virer le code de la vue métier, mais conserver un bouton "copy URL to setup a live session with collegues"
+model_choice = None  # TODO on choisit depuis GUI, mais c'est stocké dans AntakIA
+Y_auto = None  # TODO pas encore pigé. Mais plus on place les variables dans une classe, + c'est facile à lire
+all_tiles_rules = []  # TODO idem
+result_dyadic_clustering = None  # TODO idem
+all_models = None  # TODO idem
 
+print("newwW")
+
+# TODO : grouper les imports
 import os
 
 import shutup
@@ -92,6 +93,9 @@ from antakia.utils import load_save
 from antakia.utils import fonction_auto_clustering
 
 
+# TODO : faire une class GUI
+
+
 class Mixin:
     def gui(
         self,
@@ -109,23 +113,33 @@ class Mixin:
         ----------
         explanation : str
             The type of explanation to display. It can be "SHAP" or "LIME".
+            TODO : à mon avis, le GUI démarre en SHAP et permet de passer en LIME.
+            TODO : les calculs de SHAP ou LIME sont lancés depuis AntakIA en local ou envoyés à un serveur (avec GPU) distant. Je suggère que les fonctions de calcul long implémentent l'interface LongTask avec les métodes (start, update etc.)
         exp_val : pandas dataframe
             The dataframe containing the explanations of the model if already computed.
+            TODO : ok. On pourrait aussi appeler ça Explanations Space
         X_all : pandas dataframe
             The dataframe containing the entire data. It is used to compute the explanations if they are not already computed.
+            TODO : ok. Pourquoi "all" ? Sinon, Values Spaces irait aussi
         default_projection : str
             The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
+            TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
         map : bool
             If True, the map is displayed. If False, the map is not displayed.
+            # TODO : préciser que l'on parle d'une carte géographqiue à partir de lat/lon
         sub_models : list
-            The list of sub-models to display.
+            The list of sub-models to display
+            # TODO : qu'est-ce que ça fait là ? S'il s'agit du constructeur du GUI. EN outre, c'est plutôt à AntakIA à maintenir cette liste surrogates
         save_regions : list
             The list of regions to display.
+            # TODO : ce n'est pas au GUI de maintenir cette liste, mais à AntakIA
         """
 
         X = self.X
         Y = self.Y
         model = self.model
+
+        # TODO Mettre toutes ces fonctions dans un module compute.py (par ex). Ce ne sont que des implémentatiosn de la même interface DimensionReduc. Et leur ferai implémenter une 2ème interface, "LongTask"
 
         def red_PCA(X, n, default):
             # definition of the method PCA, used for the EE and the EV
@@ -169,6 +183,7 @@ class Mixin:
             embedding = pd.DataFrame(embedding)
             return embedding
 
+        # TODO : Ces submodels ont vocation à être nombreux. On pourrait créer un module surrogates.py, avec une classe abstraite Surrogate (ou bien une classe abstraite Model de Scikitlearn ?) et plusieurs implémentation. Il doit être facile à un développeur d'en importer d'autres
         # list of sub_models used
         # we will used these models only if the user do not give a list of sub_models
         global all_models
@@ -189,12 +204,14 @@ class Mixin:
                         a += 1
             return gliste
 
+        # TODO et si on mettait dans la classe Potato, en plus des règles, une instance d'un modèle de substiuttion. Du coup le score serait calculé dans Potato
         def fonction_score(y, y_chap):
             # function that calculates the score of a machine-learning model
             y = np.array(y)
             y_chap = np.array(y_chap)
             return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
 
+        # TODO GUI doit avoir un constructeur qui crée tous les widgets et leur définit un tooltip.
         def add_tooltip(widget, text):
             # function that allows you to add a tooltip to a widget
             wid = v.Tooltip(
@@ -298,7 +315,7 @@ class Mixin:
         X_base.columns = X.columns
 
         # wait screen definition
-
+        # TODO et pourquopi pas une sous classe Splash Screen ? Que l'on traiterait comme un widget
         from importlib.resources import files
 
         data_path = files("antakia.assets").joinpath("logo_antakia.png")
@@ -307,6 +324,7 @@ class Mixin:
             value=open(data_path, "rb").read(), layout=Layout(width="230px")
         )
 
+        # TODO ces barres de progresssion doivent refléter le travail d'une LongTask qui s'éxécute dans un Thread dédié
         # waiting screen progress bars definition
         progress_shap = v.ProgressLinear(
             style_="width: 80%",
@@ -399,6 +417,7 @@ class Mixin:
         # we send the splash screen
         display(splash)
 
+        # TODO Vivement que tout ce code avant et ci-dessous soit dans une sous-classe ad hoc! D'ailleurs, ce serait encore mieux de mettre ça dans un module SplashScreen.py
         def generation_texte(i, tot, time_init, progress):
             # allows to generate the progress text of the progress bar
             time_now = round((time.time() - time_init) / progress * 100, 1)
@@ -425,6 +444,7 @@ class Mixin:
                 + "s)"
             )
 
+        # TODO A mettre dans AntakIA et à exécuter dans un Thread LongTask
         def get_SHAP(X, model):
             # calculates SHAP explanatory values
             time_init = time.time()
@@ -443,6 +463,7 @@ class Mixin:
             shap_values.columns = j
             return shap_values
 
+        # TODO id
         def get_LIME(X, model):
             # allows to calculate LIME explanatory values ​​(NOT WORKING YET)
             time_init = time.time()
@@ -486,6 +507,8 @@ class Mixin:
 
         # definition of the default projection
         # base, we take the PaCMAP projection
+        # TODO : penser à traduire en EN
+        # TODO : on ne pourrait pas (comme SHAP) choisir PACMAC par défaut ?
         if default_projection == "UMAP":
             prog_red.children[2].children[0].children = "Espace des valeurs... "
             choix_init_proj = 2
@@ -643,6 +666,8 @@ class Mixin:
         params_proj_EV = widgets.VBox(
             [tous_sliders_EV, deux_boutons_params], layout=Layout(width="100%")
         )
+
+        # TODO : quitte à séparer GUI en plusieurs modules, on ne pourrait pas organiser le code selon les 4 étapes / onglets ? On gagnerait énormément en lisibilité
 
         def changement_params_EV(*b):
             # function that updates the projections when changing the parameters of the projection
@@ -2482,7 +2507,6 @@ class Mixin:
             go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
         )
 
-        global all_histograms
         all_histograms = [histogram1, histogram2, histogram3]
 
         def fonction_beeswarm_shap(nom_colonne):
@@ -2659,13 +2683,10 @@ class Mixin:
         total_essaim_3 = widgets.VBox([choix_couleur_essaim3, essaim3])
         total_essaim_3.layout.margin = "0px 0px 0px 20px"
 
-        global all_beeswarms_total
         all_beeswarms_total = [total_essaim_1, total_essaim_2, total_essaim_3]
 
-        global all_beeswarms
         all_beeswarms = [essaim1, essaim2, essaim3]
 
-        global all_color_choosers_beeswarms
         all_color_choosers_beeswarms = [
             choix_couleur_essaim1,
             choix_couleur_essaim2,
@@ -2712,10 +2733,7 @@ class Mixin:
             layout=Layout(align_items="center"),
         )
 
-        global elements_final_accordion
-        elements_final_accordion.append(dans_accordion1)
-        elements_final_accordion.append(dans_accordion2)
-        elements_final_accordion.append(dans_accordion3)
+        elements_final_accordion = [dans_accordion1, dans_accordion2, dans_accordion3]
 
         # we define several accordions in this way to be able to open several at the same time
         dans_accordion1_n = v.ExpansionPanels(
@@ -3074,7 +3092,6 @@ class Mixin:
         valider_change_3.on_event("click", fonction_change_valider_3)
 
         def regles_to_indices():
-            indices_respectent_skope = []
             liste_bool = [True] * len(X)
             for i in range(len(X)):
                 for j in range(len(all_rules)):
@@ -3084,25 +3101,17 @@ class Mixin:
                         or X_base.iloc[i, colonne] > all_rules[j][4]
                     ):
                         liste_bool[i] = False
-            indices_respectent_skope = [i for i in range(len(X)) if liste_bool[i]]
-            return indices_respectent_skope
+            temp = [i for i in range(len(X)) if liste_bool[i]]
+            return temp
 
-        def fonction_scores_models(indices_respectent_skope):
-            if indices_respectent_skope == None:
-                indices_respectent_skope = regles_to_indices()
-            result_models = fonction_models(
-                X.iloc[indices_respectent_skope, :], Y.iloc[indices_respectent_skope]
-            )
+        def fonction_scores_models(temp):
+            if temp == None:
+                temp = regles_to_indices()
+            result_models = fonction_models(X.iloc[temp, :], Y.iloc[temp])
             score_tot = []
             for i in range(len(sub_models)):
-                score_tot.append(
-                    fonction_score(
-                        Y.iloc[indices_respectent_skope], result_models[i][-2]
-                    )
-                )
-            score_init = fonction_score(
-                Y.iloc[indices_respectent_skope], Y_pred[indices_respectent_skope]
-            )
+                score_tot.append(fonction_score(Y.iloc[temp], result_models[i][-2]))
+            score_init = fonction_score(Y.iloc[temp], Y_pred[temp])
             if score_init == 0:
                 l_compar = ["/"] * len(sub_models)
             else:
@@ -3161,6 +3170,9 @@ class Mixin:
 
             for i in range(len(sub_models)):
                 mods.children[i].children[0].children[1].children = str_md(i)
+
+        X_train = X_base.copy()
+        y_train = []
 
         # when you click on the skope-rules button
         def fonction_validation_skope(*sender):
@@ -3250,7 +3262,6 @@ class Mixin:
                     le_min = []
                     global all_rules
                     all_rules = []
-                    global all_histograms
 
                     def f_rond(a):
                         return np.round(a, 2)
@@ -3549,13 +3560,11 @@ class Mixin:
                         + chaine_carac[1][2]
                     ]
                     une_carte_EE.children = generate_card(chaine_carac[0])
+                    fonction_scores_models(indices_respectent_skope)
+                    self.selection = indices_respectent_skope
             slider_skope1.on_event("input", on_value_change_skope1)
             slider_skope2.on_event("input", on_value_change_skope2)
             slider_skope3.on_event("input", on_value_change_skope3)
-
-            fonction_scores_models(indices_respectent_skope)
-
-            self.selection = indices_respectent_skope
 
             loading_models.class_ = "d-none"
 
@@ -3798,16 +3807,16 @@ class Mixin:
         trouve_clusters.on_event("click", fonction_clusters)
 
         # function which is called as soon as the points are selected (step 1)
+        y_train = []
+
         def selection_fn(trace, points, selector, *args):
-            global X_train
+            print(y_train)
             global SHAP_train
-            global y_train
             if len(args) > 0:
                 liste = args[0]
                 les_points = liste
             else:
                 les_points = points.point_inds
-            # function that is called when the user makes a selection
             self.selection = les_points
             if len(les_points) == 0:
                 card_selec.children[0].children[1].children = "0 point !"
@@ -3826,8 +3835,9 @@ class Mixin:
                 + str(round(len(les_points) / len(X_base) * 100, 2))
                 + "% de l'ensemble)"
             )
-            y_train = []
             opa = []
+            if y_train != []:
+                y_train = []
             for i in range(len(fig2.data[0].x)):
                 if i in les_points:
                     opa.append(1)
@@ -4219,7 +4229,6 @@ class Mixin:
                 )
             )
 
-            global all_histograms
             all_histograms.append(new_histogram)
 
             def new_fonction_change_valider(*change):
@@ -4325,16 +4334,13 @@ class Mixin:
             new_essaim_tot = widgets.VBox([new_choix_couleur_essaim, new_essaim])
             new_essaim_tot.layout.margin = "0px 0px 0px 20px"
 
-            global all_beeswarms_total
             all_beeswarms_total.append(new_essaim_tot)
 
             if not check_beeswarm.v_model:
                 new_essaim_tot.layout.display = "none"
 
-            global all_beeswarms
             all_beeswarms.append(new_essaim)
 
-            global all_color_choosers_beeswarms
             all_color_choosers_beeswarms.append(new_choix_couleur_essaim)
 
             widget_list_add_skope.items = other_columns
@@ -4356,14 +4362,10 @@ class Mixin:
                         ii = i
                         break
                 elements_final_accordion.pop(ii)
-                global all_beeswarms_total
                 all_beeswarms_total.pop(ii)
-                global all_histograms
                 all_histograms.pop(ii)
                 all_rules.pop(ii)
-                global all_beeswarms
                 all_beeswarms.pop(ii)
-                global all_color_choosers_beeswarms
                 all_color_choosers_beeswarms.pop(ii)
                 global other_columns
                 other_columns = [colonne_2] + other_columns
@@ -4469,7 +4471,6 @@ class Mixin:
 
             new_slider_skope.on_event("input", new_on_value_change_skope)
 
-            global elements_final_accordion
             elements_final_accordion.append(new_dans_accordion)
 
         voir_selec_ou_non = widgets.Checkbox(
