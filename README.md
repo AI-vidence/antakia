@@ -7,8 +7,11 @@
     La solution XAI qui parle à tout le monde
   </p>
 
+<<<<<<< HEAD
   <a href="https://ai-vidence.github.io/antakia/"><strong>Explore the docs »</strong></a>
 
+=======
+>>>>>>> d52101bce3abd5085f3ea47a4d5e1b95209494f0
 </div>
 
 <br />

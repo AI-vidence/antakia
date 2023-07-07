@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 # User guide
 
 Example of usage (find more examples in the <a href="https://code.ai-vidence.com/laurent/antakia/">examples</a> folder)
+=======
+# :eyes: Usage
+
+Example of usage (find more example in the <a href="https://code.ai-vidence.com/laurent/antakia/">example</a> folder)
+>>>>>>> d52101bce3abd5085f3ea47a4d5e1b95209494f0
 
 In a notebook :
 

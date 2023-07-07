@@ -1,5 +1,14 @@
 """
 Utils module for the antakia package.
+<<<<<<< HEAD
+=======
+
+This module contains the following functions:
+    - fonction_auto_clustering
+    - create_save
+    - load_save
+    - from_rules
+>>>>>>> d52101bce3abd5085f3ea47a4d5e1b95209494f0
 """
 
 import numpy as np
