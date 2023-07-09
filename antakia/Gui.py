@@ -96,7 +96,6 @@ class Gui():
             TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
         sub_models : list
             The list of sub-models to choose from for each region created by the user.
-            # TODO : qu'est-ce que ça fait là ? S'il s'agit du constructeur du GUI. EN outre, c'est plutôt à AntakIA à maintenir cette liste surrogates
         save_regions : list
             The list of regions to display.
             # TODO : ce n'est pas au GUI de maintenir cette liste, mais à AntakIA
@@ -111,6 +110,7 @@ class Gui():
 
         # Publique :
         self.selection = []
+
 
         # Privé :
         self.__list_of_regions = []
@@ -435,8 +435,13 @@ class Gui():
         if calculus == True:
             if explanation == "SHAP":
                 SHAP = get_SHAP(self.__X_not_scaled, model)
+                xplainer.SHAP_values = SHAP.copy()
             elif explanation == "LIME":
                 SHAP = get_LIME(self.__X_not_scaled, model)
+                xplainer.LIME_values = SHAP.copy()
+            #elif explanation == "BANZHAF":
+            #    SHAP = get_BANZHAF(self.__X_not_scaled, model)
+            #    xplainer.BANZHAF_values = SHAP.copy()
             else:
                 SHAP = explanation_values
         else:

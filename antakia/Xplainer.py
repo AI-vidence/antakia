@@ -20,6 +20,12 @@ class Xplainer():
         The list of the indices of the data currently selected by the user.
     gui : Gui object
         The Gui object that contains the interface.
+    SHAP_values : pandas dataframe
+        The dataframe containing the SHAP values of the data.
+    LIME_values : pandas dataframe
+        The dataframe containing the LIME values of the data.
+    BANZHAF_values : pandas dataframe
+        The dataframe containing the BANZHAF values of the data.
     """
 
     def __init__(self, X: pd.DataFrame, Y: pd.Series = None, model: object = None):
@@ -45,6 +51,9 @@ class Xplainer():
         self.Y = Y
         self.model = model
         self.gui = None
+        self.SHAP_values = None
+        self.LIME_values = None
+        self.BANZHAF_values = None
 
     def __str__(self):
         """
