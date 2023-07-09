@@ -1,10 +1,9 @@
 import pandas as pd
 import numpy as np
 
-import antakia._gui as _gui
+from antakia.Gui import Gui
 
-
-class Xplainer(_gui.Mixin):
+class Xplainer():
     """
     Xplainer object.
     This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
@@ -43,10 +42,25 @@ class Xplainer(_gui.Mixin):
         self.X = X
         self.Y = Y
         self.model = model
-        self.selection = []
+        self.gui = None
 
     def __str__(self):
         """
         Function that allows to print the Xplainer object.
         """
         print("Xplainer object")
+
+    def startGui(self,
+                explanation: str = "SHAP",
+                exp_val: pd.DataFrame = None,
+                X_all: pd.DataFrame = None,
+                default_projection: str = "PaCMAP",
+                sub_models: list = None,
+                save_regions: list = None,
+                display = True,):
+        """
+        Function that starts the interface.
+        """
+        self.gui = Gui(self, explanation, exp_val, X_all, default_projection, sub_models, save_regions)
+        if display:
+            self.gui.display()

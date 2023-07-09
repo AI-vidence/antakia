@@ -1,109 +1,63 @@
-# on initialise les variables globales
-list_of_regions = (
-    []
-)  # TODO à mettre dans AntakIA. Avec une fonction getRegions() publique pour le DS
-list_of_sub_models = (
-    []
-)  # TODO dans AntakIA. Methode getSModels() réservée à GUI. N'intéresse pas le DS
-color_regions = []  # TODO. Pourrait être directement un dict : {"RED":255,0,0, ...}
-columns_names = None  # TODO cf supra
-points_selected = (
-    []
-)  # TODO ok Mais ce n'est pas une variable globale. Doit être visible du DS via un getSelection()
-SHAP_train = None  # TODO : je pense que ce serait + lisible de mettre value space, test, Y, Ychapeu, midel, et explanation space dans une seule classe Dataset
-saved_rules = None  # TODO quid d'une classe Potato qui aurait plusieurs états (des constantes LASSO, SKOPE, FINETUNE, FINAL) et, sauf LASSO, un jeu de règles associé. Les règles pourraient être dans un dict ?
-other_columns = None  # TODO renommer ?
-valider_bool = False  # TODO ça serait pas un attribut de la classe Potato ?
-a = [0] * 10
-all_rules = [a, a, a, a, a, a, a, a, a, a]  # TODO ça serait pas une règle dans Potato ?
-X_not_scaled = None  # TODO devrait être interne à GUI, pas global
-Y_not_scaled = None  # TODO devrait être interne à GUI, pas global
-SHAP_not_scaled = None  # TODO dans AntakIA?
-colors_business_gui = None  # TODO il faudrait virer le code de la vue métier, mais conserver un bouton "copy URL to setup a live session with collegues"
-model_choice = None  # TODO on choisit depuis GUI, mais c'est stocké dans AntakIA
-Y_auto = None  # TODO pas encore pigé. Mais plus on place les variables dans une classe, + c'est facile à lire
-all_tiles_rules = []  # TODO idem
-result_dyadic_clustering = None  # TODO idem
-all_models = None  # TODO idem
+#Importations
 
-print("newwW")
-
-# TODO : grouper les imports
+# Imports Python
 import os
-
-import shutup
-
-shutup.please()
-
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
-import umap
-import pandas as pd
-import numpy as np
-import ipywidgets as widgets
-from ipywidgets import Layout
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
-import pacmap
-
-from copy import deepcopy
-
-from IPython.display import display, clear_output, HTML
-
-import plotly.graph_objects as go
-
-from skrules import SkopeRules
-
+import sys
 import time
+from copy import deepcopy
+import json
+import webbrowser
 
-import shap
-
+# Imports warnings
 import warnings
 from numba.core.errors import NumbaDeprecationWarning
-
 warnings.simplefilter(action="ignore", category=FutureWarning)
 warnings.simplefilter(action="ignore", category=UserWarning)
 warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
 warnings.filterwarnings("ignore")
 
+# Imports data science
+import pandas as pd
+import numpy as np
+import umap
+import pacmap
+import shap
 import lime
 import lime.lime_tabular
+from skrules import SkopeRules
 
+# Imports sklearn
+from sklearn.manifold import TSNE
+from sklearn.decomposition import PCA
 from sklearn import linear_model
 from sklearn import ensemble
-
 from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
 
+# Imports pour le GUI
+import ipywidgets as widgets
+from ipywidgets import Layout
+from IPython.display import display, clear_output, HTML
+import plotly.graph_objects as go
 import plotly.express as px
-
 import ipyvuetify as v
-
 import seaborn as sns
 
-import json
-
-import webbrowser
-
-import os
-import sys
-
+# Import internes
 from antakia.utils import from_rules
 from antakia.utils import create_save
 from antakia.utils import load_save
 from antakia.utils import fonction_auto_clustering
 
-
-# TODO : faire une class GUI
-
-
-class Mixin:
-    def gui(
+class Gui():
+    def __init__(
         self,
-        explanation: str = "None",
-        exp_val: pd.DataFrame = None,
+        xplainer,
+        explanation: str = "SHAP",
+        explanation_values: pd.DataFrame = None,
         X_all: pd.DataFrame = None,
         default_projection: str = "PaCMAP",
-        map: bool = False,
         sub_models: list = None,
         save_regions: list = None,
     ):
@@ -112,21 +66,16 @@ class Mixin:
         Parameters
         ----------
         explanation : str
-            The type of explanation to display. It can be "SHAP" or "LIME".
-            TODO : à mon avis, le GUI démarre en SHAP et permet de passer en LIME.
+            The type of explanation to display. It can be "SHAP" or "LIME". Default : "SHAP".
             TODO : les calculs de SHAP ou LIME sont lancés depuis AntakIA en local ou envoyés à un serveur (avec GPU) distant. Je suggère que les fonctions de calcul long implémentent l'interface LongTask avec les métodes (start, update etc.)
-        exp_val : pandas dataframe
+        explanation_values : pandas dataframe
             The dataframe containing the explanations of the model if already computed.
-            TODO : ok. On pourrait aussi appeler ça Explanations Space
         X_all : pandas dataframe
             The dataframe containing the entire data. It is used to compute the explanations if they are not already computed.
             TODO : ok. Pourquoi "all" ? Sinon, Values Spaces irait aussi
         default_projection : str
             The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
             TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
-        map : bool
-            If True, the map is displayed. If False, the map is not displayed.
-            # TODO : préciser que l'on parle d'une carte géographqiue à partir de lat/lon
         sub_models : list
             The list of sub-models to display
             # TODO : qu'est-ce que ça fait là ? S'il s'agit du constructeur du GUI. EN outre, c'est plutôt à AntakIA à maintenir cette liste surrogates
@@ -134,11 +83,50 @@ class Mixin:
             The list of regions to display.
             # TODO : ce n'est pas au GUI de maintenir cette liste, mais à AntakIA
         """
+        self.xplainer = xplainer
+        self.explanation = explanation
+        self.explanation_values = explanation_values
+        self.X_all = X_all
+        self.default_projection = default_projection
+        self.sub_models = sub_models
+        self.save_regions = save_regions
 
-        X = self.X
-        Y = self.Y
-        model = self.model
+        # Publique :
+        self.selection = []
 
+        # Privé :
+        self.__list_of_regions = []
+        self.__list_of_sub_models = []
+        self.__color_regions = []
+        self.__columns_names = None
+        self.__save_rules = None
+        self.__other_columns = None
+        self.__valider_bool = False
+        self.__SHAP_train = None # class Dataset ? Intêret ? À discuter !
+        a = [0] * 10
+        self.__all_rules = [a, a, a, a, a, a, a, a, a, a]
+        self.__X_not_scaled = None
+        self.__Y_not_scaled = None 
+        self.__SHAP_not_scaled = None
+        self.__model_choice = None
+        self.__Y_auto = None
+        self.__all_tiles_rules = []
+        self.__result_dyadic_clustering = None
+        self.__all_models = None
+        self.__score_models = []
+
+    def display(self):
+        xplainer = self.xplainer
+        explanation = self.explanation
+        explanation_values = self.explanation_values
+        X_all = self.X_all
+        default_projection = self.default_projection
+        sub_models = self.sub_models
+        save_regions = self.save_regions
+        
+        X = xplainer.X
+        Y = xplainer.Y
+        model = xplainer.model
         # TODO Mettre toutes ces fonctions dans un module compute.py (par ex). Ce ne sont que des implémentatiosn de la même interface DimensionReduc. Et leur ferai implémenter une 2ème interface, "LongTask"
 
         def red_PCA(X, n, default):
@@ -186,8 +174,7 @@ class Mixin:
         # TODO : Ces submodels ont vocation à être nombreux. On pourrait créer un module surrogates.py, avec une classe abstraite Surrogate (ou bien une classe abstraite Model de Scikitlearn ?) et plusieurs implémentation. Il doit être facile à un développeur d'en importer d'autres
         # list of sub_models used
         # we will used these models only if the user do not give a list of sub_models
-        global all_models
-        all_models = [
+        self.__all_models = [
             linear_model.LinearRegression(),
             RandomForestRegressor(random_state=9),
             ensemble.GradientBoostingRegressor(random_state=9),
@@ -231,39 +218,34 @@ class Mixin:
         # we initialize the variables once: case where we launch antakia.start() twice in the same notebook!
 
         if sub_models != None:
-            all_models = sub_models
+            self.__all_models = sub_models
         liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
         X = X.reset_index(drop=True)
-        global list_of_regions
-        list_of_regions = []
-        global list_of_sub_models
-        list_of_sub_models = []
+        self.__list_of_sub_models = []
 
-        global Y_not_scaled
-        Y_not_scaled = Y.copy()
+        self.__Y_not_scaled = Y.copy()
 
-        global columns_names
-        columns_names = X.columns.values[:3]
+        self.__columns_names = X.columns.values[:3]
 
         def check_all(
-            X, Y, explanation, exp_val, model, X_all, default_projection, map
+            X, Y, explanation, explanation_values, model, X_all, default_projection
         ):
             # function that allows you to check that you have all the necessary information
-            if explanation is None and exp_val is None:
+            if explanation is None and explanation_values is None:
                 return "Il faut renseigner soit un modèle d'explication, soit les valeurs de ces explications !"
 
             if (
-                explanation != None
-                and type(exp_val) != pd.core.frame.DataFrame
-                and exp_val != None
+                type(explanation) != type(None)
+                and type(explanation_values) != pd.core.frame.DataFrame
+                and type(explanation_values) != type(None)
             ):
-                return "Il faut renseigner soit un modèle d'explication (dans Explanations), soit les valeurs déjà calculé de ces explications (dans exp_val), pas les deux !"
+                return "Il faut renseigner soit un modèle d'explication (dans Explanations), soit les valeurs déjà calculé de ces explications (dans explanation_values), pas les deux !"
 
             if (
-                explanation != None
+                type(explanation) != type(None)
                 and model == None
-                and type(exp_val) != pd.core.frame.DataFrame
-                and exp_val == None
+                and type(explanation_values) != pd.core.frame.DataFrame
+                and type(explanation_values) == type(None)
             ):
                 return "Il faut renseigner le modèle de machine-learning utilisé !"
 
@@ -273,11 +255,11 @@ class Mixin:
             return True
 
         if (
-            check_all(X, Y, explanation, exp_val, model, X_all, default_projection, map)
+            check_all(X, Y, explanation, explanation_values, model, X_all, default_projection)
             != True
         ):
             return check_all(
-                X, Y, explanation, exp_val, model, X_all, default_projection, map
+                X, Y, explanation, explanation_values, model, X_all, default_projection
             )
 
         if X_all is None:
@@ -307,9 +289,8 @@ class Mixin:
         Y_pred = model.predict(X)
         columns_de_X = X.columns
         X_base = X.copy()
-        global X_not_scaled
-        # X_not_scaled is the starting X, before standardization
-        X_not_scaled = X.copy()
+        # self.__X_not_scaled is the starting X, before standardization
+        self.__X_not_scaled = X.copy()
         X = pd.DataFrame(StandardScaler().fit_transform(X))
         X.columns = [columns_de_X[i].replace(" ", "_") for i in range(len(X.columns))]
         X_base.columns = X.columns
@@ -402,7 +383,8 @@ class Mixin:
         )
 
         # here, we will define the widgets that will be used in the rest of the program
-        if explanation == "SHAP" or explanation == "LIME" and exp_val == None:
+        calculus = False
+        if (explanation == "SHAP" or explanation == "LIME") and type(explanation_values) == type(None):
             calculus = True
         else:
             calculus = False
@@ -490,18 +472,19 @@ class Mixin:
                 )
             return LIME
 
-        if explanation == "SHAP":
-            SHAP = get_SHAP(X_not_scaled, model)
-            calculus = True
-        elif explanation == "LIME":
-            SHAP = get_LIME(X_not_scaled, model)
-            calculus = True
+        if calculus == True:
+            if explanation == "SHAP":
+                SHAP = get_SHAP(self.__X_not_scaled, model)
+            elif explanation == "LIME":
+                SHAP = get_LIME(self.__X_not_scaled, model)
+            else:
+                SHAP = explanation_values
+                calculus = False
         else:
-            SHAP = exp_val
+            SHAP = explanation_values
             calculus = False
 
-        global SHAP_not_scaled
-        SHAP_not_scaled = SHAP.copy()
+        self.__SHAP_not_scaled = SHAP.copy()
 
         choix_init_proj = 3
 
@@ -962,20 +945,19 @@ class Mixin:
                 scale = False
                 couleur = [0] * len(X_base)
                 for i in range(len(X_base)):
-                    for j in range(len(list_of_regions)):
-                        if i in list_of_regions[j]:
+                    for j in range(len(self.__list_of_regions)):
+                        if i in self.__list_of_regions[j]:
                             couleur[i] = j + 1
             elif couleur_radio.v_model == "Non selec":
                 scale = False
                 couleur = ["red"] * len(X_base)
-                if len(list_of_regions) > 0:
+                if len(self.__list_of_regions) > 0:
                     for i in range(len(X_base)):
-                        for j in range(len(list_of_regions)):
-                            if i in list_of_regions[j]:
+                        for j in range(len(self.__list_of_regions)):
+                            if i in self.__list_of_regions[j]:
                                 couleur[i] = "grey"
             elif couleur_radio.v_model == "Clustering auto":
-                global Y_auto
-                couleur = Y_auto
+                couleur = self.__Y_auto
                 a_modifier = False
                 scale = False
             with fig1.batch_update():
@@ -1106,7 +1088,7 @@ class Mixin:
                 sys.stdout = sys.__stdout__
 
             blockPrint()
-            SHAP.to_csv("data_save/exp_val.csv")
+            SHAP.to_csv("data_save/explanation_values.csv")
             enablePrint()
 
         bouton_save_shap = v.Btn(
@@ -1274,7 +1256,6 @@ class Mixin:
             if len(table_save.v_model) == 0:
                 return
             indice = table_save.v_model[0]["Sauvegarde #"] - 1
-            global list_of_regions
             n = []
             for i in range(int(max(save_regions[indice]["liste"])) + 1):
                 temp = []
@@ -1283,10 +1264,9 @@ class Mixin:
                         temp.append(j)
                 if len(temp) > 0:
                     n.append(temp)
-            list_of_regions = n
+            self.__list_of_regions = n
             couleur = deepcopy(save_regions[indice]["liste"])
-            global color_regions
-            color_regions = deepcopy(couleur)
+            self.__color_regions = deepcopy(couleur)
             with fig1.batch_update():
                 fig1.data[0].marker.color = couleur
                 fig1.data[0].marker.opacity = 1
@@ -1300,14 +1280,13 @@ class Mixin:
             couleur_radio.v_model = "Régions"
             fig1.update_traces(marker=dict(showscale=False))
             fig2.update_traces(marker=dict(showscale=False))
-            global list_of_sub_models
-            if len(save_regions[indice]["sub_models"]) != len(list_of_regions):
-                list_of_sub_models = [[None, None, None]] * len(list_of_regions)
+            if len(save_regions[indice]["sub_models"]) != len(self.__list_of_regions):
+                self.__list_of_sub_models = [[None, None, None]] * len(self.__list_of_regions)
             else:
-                list_of_sub_models = []
-                for i in range(len(list_of_regions)):
+                self.__list_of_sub_models = []
+                for i in range(len(self.__list_of_regions)):
                     nom = save_regions[indice]["sub_models"][i].__class__.__name__
-                    indices_respectent = list_of_regions[i]
+                    indices_respectent = self.__list_of_regions[i]
                     score_init = fonction_score(
                         Y.iloc[indices_respectent], Y_pred[indices_respectent]
                     )
@@ -1325,7 +1304,7 @@ class Mixin:
                     else:
                         l_compar = round(100 * (score_init - score_reg) / score_init, 1)
                     score = [score_reg, score_init, l_compar]
-                    list_of_sub_models.append([nom, score, -1])
+                    self.__list_of_sub_models.append([nom, score, -1])
             fonction_validation_une_tuile()
 
         visu_save.on_event("click", fonction_visu_save)
@@ -1335,14 +1314,14 @@ class Mixin:
             if len(nom_sauvegarde.v_model) == 0 or len(nom_sauvegarde.v_model) > 25:
                 return
             l_m = []
-            if len(list_of_sub_models) == 0:
+            if len(self.__list_of_sub_models) == 0:
                 return
-            for i in range(len(list_of_sub_models)):
-                if list_of_sub_models[i][-1] == None:
+            for i in range(len(self.__list_of_sub_models)):
+                if self.__list_of_sub_models[i][-1] == None:
                     l_m.append(None)
                 else:
-                    l_m.append(sub_models[list_of_sub_models[i][-1]])
-            save = create_save(color_regions, nom_sauvegarde.v_model, l_m)
+                    l_m.append(sub_models[self.__list_of_sub_models[i][-1]])
+            save = create_save(self.__color_regions, nom_sauvegarde.v_model, l_m)
             save_regions.append(save)
             table_save = init_save(True)
             carte_save.children = [table_save[1], table_save[0]] + carte_save.children[
@@ -1437,7 +1416,7 @@ class Mixin:
             ],
         )
 
-        # map to manage backups, which opens
+        # card to manage backups, which opens
         carte_save = v.Card(
             elevation=0,
             children=[
@@ -1739,326 +1718,10 @@ class Mixin:
         EV_proj.on_event("change", update_scatter)
         EE_proj.on_event("change", update_scatter)
 
-        # radio buttons to choose the 2D or 3D view in the "business" part
-        visu_3D_label = widgets.Label(value="Dimension de la projection :")
-        visu_3D_check_2D = widgets.Checkbox(
-            value=False,
-            description="2D",
-            disabled=False,
-            layout=Layout(width="initial"),
-            indent=False,
-        )
-        visu_3D_check_3D = widgets.Checkbox(
-            value=True,
-            description="3D",
-            disabled=False,
-            layout=Layout(width="initial"),
-            indent=False,
-        )
-        visu_3D_check = widgets.HBox(
-            [visu_3D_check_2D, visu_3D_check_3D],
-            layout=Layout(display="flex", justify_content="flex-start"),
-        )
-
-        # in the "business" part, we change the projection
-        def update_visu2D(*args):
-            if visu_3D_check_2D.value:
-                visu_3D_check_3D.value = False
-
-        def update_visu3D(*args):
-            if visu_3D_check_3D.value:
-                visu_3D_check_2D.value = False
-
-        visu_3D_check_2D.observe(update_visu2D, "value")
-        visu_3D_check_3D.observe(update_visu3D, "value")
-
-        visu_3D = widgets.HBox(
-            [visu_3D_label, visu_3D_check],
-            layout=Layout(display="flex", justify_content="flex-start"),
-        )
-
-        # choice of axes of the "business" part
-        choix3_X = widgets.Dropdown(
-            options=X.columns,
-            value=X.columns[0],
-            description="Axe des X :",
-            style={"description_width": "initial"},
-            layout={"width": "initial"},
-        )
-        choix3_Y = widgets.Dropdown(
-            options=X.columns,
-            value=X.columns[1],
-            description="Axe des Y :",
-            style={"description_width": "initial"},
-            layout={"width": "initial"},
-        )
-        choix3_Z = widgets.Dropdown(
-            options=X.columns,
-            value=X.columns[2],
-            description="Axe des Z :",
-            style={"description_width": "initial"},
-            layout={"width": "initial"},
-        )
-
-        # allows you to update the axes of the "business" part
-        # fig 3: for the 2D view
-        # fig 4: for the 3D view
-        def update_scatter3(*args):
-            with fig3.batch_update():
-                fig3.data[0].x = np.array(X_base[choix3_X.value])
-                fig3.data[0].y = np.array(X_base[choix3_Y.value])
-            with fig4.batch_update():
-                fig4.data[0].x = np.array(X_base[choix3_X.value])
-                fig4.data[0].y = np.array(X_base[choix3_Y.value])
-                fig4.data[0].z = np.array(X_base[choix3_Z.value])
-                fig4.update_layout(scene=dict(xaxis_title=choix3_X.value))
-                fig4.update_layout(scene=dict(yaxis_title=choix3_Y.value))
-                fig4.update_layout(scene=dict(zaxis_title=choix3_Z.value))
-
-        choix3_X.observe(update_scatter3, "value")
-        choix3_Y.observe(update_scatter3, "value")
-        choix3_Z.observe(update_scatter3, "value")
-
-        choix3 = widgets.HBox([choix3_X, choix3_Y, choix3_Z])
-
-        global color_regions
-        color_regions = [0] * len(X_base)
-
-        # allows to update the color of the points of the "business" part of the 2D figure
-        marker3 = dict(
-            color=Y,
-            colorscale="Viridis",
-            colorbar=dict(
-                thickness=20,
-            ),
-        )
-
-        # 2D view of the business part
-        fig3 = go.FigureWidget(
-            data=go.Scatter(
-                x=X_base[choix3_X.value],
-                y=X_base[choix3_Y.value],
-                mode="markers",
-                marker=marker3,
-            )
-        )
-        fig3.update_layout(margin=dict(l=M, r=M, t=M, b=M), width=600)
-
-        # allows to update the color of the points of the "business" part of the 3D figure
-        marker4 = dict(
-            color=Y,
-            colorscale="Viridis",
-            colorbar=dict(
-                thickness=20,
-            ),
-            size=3,
-        )
-
-        # 3D view of the business part
-        fig4 = go.FigureWidget(
-            data=go.Scatter3d(
-                x=X_base[choix3_X.value],
-                y=X_base[choix3_Y.value],
-                z=X_base[choix3_Z.value],
-                mode="markers",
-                marker=marker4,
-            ),
-            layout=go.Layout(scene=dict(aspectmode="cube")),
-        )
-
-        fig4.update_layout(margin=dict(l=M, r=M, t=M, b=M), width=600)
-
-        fig4.update_layout(scene=dict(xaxis_title=choix3_X.value))
-        fig4.update_layout(scene=dict(yaxis_title=choix3_Y.value))
-        fig4.update_layout(scene=dict(zaxis_title=choix3_Z.value))
-
-        # allows to display a 2D or 3D view according to the user's choice
-        fig3_ou_4 = widgets.VBox([fig4])
-
-        # changes the graph according to the user's choice
-        def update_scatter3_3D(*args):
-            if visu_3D_check_2D.value:
-                choix3.children = [choix3_X, choix3_Y]
-                fig3_ou_4.children = [fig3]
-            if visu_3D_check_3D.value:
-                choix3.children = [choix3_X, choix3_Y, choix3_Z]
-                fig3_ou_4.children = [fig4]
-
-        visu_3D_check_2D.observe(update_scatter3_3D, "value")
-        visu_3D_check_3D.observe(update_scatter3_3D, "value")
-
-        # definition of the text that will give information on the regions in the "business" part
-        texte_metier = widgets.Textarea(
-            value="Informations relatives aux régions :",
-            placeholder="",
-            description="",
-            disabled=True,
-            layout=Layout(width="40%", height="300px"),
-        )
+        self.__color_regions = [0] * len(X_base)
 
         # definition of the table that will show the different results of the regions, with a stat of info about them
         table_regions = widgets.Output()
-
-        # business part card definition
-        if map:
-            carte_metier = go.FigureWidget(
-                data=go.Scattermapbox(
-                    lon=X_base["Longitude"],
-                    lat=X_base["Latitude"],
-                    mode="markers",
-                    marker=go.scattermapbox.Marker(
-                        color=Y, opacity=0.8, colorscale="Viridis"
-                    ),
-                )
-            )
-
-            # token used for mapbox API
-            mapbox_access_token = "pk.eyJ1IjoiYW50b2luZWVkeSIsImEiOiJjbGh3ZWt1OG0wajV6M2VudHUwdXd2dnp0In0.nUeAHDJt6BACJLP_Ye6qDA"
-
-            carte_metier.update_layout(
-                autosize=True,
-                geo_scope="usa",
-                mapbox=dict(
-                    accesstoken=mapbox_access_token,
-                    bearing=0,
-                    center=dict(
-                        lat=37.1661,
-                        lon=-119.44944,
-                    ),
-                    pitch=0,
-                    zoom=4.5,
-                ),
-                margin=dict(l=M, r=M, t=M, b=M),
-            )
-
-            # we then define two business cards to visualize the values ​​of each of the attributes (Values ​​part)
-            carte_metier_EV = go.FigureWidget(
-                data=go.Scattermapbox(
-                    lon=X_base["Longitude"],
-                    lat=X_base["Latitude"],
-                    mode="markers",
-                    hoverinfo="text",
-                    text=np.array(X_base[list(X_base.columns)[0]]).round(3),
-                    marker=go.scattermapbox.Marker(
-                        color=X_base[list(X_base.columns)[0]],
-                        opacity=0.8,
-                        colorscale="Inferno",
-                        showscale=True,
-                    ),
-                )
-            )
-
-            carte_metier_EV.update_layout(
-                autosize=True,
-                geo_scope="usa",
-                mapbox=dict(
-                    accesstoken=mapbox_access_token,
-                    bearing=0,
-                    center=dict(
-                        lat=37.1661,
-                        lon=-119.44944,
-                    ),
-                    pitch=0,
-                    zoom=4.5,
-                ),
-                margin=dict(l=M, r=M, t=M, b=M),
-            )
-
-            # definition of the business card where the SHAP values ​​of the features are displayed this time (Explanation part)
-            carte_metier_EE = go.FigureWidget(
-                data=go.Scattermapbox(
-                    lon=X_base["Longitude"],
-                    lat=X_base["Latitude"],
-                    mode="markers",
-                    hoverinfo="text",
-                    text=np.array(SHAP[list(SHAP.columns)[0]]).round(3),
-                    marker=go.scattermapbox.Marker(
-                        color=SHAP[list(SHAP.columns)[0]],
-                        opacity=0.8,
-                        colorscale="Inferno",
-                        showscale=True,
-                    ),
-                )
-            )
-
-            carte_metier_EE.update_layout(
-                autosize=True,
-                geo_scope="usa",
-                mapbox=dict(
-                    accesstoken=mapbox_access_token,
-                    bearing=0,
-                    center=dict(
-                        lat=37.1661,
-                        lon=-119.44944,
-                    ),
-                    pitch=0,
-                    zoom=4.5,
-                ),
-                margin=dict(l=M, r=M, t=M, b=M),
-            )
-
-            # choice of column (or Y) for EE and EV business cards
-            choix_coul_metier_EE_EV = widgets.Dropdown(
-                options=list(X_base.columns) + ["Y, valeur à prédire"],
-                value=list(X_base.columns)[0],
-                description="Couleur des points :",
-                style={"description_width": "initial"},
-                layout=Layout(width="20%"),
-            )
-
-            # function that will operate these choices
-            def fonction_choix_coul_metier_EE_EV(change):
-                if choix_coul_metier_EE_EV.value == "Y, valeur à prédire":
-                    carte_metier_EV.data[0].marker.color = Y
-                    carte_metier_EE.data[0].marker.color = Y
-                    carte_metier_EV.data[0].text = np.array(Y).round(3)
-                    carte_metier_EE.data[0].text = np.array(Y).round(3)
-                    carte_metier_EE.data[0].marker.colorscale = "Viridis"
-                    carte_metier_EV.data[0].marker.colorscale = "Viridis"
-                else:
-                    colonne = choix_coul_metier_EE_EV.value
-                    colonne_shap = colonne + "_shap"
-                    carte_metier_EV.data[0].marker.color = X_base[colonne]
-                    carte_metier_EE.data[0].marker.color = SHAP[colonne_shap]
-                    carte_metier_EV.data[0].text = np.array(X_base[colonne]).round(3)
-                    carte_metier_EE.data[0].text = np.array(SHAP[colonne_shap]).round(3)
-                    carte_metier_EE.data[0].marker.colorscale = "Inferno"
-                    carte_metier_EV.data[0].marker.colorscale = "Inferno"
-
-            choix_coul_metier_EE_EV.observe(fonction_choix_coul_metier_EE_EV, "value")
-
-            # when we zoom on the map, we zoom on the other
-            def fonction_zoom_metier1(layout):
-                for i in [
-                    carte_metier_EE.layout.mapbox.center["lat"],
-                    carte_metier_EE.layout.mapbox.center["lon"],
-                    carte_metier_EE.layout.mapbox.zoom,
-                    carte_metier_EV.layout.mapbox.center["lat"],
-                    carte_metier_EV.layout.mapbox.center["lon"],
-                    carte_metier_EV.layout.mapbox.zoom,
-                ]:
-                    if i == None:
-                        return
-                if round(carte_metier_EE.layout.mapbox.zoom, 2) != round(
-                    carte_metier_EV.layout.mapbox.zoom, 2
-                ):
-                    carte_metier_EE.layout.mapbox.zoom = (
-                        carte_metier_EV.layout.mapbox.zoom
-                    )
-                if round(carte_metier_EE.layout.mapbox.center["lat"], 2) != round(
-                    carte_metier_EV.layout.mapbox.center["lat"], 2
-                ):
-                    carte_metier_EE.layout.mapbox.center = (
-                        carte_metier_EV.layout.mapbox.center
-                    )
-                elif round(carte_metier_EE.layout.mapbox.center["lon"], 2) != round(
-                    carte_metier_EV.layout.mapbox.center["lon"], 2
-                ):
-                    carte_metier_EE.layout.mapbox.center = (
-                        carte_metier_EV.layout.mapbox.center
-                    )
-
-            carte_metier_EV.observe(fonction_zoom_metier1)
 
         # definition of the text that will give information on the selection
         texte_base = "Information sur la sélection : \n"
@@ -2243,8 +1906,7 @@ class Mixin:
                 widget.color = "blue lighten-4"
             for i in range(len(mods.children)):
                 if mods.children[i].children[0].color == "blue lighten-4":
-                    global model_choice
-                    model_choice = i
+                    self.__model_choice = i
 
         for i in range(len(mods.children)):
             mods.children[i].children[0].on_event("click", changement)
@@ -2573,7 +2235,7 @@ class Mixin:
 
         def changement_couleur_essaim_shap1(*args):
             if choix_couleur_essaim1.children[1].v_model == False:
-                marker = fonction_beeswarm_shap(all_rules[0][2])[1]
+                marker = fonction_beeswarm_shap(self.__all_rules[0][2])[1]
                 essaim1.data[0].marker = marker
                 essaim1.update_traces(marker=dict(showscale=True))
             else:
@@ -2616,7 +2278,7 @@ class Mixin:
 
         def changement_couleur_essaim_shap2(*args):
             if choix_couleur_essaim2.children[1].v_model == False:
-                marker = fonction_beeswarm_shap(all_rules[1][2])[1]
+                marker = fonction_beeswarm_shap(self.__all_rules[1][2])[1]
                 essaim2.data[0].marker = marker
                 essaim2.update_traces(marker=dict(showscale=True))
             else:
@@ -2667,7 +2329,7 @@ class Mixin:
 
         def changement_couleur_essaim_shap3(*args):
             if choix_couleur_essaim3.children[1].v_model == False:
-                marker = fonction_beeswarm_shap(all_rules[2][2])[1]
+                marker = fonction_beeswarm_shap(self.__all_rules[2][2])[1]
                 essaim3.data[0].marker = marker
                 essaim3.update_traces(marker=dict(showscale=True))
             else:
@@ -2779,15 +2441,14 @@ class Mixin:
 
         # allows you to take the set of rules and modify the graph so that it responds to everything!
         def tout_modifier_graphique():
-            global all_rules
             nouvelle_tuile = X_base[
-                (X_base[all_rules[0][2]] >= all_rules[0][0])
-                & (X_base[all_rules[0][2]] <= all_rules[0][4])
+                (X_base[self.__all_rules[0][2]] >= self.__all_rules[0][0])
+                & (X_base[self.__all_rules[0][2]] <= self.__all_rules[0][4])
             ].index
-            for i in range(1, len(all_rules)):
+            for i in range(1, len(self.__all_rules)):
                 X_temp = X_base[
-                    (X_base[all_rules[i][2]] >= all_rules[i][0])
-                    & (X_base[all_rules[i][2]] <= all_rules[i][4])
+                    (X_base[self.__all_rules[i][2]] >= self.__all_rules[i][0])
+                    & (X_base[self.__all_rules[i][2]] <= self.__all_rules[i][4])
                 ].index
                 nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
             y_shape_skope = []
@@ -2820,32 +2481,31 @@ class Mixin:
 
         # allows to modify all the histograms according to the rules
         def modifier_tous_histograms(value_min, value_max, indice):
-            global all_rules
             new_list_tout = X_base.index[
-                X_base[all_rules[indice][2]].between(value_min, value_max)
+                X_base[self.__all_rules[indice][2]].between(value_min, value_max)
             ].tolist()
-            for i in range(len(all_rules)):
-                min = all_rules[i][0]
-                max = all_rules[i][4]
+            for i in range(len(self.__all_rules)):
+                min = self.__all_rules[i][0]
+                max = self.__all_rules[i][4]
                 if i != indice:
                     new_list_temp = X_base.index[
-                        X_base[all_rules[i][2]].between(min, max)
+                        X_base[self.__all_rules[i][2]].between(min, max)
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
-            for i in range(len(all_rules)):
+            for i in range(len(self.__all_rules)):
                 with all_histograms[i].batch_update():
-                    all_histograms[i].data[2].x = X_base[all_rules[i][2]][new_list_tout]
+                    all_histograms[i].data[2].x = X_base[self.__all_rules[i][2]][new_list_tout]
                 if all_color_choosers_beeswarms[i].children[1].v_model:
                     with all_beeswarms[i].batch_update():
                         y_color = [0] * len(SHAP)
                         if i == indice:
                             indices = X_base.index[
-                                X_base[all_rules[i][2]].between(value_min, value_max)
+                                X_base[self.__all_rules[i][2]].between(value_min, value_max)
                             ].tolist()
                         else:
                             indices = X_base.index[
-                                X_base[all_rules[i][2]].between(
-                                    all_rules[i][0], all_rules[i][4]
+                                X_base[self.__all_rules[i][2]].between(
+                                    self.__all_rules[i][0], self.__all_rules[i][4]
                                 )
                             ].tolist()
                         for j in range(len(SHAP)):
@@ -2859,69 +2519,66 @@ class Mixin:
 
         # when the value of a slider is modified, the histograms and graphs are modified
         def on_value_change_skope1(*b1):
-            global all_rules
             slider_text_comb1.children[0].v_model = slider_skope1.v_model[0] / 100
             slider_text_comb1.children[2].v_model = slider_skope1.v_model[1] / 100
             new_list = [
                 g
-                for g in list(X_base[columns_names[0]].values)
+                for g in list(X_base[self.__columns_names[0]].values)
                 if g >= slider_skope1.v_model[0] / 100
                 and g <= slider_skope1.v_model[1] / 100
             ]
             with histogram1.batch_update():
                 histogram1.data[1].x = new_list
-            if valider_bool:
+            if self.__valider_bool:
                 modifier_tous_histograms(
                     slider_skope1.v_model[0] / 100, slider_skope1.v_model[1] / 100, 0
                 )
             if bout_temps_reel_graph1.v_model:
-                all_rules[0][0] = float(deepcopy(slider_skope1.v_model[0] / 100))
-                all_rules[0][4] = float(deepcopy(slider_skope1.v_model[1] / 100))
-                une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+                self.__all_rules[0][0] = float(deepcopy(slider_skope1.v_model[0] / 100))
+                self.__all_rules[0][4] = float(deepcopy(slider_skope1.v_model[1] / 100))
+                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
                 tout_modifier_graphique()
 
         def on_value_change_skope2(*b):
-            global all_rules
             slider_text_comb2.children[0].v_model = slider_skope2.v_model[0] / 100
             slider_text_comb2.children[2].v_model = slider_skope2.v_model[1] / 100
             new_list = [
                 g
-                for g in list(X_base[columns_names[1]].values)
+                for g in list(X_base[self.__columns_names[1]].values)
                 if g >= slider_skope2.v_model[0] / 100
                 and g <= slider_skope2.v_model[1] / 100
             ]
             with histogram2.batch_update():
                 histogram2.data[1].x = new_list
-            if valider_bool:
+            if self.__valider_bool:
                 modifier_tous_histograms(
                     slider_skope2.v_model[0] / 100, slider_skope2.v_model[1] / 100, 1
                 )
             if bout_temps_reel_graph2.v_model:
-                all_rules[1][0] = float(deepcopy(slider_skope2.v_model[0] / 100))
-                all_rules[1][4] = float(deepcopy(slider_skope2.v_model[1] / 100))
-                une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+                self.__all_rules[1][0] = float(deepcopy(slider_skope2.v_model[0] / 100))
+                self.__all_rules[1][4] = float(deepcopy(slider_skope2.v_model[1] / 100))
+                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
                 tout_modifier_graphique()
 
         def on_value_change_skope3(*b):
-            global all_rules
             slider_text_comb3.children[0].v_model = slider_skope3.v_model[0] / 100
             slider_text_comb3.children[2].v_model = slider_skope3.v_model[1] / 100
             new_list = [
                 g
-                for g in list(X_base[columns_names[2]].values)
+                for g in list(X_base[self.__columns_names[2]].values)
                 if g >= slider_skope3.v_model[0] / 100
                 and g <= slider_skope3.v_model[1] / 100
             ]
             with histogram3.batch_update():
                 histogram3.data[1].x = new_list
-            if valider_bool:
+            if self.__valider_bool:
                 modifier_tous_histograms(
                     slider_skope3.v_model[0] / 100, slider_skope3.v_model[1] / 100, 2
                 )
             if bout_temps_reel_graph3.v_model:
-                all_rules[2][0] = float(deepcopy(slider_skope3.v_model[0] / 100))
-                all_rules[2][4] = float(deepcopy(slider_skope3.v_model[1] / 100))
-                une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+                self.__all_rules[2][0] = float(deepcopy(slider_skope3.v_model[0] / 100))
+                self.__all_rules[2][4] = float(deepcopy(slider_skope3.v_model[1] / 100))
+                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
                 tout_modifier_graphique()
 
         # allows you to display certain values ​​correctly (here su skope du shap)
@@ -3011,18 +2668,18 @@ class Mixin:
         # function to grab skope values ​​in float, used for modification sliders!
         def re_transform_string(chaine):
             chaine_carac = str(chaine).split()
-            columns_names = []
+            self.__columns_names = []
             valeurs = []
             symbole = []
             for i in range(len(chaine_carac)):
                 if "<" in chaine_carac[i] or ">" in chaine_carac[i]:
-                    columns_names.append(chaine_carac[i - 1])
+                    self.__columns_names.append(chaine_carac[i - 1])
                     symbole.append(chaine_carac[i])
                     if chaine_carac[i + 1][-1] == ",":
                         valeurs.append(float(chaine_carac[i + 1][:-2]))
                     else:
                         valeurs.append(float(chaine_carac[i + 1]))
-            return [columns_names, symbole, valeurs]
+            return [self.__columns_names, symbole, valeurs]
 
         def generate_card(chaine):
             chaine_carac = str(chaine).split()
@@ -3062,28 +2719,25 @@ class Mixin:
 
         # commit skope changes
         def fonction_change_valider_1(*change):
-            global all_rules
             a = deepcopy(float(slider_skope1.v_model[0] / 100))
             b = deepcopy(float(slider_skope1.v_model[1] / 100))
-            all_rules[0][0] = a
-            all_rules[0][4] = b
-            une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+            self.__all_rules[0][0] = a
+            self.__all_rules[0][4] = b
+            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
             tout_modifier_graphique()
             fonction_scores_models(None)
 
         def fonction_change_valider_2(*change):
-            global all_rules
-            all_rules[1][0] = float(slider_skope2.v_model[0] / 100)
-            all_rules[1][4] = float(slider_skope2.v_model[1] / 100)
-            une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+            self.__all_rules[1][0] = float(slider_skope2.v_model[0] / 100)
+            self.__all_rules[1][4] = float(slider_skope2.v_model[1] / 100)
+            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
             tout_modifier_graphique()
             fonction_scores_models(None)
 
         def fonction_change_valider_3(*change):
-            global all_rules
-            all_rules[2][0] = float(slider_skope3.v_model[0] / 100)
-            all_rules[2][4] = float(slider_skope3.v_model[1] / 100)
-            une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+            self.__all_rules[2][0] = float(slider_skope3.v_model[0] / 100)
+            self.__all_rules[2][4] = float(slider_skope3.v_model[1] / 100)
+            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
             tout_modifier_graphique()
             fonction_scores_models(None)
 
@@ -3094,11 +2748,11 @@ class Mixin:
         def regles_to_indices():
             liste_bool = [True] * len(X)
             for i in range(len(X)):
-                for j in range(len(all_rules)):
-                    colonne = list(X.columns).index(all_rules[j][2])
+                for j in range(len(self.__all_rules)):
+                    colonne = list(X.columns).index(self.__all_rules[j][2])
                     if (
-                        all_rules[j][0] > X_base.iloc[i, colonne]
-                        or X_base.iloc[i, colonne] > all_rules[j][4]
+                        self.__all_rules[j][0] > X_base.iloc[i, colonne]
+                        or X_base.iloc[i, colonne] > self.__all_rules[j][4]
                     ):
                         liste_bool[i] = False
             temp = [i for i in range(len(X)) if liste_bool[i]]
@@ -3120,10 +2774,9 @@ class Mixin:
                     for i in range(len(sub_models))
                 ]
 
-            global score_models
-            score_models = []
+            self.__score_models = []
             for i in range(len(sub_models)):
-                score_models.append(
+                self.__score_models.append(
                     [
                         score_tot[i],
                         score_init,
@@ -3172,13 +2825,12 @@ class Mixin:
                 mods.children[i].children[0].children[1].children = str_md(i)
 
         X_train = X_base.copy()
-        y_train = []
 
         # when you click on the skope-rules button
         def fonction_validation_skope(*sender):
+            y_train = self.__y_train
             loading_models.class_ = "d-flex"
-            global valider_bool
-            valider_bool = True
+            self.__valider_bool = True
             if y_train == None:
                 texte_skopeEV.children[1].children = [
                     widgets.HTML("Veuillez sélectionner des points")
@@ -3209,7 +2861,7 @@ class Mixin:
 
                 # skope calculation for SHAP
                 skope_rules_clf_shap = SkopeRules(
-                    feature_names=SHAP_train.columns,
+                    feature_names=self.__SHAP_train.columns,
                     random_state=42,
                     n_estimators=5,
                     recall_min=0.2,
@@ -3218,7 +2870,7 @@ class Mixin:
                     max_samples=1.0,
                     max_depth=3,
                 )
-                skope_rules_clf_shap.fit(SHAP_train, y_train)
+                skope_rules_clf_shap.fit(self.__SHAP_train, y_train)
                 # if no rule for one of the two, nothing is displayed
                 if (
                     len(skope_rules_clf.rules_) == 0
@@ -3246,85 +2898,82 @@ class Mixin:
                     ]
 
                     # there we find the values ​​of the skope to use them for the sliders
-                    global columns_names
-                    columns_names, symbole, valeurs = re_transform_string(
+                    self.__columns_names, symbole, valeurs = re_transform_string(
                         chaine_carac[0]
                     )
-                    global other_columns
-                    other_columns = [
-                        g for g in X_base.columns if g not in columns_names
+                    self.__other_columns = [
+                        g for g in X_base.columns if g not in self.__columns_names
                     ]
-                    widget_list_add_skope.items = other_columns
-                    widget_list_add_skope.v_model = other_columns[0]
-                    liste_val_histo = [0] * len(columns_names)
-                    liste_index = [0] * len(columns_names)
+                    widget_list_add_skope.items = self.__other_columns
+                    widget_list_add_skope.v_model = self.__other_columns[0]
+                    liste_val_histo = [0] * len(self.__columns_names)
+                    liste_index = [0] * len(self.__columns_names)
                     le_top = []
                     le_min = []
-                    global all_rules
-                    all_rules = []
+                    self.__all_rules = []
 
                     def f_rond(a):
                         return np.round(a, 2)
 
-                    for i in range(len(columns_names)):
+                    for i in range(len(self.__columns_names)):
                         une_regle = [0] * 5
-                        une_regle[2] = columns_names[i]
+                        une_regle[2] = self.__columns_names[i]
                         if symbole[i] == "<":
                             une_regle[0] = f_rond(
-                                float(min(list(X_base[columns_names[i]].values)))
+                                float(min(list(X_base[self.__columns_names[i]].values)))
                             )
                             une_regle[1] = "<"
                             une_regle[3] = "<"
                             une_regle[4] = f_rond(float(valeurs[i]))
                             X1 = [
                                 g
-                                for g in list(X_base[columns_names[i]].values)
+                                for g in list(X_base[self.__columns_names[i]].values)
                                 if g < valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[columns_names[i]].index.values)
-                                if X_base[columns_names[i]][h] < valeurs[i]
+                                for h in list(X_base[self.__columns_names[i]].index.values)
+                                if X_base[self.__columns_names[i]][h] < valeurs[i]
                             ]
                             le_top.append(valeurs[i])
-                            le_min.append(min(list(X_base[columns_names[i]].values)))
+                            le_min.append(min(list(X_base[self.__columns_names[i]].values)))
                         elif symbole[i] == ">":
                             une_regle[0] = f_rond(float(valeurs[i]))
                             une_regle[1] = "<"
                             une_regle[3] = "<"
                             une_regle[4] = f_rond(
-                                float(max(list(X_base[columns_names[i]].values)))
+                                float(max(list(X_base[self.__columns_names[i]].values)))
                             )
                             X1 = [
                                 g
-                                for g in list(X_base[columns_names[i]].values)
+                                for g in list(X_base[self.__columns_names[i]].values)
                                 if g > valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[columns_names[i]].index.values)
-                                if X_base[columns_names[i]][h] > valeurs[i]
+                                for h in list(X_base[self.__columns_names[i]].index.values)
+                                if X_base[self.__columns_names[i]][h] > valeurs[i]
                             ]
                             le_min.append(valeurs[i])
-                            le_top.append(max(list(X_base[columns_names[i]].values)))
+                            le_top.append(max(list(X_base[self.__columns_names[i]].values)))
                         elif symbole[i] == "<=":
                             une_regle[0] = f_rond(
-                                float(min(list(X_base[columns_names[i]].values)))
+                                float(min(list(X_base[self.__columns_names[i]].values)))
                             )
                             une_regle[1] = "<="
                             une_regle[3] = "<="
                             une_regle[4] = f_rond(float(valeurs[i]))
                             le_top.append(valeurs[i])
-                            le_min.append(min(list(X_base[columns_names[i]].values)))
+                            le_min.append(min(list(X_base[self.__columns_names[i]].values)))
                             X1 = [
                                 g
-                                for g in list(X_base[columns_names[i]].values)
+                                for g in list(X_base[self.__columns_names[i]].values)
                                 if g <= valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[columns_names[i]].index.values)
-                                if X_base[columns_names[i]][h] <= valeurs[i]
+                                for h in list(X_base[self.__columns_names[i]].index.values)
+                                if X_base[self.__columns_names[i]][h] <= valeurs[i]
                             ]
                             liste_index[i] = X2
                         elif symbole[i] == ">=":
@@ -3332,53 +2981,52 @@ class Mixin:
                             une_regle[1] = "<="
                             une_regle[3] = "<="
                             une_regle[4] = f_rond(
-                                float(max(list(X_base[columns_names[i]].values)))
+                                float(max(list(X_base[self.__columns_names[i]].values)))
                             )
                             le_min.append(valeurs[i])
-                            le_top.append(max(list(X_base[columns_names[i]].values)))
+                            le_top.append(max(list(X_base[self.__columns_names[i]].values)))
                             X1 = [
                                 g
-                                for g in list(X_base[columns_names[i]].values)
+                                for g in list(X_base[self.__columns_names[i]].values)
                                 if g >= valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[columns_names[i]].index.values)
-                                if X_base[columns_names[i]][h] >= valeurs[i]
+                                for h in list(X_base[self.__columns_names[i]].index.values)
+                                if X_base[self.__columns_names[i]][h] >= valeurs[i]
                             ]
                         liste_index[i] = X2
                         liste_val_histo[i] = X1
-                        all_rules.append(une_regle)
-                    global saved_rules
-                    saved_rules = deepcopy(all_rules)
+                        self.__all_rules.append(une_regle)
+                    self.__save_rules = deepcopy(self.__all_rules)
 
                     une_carte_EV.children = generate_card(
-                        liste_to_string_skope(all_rules)
+                        liste_to_string_skope(self.__all_rules)
                     )
 
-                    [new_y, marker] = fonction_beeswarm_shap(columns_names[0])
+                    [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[0])
                     essaim1.data[0].y = new_y
-                    essaim1.data[0].x = SHAP[columns_names[0] + "_shap"]
+                    essaim1.data[0].x = SHAP[self.__columns_names[0] + "_shap"]
                     essaim1.data[0].marker = marker
 
                     all_histograms = [histogram1]
-                    if len(columns_names) > 1:
+                    if len(self.__columns_names) > 1:
                         all_histograms = [histogram1, histogram2]
-                        [new_y, marker] = fonction_beeswarm_shap(columns_names[1])
+                        [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[1])
                         essaim2.data[0].y = new_y
-                        essaim2.data[0].x = SHAP[columns_names[1] + "_shap"]
+                        essaim2.data[0].x = SHAP[self.__columns_names[1] + "_shap"]
                         essaim2.data[0].marker = marker
 
-                    if len(columns_names) > 2:
+                    if len(self.__columns_names) > 2:
                         all_histograms = [histogram1, histogram2, histogram3]
-                        [new_y, marker] = fonction_beeswarm_shap(columns_names[2])
+                        [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[2])
                         essaim3.data[0].y = new_y
-                        essaim3.data[0].x = SHAP[columns_names[2] + "_shap"]
+                        essaim3.data[0].x = SHAP[self.__columns_names[2] + "_shap"]
                         essaim3.data[0].marker = marker
 
-                    if len(columns_names) == 1:
+                    if len(self.__columns_names) == 1:
                         indices_respectent_skope = liste_index[0]
-                    elif len(columns_names) == 2:
+                    elif len(self.__columns_names) == 2:
                         indices_respectent_skope = [
                             a for a in liste_index[0] if a in liste_index[1]
                         ]
@@ -3391,52 +3039,48 @@ class Mixin:
                     y_shape_skope = []
                     y_color_skope = []
                     y_opa_skope = []
-                    global colors_business_gui
-                    colors_business_gui = []
                     for i in range(len(X_base)):
                         if i in indices_respectent_skope:
                             y_shape_skope.append("circle")
                             y_color_skope.append("blue")
                             y_opa_skope.append(0.5)
-                            colors_business_gui.append(6)
                         else:
                             y_shape_skope.append("cross")
                             y_color_skope.append("grey")
                             y_opa_skope.append(0.5)
-                            colors_business_gui.append(0)
                     couleur_radio.v_model = "Selec actuelle"
                     fonction_changement_couleur(None)
 
-                    if len(columns_names) == 2:
+                    if len(self.__columns_names) == 2:
                         accordion_skope.children = [
                             dans_accordion1_n,
                             dans_accordion2_n,
                         ]
                         dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + columns_names[0] + ")"
+                            "X1 (" + self.__columns_names[0] + ")"
                         )
                         dans_accordion2_n.children[0].children[0].children = (
-                            "X2 (" + columns_names[1] + ")"
+                            "X2 (" + self.__columns_names[1] + ")"
                         )
-                    elif len(columns_names) == 3:
+                    elif len(self.__columns_names) == 3:
                         accordion_skope.children = [
                             dans_accordion1_n,
                             dans_accordion2_n,
                             dans_accordion3_n,
                         ]
                         dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + columns_names[0] + ")"
+                            "X1 (" + self.__columns_names[0] + ")"
                         )
                         dans_accordion2_n.children[0].children[0].children = (
-                            "X2 (" + columns_names[1] + ")"
+                            "X2 (" + self.__columns_names[1] + ")"
                         )
                         dans_accordion3_n.children[0].children[0].children = (
-                            "X3 (" + columns_names[2] + ")"
+                            "X3 (" + self.__columns_names[2] + ")"
                         )
-                    elif len(columns_names) == 1:
+                    elif len(self.__columns_names) == 1:
                         accordion_skope.children = [dans_accordion1_n]
                         dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + columns_names[0] + ")"
+                            "X1 (" + self.__columns_names[0] + ")"
                         )
 
                     slider_skope1.min = -10e10
@@ -3447,10 +3091,10 @@ class Mixin:
                     slider_skope3.max = 10e10
 
                     slider_skope1.max = (
-                        round(max(list(X_base[columns_names[0]].values)), 1)
+                        round(max(list(X_base[self.__columns_names[0]].values)), 1)
                     ) * 100
                     slider_skope1.min = (
-                        round(min(list(X_base[columns_names[0]].values)), 1)
+                        round(min(list(X_base[self.__columns_names[0]].values)), 1)
                     ) * 100
                     slider_skope1.v_model = [
                         round(le_min[0], 1) * 100,
@@ -3462,12 +3106,12 @@ class Mixin:
                         slider_text_comb1.children[2].v_model,
                     ] = [slider_skope1.v_model[0] / 100, slider_skope1.v_model[1] / 100]
 
-                    if len(columns_names) > 1:
+                    if len(self.__columns_names) > 1:
                         slider_skope2.max = (
-                            max(list(X_base[columns_names[1]].values))
+                            max(list(X_base[self.__columns_names[1]].values))
                         ) * 100
                         slider_skope2.min = (
-                            min(list(X_base[columns_names[1]].values))
+                            min(list(X_base[self.__columns_names[1]].values))
                         ) * 100
                         slider_skope2.v_model = [
                             round(le_min[1], 1) * 100,
@@ -3481,13 +3125,13 @@ class Mixin:
                             slider_skope2.v_model[1] / 100,
                         ]
 
-                    if len(columns_names) > 2:
-                        slider_skope3.description = columns_names[2]
+                    if len(self.__columns_names) > 2:
+                        slider_skope3.description = self.__columns_names[2]
                         slider_skope3.max = (
-                            max(list(X_base[columns_names[2]].values))
+                            max(list(X_base[self.__columns_names[2]].values))
                         ) * 100
                         slider_skope3.min = (
-                            min(list(X_base[columns_names[2]].values))
+                            min(list(X_base[self.__columns_names[2]].values))
                         ) * 100
                         slider_skope3.v_model = [
                             round(le_min[2], 1) * 100,
@@ -3508,7 +3152,7 @@ class Mixin:
                         if len(histogram1.data) > 1:
                             histogram1.data[1].x = liste_val_histo[0]
 
-                    if len(columns_names) > 1:
+                    if len(self.__columns_names) > 1:
                         with histogram2.batch_update():
                             histogram2.data[0].x = list(
                                 X_base[re_transform_string(chaine_carac[0])[0][1]]
@@ -3525,7 +3169,7 @@ class Mixin:
                                     )
                                 )
 
-                    if len(columns_names) > 2:
+                    if len(self.__columns_names) > 2:
                         with histogram3.batch_update():
                             histogram3.data[0].x = list(
                                 X_base[re_transform_string(chaine_carac[0])[0][2]]
@@ -3571,8 +3215,7 @@ class Mixin:
             fonction_changement_couleur(None)
 
         def reinit_skope(*b):
-            global all_rules
-            all_rules = saved_rules
+            self.__all_rules = self.__save_rules
             fonction_validation_skope(None)
             fonction_scores_models(None)
 
@@ -3696,11 +3339,9 @@ class Mixin:
             else:
                 nb_clusters = slider_clusters.v_model
                 result = fonction_auto_clustering(X, SHAP, nb_clusters, False)
-            global result_dyadic_clustering
-            result_dyadic_clustering = result
+            self.__result_dyadic_clustering = result
             labels = result[1]
-            global Y_auto
-            Y_auto = labels
+            self.__Y_auto = labels
             with fig1.batch_update():
                 fig1.data[0].marker.color = labels
                 fig1.update_traces(marker=dict(showscale=False))
@@ -3795,8 +3436,7 @@ class Mixin:
             return N_etapes
 
         def fonction_choix_cluster(widget, event, data):
-            global result_dyadic_clustering
-            result = result_dyadic_clustering
+            result = self.__result_dyadic_clustering
             labels = result[1]
             indice = partie_selection.children[-1].children[0].children[0].v_model
             liste = [i for i, d in enumerate(labels) if d == float(indice)]
@@ -3807,11 +3447,7 @@ class Mixin:
         trouve_clusters.on_event("click", fonction_clusters)
 
         # function which is called as soon as the points are selected (step 1)
-        y_train = []
-
         def selection_fn(trace, points, selector, *args):
-            print(y_train)
-            global SHAP_train
             if len(args) > 0:
                 liste = args[0]
                 les_points = liste
@@ -3836,28 +3472,25 @@ class Mixin:
                 + "% de l'ensemble)"
             )
             opa = []
-            if y_train != []:
-                y_train = []
+            self.__y_train = []
             for i in range(len(fig2.data[0].x)):
                 if i in les_points:
                     opa.append(1)
-                    y_train.append(1)
+                    self.__y_train.append(1)
                 else:
                     opa.append(0.1)
-                    y_train.append(0)
+                    self.__y_train.append(0)
             with fig2.batch_update():
                 fig2.data[0].marker.opacity = opa
             with fig1.batch_update():
                 fig1.data[0].marker.opacity = opa
 
             X_train = X_base.copy()
-            SHAP_train = SHAP.copy()
-            global points_selected
-            points_selected = les_points
+            self.__SHAP_train = SHAP.copy()
 
             X_mean = (
                 pd.DataFrame(
-                    X_train.iloc[points_selected, :].mean(axis=0).values.reshape(1, -1),
+                    X_train.iloc[self.selection, :].mean(axis=0).values.reshape(1, -1),
                     columns=X_train.columns,
                 )
                 .round(2)
@@ -3873,18 +3506,18 @@ class Mixin:
             X_mean = pd.concat([X_mean, X_mean_tot], axis=0)
             SHAP_mean = (
                 pd.DataFrame(
-                    SHAP_train.iloc[points_selected, :]
+                    self.__SHAP_train.iloc[self.selection, :]
                     .mean(axis=0)
                     .values.reshape(1, -1),
-                    columns=SHAP_train.columns,
+                    columns=self.__SHAP_train.columns,
                 )
                 .round(2)
                 .rename(index={0: "Moyenne sélection"})
             )
             SHAP_mean_tot = (
                 pd.DataFrame(
-                    SHAP_train.mean(axis=0).values.reshape(1, -1),
-                    columns=SHAP_train.columns,
+                    self.__SHAP_train.mean(axis=0).values.reshape(1, -1),
+                    columns=self.__SHAP_train.columns,
                 )
                 .round(2)
                 .rename(index={0: "Moyenne ensemble"})
@@ -3897,33 +3530,30 @@ class Mixin:
                 display(HTML("<h5>Point moyen de la sélection :<h5>"))
                 display(HTML(X_mean.to_html()))
                 display(HTML("<h5>Ensemble des points de la sélection :<h5>"))
-                display(HTML(X_train.iloc[points_selected, :].to_html(index=False)))
+                display(HTML(X_train.iloc[self.selection, :].to_html(index=False)))
             with out_selec_SHAP:
                 clear_output()
                 display(HTML("<h4> Espace des Explications </h4>"))
                 display(HTML("<h5>Point moyen de la sélection :<h5>"))
                 display(HTML(SHAP_mean.to_html()))
                 display(HTML("<h5>Ensemble des points de la sélection :<h5>"))
-                display(HTML(SHAP_train.iloc[points_selected, :].to_html(index=False)))
+                display(HTML(self.__SHAP_train.iloc[self.selection, :].to_html(index=False)))
 
         # function that is called when validating a tile to add it to the set of regions
         def fonction_validation_une_tuile(*args):
-            global model_choice
             if len(args) == 0:
                 pass
             else:
-                if model_choice == None:
+                if self.__model_choice == None:
                     nom_model = None
-                    score_model = [1] * len(score_models[0])
+                    score_model = [1] * len(self.__score_models[0])
                     indice_model = -1
                 else:
-                    nom_model = sub_models[model_choice].__class__.__name__
-                    score_model = score_models[model_choice]
-                    indice_model = model_choice
-                global list_of_regions
-                global all_rules
+                    nom_model = sub_models[self.__model_choice].__class__.__name__
+                    score_model = self.__score_models[self.__model_choice]
+                    indice_model = self.__model_choice
                 a = [0] * 10
-                if all_rules == None or all_rules == [
+                if self.__all_rules == None or self.__all_rules == [
                     a,
                     a,
                     a,
@@ -3937,45 +3567,35 @@ class Mixin:
                 ]:
                     return
                 nouvelle_tuile = X_base[
-                    (X_base[all_rules[0][2]] >= all_rules[0][0])
-                    & (X_base[all_rules[0][2]] <= all_rules[0][4])
+                    (X_base[self.__all_rules[0][2]] >= self.__all_rules[0][0])
+                    & (X_base[self.__all_rules[0][2]] <= self.__all_rules[0][4])
                 ].index
-                for i in range(1, len(all_rules)):
+                for i in range(1, len(self.__all_rules)):
                     X_temp = X_base[
-                        (X_base[all_rules[i][2]] >= all_rules[i][0])
-                        & (X_base[all_rules[i][2]] <= all_rules[i][4])
+                        (X_base[self.__all_rules[i][2]] >= self.__all_rules[i][0])
+                        & (X_base[self.__all_rules[i][2]] <= self.__all_rules[i][4])
                     ].index
                     nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
-                global list_of_sub_models
-                list_of_sub_models.append([nom_model, score_model, indice_model])
+                self.__list_of_sub_models.append([nom_model, score_model, indice_model])
                 # here we will force so that all the points of the new tile belong only to it: we will modify the existing tiles
-                list_of_regions = conflict_handler(list_of_regions, nouvelle_tuile)
-                list_of_regions.append(nouvelle_tuile)
-            global color_regions
-            for i in range(len(color_regions)):
-                if i in points_selected:
-                    color_regions[i] = len(list_of_regions)
-            with fig3.batch_update():
-                fig3.data[0].marker.color = color_regions
-            with fig4.batch_update():
-                fig4.data[0].marker.color = color_regions
-            if map:
-                with carte_metier.batch_update():
-                    carte_metier.data[0].marker.color = color_regions
-            choix_coul_metier.value = "Régions"
+                self.__list_of_regions = conflict_handler(self.__list_of_regions, nouvelle_tuile)
+                self.__list_of_regions.append(nouvelle_tuile)
+            for i in range(len(self.__color_regions)):
+                if i in self.selection:
+                    self.__color_regions[i] = len(self.__list_of_regions)
 
             toute_somme = 0
             temp = []
             score_tot = 0
             score_tot_glob = 0
             autre_toute_somme = 0
-            for i in range(len(list_of_regions)):
-                if list_of_sub_models[i][0] == None:
+            for i in range(len(self.__list_of_regions)):
+                if self.__list_of_sub_models[i][0] == None:
                     temp.append(
                         [
                             i + 1,
-                            len(list_of_regions[i]),
-                            np.round(len(list_of_regions[i]) / len(X_base) * 100, 2),
+                            len(self.__list_of_regions[i]),
+                            np.round(len(self.__list_of_regions[i]) / len(X_base) * 100, 2),
                             "/",
                             "/",
                             "/",
@@ -3986,20 +3606,20 @@ class Mixin:
                     temp.append(
                         [
                             i + 1,
-                            len(list_of_regions[i]),
-                            np.round(len(list_of_regions[i]) / len(X_base) * 100, 2),
-                            list_of_sub_models[i][0],
-                            list_of_sub_models[i][1][0],
-                            list_of_sub_models[i][1][1],
-                            str(list_of_sub_models[i][1][2]) + "%",
+                            len(self.__list_of_regions[i]),
+                            np.round(len(self.__list_of_regions[i]) / len(X_base) * 100, 2),
+                            self.__list_of_sub_models[i][0],
+                            self.__list_of_sub_models[i][1][0],
+                            self.__list_of_sub_models[i][1][1],
+                            str(self.__list_of_sub_models[i][1][2]) + "%",
                         ]
                     )
-                    score_tot += list_of_sub_models[i][1][0] * len(list_of_regions[i])
-                    score_tot_glob += list_of_sub_models[i][1][1] * len(
-                        list_of_regions[i]
+                    score_tot += self.__list_of_sub_models[i][1][0] * len(self.__list_of_regions[i])
+                    score_tot_glob += self.__list_of_sub_models[i][1][1] * len(
+                        self.__list_of_regions[i]
                     )
-                    autre_toute_somme += len(list_of_regions[i])
-                toute_somme += len(list_of_regions[i])
+                    autre_toute_somme += len(self.__list_of_regions[i])
+                toute_somme += len(self.__list_of_regions[i])
             if autre_toute_somme == 0:
                 score_tot = "/"
                 score_tot_glob = "/"
@@ -4076,13 +3696,10 @@ class Mixin:
                     a = 0
                     for i in range(taille):
                         indice = table_donnes.v_model[i]["Régions #"] - 1
-                        global list_of_regions
-                        list_of_regions.pop(indice - a)
-                        global list_of_sub_models
-                        list_of_sub_models.pop(indice - a)
+                        self.__list_of_regions.pop(indice - a)
+                        self.__list_of_sub_models.pop(indice - a)
                         fonction_validation_une_tuile()
-                        global all_tiles_rules
-                        all_tiles_rules.pop(indice - a)
+                        self.__all_tiles_rules.pop(indice - a)
                         a += 1
                     couleur_radio.v_model = "Régions"
                     fonction_changement_couleur()
@@ -4095,9 +3712,8 @@ class Mixin:
 
             a = [0] * 10
             pas_avoir = [a, a, a, a, a, a, a, a, a, a]
-            if all_rules != pas_avoir:
-                global all_tiles_rules
-                all_tiles_rules.append(deepcopy(all_rules))
+            if self.__all_rules != pas_avoir:
+                self.__all_tiles_rules.append(deepcopy(self.__all_rules))
 
         valider_une_region.on_event("click", fonction_validation_une_tuile)
         button_valider_skope.on_event("click", fonction_validation_skope)
@@ -4130,22 +3746,6 @@ class Mixin:
             style={"description_width": "initial"},
         )
 
-        if map:
-
-            def fonction_choix_coul_metier(b):
-                if choix_coul_metier.value == "Régions":
-                    with carte_metier.batch_update():
-                        carte_metier.data[0].marker.color = color_regions
-                        fig3.data[0].marker.color = color_regions
-                        fig4.data[0].marker.color = color_regions
-                else:
-                    with carte_metier.batch_update():
-                        carte_metier.data[0].marker.color = list(Y)
-                        fig3.data[0].marker.color = Y
-                        fig4.data[0].marker.color = Y
-
-            choix_coul_metier.observe(fonction_choix_coul_metier, names="value")
-
         boutton_add_skope = v.Btn(
             class_="ma-4 pa-1 mb-0",
             children=[v.Icon(children=["mdi-plus"]), "Ajouter un paramètre sélectif"],
@@ -4160,20 +3760,18 @@ class Mixin:
         add_group = widgets.HBox([boutton_add_skope, widget_list_add_skope])
 
         def fonction_add_skope(*b):
-            global all_rules
             nouvelle_regle = [0] * 5
             colonne = widget_list_add_skope.v_model
-            global other_columns
-            if other_columns == None:
+            if self.__other_columns == None:
                 return
-            other_columns = [a for a in other_columns if a != colonne]
+            self.__other_columns = [a for a in self.__other_columns if a != colonne]
             nouvelle_regle[2] = colonne
             nouvelle_regle[0] = round(min(list(X_base[colonne].values)), 1)
             nouvelle_regle[1] = "<="
             nouvelle_regle[3] = "<="
             nouvelle_regle[4] = round(max(list(X_base[colonne].values)), 1)
-            all_rules.append(nouvelle_regle)
-            une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+            self.__all_rules.append(nouvelle_regle)
+            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
 
             new_valider_change = v.Btn(
                 class_="ma-3",
@@ -4232,16 +3830,15 @@ class Mixin:
             all_histograms.append(new_histogram)
 
             def new_fonction_change_valider(*change):
-                global all_rules
                 ii = -1
-                for i in range(len(all_rules)):
-                    if all_rules[i][2] == colonne_2:
+                for i in range(len(self.__all_rules)):
+                    if self.__all_rules[i][2] == colonne_2:
                         ii = int(i)
                 a = deepcopy(float(new_slider_skope.v_model[0] / 100))
                 b = deepcopy(float(new_slider_skope.v_model[1] / 100))
-                all_rules[ii][0] = a
-                all_rules[ii][4] = b
-                une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
+                self.__all_rules[ii][0] = a
+                self.__all_rules[ii][4] = b
+                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
                 tout_modifier_graphique()
                 fonction_scores_models(None)
 
@@ -4316,7 +3913,7 @@ class Mixin:
 
             def new_changement_couleur_essaim_shap(*args):
                 if new_choix_couleur_essaim.children[1].value == False:
-                    marker = fonction_beeswarm_shap(all_rules[len(all_rules) - 1][2])[1]
+                    marker = fonction_beeswarm_shap(self.__all_rules[len(self.__all_rules) - 1][2])[1]
                     new_essaim.data[0].marker = marker
                     new_essaim.update_traces(marker=dict(showscale=True))
                 else:
@@ -4343,8 +3940,8 @@ class Mixin:
 
             all_color_choosers_beeswarms.append(new_choix_couleur_essaim)
 
-            widget_list_add_skope.items = other_columns
-            widget_list_add_skope.v_model = other_columns[0]
+            widget_list_add_skope.items = self.__other_columns
+            widget_list_add_skope.v_model = self.__other_columns[0]
 
             new_b_delete_skope = v.Btn(
                 color="error",
@@ -4357,26 +3954,25 @@ class Mixin:
             def new_delete_skope(*b):
                 colonne_2 = new_slider_skope.label
                 ii = 0
-                for i in range(len(all_rules)):
-                    if all_rules[i][2] == colonne_2:
+                for i in range(len(self.__all_rules)):
+                    if self.__all_rules[i][2] == colonne_2:
                         ii = i
                         break
                 elements_final_accordion.pop(ii)
                 all_beeswarms_total.pop(ii)
                 all_histograms.pop(ii)
-                all_rules.pop(ii)
+                self.__all_rules.pop(ii)
                 all_beeswarms.pop(ii)
                 all_color_choosers_beeswarms.pop(ii)
-                global other_columns
-                other_columns = [colonne_2] + other_columns
-                une_carte_EV.children = generate_card(liste_to_string_skope(all_rules))
-                widget_list_add_skope.items = other_columns
-                widget_list_add_skope.v_model = other_columns[0]
+                self.__other_columns = [colonne_2] + self.__other_columns
+                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+                widget_list_add_skope.items = self.__other_columns
+                widget_list_add_skope.v_model = self.__other_columns[0]
                 accordion_skope.children = [
                     a for a in accordion_skope.children if a != new_dans_accordion_n
                 ]
                 for i in range(ii, len(accordion_skope.children)):
-                    col = "X" + str(i + 1) + " (" + all_rules[i][2] + ")"
+                    col = "X" + str(i + 1) + " (" + self.__all_rules[i][2] + ")"
                     accordion_skope.children[i].titles = [col]
                 tout_modifier_graphique()
 
@@ -4420,10 +4016,10 @@ class Mixin:
                     )
                 ].tolist()
                 new_list_tout = new_list_regle.copy()
-                for i in range(1, len(all_rules)):
+                for i in range(1, len(self.__all_rules)):
                     new_list_temp = X_base.index[
-                        X_base[all_rules[i][2]].between(
-                            all_rules[i][0], all_rules[i][4]
+                        X_base[self.__all_rules[i][2]].between(
+                            self.__all_rules[i][0], self.__all_rules[i][4]
                         )
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
@@ -4439,8 +4035,8 @@ class Mixin:
                 )
                 colonne_2 = new_slider_skope.label
                 ii = 0
-                for i in range(len(all_rules)):
-                    if all_rules[i][2] == colonne_2:
+                for i in range(len(self.__all_rules)):
+                    if self.__all_rules[i][2] == colonne_2:
                         ii = i
                         break
                 new_list = [
@@ -4451,21 +4047,21 @@ class Mixin:
                 ]
                 with new_histogram.batch_update():
                     new_histogram.data[1].x = new_list
-                if valider_bool:
+                if self.__valider_bool:
                     modifier_tous_histograms(
                         new_slider_skope.v_model[0] / 100,
                         new_slider_skope.v_model[1] / 100,
                         ii,
                     )
                 if new_bout_temps_reel_graph.v_model:
-                    all_rules[ii - 1][0] = float(
+                    self.__all_rules[ii - 1][0] = float(
                         deepcopy(new_slider_skope.v_model[0] / 100)
                     )
-                    all_rules[ii - 1][4] = float(
+                    self.__all_rules[ii - 1][4] = float(
                         deepcopy(new_slider_skope.v_model[1] / 100)
                     )
                     une_carte_EV.children = generate_card(
-                        liste_to_string_skope(all_rules)
+                        liste_to_string_skope(self.__all_rules)
                     )
                     tout_modifier_graphique()
 
@@ -4473,48 +4069,9 @@ class Mixin:
 
             elements_final_accordion.append(new_dans_accordion)
 
-        voir_selec_ou_non = widgets.Checkbox(
-            value=False,
-            description="Masquer les points qui n'appartiennent pas à la sélection actuelle",
-            disabled=False,
-            indent=False,
-            layout=Layout(width="initial", margin="0px 0px 0px 20px"),
-        )
-
-        def fonction_voir_selec_ou_non(b):
-            if voir_selec_ou_non.value == False:
-                carte_metier_EE.data[0].marker.size = 6
-                carte_metier_EV.data[0].marker.size = 6
-            else:
-                if colors_business_gui == None:
-                    carte_metier_EE.data[0].marker.size = 6
-                    carte_metier_EV.data[0].marker.size = 6
-                else:
-                    carte_metier_EE.data[0].marker.size = colors_business_gui
-                    carte_metier_EV.data[0].marker.size = colors_business_gui
-
-        voir_selec_ou_non.observe(fonction_voir_selec_ou_non, "value")
-
         fonction_validation_une_tuile()
 
         boutton_add_skope.on_event("click", fonction_add_skope)
-
-        if map:
-            partie_visu = widgets.VBox([visu_3D, choix3, fig3_ou_4])
-            deux_figures = widgets.HBox([partie_visu, carte_metier])
-            deux_cartes = widgets.HBox([carte_metier_EV, carte_metier_EE])
-            param_metier_EE_EV = widgets.HBox(
-                [choix_coul_metier_EE_EV, voir_selec_ou_non]
-            )
-            partie_metier_part1 = widgets.VBox([param_metier_EE_EV, deux_cartes])
-            partie_metier_part2 = widgets.VBox(
-                [choix_coul_metier, deux_figures, table_regions]
-            )
-            partie_metier = widgets.Tab(
-                [partie_metier_part1, partie_metier_part2],
-                layout=Layout(width="100%"),
-                titles=["Vue dyadique - cartes", "Visualisation des régions"],
-            )
 
         param_EV = v.Menu(
             v_slots=[
@@ -4713,8 +4270,8 @@ class Mixin:
 
         def find_best_score():
             a = 1000
-            for i in range(len(score_models)):
-                score = score_models[i][0]
+            for i in range(len(self.__score_models)):
+                score = self.__score_models[i][0]
                 if score < a:
                     a = score
                     indice = i
@@ -4842,36 +4399,32 @@ class Mixin:
             layout=Layout(width="100%"),
         )
 
-        if map:
-            show_metier = partie_metier
-        else:
-            show_metier = None
-
-        return partie_data
+        display(partie_data)
+        #return partie_data
 
     def results(self, num_reg: int = None, chose: str = None):
         L_f = []
-        if len(list_of_regions) == 0:
+        if len(self.__list_of_regions) == 0:
             return "Aucune région de validée !"
-        for i in range(len(list_of_regions)):
+        for i in range(len(self.__list_of_regions)):
             dictio = dict()
-            dictio["X"] = X_not_scaled.iloc[list_of_regions[i], :].reset_index(
+            dictio["X"] = self.__X_not_scaled.iloc[self.__list_of_regions[i], :].reset_index(
                 drop=True
             )
-            dictio["y"] = Y_not_scaled.iloc[list_of_regions[i]].reset_index(drop=True)
-            dictio["indices"] = list_of_regions[i]
-            dictio["SHAP"] = SHAP_not_scaled.iloc[list_of_regions[i], :].reset_index(
+            dictio["y"] = self.__Y_not_scaled.iloc[self.__list_of_regions[i]].reset_index(drop=True)
+            dictio["indices"] = self.__list_of_regions[i]
+            dictio["SHAP"] = self.__SHAP_not_scaled.iloc[self.__list_of_regions[i], :].reset_index(
                 drop=True
             )
-            if list_of_sub_models[i][-1] == -1:
+            if self.__list_of_sub_models[i][-1] == -1:
                 dictio["model name"] = None
-                dictio["model core"] = None
+                dictio["model score"] = None
                 dictio["model"] = None
             else:
-                dictio["model name"] = list_of_sub_models[i][0]
-                dictio["model score"] = list_of_sub_models[i][1]
-                dictio["model"] = all_models[list_of_sub_models[i][2]]
-            dictio["rules"] = all_tiles_rules[i]
+                dictio["model name"] = self.__list_of_sub_models[i][0]
+                dictio["model score"] = self.__list_of_sub_models[i][1]
+                dictio["model"] = self.__all_models[self.__list_of_sub_models[i][2]]
+            dictio["rules"] = self.__all_tiles_rules[i]
             L_f.append(dictio)
         if num_reg == None or chose == None:
             return L_f
