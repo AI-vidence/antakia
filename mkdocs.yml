@@ -5,16 +5,11 @@ site_url: https://ai-vidence.com/documentation-antakia/
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-<<<<<<< HEAD
   - User Guide: usage.md
   - API Reference:
       - Documentation: documentation/index.md
-=======
-  - Usage: usage.md
-  - Documentation:
-      - About the doc: documentation/index.md
->>>>>>> d52101bce3abd5085f3ea47a4d5e1b95209494f0
       - Xplainer: documentation/xplainer.md
+      - Gui: documentation/gui.md
       - Utils: documentation/utils.md
   - About: about.md
 
@@ -44,9 +39,6 @@ markdown_extensions:
   - pymdownx.emoji:
       emoji_index: !!python/name:materialx.emoji.twemoji
       emoji_generator: !!python/name:materialx.emoji.to_svg
-<<<<<<< HEAD
 
 repo_url: https://github.com/AI-vidence/antakia
 repo_name: ai-vidence/antakia
-=======
->>>>>>> d52101bce3abd5085f3ea47a4d5e1b95209494f0

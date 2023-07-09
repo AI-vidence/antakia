@@ -5,4 +5,5 @@ This reference manual details functions, modules, and objects included in AntakI
 See :
 
 * [Xplainer](xplainer.md), the main AntakIA object
+* [Gui](gui.md), the graphical user interface
 * [Utils](utils.md), a set of useful functions

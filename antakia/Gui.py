@@ -7,6 +7,7 @@ import time
 from copy import deepcopy
 import json
 import webbrowser
+import threading
 
 # Imports warnings
 import warnings
@@ -40,7 +41,6 @@ import ipywidgets as widgets
 from ipywidgets import Layout
 from IPython.display import display, clear_output, HTML
 import plotly.graph_objects as go
-import plotly.express as px
 import ipyvuetify as v
 import seaborn as sns
 
@@ -50,12 +50,31 @@ from antakia.utils import create_save
 from antakia.utils import load_save
 from antakia.utils import fonction_auto_clustering
 
+from antakia.utils import _conflict_handler
+
+from antakia._compute import red_PCA
+from antakia._compute import red_TSNE
+from antakia._compute import red_UMAP
+from antakia._compute import red_PACMAP
+
+
 class Gui():
+    """
+    Gui object.
+
+    Attributes
+    -------
+    xplainer : Xplainer object
+        The Xplainer object containing the data to explain.
+    explanation_values : pandas dataframe
+        The dataframe containing the explanations of the model. Can be given by the user (in explanation) or computed by the Gui.
+    selection : list
+        The list of the indices of the data currently selected by the user (lasso, skope-rules, or else).
+    """
     def __init__(
         self,
         xplainer,
-        explanation: str = "SHAP",
-        explanation_values: pd.DataFrame = None,
+        explanation: str | pd.DataFrame = "SHAP",
         X_all: pd.DataFrame = None,
         default_projection: str = "PaCMAP",
         sub_models: list = None,
@@ -65,19 +84,18 @@ class Gui():
 
         Parameters
         ----------
-        explanation : str
-            The type of explanation to display. It can be "SHAP" or "LIME". Default : "SHAP".
+        explanation : str or pandas dataframe
+            The type of explanation to display.
+            If not computed : string ("SHAP" or "LIME", default : "SHAP")
+            If already computed : pandas dataframe containing the explanations
             TODO : les calculs de SHAP ou LIME sont lancés depuis AntakIA en local ou envoyés à un serveur (avec GPU) distant. Je suggère que les fonctions de calcul long implémentent l'interface LongTask avec les métodes (start, update etc.)
-        explanation_values : pandas dataframe
-            The dataframe containing the explanations of the model if already computed.
         X_all : pandas dataframe
             The dataframe containing the entire data. It is used to compute the explanations if they are not already computed.
-            TODO : ok. Pourquoi "all" ? Sinon, Values Spaces irait aussi
         default_projection : str
             The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
             TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
         sub_models : list
-            The list of sub-models to display
+            The list of sub-models to choose from for each region created by the user.
             # TODO : qu'est-ce que ça fait là ? S'il s'agit du constructeur du GUI. EN outre, c'est plutôt à AntakIA à maintenir cette liste surrogates
         save_regions : list
             The list of regions to display.
@@ -85,7 +103,7 @@ class Gui():
         """
         self.xplainer = xplainer
         self.explanation = explanation
-        self.explanation_values = explanation_values
+        self.explanation_values = None
         self.X_all = X_all
         self.default_projection = default_projection
         self.sub_models = sub_models
@@ -116,6 +134,13 @@ class Gui():
         self.__score_models = []
 
     def display(self):
+        """Function that displays the interface.
+
+        Returns
+        -------
+        An interface
+        """
+
         xplainer = self.xplainer
         explanation = self.explanation
         explanation_values = self.explanation_values
@@ -129,47 +154,7 @@ class Gui():
         model = xplainer.model
         # TODO Mettre toutes ces fonctions dans un module compute.py (par ex). Ce ne sont que des implémentatiosn de la même interface DimensionReduc. Et leur ferai implémenter une 2ème interface, "LongTask"
 
-        def red_PCA(X, n, default):
-            # definition of the method PCA, used for the EE and the EV
-            if default:
-                pca = PCA(n_components=n)
-            pca.fit(X)
-            X_pca = pca.transform(X)
-            X_pca = pd.DataFrame(X_pca)
-            return X_pca
-
-        def red_TSNE(X, n, default):
-            # definition of the method TSNE, used for the EE and the EV
-            if default:
-                tsne = TSNE(n_components=n)
-            X_tsne = tsne.fit_transform(X)
-            X_tsne = pd.DataFrame(X_tsne)
-            return X_tsne
-
-        def red_UMAP(X, n, default):
-            # definition of the method UMAP, used for the EE and the EV
-            if default:
-                reducer = umap.UMAP(n_components=n)
-            embedding = reducer.fit_transform(X)
-            embedding = pd.DataFrame(embedding)
-            return embedding
-
-        def red_PACMAP(X, n, default, *args):
-            # definition of the method PaCMAP, used for the EE and the EV
-            # if default : no change of parameters (only for PaCMAP for now)
-            if default:
-                reducer = pacmap.PaCMAP(n_components=n, random_state=9)
-            else:
-                reducer = pacmap.PaCMAP(
-                    n_components=n,
-                    n_neighbors=args[0],
-                    MN_ratio=args[1],
-                    FP_ratio=args[2],
-                    random_state=9,
-                )
-            embedding = reducer.fit_transform(X, init="pca")
-            embedding = pd.DataFrame(embedding)
-            return embedding
+    
 
         # TODO : Ces submodels ont vocation à être nombreux. On pourrait créer un module surrogates.py, avec une classe abstraite Surrogate (ou bien une classe abstraite Model de Scikitlearn ?) et plusieurs implémentation. Il doit être facile à un développeur d'en importer d'autres
         # list of sub_models used
@@ -180,18 +165,16 @@ class Gui():
             ensemble.GradientBoostingRegressor(random_state=9),
         ]
 
-        def conflict_handler(gliste, liste):
-            # function that allows you to manage conflicts in the list of regions.
-            # indeed, as soon as a region is added to the list of regions, the points it contains are removed from the other regions
-            for i in range(len(gliste)):
-                a = 0
-                for j in range(len(gliste[i])):
-                    if gliste[i][j - a] in liste:
-                        gliste[i].pop(j - a)
-                        a += 1
-            return gliste
+        if type(explanation) == str:
+            calculus = True
+        elif type(explanation) == type(pd.DataFrame()):
+            calculus = False
+            explanation_values = explanation
+        else:
+            raise ValueError(
+                "The explanation parameter must be a string or a pandas dataframe.")
 
-        # TODO et si on mettait dans la classe Potato, en plus des règles, une instance d'un modèle de substiuttion. Du coup le score serait calculé dans Potato
+        # TODO et si on mettait dans la classe Potato, en plus des règles, une instance d'un modèle de substitution. Du coup le score serait calculé dans Potato
         def fonction_score(y, y_chap):
             # function that calculates the score of a machine-learning model
             y = np.array(y)
@@ -231,24 +214,6 @@ class Gui():
             X, Y, explanation, explanation_values, model, X_all, default_projection
         ):
             # function that allows you to check that you have all the necessary information
-            if explanation is None and explanation_values is None:
-                return "Il faut renseigner soit un modèle d'explication, soit les valeurs de ces explications !"
-
-            if (
-                type(explanation) != type(None)
-                and type(explanation_values) != pd.core.frame.DataFrame
-                and type(explanation_values) != type(None)
-            ):
-                return "Il faut renseigner soit un modèle d'explication (dans Explanations), soit les valeurs déjà calculé de ces explications (dans explanation_values), pas les deux !"
-
-            if (
-                type(explanation) != type(None)
-                and model == None
-                and type(explanation_values) != pd.core.frame.DataFrame
-                and type(explanation_values) == type(None)
-            ):
-                return "Il faut renseigner le modèle de machine-learning utilisé !"
-
             if sub_models != None and len(sub_models) > 9:
                 return "Il faut renseigner moins de 10 modèles ! (changements à venir)"
 
@@ -382,12 +347,8 @@ class Gui():
             children=[logo_antakia, prog_shap, prog_red],
         )
 
-        # here, we will define the widgets that will be used in the rest of the program
-        calculus = False
-        if (explanation == "SHAP" or explanation == "LIME") and type(explanation_values) == type(None):
-            calculus = True
-        else:
-            calculus = False
+        # we send the splash screen
+        display(splash)
 
         # if we import the explanatory values, the progress bar of this one is at 100
         if not calculus:
@@ -395,9 +356,6 @@ class Gui():
             prog_shap.children[2].children[
                 0
             ].children = "Valeurs explicatives importées"
-
-        # we send the splash screen
-        display(splash)
 
         # TODO Vivement que tout ce code avant et ci-dessous soit dans une sous-classe ad hoc! D'ailleurs, ce serait encore mieux de mettre ça dans un module SplashScreen.py
         def generation_texte(i, tot, time_init, progress):
@@ -472,6 +430,8 @@ class Gui():
                 )
             return LIME
 
+        print(calculus)
+
         if calculus == True:
             if explanation == "SHAP":
                 SHAP = get_SHAP(self.__X_not_scaled, model)
@@ -479,10 +439,10 @@ class Gui():
                 SHAP = get_LIME(self.__X_not_scaled, model)
             else:
                 SHAP = explanation_values
-                calculus = False
         else:
             SHAP = explanation_values
-            calculus = False
+
+        self.explanation_values = SHAP.copy()
 
         self.__SHAP_not_scaled = SHAP.copy()
 
@@ -3578,7 +3538,7 @@ class Gui():
                     nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
                 self.__list_of_sub_models.append([nom_model, score_model, indice_model])
                 # here we will force so that all the points of the new tile belong only to it: we will modify the existing tiles
-                self.__list_of_regions = conflict_handler(self.__list_of_regions, nouvelle_tuile)
+                self.__list_of_regions = _conflict_handler(self.__list_of_regions, nouvelle_tuile)
                 self.__list_of_regions.append(nouvelle_tuile)
             for i in range(len(self.__color_regions)):
                 if i in self.selection:

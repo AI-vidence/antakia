@@ -18,6 +18,8 @@ class Xplainer():
         The model used to explain the data.
     selection : list
         The list of the indices of the data currently selected by the user.
+    gui : Gui object
+        The Gui object that contains the interface.
     """
 
     def __init__(self, X: pd.DataFrame, Y: pd.Series = None, model: object = None):
@@ -51,16 +53,39 @@ class Xplainer():
         print("Xplainer object")
 
     def startGui(self,
-                explanation: str = "SHAP",
-                exp_val: pd.DataFrame = None,
+                explanation: str | pd.DataFrame = "SHAP",
                 X_all: pd.DataFrame = None,
                 default_projection: str = "PaCMAP",
                 sub_models: list = None,
                 save_regions: list = None,
-                display = True,):
+                display = True):
         """
         Function that starts the interface.
+
+        Parameters
+        ---------
+        explanation : str or pandas dataframe
+            The type of explanation to display.
+            If not computed : string ("SHAP" or "LIME", default : "SHAP")
+            If already computed : pandas dataframe containing the explanations
+        X_all : pandas dataframe
+            The dataframe containing the data to explain.
+        default_projection : str
+            The default projection method used to display the data.
+            The possible values are "PaCMAP" and "UMAP".
+        sub_models : list
+            The list of the submodels used to explain the data.
+        save_regions : list
+            The list of the regions saved by the user.
+        display : bool
+            If True, the interface is displayed.
+            If False, the interface is not displayed.
+
+        Returns
+        -------
+        Gui object
+            The Gui object that contains the interface. Displayed if display = True.
         """
-        self.gui = Gui(self, explanation, exp_val, X_all, default_projection, sub_models, save_regions)
+        self.gui = Gui(self, explanation, X_all, default_projection, sub_models, save_regions)
         if display:
             self.gui.display()

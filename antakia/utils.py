@@ -1,14 +1,5 @@
 """
 Utils module for the antakia package.
-<<<<<<< HEAD
-=======
-
-This module contains the following functions:
-    - fonction_auto_clustering
-    - create_save
-    - load_save
-    - from_rules
->>>>>>> d52101bce3abd5085f3ea47a4d5e1b95209494f0
 """
 
 import numpy as np
@@ -26,6 +17,18 @@ import sklearn.cluster
 
 import json
 
+# Private utils functions
+
+def _conflict_handler(gliste, liste):
+    # function that allows you to manage conflicts in the list of regions.
+    # indeed, as soon as a region is added to the list of regions, the points it contains are removed from the other regions
+    for i in range(len(gliste)):
+        a = 0
+        for j in range(len(gliste[i])):
+            if gliste[i][j - a] in liste:
+                gliste[i].pop(j - a)
+                a += 1
+    return gliste
 
 def _create_list_invert(liste, taille):
     l = [[] for _ in range(taille)]
@@ -113,6 +116,8 @@ def _clustering_dyadique(X, SHAP, n_clusters, default):
         l = _reset_list(l)
     return _create_list_invert(l, max(l) + 1), l
 
+# Public utils functions
+
 
 def fonction_auto_clustering(X1, X2, n_clusters, default):
     """Return a clustering, generated a dyadic way.
@@ -138,6 +143,19 @@ def fonction_auto_clustering(X1, X2, n_clusters, default):
         A list of lists, each list being a cluster. Each cluster is a list of indices of the data in the dataframe X.
     clusters_axis : list
         A list of size len(X), each element being the axis of the cluster the corresponding data belongs to.
+
+    Examples
+    --------
+    >>> import antakia
+    >>> import pandas as pd
+    >>> X1 = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]])
+    >>> X2 = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]])
+    >>> clusters, clusters_axis = antakia.fonction_auto_clustering(X1, X2, 2, False)
+    >>> clusters
+    [[0, 1], [2, 3]]
+    >>> clusters_axis
+    [0, 0, 1, 1]
+
     """
     return _clustering_dyadique(X1, X2, n_clusters, default)
 
@@ -161,6 +179,14 @@ def create_save(liste=None, nom: str = "Default name", sub_models: list = None):
     -------
     retour : dict
         A dictionary containing the name of the save file, the list of pre-defined regions and the list of sub_models used to generate the pre-defined regions.
+    
+    Examples
+    --------
+    >>> import antakia
+    >>> from sklearn.linear_model import LogisticRegression, LinearRegression
+    >>> my_save = antakia.create_save([0,1,1,0], "save", [LogisticRegression, LinearRegression])
+    >>> my_save
+    {'nom': 'save', 'liste': [[0, 1], [2, 3]], 'sub_models': [<class 'sklearn.linear_model._logistic.LogisticRegression'>, <class 'sklearn.linear_model._base.LinearRegression'>]}
     """
     if sub_models is None:
         sub_models = []
@@ -182,6 +208,13 @@ def load_save(local_path):
     ----------
     data : list
         A list of dictionaries, each dictionary being a save file. This list can directly be passed to the function antakia.interface so as to load the save file.
+    
+    Examples
+    --------
+    >>> import antakia
+    >>> data = antakia.load_save("save.json")
+    >>> data
+    [{'nom': 'save', 'liste': [[0, 1], [2, 3]], 'sub_models': [<antakia.models.Model object at 0x7f8b1c0b6d90>, <antakia.models.Model object at 0x7f8b1c0b6e50>]}]
     """
     with open(local_path) as json_file:
         data = json.load(json_file)
