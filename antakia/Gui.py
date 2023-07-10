@@ -57,6 +57,8 @@ from antakia._compute import red_TSNE
 from antakia._compute import red_UMAP
 from antakia._compute import red_PACMAP
 
+from antakia import LongTask
+
 
 class Gui():
     """
@@ -152,9 +154,6 @@ class Gui():
         X = xplainer.X
         Y = xplainer.Y
         model = xplainer.model
-        # TODO Mettre toutes ces fonctions dans un module compute.py (par ex). Ce ne sont que des implémentatiosn de la même interface DimensionReduc. Et leur ferai implémenter une 2ème interface, "LongTask"
-
-    
 
         # TODO : Ces submodels ont vocation à être nombreux. On pourrait créer un module surrogates.py, avec une classe abstraite Surrogate (ou bien une classe abstraite Model de Scikitlearn ?) et plusieurs implémentation. Il doit être facile à un développeur d'en importer d'autres
         # list of sub_models used
@@ -299,19 +298,20 @@ class Gui():
                     children=[
                         v.Html(
                             tag="h3",
-                            class_="text-right",
+                            class_="mt-2 text-right",
                             children=["Calcul des valeurs explicatives"],
                         )
                     ]
                 ),
-                v.Col(children=[progress_shap]),
+                v.Col(class_="mt-3", children=[progress_shap]),
                 v.Col(
                     children=[
-                        v.Html(
-                            tag="p",
-                            class_="text-left font-weight-medium",
-                            children=["0.00% [0/?] - 0m0s (temps estimé : /min /s)"],
-                        )
+                        v.TextField(
+                            variant="plain",
+                            v_model="0.00% [0/?] - 0m0s (temps estimé : /min /s)",
+                            readonly=True,
+                            class_="mt-0 pt-0",
+                            )
                     ]
                 ),
             ],
@@ -322,23 +322,23 @@ class Gui():
                 v.Col(
                     children=[
                         v.Html(
-                            class_="text-right",
                             tag="h3",
-                            children=["Calcul de réduction de dimension"],
+                            class_="mt-2 text-right",
+                            children=["Calcul des réductions de dimension"],
                         )
                     ]
                 ),
-                v.Col(children=[progress_red]),
+                v.Col(class_="mt-3", children=[progress_red]),
                 v.Col(
-                    children=[
-                        v.Html(
-                            tag="p",
-                            class_="text-left font-weight-medium",
-                            children=["..."],
-                        )
-                    ]
-                ),
-            ],
+            children = [
+                    v.TextField(
+                            variant="plain",
+                            v_model=" ",
+                            readonly=True,
+                            class_="mt-0 pt-0",
+                            )
+                ]
+        )],
         )
 
         # definition of the splash screen which includes all the elements,
@@ -355,7 +355,7 @@ class Gui():
             progress_shap.v_model = 100
             prog_shap.children[2].children[
                 0
-            ].children = "Valeurs explicatives importées"
+            ].v_model = "Valeurs explicatives importées"
 
         # TODO Vivement que tout ce code avant et ci-dessous soit dans une sous-classe ad hoc! D'ailleurs, ce serait encore mieux de mettre ça dans un module SplashScreen.py
         def generation_texte(i, tot, time_init, progress):
@@ -384,64 +384,19 @@ class Gui():
                 + "s)"
             )
 
-        # TODO A mettre dans AntakIA et à exécuter dans un Thread LongTask
-        def get_SHAP(X, model):
-            # calculates SHAP explanatory values
-            time_init = time.time()
-            explainer = shap.Explainer(model.predict, X_all)
-            shap_values = pd.DataFrame().reindex_like(X)
-            j = list(X.columns)
-            for i in range(len(j)):
-                j[i] = j[i] + "_shap"
-            for i in range(len(X)):
-                shap_value = explainer(X[i : i + 1], max_evals=1400)
-                shap_values.iloc[i] = shap_value.values
-                progress_shap.v_model += 100 / len(X)
-                prog_shap.children[2].children[0].children = generation_texte(
-                    i, len(X), time_init, progress_shap.v_model
-                )
-            shap_values.columns = j
-            return shap_values
-
-        # TODO id
-        def get_LIME(X, model):
-            # allows to calculate LIME explanatory values ​​(NOT WORKING YET)
-            time_init = time.time()
-            explainer = lime.lime_tabular.LimeTabularExplainer(
-                X_all,
-                feature_names=X.columns,
-                class_names=["price"],
-                verbose=True,
-                mode="regression",
-            )
-            N = len(X)
-            LIME = pd.DataFrame(np.zeros((N, 6)))
-            l = []
-            for j in range(N):
-                l = []
-                exp = explainer.explain_instance(
-                    X.values[j], model.predict, num_features=6
-                )
-                for i in range(len(exp.as_list())):
-                    l.append(exp.as_list()[i][1])
-                progress_shap.v_model += 100 / N
-                prog_shap.children[2].children[0].children = generation_texte(
-                    j, N, time_init, progress_shap.v_model
-                )
-            return LIME
-
-        print(calculus)
-
         if calculus == True:
             if explanation == "SHAP":
-                SHAP = get_SHAP(self.__X_not_scaled, model)
+                compute_SHAP = LongTask.compute_SHAP(self.__X_not_scaled, X_all, model)
+                widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
+                widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
+                SHAP = compute_SHAP.compute()
                 xplainer.SHAP_values = SHAP.copy()
             elif explanation == "LIME":
-                SHAP = get_LIME(self.__X_not_scaled, model)
+                compute_LIME = LongTask.compute_LIME(self.__X_not_scaled, X_all, model)
+                widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
+                widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
+                SHAP = compute_LIME.compute()
                 xplainer.LIME_values = SHAP.copy()
-            #elif explanation == "BANZHAF":
-            #    SHAP = get_BANZHAF(self.__X_not_scaled, model)
-            #    xplainer.BANZHAF_values = SHAP.copy()
             else:
                 SHAP = explanation_values
         else:
@@ -456,58 +411,70 @@ class Gui():
         # definition of the default projection
         # base, we take the PaCMAP projection
         # TODO : penser à traduire en EN
-        # TODO : on ne pourrait pas (comme SHAP) choisir PACMAC par défaut ?
         if default_projection == "UMAP":
-            prog_red.children[2].children[0].children = "Espace des valeurs... "
+            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
             choix_init_proj = 2
-            Espace_valeurs = ["None", "None", red_UMAP(X, 2, True), "None"]
-            Espace_valeurs_3D = ["None", "None", red_UMAP(X, 3, True), "None"]
+            self.__Espace_valeurs = ["None", "None", red_UMAP(X, 2, True), "None"]
+            self.__Espace_valeurs_3D = ["None", "None", red_UMAP(X, 3, True), "None"]
             progress_red.v_model = +50
             prog_red.children[2].children[
                 0
-            ].children = "Espace des valeurs... Espace des explications..."
-            Espace_explications = ["None", "None", red_UMAP(SHAP, 2, True), "None"]
-            Espace_explications_3D = ["None", "None", red_UMAP(SHAP, 3, True), "None"]
+            ].v_model = "Espace des valeurs... Espace des explications..."
+            self.__Espace_explications = ["None", "None", red_UMAP(SHAP, 2, True), "None"]
+            self.__Espace_explications_3D = ["None", "None", red_UMAP(SHAP, 3, True), "None"]
             progress_red.v_model = +50
 
         elif default_projection == "t-SNE":
             choix_init_proj = 1
-            prog_red.children[2].children[0].children = "Espace des valeurs... "
-            Espace_valeurs = ["None", red_TSNE(X, 2, True), "None", "None"]
-            Espace_valeurs_3D = ["None", red_TSNE(X, 3, True), "None", "None"]
+            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
+            self.__Espace_valeurs = ["None", red_TSNE(X, 2, True), "None", "None"]
+            self.__Espace_valeurs_3D = ["None", red_TSNE(X, 3, True), "None", "None"]
             progress_red.v_model = +50
             prog_red.children[2].children[
                 0
-            ].children = "Espace des valeurs... Espace des explications..."
-            Espace_explications = ["None", red_TSNE(SHAP, 2, True), "None", "None"]
-            Espace_explications_3D = ["None", red_TSNE(SHAP, 3, True), "None", "None"]
+            ].v_model = "Espace des valeurs... Espace des explications..."
+            self.__Espace_explications = ["None", red_TSNE(SHAP, 2, True), "None", "None"]
+            self.__Espace_explications_3D = ["None", red_TSNE(SHAP, 3, True), "None", "None"]
             progress_red.v_model = +50
 
         elif default_projection == "PCA":
             choix_init_proj = 0
-            prog_red.children[2].children[0].children = "Espace des valeurs... "
-            Espace_valeurs = [red_PCA(X, 2, True), "None", "None", "None"]
-            Espace_valeurs_3D = [red_PCA(X, 3, True), "None", "None", "None"]
+            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
+            self.__Espace_valeurs = [red_PCA(X, 2, True), "None", "None", "None"]
+            self.__Espace_valeurs_3D = [red_PCA(X, 3, True), "None", "None", "None"]
             progress_red.v_model = +50
             prog_red.children[2].children[
                 0
-            ].children = "Espace des valeurs... Espace des explications..."
-            Espace_explications = [red_PCA(SHAP, 2, True), "None", "None", "None"]
-            Espace_explications_3D = [red_PCA(SHAP, 3, True), "None", "None", "None"]
+            ].v_model = "Espace des valeurs... Espace des explications..."
+            self.__Espace_explications = [red_PCA(SHAP, 2, True), "None", "None", "None"]
+            self.__Espace_explications_3D = [red_PCA(SHAP, 3, True), "None", "None", "None"]
             progress_red.v_model = +50
 
         else:
-            prog_red.children[2].children[0].children = "Espace des valeurs... "
+            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
             choix_init_proj = 3
-            Espace_valeurs = ["None", "None", "None", red_PACMAP(X, 2, True)]
-            Espace_valeurs_3D = ["None", "None", "None", red_PACMAP(X, 3, True)]
+            self.__Espace_valeurs = ["None", "None", "None", red_PACMAP(X, 2, True)]
+            self.__Espace_valeurs_3D = ["None", "None", "None", red_PACMAP(X, 3, True)]
             progress_red.v_model = +50
             prog_red.children[2].children[
                 0
-            ].children = "Espace des valeurs... Espace des explications..."
-            Espace_explications = ["None", "None", "None", red_PACMAP(SHAP, 2, True)]
-            Espace_explications_3D = ["None", "None", "None", red_PACMAP(SHAP, 3, True)]
+            ].v_model = "Espace des valeurs... Espace des explications..."
+            self.__Espace_explications = ["None", "None", "None", red_PACMAP(SHAP, 2, True)]
+            self.__Espace_explications_3D = ["None", "None", "None", red_PACMAP(SHAP, 3, True)]
             progress_red.v_model = +50
+
+        self.all_values = dict()
+        self.all_values['imported'] = [None]*4
+        self.all_values['SHAP'] = [None]*4
+        self.all_values['LIME'] = [None]*4
+        if calculus == False:
+            self.all_values['imported'] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
+        else:
+            if explanation == "SHAP":
+                self.all_values['SHAP'] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
+            elif explanation == "LIME":
+                self.all_values['LIME'] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
+            
 
         # once all this is done, the splash screen is removed
         splash.class_ = "d-none"
@@ -525,6 +492,7 @@ class Gui():
         EV_proj = v.Select(
             label="Projection dans l'EV :",
             items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
+            style_="width: 150px",
         )
 
         EV_proj.v_model = EV_proj.items[choix_init_proj]
@@ -533,6 +501,7 @@ class Gui():
         EE_proj = v.Select(
             label="Projection dans l'EE :",
             items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
+            style_="width: 150px",
         )
 
         EE_proj.v_model = EE_proj.items[choix_init_proj]
@@ -624,24 +593,24 @@ class Gui():
             FP_ratio = slider_param_PaCMAP_fp_ratio_EV.children[0].v_model
             if EV_proj.v_model == "PaCMAP":
                 out_loading1.layout.visibility = "visible"
-                Espace_valeurs[3] = red_PACMAP(
+                self.__Espace_valeurs[3] = red_PACMAP(
                     X, 2, False, n_neighbors, MN_ratio, FP_ratio
                 )
-                Espace_valeurs_3D[3] = red_PACMAP(
+                self.__Espace_valeurs_3D[3] = red_PACMAP(
                     X, 3, False, n_neighbors, MN_ratio, FP_ratio
                 )
                 out_loading1.layout.visibility = "hidden"
             with fig1.batch_update():
-                fig1.data[0].x = Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
-                fig1.data[0].y = Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
+                fig1.data[0].x = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
+                fig1.data[0].y = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
             with fig1_3D.batch_update():
-                fig1_3D.data[0].x = Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                fig1_3D.data[0].x = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
                     0
                 ]
-                fig1_3D.data[0].y = Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                fig1_3D.data[0].y = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
                     1
                 ]
-                fig1_3D.data[0].z = Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                fig1_3D.data[0].z = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
                     2
                 ]
 
@@ -651,21 +620,21 @@ class Gui():
             # reset projection settings
             if liste_red.index(EV_proj.v_model) == 3:
                 out_loading1.layout.visibility = "visible"
-                Espace_valeurs[3] = red_PACMAP(X, 2, True)
-                Espace_valeurs_3D[3] = red_PACMAP(X, 3, True)
+                self.__Espace_valeurs[3] = red_PACMAP(X, 2, True)
+                self.__Espace_valeurs_3D[3] = red_PACMAP(X, 3, True)
                 out_loading1.layout.visibility = "hidden"
 
             with fig1.batch_update():
-                fig1.data[0].x = Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
-                fig1.data[0].y = Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
+                fig1.data[0].x = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
+                fig1.data[0].y = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
             with fig1_3D.batch_update():
-                fig1_3D.data[0].x = Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                fig1_3D.data[0].x = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
                     0
                 ]
-                fig1_3D.data[0].y = Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                fig1_3D.data[0].y = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
                     1
                 ]
-                fig1_3D.data[0].z = Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                fig1_3D.data[0].z = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
                     2
                 ]
 
@@ -757,28 +726,28 @@ class Gui():
             FP_ratio = slider_param_PaCMAP_fp_ratio_EE.children[0].v_model
             if liste_red.index(EV_proj.v_model) == 3:
                 out_loading2.layout.visibility = "visible"
-                Espace_explications[3] = red_PACMAP(
+                self.__Espace_explications[3] = red_PACMAP(
                     SHAP, 2, False, n_neighbors, MN_ratio, FP_ratio
                 )
-                Espace_explications_3D[3] = red_PACMAP(
+                self.__Espace_explications_3D[3] = red_PACMAP(
                     SHAP, 3, False, n_neighbors, MN_ratio, FP_ratio
                 )
                 out_loading2.layout.visibility = "hidden"
             with fig2.batch_update():
-                fig2.data[0].x = Espace_explications[liste_red.index(EE_proj.v_model)][
+                fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
                     0
                 ]
-                fig2.data[0].y = Espace_explications[liste_red.index(EE_proj.v_model)][
+                fig2.data[0].y = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
                     1
                 ]
             with fig2_3D.batch_update():
-                fig2_3D.data[0].x = Espace_explications_3D[
+                fig2_3D.data[0].x = self.__Espace_explications_3D[
                     liste_red.index(EE_proj.v_model)
                 ][0]
-                fig2_3D.data[0].y = Espace_explications_3D[
+                fig2_3D.data[0].y = self.__Espace_explications_3D[
                     liste_red.index(EE_proj.v_model)
                 ][1]
-                fig2_3D.data[0].z = Espace_explications_3D[
+                fig2_3D.data[0].z = self.__Espace_explications_3D[
                     liste_red.index(EE_proj.v_model)
                 ][2]
 
@@ -787,24 +756,24 @@ class Gui():
         def reinit_param_EE(*b):
             if EE_proj.v_model == "PaCMAP":
                 out_loading2.layout.visibility = "visible"
-                Espace_explications[3] = red_PACMAP(SHAP, 2, True)
-                Espace_explications_3D[3] = red_PACMAP(SHAP, 3, True)
+                self.__Espace_explications[3] = red_PACMAP(SHAP, 2, True)
+                self.__Espace_explications_3D[3] = red_PACMAP(SHAP, 3, True)
                 out_loading2.layout.visibility = "hidden"
             with fig2.batch_update():
-                fig2.data[0].x = Espace_explications[liste_red.index(EE_proj.v_model)][
+                fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
                     0
                 ]
-                fig2.data[0].y = Espace_explications[liste_red.index(EE_proj.v_model)][
+                fig2.data[0].y = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
                     1
                 ]
             with fig2_3D.batch_update():
-                fig2_3D.data[0].x = Espace_explications_3D[
+                fig2_3D.data[0].x = self.__Espace_explications_3D[
                     liste_red.index(EE_proj.v_model)
                 ][0]
-                fig2_3D.data[0].y = Espace_explications_3D[
+                fig2_3D.data[0].y = self.__Espace_explications_3D[
                     liste_red.index(EE_proj.v_model)
                 ][1]
-                fig2_3D.data[0].z = Espace_explications_3D[
+                fig2_3D.data[0].z = self.__Espace_explications_3D[
                     liste_red.index(EE_proj.v_model)
                 ][2]
 
@@ -961,8 +930,8 @@ class Gui():
         couleur_radio.on_event("change", fonction_changement_couleur)
 
         # EVX and EVY are the coordinates of the points in the value space
-        EVX = np.array(Espace_valeurs[choix_init_proj][0])
-        EVY = np.array(Espace_valeurs[choix_init_proj][1])
+        EVX = np.array(self.__Espace_valeurs[choix_init_proj][0])
+        EVY = np.array(self.__Espace_valeurs[choix_init_proj][1])
 
         # marker 1 is the marker of figure 1
         marker1 = dict(
@@ -1442,8 +1411,8 @@ class Gui():
         fig1.update_layout(dragmode="lasso")
 
         # coordonnées des points de l'espace des explications
-        EEX = np.array(Espace_explications[choix_init_proj][0])
-        EEY = np.array(Espace_explications[choix_init_proj][1])
+        EEX = np.array(self.__Espace_explications[choix_init_proj][0])
+        EEY = np.array(self.__Espace_explications[choix_init_proj][1])
 
         # grapbique de l'espace des explications
         fig2 = go.FigureWidget(
@@ -1486,14 +1455,14 @@ class Gui():
         dimension_projection.on_event("change", fonction_dimension_projection)
 
         # coordinates of points in the 3D value space
-        EVX_3D = np.array(Espace_valeurs_3D[choix_init_proj][0])
-        EVY_3D = np.array(Espace_valeurs_3D[choix_init_proj][1])
-        EVZ_3D = np.array(Espace_valeurs_3D[choix_init_proj][2])
+        EVX_3D = np.array(self.__Espace_valeurs_3D[choix_init_proj][0])
+        EVY_3D = np.array(self.__Espace_valeurs_3D[choix_init_proj][1])
+        EVZ_3D = np.array(self.__Espace_valeurs_3D[choix_init_proj][2])
 
         # coordinates of the points of the space of the explanations in 3D
-        EEX_3D = np.array(Espace_explications_3D[choix_init_proj][0])
-        EEY_3D = np.array(Espace_explications_3D[choix_init_proj][1])
-        EEZ_3D = np.array(Espace_explications_3D[choix_init_proj][2])
+        EEX_3D = np.array(self.__Espace_explications_3D[choix_init_proj][0])
+        EEY_3D = np.array(self.__Espace_explications_3D[choix_init_proj][1])
+        EEZ_3D = np.array(self.__Espace_explications_3D[choix_init_proj][2])
 
         # marker 3D is the marker of figure 1 in 3D
         marker_3D = dict(
@@ -1575,65 +1544,65 @@ class Gui():
             val_act_EE = deepcopy(liste_red.index(EE_proj.v_model))
             param_EV.v_slots[0]["children"].disabled = True
             param_EE.v_slots[0]["children"].disabled = True
-            if str(Espace_valeurs[liste_red.index(EV_proj.v_model)]) == "None":
+            if str(self.__Espace_valeurs[liste_red.index(EV_proj.v_model)]) == "None":
                 out_loading1.layout.visibility = "visible"
                 if liste_red.index(EV_proj.v_model) == 0:
-                    Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_PCA(
+                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_PCA(
                         X, 2, True
                     )
-                    Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_PCA(
+                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_PCA(
                         X, 3, True
                     )
                 elif liste_red.index(EV_proj.v_model) == 1:
-                    Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_TSNE(
+                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_TSNE(
                         X, 2, True
                     )
-                    Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_TSNE(
+                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_TSNE(
                         X, 3, True
                     )
                 elif liste_red.index(EV_proj.v_model) == 2:
-                    Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_UMAP(
+                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_UMAP(
                         X, 2, True
                     )
-                    Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_UMAP(
+                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_UMAP(
                         X, 3, True
                     )
                 elif liste_red.index(EV_proj.v_model) == 3:
-                    Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_PACMAP(
+                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_PACMAP(
                         X, 2, True
                     )
-                    Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_PACMAP(
+                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_PACMAP(
                         X, 3, True
                     )
                 out_loading1.layout.visibility = "hidden"
-            if str(Espace_explications[liste_red.index(EE_proj.v_model)]) == "None":
+            if str(self.__Espace_explications[liste_red.index(EE_proj.v_model)]) == "None":
                 out_loading2.layout.visibility = "visible"
                 if liste_red.index(EE_proj.v_model) == 0:
-                    Espace_explications[liste_red.index(EE_proj.v_model)] = red_PCA(
+                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_PCA(
                         SHAP, 2, True
                     )
-                    Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_PCA(
+                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_PCA(
                         SHAP, 3, True
                     )
                 elif liste_red.index(EE_proj.v_model) == 1:
-                    Espace_explications[liste_red.index(EE_proj.v_model)] = red_TSNE(
+                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_TSNE(
                         SHAP, 2, True
                     )
-                    Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_TSNE(
+                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_TSNE(
                         SHAP, 3, True
                     )
                 elif liste_red.index(EE_proj.v_model) == 2:
-                    Espace_explications[liste_red.index(EE_proj.v_model)] = red_UMAP(
+                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_UMAP(
                         SHAP, 2, True
                     )
-                    Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_UMAP(
+                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_UMAP(
                         SHAP, 3, True
                     )
                 elif liste_red.index(EE_proj.v_model) == 3:
-                    Espace_explications[liste_red.index(EE_proj.v_model)] = red_PACMAP(
+                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_PACMAP(
                         SHAP, 2, True
                     )
-                    Espace_explications_3D[
+                    self.__Espace_explications_3D[
                         liste_red.index(EE_proj.v_model)
                     ] = red_PACMAP(SHAP, 3, True)
                 out_loading2.layout.visibility = "hidden"
@@ -1643,37 +1612,37 @@ class Gui():
                 param_EV.v_slots[0]["children"].disabled = False
             with fig1.batch_update():
                 fig1.data[0].x = np.array(
-                    Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
+                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
                 )
                 fig1.data[0].y = np.array(
-                    Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
+                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
                 )
             with fig2.batch_update():
                 fig2.data[0].x = np.array(
-                    Espace_explications[liste_red.index(EE_proj.v_model)][0]
+                    self.__Espace_explications[liste_red.index(EE_proj.v_model)][0]
                 )
                 fig2.data[0].y = np.array(
-                    Espace_explications[liste_red.index(EE_proj.v_model)][1]
+                    self.__Espace_explications[liste_red.index(EE_proj.v_model)][1]
                 )
             with fig1_3D.batch_update():
                 fig1_3D.data[0].x = np.array(
-                    Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][0]
+                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][0]
                 )
                 fig1_3D.data[0].y = np.array(
-                    Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][1]
+                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][1]
                 )
                 fig1_3D.data[0].z = np.array(
-                    Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][2]
+                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][2]
                 )
             with fig2_3D.batch_update():
                 fig2_3D.data[0].x = np.array(
-                    Espace_explications_3D[liste_red.index(EE_proj.v_model)][0]
+                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)][0]
                 )
                 fig2_3D.data[0].y = np.array(
-                    Espace_explications_3D[liste_red.index(EE_proj.v_model)][1]
+                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)][1]
                 )
                 fig2_3D.data[0].z = np.array(
-                    Espace_explications_3D[liste_red.index(EE_proj.v_model)][2]
+                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)][2]
                 )
 
             EV_proj.v_model = liste_red[val_act_EV]
@@ -4144,6 +4113,223 @@ class Gui():
 
         bouton_reinit_opa.on_event("click", fonction_reinit_opa)
 
+        items = [{'text': "SHAP", 'disabled': True},
+                {'text': "LIME", 'disabled': True}]
+        if type(self.explanation) != str:
+            items = [{'text': "Imported", 'disabled': False}] + items
+            item_default = "Imported"
+        else :
+            item_default = explanation
+
+        for item in items:
+            if item['text'] == item_default:
+                item['disabled'] = False
+
+        choose_explanation = v.Select(
+            label="Explainability method",
+            items=items,
+            v_model=item_default,
+            class_="ma-2 ml-6",
+            style_="width: 150px",
+            disabled = False,
+        )
+
+        def fonction_choose_explanation(widget, event, data):
+            EE_proj.v_model = "PaCMAP"
+            EV_proj.v_model = "PaCMAP"
+            if data == "Imported":
+                data = "imported"
+            SHAP = eval('self.xplainer.'+data+'_values')
+            if self.all_values[data] == [None]*4:
+                self.__Espace_explications = ["None", "None", "None", red_PACMAP(SHAP, 2, True)]
+                self.__Espace_explications_3D = ["None", "None", "None", red_PACMAP(SHAP, 3, True)]
+                self.all_values[data] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
+            else :
+                self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D = self.all_values[data].copy()
+
+            with fig1.batch_update():
+                fig1.data[0].x = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
+                fig1.data[0].y = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
+            with fig1_3D.batch_update():
+                fig1_3D.data[0].x = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                    0
+                ]
+                fig1_3D.data[0].y = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                    1
+                ]
+                fig1_3D.data[0].z = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
+                    2
+                ]
+            with fig2.batch_update():
+                fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
+                    0
+                ]
+                fig2.data[0].y = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
+                    1
+                ]
+            with fig2_3D.batch_update():
+                fig2_3D.data[0].x = self.__Espace_explications_3D[
+                    liste_red.index(EE_proj.v_model)
+                ][0]
+                fig2_3D.data[0].y = self.__Espace_explications_3D[
+                    liste_red.index(EE_proj.v_model)
+                ][1]
+                fig2_3D.data[0].z = self.__Espace_explications_3D[
+                    liste_red.index(EE_proj.v_model)
+                ][2]
+            
+        
+        choose_explanation.on_event("change", fonction_choose_explanation)
+
+        def prog_other(titre):
+            progress_other = v.ProgressLinear(
+                style_="width: 80%",
+                v_model=0,
+                color="primary",
+                height="15",
+                striped=True,
+            )
+            widget = v.Col(
+                class_="d-flex flex-column align-center",
+                children=[
+                        v.Html(
+                            tag="h3",
+                            class_="mb-3",
+                            children=["Compute " + titre + " values"],
+                    ),
+                    progress_other,
+                    v.TextField(
+                        class_="w-100",
+                        style_="width: 100%",
+                        v_model = "0.00% [0/?] - 0m0s (temps estimé : /min /s)",
+                        readonly=True,
+                    ),
+                    v.Btn(
+                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"],
+                        class_="ma-2 ml-6 pa-3",
+                        elevation="3",
+                        v_model=titre,
+                        color="primary",
+                    ),
+                ],
+            )
+            return widget
+        
+        new_prog_SHAP = prog_other("SHAP")
+        new_prog_LIME = prog_other("LIME")
+
+        if calculus == True:
+            if explanation == "SHAP":
+                new_prog_SHAP.children[1].v_model = 100
+                new_prog_SHAP.children[2].v_model = "Calculs déjà effectués !"
+                new_prog_SHAP.children[-1].disabled = True
+            elif explanation == "LIME":
+                new_prog_LIME.children[1].v_model = 100
+                new_prog_LIME.children[2].v_model = "Calculs déjà effectués !"
+                new_prog_LIME.children[-1].disabled = True
+
+        def function_validation_explanation(widget, event, data):
+            if widget.v_model == "SHAP":
+                self.__compute_SHAP = LongTask.compute_SHAP(self.__X_not_scaled, X_all, model)
+                widgets.jslink((new_prog_SHAP.children[1], "v_model"), (self.__compute_SHAP.progress_widget, "v_model"))
+                widgets.jslink((new_prog_SHAP.children[2], "v_model"), (self.__compute_SHAP.text_widget, "v_model"))
+                widgets.jslink((new_prog_SHAP.children[-1], "color"), (self.__compute_SHAP.done_widget, "v_model"))
+                self.__compute_SHAP.start_thread()
+                new_prog_SHAP.children[-1].disabled = True
+            if widget.v_model == "LIME":
+                self.__compute_LIME = LongTask.compute_LIME(self.__X_not_scaled, X_all, model)
+                widgets.jslink((new_prog_LIME.children[1], "v_model"), (self.__compute_LIME.progress_widget, "v_model"))
+                widgets.jslink((new_prog_LIME.children[2], "v_model"), (self.__compute_LIME.text_widget, "v_model"))
+                widgets.jslink((new_prog_LIME.children[-1], "color"), (self.__compute_LIME.done_widget, "v_model"))
+                self.__compute_LIME.start_thread()
+                new_prog_LIME.children[-1].disabled = True
+                
+        def ok_SHAP(*args):
+            xplainer.SHAP_values = self.__compute_SHAP.value
+            items = choose_explanation.items.copy()
+            for item in items:
+                if item['text'] == "SHAP":
+                    item['disabled'] = False
+            choose_explanation.items = items.copy() + [{'text': "Update", 'disabled': False}]
+            choose_explanation.items = choose_explanation.items[:-1]
+
+        def ok_LIME(*args):
+            xplainer.LIME_values = self.__compute_LIME.value
+            items = choose_explanation.items.copy()
+            for item in items:
+                if item['text'] == "LIME":
+                    item['disabled'] = False
+            choose_explanation.items = items.copy() + [{'text': "Update", 'disabled': False}]
+            choose_explanation.items = choose_explanation.items[:-1]
+
+
+        new_prog_SHAP.children[-1].observe(ok_SHAP, "color")
+        new_prog_LIME.children[-1].observe(ok_LIME, "color")
+
+        new_prog_SHAP.children[-1].on_event("click", function_validation_explanation)
+        new_prog_LIME.children[-1].on_event("click", function_validation_explanation)
+
+        time_computing = v.Card(
+            class_="m-0 p-0",
+            elevation="0",
+            children=[
+                v.Tabs(
+                    class_="w-100",
+                    v_model="tabs",
+                    children=[
+                        v.Tab(value="one", children=["SHAP"]),
+                        v.Tab(value="two", children=["LIME"]),
+                    ],
+                ),
+                v.CardText(
+                    class_="w-100",
+                    children=[
+                        v.Window(
+                            class_="w-100",
+                            v_model="tabs",
+                            children=[
+                                v.WindowItem(value=0, children=[new_prog_SHAP]),
+                                v.WindowItem(value=1, children=[new_prog_LIME]),
+                            ],
+                        )
+                    ],
+                ),
+            ],
+        )
+
+        widgets.jslink(
+            (time_computing.children[0], "v_model"), (time_computing.children[1].children[0], "v_model")
+        )
+
+        choose_computing = v.Menu(
+            v_slots=[
+                {
+                    "name": "activator",
+                    "variable": "props",
+                    "children": v.Btn(
+                        v_on="props.on",
+                        icon=True,
+                        size="x-large",
+                        children=[v.Icon(children=["mdi-timer-sand"], size="large")],
+                        class_="ma-2 pa-3",
+                        elevation="3",
+                    ),
+                }
+            ],
+            children=[
+                v.Card(
+                    class_="pa-4",
+                    rounded=True,
+                    children=[time_computing],
+                    min_width="500",
+                )
+            ],
+            v_model=False,
+            close_on_content_click=False,
+            offset_y=True,
+        )
+            
+
         boutons = widgets.HBox(
             [
                 dimension_projection_text,
@@ -4160,9 +4346,11 @@ class Gui():
                         ),
                         couleur_radio,
                         bouton_reinit_opa,
+                        choose_explanation,
+                        choose_computing,
                     ],
                 ),
-                v.Layout(children=[projEV_et_load, projEE_et_load]),
+                v.Layout(class_="mt-5", children=[projEV_et_load, projEE_et_load]),
             ],
             layout=Layout(
                 width="100%",
