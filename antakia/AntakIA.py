@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
 
-from antakia.Gui import Gui
+from antakia.Gui import GUI
+from antakia.Dataset import Dataset
 
-class Xplainer():
+class AntakIA():
     """
     Xplainer object.
     This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
@@ -28,7 +29,7 @@ class Xplainer():
         The dataframe containing the LIME values of the data.
     """
 
-    def __init__(self, X: pd.DataFrame, Y: pd.Series = None, model: object = None):
+    def __init__(self, dataset: Dataset):
         """
         Constructor of the class Xplainer.
 
@@ -47,14 +48,7 @@ class Xplainer():
         Xplainer object
             An Xplainer object.
         """
-        self.X = X
-        self.Y = Y
-        self.model = model
-        self.gui = None
-
-        self.imported_values = None
-        self.SHAP_values = None
-        self.LIME_values = None
+        self.dataset = dataset
 
     def __str__(self):
         """
@@ -62,13 +56,13 @@ class Xplainer():
         """
         print("Xplainer object")
 
-    def startGui(self,
-                explanation: str | pd.DataFrame = "SHAP",
+    def startGUI(self,
+                explanation: str = "SHAP",
                 X_all: pd.DataFrame = None,
                 default_projection: str = "PaCMAP",
                 sub_models: list = None,
                 save_regions: list = None,
-                display = True):
+                display = True) -> GUI:
         """
         Function that starts the interface.
 
@@ -96,8 +90,6 @@ class Xplainer():
         Gui object
             The Gui object that contains the interface. Displayed if display = True.
         """
-        if type(explanation) != str:
-            self.imported_values = explanation
-        self.gui = Gui(self, explanation, X_all, default_projection, sub_models, save_regions)
+        self.gui = GUI(self, explanation, X_all, default_projection, sub_models, save_regions)
         if display:
             self.gui.display()

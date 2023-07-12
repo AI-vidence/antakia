@@ -30,9 +30,10 @@ class LongTask(ABC):
     @abstractmethod
     def compute(self):
         pass
-    @abstractmethod
-    def start_thread(self):
-        pass
+
+    def compute_in_thread(self):
+        self.thread = threading.Thread(target=self.compute)
+        self.thread.start()
 
     def generation_texte(self, i, tot, time_init, progress):
         progress = float(progress)
@@ -81,10 +82,6 @@ class compute_SHAP(LongTask):
         self.value = shap_values
         self.done_widget.v_model = "success"
         return shap_values
-    
-    def start_thread(self):
-        self.thread = threading.Thread(target=self.compute)
-        self.thread.start()
 
 class compute_LIME(LongTask):
     
@@ -117,7 +114,3 @@ class compute_LIME(LongTask):
         self.value = LIME
         self.done_widget.v_model = "success"
         return LIME
-    
-    def start_thread(self):
-        self.thread = threading.Thread(target=self.compute)
-        self.thread.start()

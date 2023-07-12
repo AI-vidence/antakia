@@ -6,8 +6,9 @@
 Deux modules : AntakIA et utils
 """
 
-from .Xplainer import *
+from .AntakIA import *
 from .Gui import *
+from .Dataset import *
 from .utils import *
 from ._compute import *
 

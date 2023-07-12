@@ -1,13 +1,8 @@
 #Importations
 
 # Imports Python
-import os
-import sys
 import time
 from copy import deepcopy
-import json
-import webbrowser
-import threading
 
 # Imports warnings
 import warnings
@@ -20,10 +15,6 @@ warnings.filterwarnings("ignore")
 # Imports data science
 import pandas as pd
 import numpy as np
-import umap
-import pacmap
-import shap
-import lime
 import lime.lime_tabular
 from skrules import SkopeRules
 
@@ -49,25 +40,22 @@ from antakia.utils import from_rules
 from antakia.utils import create_save
 from antakia.utils import load_save
 from antakia.utils import fonction_auto_clustering
-
 from antakia.utils import _conflict_handler
 
-from antakia._compute import red_PCA
-from antakia._compute import red_TSNE
-from antakia._compute import red_UMAP
-from antakia._compute import red_PACMAP
+import antakia._compute as compute
 
 from antakia import LongTask
 
+import antakia._gui_elements as gui_elements
 
-class Gui():
+class GUI():
     """
     Gui object.
 
     Attributes
     -------
-    xplainer : Xplainer object
-        The Xplainer object containing the data to explain.
+    atk : atk object
+        The atk object containing the data to explain.
     explanation_values : pandas dataframe
         The dataframe containing the explanations of the model. Can be given by the user (in explanation) or computed by the Gui.
     selection : list
@@ -75,12 +63,12 @@ class Gui():
     """
     def __init__(
         self,
-        xplainer,
+        atk,
         explanation: str | pd.DataFrame = "SHAP",
         X_all: pd.DataFrame = None,
         default_projection: str = "PaCMAP",
         sub_models: list = None,
-        save_regions: list = None,
+        saved_regions: list = None,
     ):
         """Function that creates the interface.
 
@@ -98,17 +86,17 @@ class Gui():
             TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
         sub_models : list
             The list of sub-models to choose from for each region created by the user.
-        save_regions : list
+        saved_regions : list
             The list of regions to display.
             # TODO : ce n'est pas au GUI de maintenir cette liste, mais à AntakIA
         """
-        self.xplainer = xplainer
+        self.atk = atk
         self.explanation = explanation
         self.explanation_values = None
         self.X_all = X_all
         self.default_projection = default_projection
         self.sub_models = sub_models
-        self.save_regions = save_regions
+        self.saved_regions = saved_regions
 
         # Publique :
         self.selection = []
@@ -134,6 +122,8 @@ class Gui():
         self.__result_dyadic_clustering = None
         self.__all_models = None
         self.__score_models = []
+        self.__explanatory_values = None
+        self.__table_save = None
 
     def display(self):
         """Function that displays the interface.
@@ -142,18 +132,16 @@ class Gui():
         -------
         An interface
         """
-
-        xplainer = self.xplainer
         explanation = self.explanation
         explanation_values = self.explanation_values
         X_all = self.X_all
         default_projection = self.default_projection
         sub_models = self.sub_models
-        save_regions = self.save_regions
+        saved_regions = self.saved_regions
         
-        X = xplainer.X
-        Y = xplainer.Y
-        model = xplainer.model
+        X = self.atk.dataset.X
+        Y = self.atk.dataset.y
+        model = self.atk.dataset.model
 
         # TODO : Ces submodels ont vocation à être nombreux. On pourrait créer un module surrogates.py, avec une classe abstraite Surrogate (ou bien une classe abstraite Model de Scikitlearn ?) et plusieurs implémentation. Il doit être facile à un développeur d'en importer d'autres
         # list of sub_models used
@@ -214,7 +202,7 @@ class Gui():
         ):
             # function that allows you to check that you have all the necessary information
             if sub_models != None and len(sub_models) > 9:
-                return "Il faut renseigner moins de 10 modèles ! (changements à venir)"
+                return "You can enter up to 9 sub-models maximum ! (changes to come)"
 
             return True
 
@@ -269,77 +257,15 @@ class Gui():
             value=open(data_path, "rb").read(), layout=Layout(width="230px")
         )
 
-        # TODO ces barres de progresssion doivent refléter le travail d'une LongTask qui s'éxécute dans un Thread dédié
         # waiting screen progress bars definition
-        progress_shap = v.ProgressLinear(
-            style_="width: 80%",
-            class_="py-0 mx-5",
-            v_model=0,
-            color="primary",
-            height="15",
-            striped=True,
-        )
+        progress_shap = gui_elements.ProgressLinear()
 
         # EV dimension reduction progress bar
-        progress_red = v.ProgressLinear(
-            style_="width: 80%",
-            class_="py-0 mx-5",
-            v_model=0,
-            color="primary",
-            height="15",
-            striped=True,
-        )
+        progress_red = gui_elements.ProgressLinear()
 
         # consolidation of progress bars and progress texts in a single HBox
-        prog_shap = v.Row(
-            style_="width:85%;",
-            children=[
-                v.Col(
-                    children=[
-                        v.Html(
-                            tag="h3",
-                            class_="mt-2 text-right",
-                            children=["Calcul des valeurs explicatives"],
-                        )
-                    ]
-                ),
-                v.Col(class_="mt-3", children=[progress_shap]),
-                v.Col(
-                    children=[
-                        v.TextField(
-                            variant="plain",
-                            v_model="0.00% [0/?] - 0m0s (temps estimé : /min /s)",
-                            readonly=True,
-                            class_="mt-0 pt-0",
-                            )
-                    ]
-                ),
-            ],
-        )
-        prog_red = v.Row(
-            style_="width:85%;",
-            children=[
-                v.Col(
-                    children=[
-                        v.Html(
-                            tag="h3",
-                            class_="mt-2 text-right",
-                            children=["Calcul des réductions de dimension"],
-                        )
-                    ]
-                ),
-                v.Col(class_="mt-3", children=[progress_red]),
-                v.Col(
-            children = [
-                    v.TextField(
-                            variant="plain",
-                            v_model=" ",
-                            readonly=True,
-                            class_="mt-0 pt-0",
-                            )
-                ]
-        )],
-        )
+        prog_shap = gui_elements.TotalProgress("Computing of explanatory values", progress_shap)
+        prog_red = gui_elements.TotalProgress("Computing of dimensions reduction", progress_red)
 
         # definition of the splash screen which includes all the elements,
         splash = v.Layout(
@@ -355,7 +281,7 @@ class Gui():
             progress_shap.v_model = 100
             prog_shap.children[2].children[
                 0
-            ].v_model = "Valeurs explicatives importées"
+            ].v_model = "Imported explanatory values"
 
         # TODO Vivement que tout ce code avant et ci-dessous soit dans une sous-classe ad hoc! D'ailleurs, ce serait encore mieux de mettre ça dans un module SplashScreen.py
         def generation_texte(i, tot, time_init, progress):
@@ -377,7 +303,7 @@ class Gui():
                 + str(minute_passee)
                 + "m"
                 + str(seconde_passee)
-                + "s (temps estimé : "
+                + "s (estimated time : "
                 + str(minute)
                 + "min "
                 + str(round(seconde))
@@ -389,79 +315,35 @@ class Gui():
                 compute_SHAP = LongTask.compute_SHAP(self.__X_not_scaled, X_all, model)
                 widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
-                SHAP = compute_SHAP.compute()
-                xplainer.SHAP_values = SHAP.copy()
+                self.__explanatory_values = compute_SHAP.compute()
+                self.atk.dataset.explanatory["SHAP"] = self.__explanatory_values.copy()
             elif explanation == "LIME":
                 compute_LIME = LongTask.compute_LIME(self.__X_not_scaled, X_all, model)
                 widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
-                SHAP = compute_LIME.compute()
-                xplainer.LIME_values = SHAP.copy()
+                self.__explanatory_values = compute_LIME.compute()
+                self.atk.dataset.explanatory["LIME"] = self.__explanatory_values.copy()
             else:
-                SHAP = explanation_values
+                self.__explanatory_values = explanation_values
         else:
-            SHAP = explanation_values
+            self.__explanatory_values = explanation_values
 
-        self.explanation_values = SHAP.copy()
-
-        self.__SHAP_not_scaled = SHAP.copy()
+        self.explanation_values = self.__explanatory_values.copy()
+        self.__SHAP_not_scaled = self.__explanatory_values.copy()
 
         choix_init_proj = 3
 
         # definition of the default projection
         # base, we take the PaCMAP projection
+        
         # TODO : penser à traduire en EN
-        if default_projection == "UMAP":
-            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
-            choix_init_proj = 2
-            self.__Espace_valeurs = ["None", "None", red_UMAP(X, 2, True), "None"]
-            self.__Espace_valeurs_3D = ["None", "None", red_UMAP(X, 3, True), "None"]
-            progress_red.v_model = +50
-            prog_red.children[2].children[
-                0
-            ].v_model = "Espace des valeurs... Espace des explications..."
-            self.__Espace_explications = ["None", "None", red_UMAP(SHAP, 2, True), "None"]
-            self.__Espace_explications_3D = ["None", "None", red_UMAP(SHAP, 3, True), "None"]
-            progress_red.v_model = +50
-
-        elif default_projection == "t-SNE":
-            choix_init_proj = 1
-            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
-            self.__Espace_valeurs = ["None", red_TSNE(X, 2, True), "None", "None"]
-            self.__Espace_valeurs_3D = ["None", red_TSNE(X, 3, True), "None", "None"]
-            progress_red.v_model = +50
-            prog_red.children[2].children[
-                0
-            ].v_model = "Espace des valeurs... Espace des explications..."
-            self.__Espace_explications = ["None", red_TSNE(SHAP, 2, True), "None", "None"]
-            self.__Espace_explications_3D = ["None", red_TSNE(SHAP, 3, True), "None", "None"]
-            progress_red.v_model = +50
-
-        elif default_projection == "PCA":
-            choix_init_proj = 0
-            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
-            self.__Espace_valeurs = [red_PCA(X, 2, True), "None", "None", "None"]
-            self.__Espace_valeurs_3D = [red_PCA(X, 3, True), "None", "None", "None"]
-            progress_red.v_model = +50
-            prog_red.children[2].children[
-                0
-            ].v_model = "Espace des valeurs... Espace des explications..."
-            self.__Espace_explications = [red_PCA(SHAP, 2, True), "None", "None", "None"]
-            self.__Espace_explications_3D = [red_PCA(SHAP, 3, True), "None", "None", "None"]
-            progress_red.v_model = +50
-
-        else:
-            prog_red.children[2].children[0].v_model = "Espace des valeurs... "
-            choix_init_proj = 3
-            self.__Espace_valeurs = ["None", "None", "None", red_PACMAP(X, 2, True)]
-            self.__Espace_valeurs_3D = ["None", "None", "None", red_PACMAP(X, 3, True)]
-            progress_red.v_model = +50
-            prog_red.children[2].children[
-                0
-            ].v_model = "Espace des valeurs... Espace des explications..."
-            self.__Espace_explications = ["None", "None", "None", red_PACMAP(SHAP, 2, True)]
-            self.__Espace_explications_3D = ["None", "None", "None", red_PACMAP(SHAP, 3, True)]
-            progress_red.v_model = +50
+        choix_init_proj = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(default_projection)
+        prog_red.children[2].children[0].v_model = "Values space... "
+        [self.__Espace_valeurs, self.__Espace_valeurs_3D] = compute.initialize_dim_red_EV(X, default_projection)
+        progress_red.v_model = +50
+        prog_red.children[2].children[0].v_model = "Values space... Explanatory space..."
+        [self.__Espace_explications, self.__Espace_explications_3D] = compute.initialize_dim_red_EE(self.__explanatory_values, default_projection)
+        progress_red.v_model = +50
 
         self.all_values = dict()
         self.all_values['imported'] = [None]*4
@@ -490,7 +372,7 @@ class Gui():
 
         # dropdown allowing to choose the projection in the value space
         EV_proj = v.Select(
-            label="Projection dans l'EV :",
+            label="Projection in the VS:",
             items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
             style_="width: 150px",
         )
@@ -499,7 +381,7 @@ class Gui():
 
         # dropdown allowing to choose the projection in the space of the explanations
         EE_proj = v.Select(
-            label="Projection dans l'EE :",
+            label="Projection in the ES:",
             items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
             style_="width: 150px",
         )
@@ -507,35 +389,13 @@ class Gui():
         EE_proj.v_model = EE_proj.items[choix_init_proj]
 
         # here the sliders of the parameters for the EV!
-        slider_param_PaCMAP_voisins_EV = v.Layout(
-            class_="mt-3",
-            children=[
-                v.Slider(
-                    v_model=10, min=5, max=30, step=1, label="Nombre de voisins :"
-                ),
-                v.Html(class_="ml-3", tag="h3", children=["10"]),
-            ],
-        )
-
-        slider_param_PaCMAP_mn_ratio_EV = v.Layout(
-            class_="mt-3",
-            children=[
-                v.Slider(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :"),
-                v.Html(class_="ml-3", tag="h3", children=["0.5"]),
-            ],
-        )
-
-        slider_param_PaCMAP_fp_ratio_EV = v.Layout(
-            class_="mt-3",
-            children=[
-                v.Slider(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :"),
-                v.Html(class_="ml-3", tag="h3", children=["2"]),
-            ],
-        )
+        slider_param_PaCMAP_voisins_EV = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors")
+        slider_param_PaCMAP_mn_ratio_EV = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
+        slider_param_PaCMAP_fp_ratio_EV = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
         def fonction_update_sliderEV(widget, event, data):
             # function that updates the values ​​when there is a change of sliders in the parameters of PaCMAP for the EV
-            if widget.label == "Nombre de voisins :":
+            if widget.label == "Number of neighbors :":
                 slider_param_PaCMAP_voisins_EV.children[1].children = [str(data)]
             elif widget.label == "MN ratio :":
                 slider_param_PaCMAP_mn_ratio_EV.children[1].children = [str(data)]
@@ -565,7 +425,7 @@ class Gui():
         valider_params_proj_EV = v.Btn(
             children=[
                 v.Icon(left=True, children=["mdi-check"]),
-                "Valider",
+                "Validate",
             ]
         )
 
@@ -573,7 +433,7 @@ class Gui():
             class_="ml-4",
             children=[
                 v.Icon(left=True, children=["mdi-skip-backward"]),
-                "Réinitialiser",
+                "Reset",
             ],
         )
 
@@ -593,12 +453,9 @@ class Gui():
             FP_ratio = slider_param_PaCMAP_fp_ratio_EV.children[0].v_model
             if EV_proj.v_model == "PaCMAP":
                 out_loading1.layout.visibility = "visible"
-                self.__Espace_valeurs[3] = red_PACMAP(
-                    X, 2, False, n_neighbors, MN_ratio, FP_ratio
-                )
-                self.__Espace_valeurs_3D[3] = red_PACMAP(
-                    X, 3, False, n_neighbors, MN_ratio, FP_ratio
-                )
+                dim_red = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
+                self.__Espace_valeurs[3] = dim_red.compute(X, 2)
+                self.__Espace_valeurs_3D[3] = dim_red.compute(X, 3)
                 out_loading1.layout.visibility = "hidden"
             with fig1.batch_update():
                 fig1.data[0].x = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
@@ -620,8 +477,9 @@ class Gui():
             # reset projection settings
             if liste_red.index(EV_proj.v_model) == 3:
                 out_loading1.layout.visibility = "visible"
-                self.__Espace_valeurs[3] = red_PACMAP(X, 2, True)
-                self.__Espace_valeurs_3D[3] = red_PACMAP(X, 3, True)
+                dim_red = compute.DimensionalityReduction("PaCMAP", True)
+                self.__Espace_valeurs[3] = dim_red.compute(X, 2)
+                self.__Espace_valeurs_3D[3] = dim_red.compute(X, 3)
                 out_loading1.layout.visibility = "hidden"
 
             with fig1.batch_update():
@@ -641,35 +499,12 @@ class Gui():
         reinit_params_proj_EV.on_event("click", reinit_param_EV)
 
         # here the sliders of the parameters for the EE!
-
-        slider_param_PaCMAP_voisins_EE = v.Layout(
-            class_="mt-3",
-            children=[
-                v.Slider(
-                    v_model=10, min=5, max=30, step=1, label="Nombre de voisins :"
-                ),
-                v.Html(class_="ml-3", tag="h3", children=["10"]),
-            ],
-        )
-
-        slider_param_PaCMAP_mn_ratio_EE = v.Layout(
-            class_="mt-3",
-            children=[
-                v.Slider(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :"),
-                v.Html(class_="ml-3", tag="h3", children=["0.5"]),
-            ],
-        )
-
-        slider_param_PaCMAP_fp_ratio_EE = v.Layout(
-            class_="mt-3",
-            children=[
-                v.Slider(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :"),
-                v.Html(class_="ml-3", tag="h3", children=["2"]),
-            ],
-        )
+        slider_param_PaCMAP_voisins_EE = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors")
+        slider_param_PaCMAP_mn_ratio_EE = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
+        slider_param_PaCMAP_fp_ratio_EE = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
         def fonction_update_sliderEE(widget, event, data):
-            if widget.label == "Nombre de voisins :":
+            if widget.label == "Number of neighbors :":
                 slider_param_PaCMAP_voisins_EE.children[1].children = [str(data)]
             elif widget.label == "MN ratio :":
                 slider_param_PaCMAP_mn_ratio_EE.children[1].children = [str(data)]
@@ -721,17 +556,15 @@ class Gui():
         )
 
         def changement_params_EE(*b):
+            liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
             n_neighbors = slider_param_PaCMAP_voisins_EE.children[0].v_model
             MN_ratio = slider_param_PaCMAP_mn_ratio_EE.children[0].v_model
             FP_ratio = slider_param_PaCMAP_fp_ratio_EE.children[0].v_model
             if liste_red.index(EV_proj.v_model) == 3:
                 out_loading2.layout.visibility = "visible"
-                self.__Espace_explications[3] = red_PACMAP(
-                    SHAP, 2, False, n_neighbors, MN_ratio, FP_ratio
-                )
-                self.__Espace_explications_3D[3] = red_PACMAP(
-                    SHAP, 3, False, n_neighbors, MN_ratio, FP_ratio
-                )
+                dim_red = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
+                self.__Espace_explications[3] = dim_red.compute(self.__explanatory_values, 2)
+                self.__Espace_explications_3D[3] = dim_red.compute(self.__explanatory_values, 3)
                 out_loading2.layout.visibility = "hidden"
             with fig2.batch_update():
                 fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
@@ -756,8 +589,9 @@ class Gui():
         def reinit_param_EE(*b):
             if EE_proj.v_model == "PaCMAP":
                 out_loading2.layout.visibility = "visible"
-                self.__Espace_explications[3] = red_PACMAP(SHAP, 2, True)
-                self.__Espace_explications_3D[3] = red_PACMAP(SHAP, 3, True)
+                dim_red = compute.DimensionalityReduction("PaCMAP", True)
+                self.__Espace_explications[3] = dim_red.compute(self.__explanatory_values, 2)
+                self.__Espace_explications_3D[3] = dim_red.compute(self.__explanatory_values, 3)
                 out_loading2.layout.visibility = "hidden"
             with fig2.batch_update():
                 fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
@@ -781,82 +615,7 @@ class Gui():
 
         # allows you to choose the color of the points
         # Y, Y hat, residuals, current selection, regions, unselected points, automatic clustering
-        couleur_radio = v.BtnToggle(
-            color="blue",
-            mandatory=True,
-            v_model="Y",
-            children=[
-                v.Btn(
-                    icon=True,
-                    children=[v.Icon(children=["mdi-alpha-y-circle-outline"])],
-                    value="Y",
-                    v_model=True,
-                ),
-                v.Btn(
-                    icon=True,
-                    children=[v.Icon(children=["mdi-alpha-y-circle"])],
-                    value="Y^",
-                    v_model=True,
-                ),
-                v.Btn(
-                    icon=True,
-                    children=[v.Icon(children=["mdi-minus-box-multiple"])],
-                    value="Résidus",
-                ),
-                v.Btn(
-                    icon=True,
-                    children=[v.Icon(children="mdi-lasso")],
-                    value="Selec actuelle",
-                ),
-                v.Btn(
-                    icon=True,
-                    children=[v.Icon(children=["mdi-ungroup"])],
-                    value="Régions",
-                ),
-                v.Btn(
-                    icon=True,
-                    children=[v.Icon(children=["mdi-select-off"])],
-                    value="Non selec",
-                ),
-                v.Btn(
-                    icon=True,
-                    children=[v.Icon(children=["mdi-star"])],
-                    value="Clustering auto",
-                ),
-            ],
-        )
-
-        # added all tooltips!
-        couleur_radio.children[0].children = [
-            add_tooltip(couleur_radio.children[0].children[0], "Valeurs réelles")
-        ]
-        couleur_radio.children[1].children = [
-            add_tooltip(couleur_radio.children[1].children[0], "Valeurs prédites")
-        ]
-        couleur_radio.children[2].children = [
-            add_tooltip(couleur_radio.children[2].children[0], "Résidus")
-        ]
-        couleur_radio.children[3].children = [
-            add_tooltip(
-                couleur_radio.children[3].children[0],
-                "Points de la séléction actuelle",
-            )
-        ]
-        couleur_radio.children[4].children = [
-            add_tooltip(couleur_radio.children[4].children[0], "Régions formées")
-        ]
-        couleur_radio.children[5].children = [
-            add_tooltip(
-                couleur_radio.children[5].children[0],
-                "Points non sélectionnés",
-            )
-        ]
-        couleur_radio.children[6].children = [
-            add_tooltip(
-                couleur_radio.children[6].children[0],
-                "Clusters dyadique automatique",
-            )
-        ]
+        couleur_radio = gui_elements.color_choice()
 
         def fonction_changement_couleur(*args, opacity: bool = True):
             # allows you to change the color of the points when you click on the buttons
@@ -946,239 +705,81 @@ class Gui():
         # marker 2 is the marker of figure 2 (without colorbar therefore)
         marker2 = dict(color=Y, colorscale="Viridis")
 
-        fig_size = v.Slider(
-            style_="width:20%",
-            v_model=700,
-            min=200,
-            max=1200,
-            label="Taille des graphiques (en px)",
-        )
+        barre_menu, fig_size, bouton_save = gui_elements.create_menu_bar()
 
-        fig_size_text = widgets.IntText(
-            value="700", disabled=True, layout=Layout(width="40%")
-        )
+        if saved_regions == None:
+            saved_regions = []
 
-        widgets.jslink((fig_size, "v_model"), (fig_size_text, "value"))
-
-        fig_size_et_texte = v.Row(children=[fig_size, fig_size_text])
-
-        # the different menu buttons
-
-        bouton_save = v.Btn(
-            icon=True, children=[v.Icon(children=["mdi-content-save"])], elevation=0
-        )
-        bouton_save.children = [
-            add_tooltip(bouton_save.children[0], "Gestion des sauvegardes")
-        ]
-        bouton_settings = v.Btn(
-            icon=True, children=[v.Icon(children=["mdi-tune"])], elevation=0
-        )
-        bouton_settings.children = [
-            add_tooltip(bouton_settings.children[0], "Paramètres de l'interface")
-        ]
-        bouton_website = v.Btn(
-            icon=True, children=[v.Icon(children=["mdi-web"])], elevation=0
-        )
-        bouton_website.children = [
-            add_tooltip(bouton_website.children[0], "Site web d'AI-Vidence")
-        ]
-
-        bouton_website.on_event(
-            "click", lambda *args: webbrowser.open_new_tab("https://ai-vidence.com/")
-        )
-
-        data_path = files("antakia.assets").joinpath("logo_ai-vidence.png")
-        with open(data_path, "rb") as f:
-            logo = f.read()
-        logo_aividence1 = widgets.Image(
-            value=logo, height=str(864 / 20) + "px", width=str(3839 / 20) + "px"
-        )
-        logo_aividence1.layout.object_fit = "contain"
-        logo_aividence = v.Layout(
-            children=[logo_aividence1],
-            class_="mt-1",
-        )
-
-        # menu bar (logo, links etc...)
-        barre_menu = v.AppBar(
-            elevation="4",
-            class_="ma-4",
-            rounded=True,
-            children=[
-                logo_aividence,
-                v.Spacer(),
-                bouton_save,
-                bouton_settings,
-                bouton_website,
-            ],
-        )
-
-        # function to save the calculated explanatory values ​​(avoid redoing the calculations each time...)
-        def save_shap(*args):
-            def blockPrint():
-                sys.stdout = open(os.devnull, "w")
-
-            def enablePrint():
-                sys.stdout = sys.__stdout__
-
-            blockPrint()
-            SHAP.to_csv("data_save/explanation_values.csv")
-            enablePrint()
-
-        bouton_save_shap = v.Btn(
-            children=[
-                v.Icon(children=["mdi-content-save"]),
-                "Sauvegarder les valeurs explicatives calculées",
-            ],
-            elevation=4,
-            class_="ma-4",
-        )
-
-        bouton_save_shap.on_event("click", save_shap)
-
-        # function to open the dialog of the parameters of the size of the figures in particular (before finding better)
-        dialogue_size = v.Dialog(
-            children=[
-                v.Card(
-                    children=[
-                        v.CardTitle(
-                            children=[
-                                v.Icon(class_="mr-5", children=["mdi-cogs"]),
-                                "Paramètres",
-                            ]
-                        ),
-                        v.CardText(children=[fig_size_et_texte]),
-                        v.CardText(
-                            children=[
-                                v.Layout(
-                                    class_="m d-flex justify-center",
-                                    children=[
-                                        # solara.FileDownload.widget(
-                                        # data=dl_shap, filename="shap_values.csv"
-                                        # )
-                                        bouton_save_shap
-                                    ],
-                                )
-                            ]
-                        ),
-                    ],
-                    width="100%",
-                )
-            ],
-            width="70%",
-        )
-        dialogue_size.v_model = False
-
-        def ouvre_dialogue(*args):
-            dialogue_size.v_model = True
-
-        bouton_settings.on_event("click", ouvre_dialogue)
-
-        if save_regions == None:
-            save_regions = []
-
-        len_init_regions = len(save_regions)
+        len_init_regions = len(saved_regions)
 
         # for the part on backups
         def init_save(new: bool = False):
-            texte_regions = "Il n'y a pas de sauvegarde importée"
-            for i in range(len(save_regions)):
-                if len(save_regions[i]["liste"]) != len(X_all):
-                    raise Exception("Votre sauvegarde n'est pas de la bonne taille !")
-                    save_regions.pop(i)
-            if len(save_regions) > 0:
-                texte_regions = str(len(save_regions)) + " sauvegarde importée(s)"
-            table_save = []
-            for i in range(len(save_regions)):
-                sous_mod_bool = "Non"
-                new_or_not = "Importée"
+            texte_regions = "There is no backup"
+            for i in range(len(saved_regions)):
+                if len(saved_regions[i]["liste"]) != len(X_all):
+                    raise Exception("Your save is not the right size !")
+            if len(saved_regions) > 0:
+                texte_regions = str(len(saved_regions)) + " save(s) found"
+            self.__table_save = []
+            for i in range(len(saved_regions)):
+                sous_mod_bool = "No"
+                new_or_not = "Imported"
                 if i > len_init_regions:
-                    new_or_not = "Créée"
+                    new_or_not = "Created"
                 if (
-                    len(save_regions[i]["sub_models"])
-                    == max(save_regions[i]["liste"]) + 1
+                    len(saved_regions[i]["sub_models"])
+                    == max(saved_regions[i]["liste"]) + 1
                 ):
-                    sous_mod_bool = "Oui"
-                table_save.append(
+                    sous_mod_bool = "Yes"
+                self.__table_save.append(
                     [
                         i + 1,
-                        save_regions[i]["nom"],
+                        saved_regions[i]["nom"],
                         new_or_not,
-                        max(save_regions[i]["liste"]) + 1,
+                        max(saved_regions[i]["liste"]) + 1,
                         sous_mod_bool,
                     ]
                 )
-            table_save = pd.DataFrame(
-                table_save,
+            self.__table_save = pd.DataFrame(
+                self.__table_save,
                 columns=[
-                    "Sauvegarde #",
-                    "Nom",
-                    "Origine",
-                    "Nombre de régions",
-                    "Sous-modèles ?",
+                    "Save #",
+                    "Name",
+                    "Origin",
+                    "Number of regions",
+                    "Sub-models ?",
                 ],
             )
 
             colonnes = [
-                {"text": c, "sortable": True, "value": c} for c in table_save.columns
+                {"text": c, "sortable": True, "value": c} for c in self.__table_save.columns
             ]
 
-            table_save = v.DataTable(
+            self.__table_save = v.DataTable(
                 v_model=[],
                 show_select=True,
                 single_select=True,
                 headers=colonnes,
-                items=table_save.to_dict("records"),
-                item_value="Sauvegarde #",
-                item_key="Sauvegarde #",
+                items=self.__table_save.to_dict("records"),
+                item_value="Save #",
+                item_key="Save #",
             )
-            return [table_save, texte_regions]
+            return [self.__table_save, texte_regions]
 
         # the table that contains the backups
-        table_save = init_save()[0]
+        self.__table_save = init_save()[0]
 
-        # view a selected backup
-        visu_save = v.Btn(
-            class_="ma-4",
-            children=[v.Icon(children=["mdi-eye"])],
-        )
-        visu_save.children = [
-            add_tooltip(visu_save.children[0], "Visualiser la sauvegarde sélectionnée")
-        ]
-        delete_save = v.Btn(
-            class_="ma-4",
-            children=[
-                v.Icon(children=["mdi-trash-can"]),
-            ],
-        )
-        delete_save.children = [
-            add_tooltip(delete_save.children[0], "Supprimer la sauvegarde sélectionnée")
-        ]
-        new_save = v.Btn(
-            class_="ma-4",
-            children=[
-                v.Icon(children=["mdi-plus"]),
-            ],
-        )
-        new_save.children = [
-            add_tooltip(new_save.children[0], "Créer une nouvelle sauvegarde")
-        ]
-
-        nom_sauvegarde = v.TextField(
-            label="Nom de la sauvegarde",
-            v_model="Default name",
-            class_="ma-4",
-        )
+        dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save = gui_elements.dialog_save(bouton_save, init_save()[1], self.__table_save, saved_regions)
 
         # save a backup
         def delete_save_fonction(*args):
-            if table_save.v_model == []:
+            if self.__table_save.v_model == []:
                 return
-            table_save = carte_save.children[1]
-            indice = table_save.v_model[0]["Sauvegarde #"] - 1
-            save_regions.pop(indice)
-            table_save = init_save(True)
-            carte_save.children = [table_save[1], table_save[0]] + carte_save.children[
+            self.__table_save = carte_save.children[1]
+            indice = self.__table_save.v_model[0]["Save #"] - 1
+            saved_regions.pop(indice)
+            self.__table_save, texte = init_save(True)
+            carte_save.children = [texte, self.__table_save] + carte_save.children[
                 2:
             ]
 
@@ -1186,20 +787,20 @@ class Gui():
 
         # to view a backup
         def fonction_visu_save(*args):
-            table_save = carte_save.children[1]
-            if len(table_save.v_model) == 0:
+            self.__table_save = carte_save.children[1]
+            if len(self.__table_save.v_model) == 0:
                 return
-            indice = table_save.v_model[0]["Sauvegarde #"] - 1
+            indice = self.__table_save.v_model[0]["Save #"] - 1
             n = []
-            for i in range(int(max(save_regions[indice]["liste"])) + 1):
+            for i in range(int(max(saved_regions[indice]["liste"])) + 1):
                 temp = []
-                for j in range(len(save_regions[indice]["liste"])):
-                    if save_regions[indice]["liste"][j] == i:
+                for j in range(len(saved_regions[indice]["liste"])):
+                    if saved_regions[indice]["liste"][j] == i:
                         temp.append(j)
                 if len(temp) > 0:
                     n.append(temp)
             self.__list_of_regions = n
-            couleur = deepcopy(save_regions[indice]["liste"])
+            couleur = deepcopy(saved_regions[indice]["liste"])
             self.__color_regions = deepcopy(couleur)
             with fig1.batch_update():
                 fig1.data[0].marker.color = couleur
@@ -1214,22 +815,22 @@ class Gui():
             couleur_radio.v_model = "Régions"
             fig1.update_traces(marker=dict(showscale=False))
             fig2.update_traces(marker=dict(showscale=False))
-            if len(save_regions[indice]["sub_models"]) != len(self.__list_of_regions):
+            if len(saved_regions[indice]["sub_models"]) != len(self.__list_of_regions):
                 self.__list_of_sub_models = [[None, None, None]] * len(self.__list_of_regions)
             else:
                 self.__list_of_sub_models = []
                 for i in range(len(self.__list_of_regions)):
-                    nom = save_regions[indice]["sub_models"][i].__class__.__name__
+                    nom = saved_regions[indice]["sub_models"][i].__class__.__name__
                     indices_respectent = self.__list_of_regions[i]
                     score_init = fonction_score(
                         Y.iloc[indices_respectent], Y_pred[indices_respectent]
                     )
-                    save_regions[indice]["sub_models"][i].fit(
+                    saved_regions[indice]["sub_models"][i].fit(
                         X.iloc[indices_respectent], Y.iloc[indices_respectent]
                     )
                     score_reg = fonction_score(
                         Y.iloc[indices_respectent],
-                        save_regions[indice]["sub_models"][i].predict(
+                        saved_regions[indice]["sub_models"][i].predict(
                             X.iloc[indices_respectent]
                         ),
                     )
@@ -1256,145 +857,13 @@ class Gui():
                 else:
                     l_m.append(sub_models[self.__list_of_sub_models[i][-1]])
             save = create_save(self.__color_regions, nom_sauvegarde.v_model, l_m)
-            save_regions.append(save)
-            table_save = init_save(True)
-            carte_save.children = [table_save[1], table_save[0]] + carte_save.children[
+            saved_regions.append(save)
+            self.__table_save, texte = init_save(True)
+            carte_save.children = [texte, self.__table_save] + carte_save.children[
                 2:
             ]
 
         new_save.on_event("click", fonction_new_save)
-
-        # save backups locally
-        bouton_save_all = v.Btn(
-            class_="ma-0",
-            children=[
-                v.Icon(children=["mdi-content-save"], class_="mr-2"),
-                "Sauvegarder",
-            ],
-        )
-
-        out_save = v.Alert(
-            class_="ma-4 white--text",
-            children=[
-                "Sauvegarde effectuée avec succès",
-            ],
-            v_model=False,
-        )
-
-        # save local backups!
-        def fonction_save_all(*args):
-            emplacement = partie_local_save.children[1].children[1].v_model
-            fichier = partie_local_save.children[1].children[2].v_model
-            if len(emplacement) == 0 or len(fichier) == 0:
-                out_save.color = "error"
-                out_save.children = ["Veuillez remplir tous les champs"]
-                out_save.v_model = True
-                time.sleep(3)
-                out_save.v_model = False
-                return
-            destination = emplacement + "/" + fichier + ".json"
-            destination = destination.replace("//", "/")
-            destination = destination.replace(" ", "_")
-
-            for i in range(len(save_regions)):
-                save_regions[i]["liste"] = list(save_regions[i]["liste"])
-                save_regions[i]["sub_models"] = save_regions[i][
-                    "sub_models"
-                ].__class__.__name__
-            with open(destination, "w") as fp:
-                json.dump(save_regions, fp)
-            out_save.color = "success"
-            out_save.children = [
-                "Enregsitrement effectué avec à cet emplacement : ",
-                destination,
-            ]
-            out_save.v_model = True
-            time.sleep(3)
-            out_save.v_model = False
-            return
-
-        bouton_save_all.on_event("click", fonction_save_all)
-
-        # part to save locally: choice of name, location, etc...
-        partie_local_save = v.Col(
-            class_="text-center d-flex flex-column align-center justify-center",
-            children=[
-                v.Html(tag="h3", children=["Sauvegarder en local_path"]),
-                v.Row(
-                    children=[
-                        v.Spacer(),
-                        v.TextField(
-                            prepend_icon="mdi-folder-search",
-                            class_="w-40 ma-3 mr-0",
-                            elevation=3,
-                            variant="outlined",
-                            style_="width: 30%;",
-                            v_model="data_save",
-                            label="Emplacement",
-                        ),
-                        v.TextField(
-                            prepend_icon="mdi-slash-forward",
-                            class_="w-50 ma-3 mr-0 ml-0",
-                            elevation=3,
-                            variant="outlined",
-                            style_="width: 50%;",
-                            v_model="ma_sauvegarde",
-                            label="Nom du fichier",
-                        ),
-                        v.Html(class_="mt-7 ml-0 pl-0", tag="p", children=[".json"]),
-                        v.Spacer(),
-                    ]
-                ),
-                bouton_save_all,
-                out_save,
-            ],
-        )
-
-        # card to manage backups, which opens
-        carte_save = v.Card(
-            elevation=0,
-            children=[
-                v.Html(tag="h3", children=[init_save()[1]]),
-                table_save,
-                v.Row(
-                    children=[
-                        v.Spacer(),
-                        visu_save,
-                        delete_save,
-                        v.Spacer(),
-                        new_save,
-                        nom_sauvegarde,
-                        v.Spacer(),
-                    ]
-                ),
-                v.Divider(class_="mt mb-5"),
-                partie_local_save,
-            ],
-        )
-
-        dialogue_save = v.Dialog(
-            children=[
-                v.Card(
-                    children=[
-                        v.CardTitle(
-                            children=[
-                                v.Icon(class_="mr-5", children=["mdi-content-save"]),
-                                "Gestion des sauvegardes",
-                            ]
-                        ),
-                        v.CardText(children=[carte_save]),
-                    ],
-                    width="100%",
-                )
-            ],
-            width="50%",
-        )
-        dialogue_save.v_model = False
-
-        def ouvre_save(*args):
-            dialogue_save.v_model = True
-
-        bouton_save.on_event("click", ouvre_save)
 
         # value space graph
         fig1 = go.FigureWidget(
@@ -1443,7 +912,7 @@ class Gui():
         )
 
         dimension_projection_text = add_tooltip(
-            dimension_projection_text, "Dimension des projections"
+            dimension_projection_text, "Dimension of the projection"
         )
 
         def fonction_dimension_projection(*args):
@@ -1506,34 +975,14 @@ class Gui():
         fig2_3D._config = fig2_3D._config | {"displaylogo": False}
 
         # text that indicate spaces for better understanding
-        texteEV = widgets.HTML("<h3>Espace des Valeurs<h3>")
-        texteEE = widgets.HTML("<h3>Espace des Explications<h3>")
+        texteEV = widgets.HTML("<h3>Values Space<h3>")
+        texteEE = widgets.HTML("<h3>Explanatory Space<h3>")
 
         # we display the figures and the text above!
-        fig1_et_texte = widgets.VBox(
-            [texteEV, fig1],
-            layout=Layout(
-                display="flex", align_items="center", margin="0px 0px 0px 0px"
-            ),
-        )
-        fig2_et_texte = widgets.VBox(
-            [texteEE, fig2],
-            layout=Layout(
-                display="flex", align_items="center", margin="0px 0px 0px 0px"
-            ),
-        )
-        fig1_3D_et_texte = widgets.VBox(
-            [texteEV, fig1_3D],
-            layout=Layout(
-                display="flex", align_items="center", margin="0px 0px 0px 0px"
-            ),
-        )
-        fig2_3D_et_texte = widgets.VBox(
-            [texteEE, fig2_3D],
-            layout=Layout(
-                display="flex", align_items="center", margin="0px 0px 0px 0px"
-            ),
-        )
+        fig1_et_texte = gui_elements.figure_and_text(fig1, texteEV)
+        fig2_et_texte = gui_elements.figure_and_text(fig2, texteEE)
+        fig1_3D_et_texte = gui_elements.figure_and_text(fig1_3D, texteEV)
+        fig2_3D_et_texte = gui_elements.figure_and_text(fig2_3D, texteEE)
 
         # HBox which allows you to choose between 2D and 3D figures by changing its children parameter!
         fig_2D_ou_3D = widgets.HBox([fig1_et_texte, fig2_et_texte])
@@ -1546,65 +995,15 @@ class Gui():
             param_EE.v_slots[0]["children"].disabled = True
             if str(self.__Espace_valeurs[liste_red.index(EV_proj.v_model)]) == "None":
                 out_loading1.layout.visibility = "visible"
-                if liste_red.index(EV_proj.v_model) == 0:
-                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_PCA(
-                        X, 2, True
-                    )
-                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_PCA(
-                        X, 3, True
-                    )
-                elif liste_red.index(EV_proj.v_model) == 1:
-                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_TSNE(
-                        X, 2, True
-                    )
-                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_TSNE(
-                        X, 3, True
-                    )
-                elif liste_red.index(EV_proj.v_model) == 2:
-                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_UMAP(
-                        X, 2, True
-                    )
-                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_UMAP(
-                        X, 3, True
-                    )
-                elif liste_red.index(EV_proj.v_model) == 3:
-                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = red_PACMAP(
-                        X, 2, True
-                    )
-                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = red_PACMAP(
-                        X, 3, True
-                    )
+                dim_red = compute.DimensionalityReduction(EV_proj.v_model, True)
+                self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = dim_red.compute(X, 2)
+                self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = dim_red.compute(X, 3)
                 out_loading1.layout.visibility = "hidden"
             if str(self.__Espace_explications[liste_red.index(EE_proj.v_model)]) == "None":
                 out_loading2.layout.visibility = "visible"
-                if liste_red.index(EE_proj.v_model) == 0:
-                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_PCA(
-                        SHAP, 2, True
-                    )
-                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_PCA(
-                        SHAP, 3, True
-                    )
-                elif liste_red.index(EE_proj.v_model) == 1:
-                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_TSNE(
-                        SHAP, 2, True
-                    )
-                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_TSNE(
-                        SHAP, 3, True
-                    )
-                elif liste_red.index(EE_proj.v_model) == 2:
-                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_UMAP(
-                        SHAP, 2, True
-                    )
-                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = red_UMAP(
-                        SHAP, 3, True
-                    )
-                elif liste_red.index(EE_proj.v_model) == 3:
-                    self.__Espace_explications[liste_red.index(EE_proj.v_model)] = red_PACMAP(
-                        SHAP, 2, True
-                    )
-                    self.__Espace_explications_3D[
-                        liste_red.index(EE_proj.v_model)
-                    ] = red_PACMAP(SHAP, 3, True)
+                dim_red = compute.DimensionalityReduction(EE_proj.v_model, True)
+                self.__Espace_explications[liste_red.index(EE_proj.v_model)] = dim_red.compute(X, 2)
+                self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = dim_red.compute(X, 3)
                 out_loading2.layout.visibility = "hidden"
             if liste_red.index(EE_proj.v_model) == 3:
                 param_EE.v_slots[0]["children"].disabled = False
@@ -1658,9 +1057,9 @@ class Gui():
         table_regions = widgets.Output()
 
         # definition of the text that will give information on the selection
-        texte_base = "Information sur la sélection : \n"
+        texte_base = "About the current selection : \n"
         texte_base_debut = (
-            "Information sur la sélection : \n0 point sélectionné (0% de l'ensemble)"
+            "About the current selection : \n0 pont selected (0% of the overall data)"
         )
         # text that will take the value of text_base + information on the selection
         texte_selec = widgets.Textarea(
@@ -1682,15 +1081,13 @@ class Gui():
                             class_="mt-2 ml-4",
                             tag="h4",
                             children=[
-                                "0 point sélectionné : utilisez le lasso sur les graphiques ci-dessus ou utilisez l'outil de sélection automatique"
+                                "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"
                             ],
                         ),
                     ]
                 ),
             ],
         )
-
-        # button that applies skope-rules to the selection
 
         button_valider_skope = v.Btn(
             class_="ma-1",
@@ -1706,7 +1103,7 @@ class Gui():
             class_="ma-1",
             children=[
                 v.Icon(class_="mr-2", children=["mdi-skip-backward"]),
-                "Revenir aux règles initiales",
+                "Come back to the initial rules",
             ],
         )
 
@@ -1720,7 +1117,7 @@ class Gui():
                         v.Row(
                             class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
                             children=[
-                                "En attente du lancement du skope-rules...",
+                                "Waiting for the skope-rules to be applied...",
                             ],
                         )
                     ]
@@ -1736,12 +1133,12 @@ class Gui():
                     class_="ml-4",
                     children=[
                         v.Icon(children=["mdi-target"]),
-                        v.CardTitle(children=["Résultat du skope sur l'EV :"]),
+                        v.CardTitle(children=["Rules applied to the Values Space"]),
                         v.Spacer(),
                         v.Html(
                             class_="mr-5 mt-5 font-italic",
                             tag="p",
-                            children=["précision = /"],
+                            children=["precision = /"],
                         ),
                     ],
                 ),
@@ -1761,7 +1158,7 @@ class Gui():
                         v.Row(
                             class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
                             children=[
-                                "En attente du lancement du skope-rules...",
+                                "Waiting for the skope-rules to be applied...",
                             ],
                         )
                     ]
@@ -1777,12 +1174,12 @@ class Gui():
                     class_="ml-4",
                     children=[
                         v.Icon(children=["mdi-target"]),
-                        v.CardTitle(children=["Résultat du skope sur l'EE :"]),
+                        v.CardTitle(children=["Rules applied on the Explanatory Space"]),
                         v.Spacer(),
                         v.Html(
                             class_="mr-5 mt-5 font-italic",
                             tag="p",
-                            children=["précision = /"],
+                            children=["precision = /"],
                         ),
                     ],
                 ),
@@ -1816,7 +1213,7 @@ class Gui():
                             ),
                             v.CardText(
                                 class_="mt-0 pt-0",
-                                children=["Performances du modèle"],
+                                children=["Model's score"],
                             ),
                         ],
                     )
@@ -1850,7 +1247,7 @@ class Gui():
             class_="ma-3",
             children=[
                 v.Icon(class_="mr-3", children=["mdi-check"]),
-                "Valider la sélection",
+                "Validate the selection",
             ],
         )
         # button to delete all regions
@@ -1858,7 +1255,7 @@ class Gui():
             class_="ma-3",
             children=[
                 v.Icon(class_="mr-3", children=["mdi-trash-can-outline"]),
-                "Supprimer les régions sélectionnées",
+                "Delete the selected regions",
             ],
         )
 
@@ -1882,7 +1279,7 @@ class Gui():
         )
 
         bout_temps_reel_graph1 = v.Checkbox(
-            v_model=False, label="Temps réel sur le graph.", class_="ma-3"
+            v_model=False, label="Real-time updates on the figures", class_="ma-3"
         )
 
         slider_text_comb1 = v.Layout(
@@ -1922,7 +1319,7 @@ class Gui():
         )
 
         bout_temps_reel_graph2 = v.Checkbox(
-            v_model=False, label="Temps réel sur le graph.", class_="ma-3"
+            v_model=False, label="Real-time updates on the figures", class_="ma-3"
         )
 
         slider_text_comb2 = v.Layout(
@@ -1962,7 +1359,7 @@ class Gui():
         )
 
         bout_temps_reel_graph3 = v.Checkbox(
-            v_model=False, label="Temps réel sur le graph.", class_="ma-3"
+            v_model=False, label="Real-time updates on the figures", class_="ma-3"
         )
 
         slider_text_comb3 = v.Layout(
@@ -1999,21 +1396,21 @@ class Gui():
             class_="ma-3",
             children=[
                 v.Icon(class_="mr-2", children=["mdi-check"]),
-                "Valider la modification",
+                "Validate the changes",
             ],
         )
         valider_change_2 = v.Btn(
             class_="ma-3",
             children=[
                 v.Icon(class_="mr-2", children=["mdi-check"]),
-                "Valider la modification",
+                "Validate the changes",
             ],
         )
         valider_change_3 = v.Btn(
             class_="ma-3",
             children=[
                 v.Icon(class_="mr-2", children=["mdi-check"]),
-                "Valider la modification",
+                "Validate the changes",
             ],
         )
 
@@ -2116,7 +1513,7 @@ class Gui():
                 return l
 
             nom_colonne_shap = nom_colonne + "_shap"
-            y_histo_shap = [0] * len(SHAP)
+            y_histo_shap = [0] * len(self.__explanatory_values)
             nombre_div = 60
             garde_indice = []
             garde_valeur_y = []
@@ -2124,13 +1521,13 @@ class Gui():
                 garde_indice.append([])
                 garde_valeur_y.append([])
             liste_scale = np.linspace(
-                min(SHAP[nom_colonne_shap]), max(SHAP[nom_colonne_shap]), nombre_div + 1
+                min(self.__explanatory_values[nom_colonne_shap]), max(self.__explanatory_values[nom_colonne_shap]), nombre_div + 1
             )
-            for i in range(len(SHAP)):
+            for i in range(len(self.__explanatory_values)):
                 for j in range(nombre_div):
                     if (
-                        SHAP[nom_colonne_shap][i] >= liste_scale[j]
-                        and SHAP[nom_colonne_shap][i] <= liste_scale[j + 1]
+                        self.__explanatory_values[nom_colonne_shap][i] >= liste_scale[j]
+                        and self.__explanatory_values[nom_colonne_shap][i] <= liste_scale[j + 1]
                     ):
                         garde_indice[j].append(i)
                         garde_valeur_y[j].append(Y[i])
@@ -2157,13 +1554,14 @@ class Gui():
         choix_couleur_essaim1 = v.Row(
             class_="pt-3 mt-0 ml-4",
             children=[
-                "Valeur de Xi",
+
+                "Value of Xi",
                 v.Switch(
                     class_="ml-3 mr-2 mt-0 pt-0",
                     v_model=False,
                     label="",
                 ),
-                "Sélection actuelle",
+                "Current selection",
             ],
         )
 
@@ -2182,10 +1580,10 @@ class Gui():
             "change", changement_couleur_essaim_shap1
         )
 
-        y_histo_shap = [0] * len(SHAP)
+        y_histo_shap = [0] * len(self.__explanatory_values)
         nom_col_shap = str(X.columns[0]) + "_shap"
         essaim1 = go.FigureWidget(
-            data=[go.Scatter(x=SHAP[nom_col_shap], y=y_histo_shap, mode="markers")]
+            data=[go.Scatter(x=self.__explanatory_values[nom_col_shap], y=y_histo_shap, mode="markers")]
         )
         essaim1.update_layout(
             margin=dict(l=0, r=0, t=0, b=0),
@@ -2200,13 +1598,13 @@ class Gui():
         choix_couleur_essaim2 = v.Row(
             class_="pt-3 mt-0 ml-4",
             children=[
-                "Valeur de Xi",
+                "Value of Xi",
                 v.Switch(
                     class_="ml-3 mr-2 mt-0 pt-0",
                     v_model=False,
                     label="",
                 ),
-                "Sélection actuelle",
+                "Current selection",
             ],
         )
 
@@ -2226,7 +1624,7 @@ class Gui():
         )
 
         essaim2 = go.FigureWidget(
-            data=[go.Scatter(x=SHAP[nom_col_shap], y=y_histo_shap, mode="markers")]
+            data=[go.Scatter(x=self.__explanatory_values[nom_col_shap], y=y_histo_shap, mode="markers")]
         )
         essaim2.update_layout(
             margin=dict(l=20, r=0, t=0, b=0),
@@ -2239,7 +1637,7 @@ class Gui():
         total_essaim_2.layout.margin = "0px 0px 0px 20px"
 
         essaim3 = go.FigureWidget(
-            data=[go.Scatter(x=SHAP[nom_col_shap], y=y_histo_shap, mode="markers")]
+            data=[go.Scatter(x=self.__explanatory_values[nom_col_shap], y=y_histo_shap, mode="markers")]
         )
         essaim3.update_layout(
             margin=dict(l=20, r=0, t=0, b=0),
@@ -2251,13 +1649,13 @@ class Gui():
         choix_couleur_essaim3 = v.Row(
             class_="pt-3 mt-0 ml-4",
             children=[
-                "Valeur de Xi",
+                "Value of Xi",
                 v.Switch(
                     class_="ml-3 mr-2 mt-0 pt-0",
                     v_model=False,
                     label="",
                 ),
-                "Sélection actuelle",
+                "Current selection",
             ],
         )
 
@@ -2431,7 +1829,7 @@ class Gui():
                     all_histograms[i].data[2].x = X_base[self.__all_rules[i][2]][new_list_tout]
                 if all_color_choosers_beeswarms[i].children[1].v_model:
                     with all_beeswarms[i].batch_update():
-                        y_color = [0] * len(SHAP)
+                        y_color = [0] * len(self.__explanatory_values)
                         if i == indice:
                             indices = X_base.index[
                                 X_base[self.__all_rules[i][2]].between(value_min, value_max)
@@ -2442,7 +1840,7 @@ class Gui():
                                     self.__all_rules[i][0], self.__all_rules[i][4]
                                 )
                             ].tolist()
-                        for j in range(len(SHAP)):
+                        for j in range(len(self.__explanatory_values)):
                             if j in new_list_tout:
                                 y_color[j] = "blue"
                             elif j in indices:
@@ -2723,7 +2121,7 @@ class Gui():
                     return (
                         "MSE = "
                         + str(score_tot[i])
-                        + " (contre "
+                        + " (against "
                         + str(score_init)
                         + ", +"
                         + "∞"
@@ -2734,7 +2132,7 @@ class Gui():
                         return (
                             "MSE = "
                             + str(score_tot[i])
-                            + " (contre "
+                            + " (against "
                             + str(score_init)
                             + ", +"
                             + str(
@@ -2746,7 +2144,7 @@ class Gui():
                         return (
                             "MSE = "
                             + str(score_tot[i])
-                            + " (contre "
+                            + " (against "
                             + str(score_init)
                             + ", "
                             + str(
@@ -2767,17 +2165,17 @@ class Gui():
             self.__valider_bool = True
             if y_train == None:
                 texte_skopeEV.children[1].children = [
-                    widgets.HTML("Veuillez sélectionner des points")
+                    widgets.HTML("Please select points")
                 ]
                 texte_skopeEE.children[1].children = [
-                    widgets.HTML("Veuillez sélectionner des points")
+                    widgets.HTML("Please select points")
                 ]
             elif 0 not in y_train or 1 not in y_train:
                 texte_skopeEV.children[1].children = [
-                    widgets.HTML("Vous ne pouvez pas tout/rien choisir !")
+                    widgets.HTML("You can't choose everything/nothing !")
                 ]
                 texte_skopeEE.children[1].children = [
-                    widgets.HTML("Vous ne pouvez pas tout/rien choisir !")
+                    widgets.HTML("You can't choose everything/nothing !")
                 ]
             else:
                 # skope calculation for X
@@ -2811,10 +2209,10 @@ class Gui():
                     or len(skope_rules_clf_shap.rules_) == 0
                 ):
                     texte_skopeEV.children[1].children = [
-                        widgets.HTML("Pas de règle trouvée")
+                        widgets.HTML("No rule found")
                     ]
                     texte_skopeEE.children[1].children = [
-                        widgets.HTML("Pas de règle trouvée")
+                        widgets.HTML("No rule found")
                     ]
                     indices_respectent_skope = [0]
                 # otherwise we display
@@ -2827,7 +2225,7 @@ class Gui():
                         + " r = "
                         + str(np.round(float(chaine_carac[1][1]) * 100, 5))
                         + "%"
-                        + " ext. de l'arbre = "
+                        + " ext. of the tree = "
                         + chaine_carac[1][2]
                     ]
 
@@ -2940,7 +2338,7 @@ class Gui():
 
                     [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[0])
                     essaim1.data[0].y = new_y
-                    essaim1.data[0].x = SHAP[self.__columns_names[0] + "_shap"]
+                    essaim1.data[0].x = self.__explanatory_values[self.__columns_names[0] + "_shap"]
                     essaim1.data[0].marker = marker
 
                     all_histograms = [histogram1]
@@ -2948,14 +2346,14 @@ class Gui():
                         all_histograms = [histogram1, histogram2]
                         [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[1])
                         essaim2.data[0].y = new_y
-                        essaim2.data[0].x = SHAP[self.__columns_names[1] + "_shap"]
+                        essaim2.data[0].x = self.__explanatory_values[self.__columns_names[1] + "_shap"]
                         essaim2.data[0].marker = marker
 
                     if len(self.__columns_names) > 2:
                         all_histograms = [histogram1, histogram2, histogram3]
                         [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[2])
                         essaim3.data[0].y = new_y
-                        essaim3.data[0].x = SHAP[self.__columns_names[2] + "_shap"]
+                        essaim3.data[0].x = self.__explanatory_values[self.__columns_names[2] + "_shap"]
                         essaim3.data[0].marker = marker
 
                     if len(self.__columns_names) == 1:
@@ -3134,7 +2532,7 @@ class Gui():
                         + " r = "
                         + str(np.round(np.round(float(chaine_carac[1][1]), 2) * 100, 5))
                         + "%"
-                        + " ext. de l'arbre = "
+                        + " ext. of the tree ="
                         + chaine_carac[1][2]
                     ]
                     une_carte_EE.children = generate_card(chaine_carac[0])
@@ -3160,14 +2558,14 @@ class Gui():
         with out_selec:
             display(
                 HTML(
-                    "Sélectionnez des points sur la figure pour voir leurs valeurs ici"
+                    "Select points on the figure to see their values ​​here"
                 )
             )
         out_selec_SHAP = widgets.Output()
         with out_selec_SHAP:
             display(
                 HTML(
-                    "Sélectionnez des points sur la figure pour voir leurs valeurs de Shapley ici"
+                    "Select points on the figure to see their values ​​here"
                 )
             )
         out_selec_2 = v.Alert(
@@ -3185,7 +2583,7 @@ class Gui():
             children=[
                 v.ExpansionPanel(
                     children=[
-                        v.ExpansionPanelHeader(children=["Données sélectionnées"]),
+                        v.ExpansionPanelHeader(children=["Data selected"]),
                         v.ExpansionPanelContent(children=[out_selec_2]),
                     ]
                 )
@@ -3195,7 +2593,7 @@ class Gui():
         trouve_clusters = v.Btn(
             class_="ma-1 mt-2 mb-0",
             elevation="2",
-            children=[v.Icon(children=["mdi-magnify"]), "Trouver des clusters"],
+            children=[v.Icon(children=["mdi-magnify"]), "Find clusters"],
         )
 
         slider_clusters = v.Slider(
@@ -3211,18 +2609,18 @@ class Gui():
         texte_slider_cluster = v.Html(
             tag="h3",
             class_="ma-3 mb-0",
-            children=["Nombre de clusters : " + str(slider_clusters.v_model)],
+            children=["Number of clusters " + str(slider_clusters.v_model)],
         )
 
         def fonct_texte_clusters(*b):
             texte_slider_cluster.children = [
-                "Nombre de clusters : " + str(slider_clusters.v_model)
+                "Number of clusters " + str(slider_clusters.v_model)
             ]
 
         slider_clusters.on_event("input", fonct_texte_clusters)
 
         check_nb_clusters = v.Checkbox(
-            v_model=True, label="Nombre optimal de cluster", class_="ma-3"
+            v_model=True, label="Optimal number of clusters :", class_="ma-3"
         )
 
         def bool_nb_opti(*b):
@@ -3240,7 +2638,7 @@ class Gui():
             ],
         )
 
-        new_df = pd.DataFrame([], columns=["Régions #", "Nombre de points"])
+        new_df = pd.DataFrame([], columns=["Region #", "Number of points"])
         colonnes = [{"text": c, "sortable": True, "value": c} for c in new_df.columns]
         resultats_clusters_table = v.DataTable(
             class_="w-100",
@@ -3249,8 +2647,8 @@ class Gui():
             show_select=False,
             headers=colonnes,
             items=new_df.to_dict("records"),
-            item_value="Régions #",
-            item_key="Régions #",
+            item_value="Region #",
+            item_key="Region #",
         )
         resultats_clusters = v.Row(
             children=[
@@ -3269,10 +2667,10 @@ class Gui():
         def fonction_clusters(*b):
             loading_clusters.class_ = "d-flex"
             if check_nb_clusters.v_model:
-                result = fonction_auto_clustering(X, SHAP, 3, True)
+                result = fonction_auto_clustering(X, self.__explanatory_values, 3, True)
             else:
                 nb_clusters = slider_clusters.v_model
-                result = fonction_auto_clustering(X, SHAP, nb_clusters, False)
+                result = fonction_auto_clustering(X, self.__explanatory_values, nb_clusters, False)
             self.__result_dyadic_clustering = result
             labels = result[1]
             self.__Y_auto = labels
@@ -3298,7 +2696,7 @@ class Gui():
                 )
             new_df = pd.DataFrame(
                 new_df,
-                columns=["Régions #", "Nombre de points", "Pourcentage du total"],
+                columns=["Region #", "Number of points", "Percentage of the dataset"],
             )
             donnees = new_df.to_dict("records")
             colonnes = [
@@ -3312,8 +2710,8 @@ class Gui():
                 v_model=[],
                 headers=colonnes,
                 items=donnees,
-                item_value="Régions #",
-                item_key="Régions #",
+                item_value="Region #",
+                item_key="Region #",
             )
             all_chips = []
             all_radio = []
@@ -3394,16 +2792,16 @@ class Gui():
                 return
             card_selec.children[0].children[1].children = (
                 str(len(les_points))
-                + " points sélectionnés ("
+                + " points selected ("
                 + str(round(len(les_points) / len(X_base) * 100, 2))
-                + "% de l'ensemble)"
+                + "% of the overall)"
             )
             texte_selec.value = (
                 texte_base
                 + str(len(les_points))
-                + " points sélectionnés ("
+                + " points selected ("
                 + str(round(len(les_points) / len(X_base) * 100, 2))
-                + "% de l'ensemble)"
+                + "% of the overall)"
             )
             opa = []
             self.__y_train = []
@@ -3420,7 +2818,7 @@ class Gui():
                 fig1.data[0].marker.opacity = opa
 
             X_train = X_base.copy()
-            self.__SHAP_train = SHAP.copy()
+            self.__SHAP_train = self.__explanatory_values.copy()
 
             X_mean = (
                 pd.DataFrame(
@@ -3428,14 +2826,14 @@ class Gui():
                     columns=X_train.columns,
                 )
                 .round(2)
-                .rename(index={0: "Moyenne sélection"})
+                .rename(index={0: "Mean of the selection"})
             )
             X_mean_tot = (
                 pd.DataFrame(
                     X_train.mean(axis=0).values.reshape(1, -1), columns=X_train.columns
                 )
                 .round(2)
-                .rename(index={0: "Moyenne ensemble"})
+                .rename(index={0: "Mean of the whole dataset"})
             )
             X_mean = pd.concat([X_mean, X_mean_tot], axis=0)
             SHAP_mean = (
@@ -3446,7 +2844,7 @@ class Gui():
                     columns=self.__SHAP_train.columns,
                 )
                 .round(2)
-                .rename(index={0: "Moyenne sélection"})
+                .rename(index={0: "Mean of the selection"})
             )
             SHAP_mean_tot = (
                 pd.DataFrame(
@@ -3454,23 +2852,23 @@ class Gui():
                     columns=self.__SHAP_train.columns,
                 )
                 .round(2)
-                .rename(index={0: "Moyenne ensemble"})
+                .rename(index={0: "Mean of the whole dataset"})
             )
             SHAP_mean = pd.concat([SHAP_mean, SHAP_mean_tot], axis=0)
 
             with out_selec:
                 clear_output()
-                display(HTML("<h4> Espace des Valeurs </h4>"))
-                display(HTML("<h5>Point moyen de la sélection :<h5>"))
+                display(HTML("<h4> Values Space </h4>"))
+                display(HTML("<h5>Average point of the selection :<h5>"))
                 display(HTML(X_mean.to_html()))
-                display(HTML("<h5>Ensemble des points de la sélection :<h5>"))
+                display(HTML("<h5>Points selected :<h5>"))
                 display(HTML(X_train.iloc[self.selection, :].to_html(index=False)))
             with out_selec_SHAP:
                 clear_output()
-                display(HTML("<h4> Espace des Explications </h4>"))
-                display(HTML("<h5>Point moyen de la sélection :<h5>"))
+                display(HTML("<h4> Explanatory Space </h4>"))
+                display(HTML("<h5>Average point of the selection :<h5>"))
                 display(HTML(SHAP_mean.to_html()))
-                display(HTML("<h5>Ensemble des points de la sélection :<h5>"))
+                display(HTML("<h5>Points selected :<h5>"))
                 display(HTML(self.__SHAP_train.iloc[self.selection, :].to_html(index=False)))
 
         # function that is called when validating a tile to add it to the set of regions
@@ -3579,13 +2977,13 @@ class Gui():
             new_df = pd.DataFrame(
                 temp,
                 columns=[
-                    "Régions #",
-                    "Nombre de points",
-                    "% de l'ensemble",
-                    "Modèle",
-                    "Score du modèle régional (MSE)",
-                    "Score du modèle global (MSE)",
-                    "Gain en MSE",
+                    "Region #",
+                    "Number of points",
+                    "% of the dataset",
+                    "Model",
+                    "Score of the sub-model (MSE)",
+                    "Score of the global model (MSE)",
+                    "Gain in MSE",
                 ],
             )
             with table_regions:
@@ -3604,8 +3002,8 @@ class Gui():
                     show_select=True,
                     headers=colonnes,
                     items=donnees,
-                    item_value="Régions #",
-                    item_key="Régions #",
+                    item_value="Region #",
+                    item_key="Region #",
                 )
                 table_total = v.DataTable(
                     v_model=[],
@@ -3618,7 +3016,7 @@ class Gui():
                     children=[
                         table_donnes,
                         v.Divider(class_="mt-7 mb-4"),
-                        v.Html(tag="h2", children=["Bilan des régions :"]),
+                        v.Html(tag="h2", children=["Review of the regions :"]),
                         table_total,
                     ],
                 )
@@ -3629,7 +3027,7 @@ class Gui():
                     taille = len(table_donnes.v_model)
                     a = 0
                     for i in range(taille):
-                        indice = table_donnes.v_model[i]["Régions #"] - 1
+                        indice = table_donnes.v_model[i]["Region #"] - 1
                         self.__list_of_regions.pop(indice - a)
                         self.__list_of_sub_models.pop(indice - a)
                         fonction_validation_une_tuile()
@@ -3672,17 +3070,9 @@ class Gui():
 
         fig_size.on_event("input", fonction_fig_size)
 
-        choix_coul_metier = widgets.Dropdown(
-            options=["Régions", "Y"],
-            value="Y",
-            description="Couleur des points :",
-            disabled=False,
-            style={"description_width": "initial"},
-        )
-
         boutton_add_skope = v.Btn(
             class_="ma-4 pa-1 mb-0",
-            children=[v.Icon(children=["mdi-plus"]), "Ajouter un paramètre sélectif"],
+            children=[v.Icon(children=["mdi-plus"]), "Add a rule"],
         )
 
         widget_list_add_skope = v.Select(
@@ -3711,7 +3101,7 @@ class Gui():
                 class_="ma-3",
                 children=[
                     v.Icon(class_="mr-2", children=["mdi-check"]),
-                    "Valider la modification",
+                    "Validate the change",
                 ],
             )
 
@@ -3779,7 +3169,7 @@ class Gui():
             new_valider_change.on_event("click", new_fonction_change_valider)
 
             new_bout_temps_reel_graph = v.Checkbox(
-                v_model=False, label="Temps réel sur le graph.", class_="ma-3"
+                v_model=False, label="Real-time updates on the graphs", class_="ma-3"
             )
 
             new_slider_text_comb = v.Layout(
@@ -3817,9 +3207,9 @@ class Gui():
             )
 
             colonne_shap = colonne + "_shap"
-            y_histo_shap = [0] * len(SHAP)
+            y_histo_shap = [0] * len(self.__explanatory_values)
             new_essaim = go.FigureWidget(
-                data=[go.Scatter(x=SHAP[colonne_shap], y=y_histo_shap, mode="markers")]
+                data=[go.Scatter(x=self.__explanatory_values[colonne_shap], y=y_histo_shap, mode="markers")]
             )
             new_essaim.update_layout(
                 margin=dict(l=0, r=0, t=0, b=0),
@@ -3829,7 +3219,7 @@ class Gui():
             new_essaim.update_yaxes(visible=False, showticklabels=False)
             [new_y, marker] = fonction_beeswarm_shap(colonne)
             new_essaim.data[0].y = new_y
-            new_essaim.data[0].x = SHAP[colonne_shap]
+            new_essaim.data[0].x = self.__explanatory_values[colonne_shap]
             new_essaim.data[0].marker = marker
 
             new_choix_couleur_essaim = v.Row(
@@ -3841,7 +3231,7 @@ class Gui():
                         v_model=False,
                         label="",
                     ),
-                    "Sélection actuelle",
+                    "Current selection",
                 ],
             )
 
@@ -4038,7 +3428,7 @@ class Gui():
         param_EV.v_slots[0]["children"].children = [
             add_tooltip(
                 param_EV.v_slots[0]["children"].children[0],
-                "Paramètres de la projection dans l'EV",
+                "Settings of the projection in the Values Space",
             )
         ]
 
@@ -4072,7 +3462,7 @@ class Gui():
         param_EE.v_slots[0]["children"].children = [
             add_tooltip(
                 param_EE.v_slots[0]["children"].children[0],
-                "Paramètres de la projection dans l'EE",
+                "Settings of the projection in the Explanatory Space",
             )
         ]
 
@@ -4101,7 +3491,7 @@ class Gui():
         bouton_reinit_opa.children = [
             add_tooltip(
                 bouton_reinit_opa.children[0],
-                "Réinitialiser l'opacité des points",
+                "Reset the opacity of the points",
             )
         ]
 
@@ -4139,10 +3529,11 @@ class Gui():
             EV_proj.v_model = "PaCMAP"
             if data == "Imported":
                 data = "imported"
-            SHAP = eval('self.xplainer.'+data+'_values')
+            self.__explanatory_values = eval('self.atk.dataset.explanatory[\"'+data+'\"]')
             if self.all_values[data] == [None]*4:
-                self.__Espace_explications = ["None", "None", "None", red_PACMAP(SHAP, 2, True)]
-                self.__Espace_explications_3D = ["None", "None", "None", red_PACMAP(SHAP, 3, True)]
+                dim_red = compute.DimensionalityReduction("PaCMAP", True)
+                self.__Espace_explications = ["None", "None", "None", dim_red.compute(self.__explanatory_values, 2)]
+                self.__Espace_explications_3D = ["None", "None", "None", dim_red.compute(self.__explanatory_values, 3)]
                 self.all_values[data] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
             else :
                 self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D = self.all_values[data].copy()
@@ -4201,7 +3592,7 @@ class Gui():
                     v.TextField(
                         class_="w-100",
                         style_="width: 100%",
-                        v_model = "0.00% [0/?] - 0m0s (temps estimé : /min /s)",
+                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
                         readonly=True,
                     ),
                     v.Btn(
@@ -4221,11 +3612,11 @@ class Gui():
         if calculus == True:
             if explanation == "SHAP":
                 new_prog_SHAP.children[1].v_model = 100
-                new_prog_SHAP.children[2].v_model = "Calculs déjà effectués !"
+                new_prog_SHAP.children[2].v_model = "Computations already done !"
                 new_prog_SHAP.children[-1].disabled = True
             elif explanation == "LIME":
                 new_prog_LIME.children[1].v_model = 100
-                new_prog_LIME.children[2].v_model = "Calculs déjà effectués !"
+                new_prog_LIME.children[2].v_model = "Computations already done !"
                 new_prog_LIME.children[-1].disabled = True
 
         def function_validation_explanation(widget, event, data):
@@ -4234,18 +3625,18 @@ class Gui():
                 widgets.jslink((new_prog_SHAP.children[1], "v_model"), (self.__compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[2], "v_model"), (self.__compute_SHAP.text_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[-1], "color"), (self.__compute_SHAP.done_widget, "v_model"))
-                self.__compute_SHAP.start_thread()
+                self.__compute_SHAP.compute_in_thread()
                 new_prog_SHAP.children[-1].disabled = True
             if widget.v_model == "LIME":
                 self.__compute_LIME = LongTask.compute_LIME(self.__X_not_scaled, X_all, model)
                 widgets.jslink((new_prog_LIME.children[1], "v_model"), (self.__compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[2], "v_model"), (self.__compute_LIME.text_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[-1], "color"), (self.__compute_LIME.done_widget, "v_model"))
-                self.__compute_LIME.start_thread()
+                self.__compute_LIME.compute_in_thread()
                 new_prog_LIME.children[-1].disabled = True
                 
         def ok_SHAP(*args):
-            xplainer.SHAP_values = self.__compute_SHAP.value
+            self.atk.dataset.explanatory["SHAP"] = self.__compute_SHAP.value
             items = choose_explanation.items.copy()
             for item in items:
                 if item['text'] == "SHAP":
@@ -4254,7 +3645,7 @@ class Gui():
             choose_explanation.items = choose_explanation.items[:-1]
 
         def ok_LIME(*args):
-            xplainer.LIME_values = self.__compute_LIME.value
+            self.atk.dataset.explanatory["SHAP"] = self.__compute_LIME.value
             items = choose_explanation.items.copy()
             for item in items:
                 if item['text'] == "LIME":
@@ -4342,7 +3733,7 @@ class Gui():
                                 children=["mdi-format-color-fill"],
                                 class_="mr-4",
                             ),
-                            "Régler la couleur des points",
+                            "Color of the points",
                         ),
                         couleur_radio,
                         bouton_reinit_opa,
@@ -4363,7 +3754,7 @@ class Gui():
 
         check_beeswarm = v.Checkbox(
             v_model=True,
-            label="Afficher les valeurs de Shapley sous forme d'essaim",
+            label="Show Shapley's beeswarm plots",
             class_="ma-1 mr-3",
         )
 
@@ -4393,7 +3784,7 @@ class Gui():
             class_="ma-3",
             children=[
                 v.Icon(children=["mdi-creation"], class_="mr-3"),
-                "Bouton magique",
+                "Magic button",
             ],
         )
 
@@ -4402,11 +3793,11 @@ class Gui():
             children=[
                 v.Spacer(),
                 bouton_magique,
-                v.Checkbox(v_model=True, label="Mode démonstration", class_="ma-4"),
+                v.Checkbox(v_model=True, label="Demonstration mode", class_="ma-4"),
                 v.TextField(
                     class_="shrink",
                     type="number",
-                    label="Temps entre les étapes (ds)",
+                    label="Time between the steps (ds)",
                     v_model=10,
                 ),
                 v.Spacer(),
@@ -4511,10 +3902,10 @@ class Gui():
                     class_="w-100",
                     v_model="tabs",
                     children=[
-                        v.Tab(value="one", children=["1. Sélection en cours"]),
-                        v.Tab(value="two", children=["2. Ajustement de la sélection"]),
-                        v.Tab(value="three", children=["3. Choix du sous-modèle"]),
-                        v.Tab(value="four", children=["4. Bilan des régions"]),
+                        v.Tab(value="one", children=["1. Current selection"]),
+                        v.Tab(value="two", children=["2. Selection adjustment"]),
+                        v.Tab(value="three", children=["3. Choice of the sub-model"]),
+                        v.Tab(value="four", children=["4. Overview of the regions"]),
                     ],
                 ),
                 v.CardText(
@@ -4543,7 +3934,6 @@ class Gui():
             [
                 barre_menu,
                 dialogue_save,
-                dialogue_size,
                 boutons,
                 figures,
                 etapes,
@@ -4555,10 +3945,34 @@ class Gui():
         display(partie_data)
         #return partie_data
 
-    def results(self, num_reg: int = None, chose: str = None):
+    def results(self, num_reg: int = None, item: str = None):
+        """
+        This function returns the results.
+
+        Parameters
+        ----------
+        num_reg : int, optional
+            The number of the region you want to see the results. The default is None.
+        item : str, optional
+            The item you want to see the results. Can be the following :
+                - "X" : the X values of the region
+                - "y" : the y values of the region
+                - "indices" : the indices of the region in the original dataset
+                - "SHAP" : the SHAP values of the region
+                - "model name" : the name of the sub-model used for the region
+                - "model" : the sub-model used for the region
+                - "model score" : the score of the sub-model used for the region
+                - "rules" : the rules defining the region
+
+        Returns
+        -------
+        dictio : dict
+            The results.
+        """
+
         L_f = []
         if len(self.__list_of_regions) == 0:
-            return "Aucune région de validée !"
+            return "No region has been created !"
         for i in range(len(self.__list_of_regions)):
             dictio = dict()
             dictio["X"] = self.__X_not_scaled.iloc[self.__list_of_regions[i], :].reset_index(
@@ -4579,7 +3993,7 @@ class Gui():
                 dictio["model"] = self.__all_models[self.__list_of_sub_models[i][2]]
             dictio["rules"] = self.__all_tiles_rules[i]
             L_f.append(dictio)
-        if num_reg == None or chose == None:
+        if num_reg == None or item == None:
             return L_f
         else:
-            return L_f[num_reg][chose]
+            return L_f[num_reg][item]
