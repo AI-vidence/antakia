@@ -117,3 +117,9 @@ def initialize_dim_red_EE(EXP, default_projection):
     Espace_explications[indice] = dim_red.compute(EXP, 2)
     Espace_explications_3D[indice] = dim_red.compute(EXP, 3)
     return Espace_explications, Espace_explications_3D
+
+def fonction_score(y, y_chap):
+    # function that calculates the score of a machine-learning model
+    y = np.array(y)
+    y_chap = np.array(y_chap)
+    return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)

@@ -3,6 +3,7 @@
 # Imports Python
 import time
 from copy import deepcopy
+from importlib.resources import files
 
 # Imports warnings
 import warnings
@@ -15,7 +16,6 @@ warnings.filterwarnings("ignore")
 # Imports data science
 import pandas as pd
 import numpy as np
-import lime.lime_tabular
 from skrules import SkopeRules
 
 # Imports sklearn
@@ -41,10 +41,14 @@ from antakia.utils import create_save
 from antakia.utils import load_save
 from antakia.utils import fonction_auto_clustering
 from antakia.utils import _conflict_handler
+from antakia.utils import _add_tooltip as add_tooltip
+from antakia.utils import _fonction_models as fonction_models
 
 import antakia._compute as compute
 
 from antakia import LongTask
+
+from antakia import Potato
 
 import antakia._gui_elements as gui_elements
 
@@ -64,11 +68,9 @@ class GUI():
     def __init__(
         self,
         atk,
-        explanation: str | pd.DataFrame = "SHAP",
-        X_all: pd.DataFrame = None,
-        default_projection: str = "PaCMAP",
+        explanation: str = None,
+        projection: str = "PaCMAP",
         sub_models: list = None,
-        saved_regions: list = None,
     ):
         """Function that creates the interface.
 
@@ -79,48 +81,68 @@ class GUI():
             If not computed : string ("SHAP" or "LIME", default : "SHAP")
             If already computed : pandas dataframe containing the explanations
             TODO : les calculs de SHAP ou LIME sont lancés depuis AntakIA en local ou envoyés à un serveur (avec GPU) distant. Je suggère que les fonctions de calcul long implémentent l'interface LongTask avec les métodes (start, update etc.)
-        X_all : pandas dataframe
+        atk.dataset.X_all : pandas dataframe
             The dataframe containing the entire data. It is used to compute the explanations if they are not already computed.
-        default_projection : str
+        dprojection : str
             The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
             TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
-        sub_models : list
+        self.sub_models : list
             The list of sub-models to choose from for each region created by the user.
-        saved_regions : list
-            The list of regions to display.
-            # TODO : ce n'est pas au GUI de maintenir cette liste, mais à AntakIA
         """
         self.atk = atk
-        self.explanation = explanation
-        self.explanation_values = None
-        self.X_all = X_all
-        self.default_projection = default_projection
+
+        if sub_models is None :
+            sub_models = [
+            linear_model.LinearRegression(),
+            RandomForestRegressor(random_state=9),
+            ensemble.GradientBoostingRegressor(random_state=9),
+        ]
+        
         self.sub_models = sub_models
-        self.saved_regions = saved_regions
 
         # Publique :
-        self.selection = []
-
+        self.selection = Potato(self.atk.X)
 
         # Privé :
+        if explanation is None :
+            if self.atk.dataset.explainability["Imported"] is not None:
+                explanation = "Imported"
+            else :
+                explanation = "SHAP"
+
+        self.__projection = projection #string
+        self.__explanation = explanation #string
+
+        self.dim_red = {}
+        self.dim_red["EV"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
+        self.dim_red["EE"] = {}
+        self.dim_red["EE"]["Imported"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
+        self.dim_red["EE"]["SHAP"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
+        self.dim_red["EE"]["LIME"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
+
+        if self.__explanation == "SHAP" and self.atk.dataset.explain["SHAP"] == None :
+            self.__calculus = True
+        elif self.__explanation == "LIME" and self.atk.dataset.explain["LIME"] == None :
+            self.__calculus = True
+        else:
+            self.__calculus = False
+
         self.__list_of_regions = []
         self.__list_of_sub_models = []
         self.__color_regions = []
-        self.__columns_names = None
+        self.atk.dataset.X.columns = None
         self.__save_rules = None
         self.__other_columns = None
         self.__valider_bool = False
         self.__SHAP_train = None # class Dataset ? Intêret ? À discuter !
         a = [0] * 10
         self.__all_rules = [a, a, a, a, a, a, a, a, a, a]
-        self.__X_not_scaled = None
-        self.__Y_not_scaled = None 
-        self.__SHAP_not_scaled = None
+        self.atk.dataset.X = None
+        y = None 
         self.__model_choice = None
         self.__Y_auto = None
         self.__all_tiles_rules = []
         self.__result_dyadic_clustering = None
-        self.__all_models = None
         self.__score_models = []
         self.__explanatory_values = None
         self.__table_save = None
@@ -132,125 +154,12 @@ class GUI():
         -------
         An interface
         """
-        explanation = self.explanation
-        explanation_values = self.explanation_values
-        X_all = self.X_all
-        default_projection = self.default_projection
-        sub_models = self.sub_models
-        saved_regions = self.saved_regions
-        
-        X = self.atk.dataset.X
-        Y = self.atk.dataset.y
-        model = self.atk.dataset.model
-
-        # TODO : Ces submodels ont vocation à être nombreux. On pourrait créer un module surrogates.py, avec une classe abstraite Surrogate (ou bien une classe abstraite Model de Scikitlearn ?) et plusieurs implémentation. Il doit être facile à un développeur d'en importer d'autres
-        # list of sub_models used
-        # we will used these models only if the user do not give a list of sub_models
-        self.__all_models = [
-            linear_model.LinearRegression(),
-            RandomForestRegressor(random_state=9),
-            ensemble.GradientBoostingRegressor(random_state=9),
-        ]
-
-        if type(explanation) == str:
-            calculus = True
-        elif type(explanation) == type(pd.DataFrame()):
-            calculus = False
-            explanation_values = explanation
-        else:
-            raise ValueError(
-                "The explanation parameter must be a string or a pandas dataframe.")
-
-        # TODO et si on mettait dans la classe Potato, en plus des règles, une instance d'un modèle de substitution. Du coup le score serait calculé dans Potato
-        def fonction_score(y, y_chap):
-            # function that calculates the score of a machine-learning model
-            y = np.array(y)
-            y_chap = np.array(y_chap)
-            return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
-
-        # TODO GUI doit avoir un constructeur qui crée tous les widgets et leur définit un tooltip.
-        def add_tooltip(widget, text):
-            # function that allows you to add a tooltip to a widget
-            wid = v.Tooltip(
-                bottom=True,
-                v_slots=[
-                    {
-                        "name": "activator",
-                        "variable": "tooltip",
-                        "children": widget,
-                    }
-                ],
-                children=[text],
-            )
-            widget.v_on = "tooltip.on"
-            return wid
-
-        # we initialize the variables once: case where we launch antakia.start() twice in the same notebook!
-
-        if sub_models != None:
-            self.__all_models = sub_models
         liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
-        X = X.reset_index(drop=True)
-        self.__list_of_sub_models = []
 
-        self.__Y_not_scaled = Y.copy()
-
-        self.__columns_names = X.columns.values[:3]
-
-        def check_all(
-            X, Y, explanation, explanation_values, model, X_all, default_projection
-        ):
-            # function that allows you to check that you have all the necessary information
-            if sub_models != None and len(sub_models) > 9:
-                return "You can enter up to 9 sub-models maximum ! (changes to come)"
-
-            return True
-
-        if (
-            check_all(X, Y, explanation, explanation_values, model, X_all, default_projection)
-            != True
-        ):
-            return check_all(
-                X, Y, explanation, explanation_values, model, X_all, default_projection
-            )
-
-        if X_all is None:
-            X_all = X.copy()
-
-        if sub_models == None:
-            sub_models = [
-                linear_model.LinearRegression(),
-                RandomForestRegressor(),
-                ensemble.GradientBoostingRegressor(),
-            ]
-
-        def fonction_models(X, Y):
-            # function that returns a list with the name/score/perf of the different models imported for a given X and Y
-            models_liste = []
-            for i in range(len(sub_models)):
-                l = []
-                sub_models[i].fit(X, Y)
-                l.append(sub_models[i].__class__.__name__)
-                l.append(str(round(sub_models[i].score(X, Y), 3)))
-                l.append("MSE")
-                l.append(sub_models[i].predict(X))
-                l.append(sub_models[i])
-                models_liste.append(l)
-            return models_liste
-
-        Y_pred = model.predict(X)
-        columns_de_X = X.columns
-        X_base = X.copy()
-        # self.__X_not_scaled is the starting X, before standardization
-        self.__X_not_scaled = X.copy()
-        X = pd.DataFrame(StandardScaler().fit_transform(X))
-        X.columns = [columns_de_X[i].replace(" ", "_") for i in range(len(X.columns))]
-        X_base.columns = X.columns
-
+        if self.sub_models != None and len(self.sub_models) > 9:
+            raise ValueError("You can enter up to 9 sub-models maximum ! (changes to come)")
+        
         # wait screen definition
-        # TODO et pourquopi pas une sous classe Splash Screen ? Que l'on traiterait comme un widget
-        from importlib.resources import files
-
         data_path = files("antakia.assets").joinpath("logo_antakia.png")
 
         logo_antakia = widgets.Image(
@@ -277,86 +186,33 @@ class GUI():
         display(splash)
 
         # if we import the explanatory values, the progress bar of this one is at 100
-        if not calculus:
+        if not self.__calculus:
             progress_shap.v_model = 100
             prog_shap.children[2].children[
                 0
             ].v_model = "Imported explanatory values"
-
-        # TODO Vivement que tout ce code avant et ci-dessous soit dans une sous-classe ad hoc! D'ailleurs, ce serait encore mieux de mettre ça dans un module SplashScreen.py
-        def generation_texte(i, tot, time_init, progress):
-            # allows to generate the progress text of the progress bar
-            time_now = round((time.time() - time_init) / progress * 100, 1)
-            minute = int(time_now / 60)
-            seconde = time_now - minute * 60
-            minute_passee = int((time.time() - time_init) / 60)
-            seconde_passee = int((time.time() - time_init) - minute_passee * 60)
-            return (
-                str(round(progress_shap.v_model, 1))
-                + "%"
-                + " ["
-                + str(i + 1)
-                + "/"
-                + str(tot)
-                + "]"
-                + " - "
-                + str(minute_passee)
-                + "m"
-                + str(seconde_passee)
-                + "s (estimated time : "
-                + str(minute)
-                + "min "
-                + str(round(seconde))
-                + "s)"
-            )
-
-        if calculus == True:
-            if explanation == "SHAP":
-                compute_SHAP = LongTask.compute_SHAP(self.__X_not_scaled, X_all, model)
+        else :
+            if self.__explanation == "SHAP":
+                compute_SHAP = LongTask.compute_SHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
-                self.__explanatory_values = compute_SHAP.compute()
-                self.atk.dataset.explanatory["SHAP"] = self.__explanatory_values.copy()
-            elif explanation == "LIME":
-                compute_LIME = LongTask.compute_LIME(self.__X_not_scaled, X_all, model)
+                self.atk.dataset.explain["SHAP"] = compute_SHAP.compute()
+            elif self.__explanation == "LIME":
+                compute_LIME = LongTask.compute_LIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
-                self.__explanatory_values = compute_LIME.compute()
-                self.atk.dataset.explanatory["LIME"] = self.__explanatory_values.copy()
-            else:
-                self.__explanatory_values = explanation_values
-        else:
-            self.__explanatory_values = explanation_values
-
-        self.explanation_values = self.__explanatory_values.copy()
-        self.__SHAP_not_scaled = self.__explanatory_values.copy()
-
-        choix_init_proj = 3
+                self.atk.dataset.explain["LIME"] = compute_LIME.compute()
 
         # definition of the default projection
         # base, we take the PaCMAP projection
         
-        # TODO : penser à traduire en EN
-        choix_init_proj = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(default_projection)
+        choix_init_proj = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(self.__projection)
         prog_red.children[2].children[0].v_model = "Values space... "
-        [self.__Espace_valeurs, self.__Espace_valeurs_3D] = compute.initialize_dim_red_EV(X, default_projection)
+        self.dim_red["EV"][self.__reduction] = compute.initialize_dim_red_EV(self.atk.dataset.X, self.__projection)
         progress_red.v_model = +50
         prog_red.children[2].children[0].v_model = "Values space... Explanatory space..."
-        [self.__Espace_explications, self.__Espace_explications_3D] = compute.initialize_dim_red_EE(self.__explanatory_values, default_projection)
+        self.dim_red["EE"][self.__explanation][self.__reduction] = compute.initialize_dim_red_EE(self.atk.dataset.explain[self.__explanation], self.__projection)
         progress_red.v_model = +50
-
-        self.all_values = dict()
-        self.all_values['imported'] = [None]*4
-        self.all_values['SHAP'] = [None]*4
-        self.all_values['LIME'] = [None]*4
-        if calculus == False:
-            self.all_values['imported'] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
-        else:
-            if explanation == "SHAP":
-                self.all_values['SHAP'] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
-            elif explanation == "LIME":
-                self.all_values['LIME'] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
-            
 
         # once all this is done, the splash screen is removed
         splash.class_ = "d-none"
@@ -614,7 +470,7 @@ class GUI():
         reinit_params_proj_EE.on_event("click", reinit_param_EE)
 
         # allows you to choose the color of the points
-        # Y, Y hat, residuals, current selection, regions, unselected points, automatic clustering
+        # y, y hat, residuals, current selection, regions, unselected points, automatic clustering
         couleur_radio = gui_elements.color_choice()
 
         def fonction_changement_couleur(*args, opacity: bool = True):
@@ -622,30 +478,30 @@ class GUI():
             couleur = None
             scale = True
             a_modifier = True
-            if couleur_radio.v_model == "Y":
-                couleur = Y
-            elif couleur_radio.v_model == "Y^":
-                couleur = Y_pred
+            if couleur_radio.v_model == "y":
+                couleur = y
+            elif couleur_radio.v_model == "y^":
+                couleur = self.atk.dataset.y_pred
             elif couleur_radio.v_model == "Selec actuelle":
                 scale = False
-                couleur = ["grey"] * len(X_base)
+                couleur = ["grey"] * len(self.atk.dataset.X)
                 for i in range(len(self.selection)):
                     couleur[self.selection[i]] = "blue"
             elif couleur_radio.v_model == "Résidus":
-                couleur = Y - Y_pred
+                couleur = y - self.atk.dataset.y_pred
                 couleur = [abs(i) for i in couleur]
             elif couleur_radio.v_model == "Régions":
                 scale = False
-                couleur = [0] * len(X_base)
-                for i in range(len(X_base)):
+                couleur = [0] * len(self.atk.dataset.X)
+                for i in range(len(self.atk.dataset.X)):
                     for j in range(len(self.__list_of_regions)):
                         if i in self.__list_of_regions[j]:
                             couleur[i] = j + 1
             elif couleur_radio.v_model == "Non selec":
                 scale = False
-                couleur = ["red"] * len(X_base)
+                couleur = ["red"] * len(self.atk.dataset.X)
                 if len(self.__list_of_regions) > 0:
-                    for i in range(len(X_base)):
+                    for i in range(len(self.atk.dataset.X)):
                         for j in range(len(self.__list_of_regions)):
                             if i in self.__list_of_regions[j]:
                                 couleur[i] = "grey"
@@ -694,49 +550,49 @@ class GUI():
 
         # marker 1 is the marker of figure 1
         marker1 = dict(
-            color=Y,
+            color=y,
             colorscale="Viridis",
             colorbar=dict(
-                title="Y",
+                title="y",
                 thickness=20,
             ),
         )
 
         # marker 2 is the marker of figure 2 (without colorbar therefore)
-        marker2 = dict(color=Y, colorscale="Viridis")
+        marker2 = dict(color=y, colorscale="Viridis")
 
         barre_menu, fig_size, bouton_save = gui_elements.create_menu_bar()
 
-        if saved_regions == None:
-            saved_regions = []
+        if self.atk.saves == None:
+            self.atk.saves = []
 
-        len_init_regions = len(saved_regions)
+        len_init_regions = len(self.atk.saves)
 
         # for the part on backups
         def init_save(new: bool = False):
             texte_regions = "There is no backup"
-            for i in range(len(saved_regions)):
-                if len(saved_regions[i]["liste"]) != len(X_all):
+            for i in range(len(self.atk.saves)):
+                if len(self.atk.saves[i]["liste"]) != len(atk.dataset.X_all):
                     raise Exception("Your save is not the right size !")
-            if len(saved_regions) > 0:
-                texte_regions = str(len(saved_regions)) + " save(s) found"
+            if len(self.atk.saves) > 0:
+                texte_regions = str(len(self.atk.saves)) + " save(s) found"
             self.__table_save = []
-            for i in range(len(saved_regions)):
+            for i in range(len(self.atk.saves)):
                 sous_mod_bool = "No"
                 new_or_not = "Imported"
                 if i > len_init_regions:
                     new_or_not = "Created"
                 if (
-                    len(saved_regions[i]["sub_models"])
-                    == max(saved_regions[i]["liste"]) + 1
+                    len(self.atk.saves[i]["self.sub_models"])
+                    == max(self.atk.saves[i]["liste"]) + 1
                 ):
                     sous_mod_bool = "Yes"
                 self.__table_save.append(
                     [
                         i + 1,
-                        saved_regions[i]["nom"],
+                        self.atk.saves[i]["nom"],
                         new_or_not,
-                        max(saved_regions[i]["liste"]) + 1,
+                        max(self.atk.saves[i]["liste"]) + 1,
                         sous_mod_bool,
                     ]
                 )
@@ -769,7 +625,7 @@ class GUI():
         # the table that contains the backups
         self.__table_save = init_save()[0]
 
-        dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save = gui_elements.dialog_save(bouton_save, init_save()[1], self.__table_save, saved_regions)
+        dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save = gui_elements.dialog_save(bouton_save, init_save()[1], self.__table_save, self.atk.saves)
 
         # save a backup
         def delete_save_fonction(*args):
@@ -777,7 +633,7 @@ class GUI():
                 return
             self.__table_save = carte_save.children[1]
             indice = self.__table_save.v_model[0]["Save #"] - 1
-            saved_regions.pop(indice)
+            self.atk.saves.pop(indice)
             self.__table_save, texte = init_save(True)
             carte_save.children = [texte, self.__table_save] + carte_save.children[
                 2:
@@ -792,15 +648,15 @@ class GUI():
                 return
             indice = self.__table_save.v_model[0]["Save #"] - 1
             n = []
-            for i in range(int(max(saved_regions[indice]["liste"])) + 1):
+            for i in range(int(max(self.atk.saves[indice]["liste"])) + 1):
                 temp = []
-                for j in range(len(saved_regions[indice]["liste"])):
-                    if saved_regions[indice]["liste"][j] == i:
+                for j in range(len(self.atk.saves[indice]["liste"])):
+                    if self.atk.saves[indice]["liste"][j] == i:
                         temp.append(j)
                 if len(temp) > 0:
                     n.append(temp)
             self.__list_of_regions = n
-            couleur = deepcopy(saved_regions[indice]["liste"])
+            couleur = deepcopy(self.atk.saves[indice]["liste"])
             self.__color_regions = deepcopy(couleur)
             with fig1.batch_update():
                 fig1.data[0].marker.color = couleur
@@ -815,22 +671,22 @@ class GUI():
             couleur_radio.v_model = "Régions"
             fig1.update_traces(marker=dict(showscale=False))
             fig2.update_traces(marker=dict(showscale=False))
-            if len(saved_regions[indice]["sub_models"]) != len(self.__list_of_regions):
+            if len(self.atk.saves[indice]["self.sub_models"]) != len(self.__list_of_regions):
                 self.__list_of_sub_models = [[None, None, None]] * len(self.__list_of_regions)
             else:
                 self.__list_of_sub_models = []
                 for i in range(len(self.__list_of_regions)):
-                    nom = saved_regions[indice]["sub_models"][i].__class__.__name__
+                    nom = self.atk.saves[indice]["self.sub_models"][i].__class__.__name__
                     indices_respectent = self.__list_of_regions[i]
-                    score_init = fonction_score(
-                        Y.iloc[indices_respectent], Y_pred[indices_respectent]
+                    score_init = compute.fonction_score(
+                        y.iloc[indices_respectent], self.atk.dataset.y_pred[indices_respectent]
                     )
-                    saved_regions[indice]["sub_models"][i].fit(
-                        X.iloc[indices_respectent], Y.iloc[indices_respectent]
+                    self.atk.saves[indice]["self.sub_models"][i].fit(
+                        X.iloc[indices_respectent], y.iloc[indices_respectent]
                     )
-                    score_reg = fonction_score(
-                        Y.iloc[indices_respectent],
-                        saved_regions[indice]["sub_models"][i].predict(
+                    score_reg = compute.fonction_score(
+                        y.iloc[indices_respectent],
+                        self.atk.saves[indice]["self.sub_models"][i].predict(
                             X.iloc[indices_respectent]
                         ),
                     )
@@ -855,9 +711,9 @@ class GUI():
                 if self.__list_of_sub_models[i][-1] == None:
                     l_m.append(None)
                 else:
-                    l_m.append(sub_models[self.__list_of_sub_models[i][-1]])
+                    l_m.append(self.sub_models[self.__list_of_sub_models[i][-1]])
             save = create_save(self.__color_regions, nom_sauvegarde.v_model, l_m)
-            saved_regions.append(save)
+            self.atk.saves.append(save)
             self.__table_save, texte = init_save(True)
             carte_save.children = [texte, self.__table_save] + carte_save.children[
                 2:
@@ -935,7 +791,7 @@ class GUI():
 
         # marker 3D is the marker of figure 1 in 3D
         marker_3D = dict(
-            color=Y,
+            color=y,
             colorscale="Viridis",
             colorbar=dict(
                 thickness=20,
@@ -944,7 +800,7 @@ class GUI():
         )
 
         # marker 3D_2 is the marker of figure 2 in 3D (without the colorbar therefore!)
-        marker_3D_2 = dict(color=Y, colorscale="Viridis", size=3)
+        marker_3D_2 = dict(color=y, colorscale="Viridis", size=3)
 
         fig1_3D = go.FigureWidget(
             data=go.Scatter3d(
@@ -1051,7 +907,7 @@ class GUI():
         EV_proj.on_event("change", update_scatter)
         EE_proj.on_event("change", update_scatter)
 
-        self.__color_regions = [0] * len(X_base)
+        self.__color_regions = [0] * len(self.atk.dataset.X)
 
         # definition of the table that will show the different results of the regions, with a stat of info about them
         table_regions = widgets.Output()
@@ -1192,9 +1048,9 @@ class GUI():
             class_="d-flex flex-row", children=[texte_skopeEV, texte_skopeEE]
         )
 
-        # texts that will contain the information on the sub_models
+        # texts that will contain the information on the self.sub_models
         liste_mods = []
-        for i in range(len(sub_models)):
+        for i in range(len(self.sub_models)):
             nom_mdi = "mdi-numeric-" + str(i + 1) + "-box"
             mod = v.SlideItem(
                 # style_="width: 30%",
@@ -1207,7 +1063,7 @@ class GUI():
                                 children=[
                                     v.Icon(children=[nom_mdi]),
                                     v.CardTitle(
-                                        children=[sub_models[i].__class__.__name__]
+                                        children=[self.sub_models[i].__class__.__name__]
                                     ),
                                 ],
                             ),
@@ -1530,7 +1386,7 @@ class GUI():
                         and self.__explanatory_values[nom_colonne_shap][i] <= liste_scale[j + 1]
                     ):
                         garde_indice[j].append(i)
-                        garde_valeur_y[j].append(Y[i])
+                        garde_valeur_y[j].append(y[i])
                         break
             for i in range(nombre_div):
                 l = positions_ordre_croissant(garde_valeur_y[i])
@@ -1543,7 +1399,7 @@ class GUI():
             marker_shap = dict(
                 size=4,
                 opacity=0.6,
-                color=X_base[nom_colonne],
+                color=self.atk.dataset.X[nom_colonne],
                 colorscale="Bluered_r",
                 colorbar=dict(thickness=20, title=nom_colonne),
             )
@@ -1773,21 +1629,21 @@ class GUI():
 
         # allows you to take the set of rules and modify the graph so that it responds to everything!
         def tout_modifier_graphique():
-            nouvelle_tuile = X_base[
-                (X_base[self.__all_rules[0][2]] >= self.__all_rules[0][0])
-                & (X_base[self.__all_rules[0][2]] <= self.__all_rules[0][4])
+            nouvelle_tuile = self.atk.dataset.X[
+                (self.atk.dataset.X[self.__all_rules[0][2]] >= self.__all_rules[0][0])
+                & (self.atk.dataset.X[self.__all_rules[0][2]] <= self.__all_rules[0][4])
             ].index
             for i in range(1, len(self.__all_rules)):
-                X_temp = X_base[
-                    (X_base[self.__all_rules[i][2]] >= self.__all_rules[i][0])
-                    & (X_base[self.__all_rules[i][2]] <= self.__all_rules[i][4])
+                X_temp = self.atk.dataset.X[
+                    (self.atk.dataset.X[self.__all_rules[i][2]] >= self.__all_rules[i][0])
+                    & (self.atk.dataset.X[self.__all_rules[i][2]] <= self.__all_rules[i][4])
                 ].index
                 nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
             y_shape_skope = []
             y_color_skope = []
             y_opa_skope = []
             self.selection = nouvelle_tuile
-            for i in range(len(X_base)):
+            for i in range(len(self.atk.dataset.X)):
                 if i in nouvelle_tuile:
                     y_shape_skope.append("circle")
                     y_color_skope.append("blue")
@@ -1813,30 +1669,30 @@ class GUI():
 
         # allows to modify all the histograms according to the rules
         def modifier_tous_histograms(value_min, value_max, indice):
-            new_list_tout = X_base.index[
-                X_base[self.__all_rules[indice][2]].between(value_min, value_max)
+            new_list_tout = self.atk.dataset.X.index[
+                self.atk.dataset.X[self.__all_rules[indice][2]].between(value_min, value_max)
             ].tolist()
             for i in range(len(self.__all_rules)):
                 min = self.__all_rules[i][0]
                 max = self.__all_rules[i][4]
                 if i != indice:
-                    new_list_temp = X_base.index[
-                        X_base[self.__all_rules[i][2]].between(min, max)
+                    new_list_temp = self.atk.dataset.X.index[
+                        self.atk.dataset.X[self.__all_rules[i][2]].between(min, max)
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
             for i in range(len(self.__all_rules)):
                 with all_histograms[i].batch_update():
-                    all_histograms[i].data[2].x = X_base[self.__all_rules[i][2]][new_list_tout]
+                    all_histograms[i].data[2].x = self.atk.dataset.X[self.__all_rules[i][2]][new_list_tout]
                 if all_color_choosers_beeswarms[i].children[1].v_model:
                     with all_beeswarms[i].batch_update():
                         y_color = [0] * len(self.__explanatory_values)
                         if i == indice:
-                            indices = X_base.index[
-                                X_base[self.__all_rules[i][2]].between(value_min, value_max)
+                            indices = self.atk.dataset.X.index[
+                                self.atk.dataset.X[self.__all_rules[i][2]].between(value_min, value_max)
                             ].tolist()
                         else:
-                            indices = X_base.index[
-                                X_base[self.__all_rules[i][2]].between(
+                            indices = self.atk.dataset.X.index[
+                                self.atk.dataset.X[self.__all_rules[i][2]].between(
                                     self.__all_rules[i][0], self.__all_rules[i][4]
                                 )
                             ].tolist()
@@ -1855,7 +1711,7 @@ class GUI():
             slider_text_comb1.children[2].v_model = slider_skope1.v_model[1] / 100
             new_list = [
                 g
-                for g in list(X_base[self.__columns_names[0]].values)
+                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[0]].values)
                 if g >= slider_skope1.v_model[0] / 100
                 and g <= slider_skope1.v_model[1] / 100
             ]
@@ -1876,7 +1732,7 @@ class GUI():
             slider_text_comb2.children[2].v_model = slider_skope2.v_model[1] / 100
             new_list = [
                 g
-                for g in list(X_base[self.__columns_names[1]].values)
+                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[1]].values)
                 if g >= slider_skope2.v_model[0] / 100
                 and g <= slider_skope2.v_model[1] / 100
             ]
@@ -1897,7 +1753,7 @@ class GUI():
             slider_text_comb3.children[2].v_model = slider_skope3.v_model[1] / 100
             new_list = [
                 g
-                for g in list(X_base[self.__columns_names[2]].values)
+                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[2]].values)
                 if g >= slider_skope3.v_model[0] / 100
                 and g <= slider_skope3.v_model[1] / 100
             ]
@@ -2000,18 +1856,18 @@ class GUI():
         # function to grab skope values ​​in float, used for modification sliders!
         def re_transform_string(chaine):
             chaine_carac = str(chaine).split()
-            self.__columns_names = []
+            self.atk.dataset.X.columns = []
             valeurs = []
             symbole = []
             for i in range(len(chaine_carac)):
                 if "<" in chaine_carac[i] or ">" in chaine_carac[i]:
-                    self.__columns_names.append(chaine_carac[i - 1])
+                    self.atk.dataset.X.columns.append(chaine_carac[i - 1])
                     symbole.append(chaine_carac[i])
                     if chaine_carac[i + 1][-1] == ",":
                         valeurs.append(float(chaine_carac[i + 1][:-2]))
                     else:
                         valeurs.append(float(chaine_carac[i + 1]))
-            return [self.__columns_names, symbole, valeurs]
+            return [self.atk.dataset.X.columns, symbole, valeurs]
 
         def generate_card(chaine):
             chaine_carac = str(chaine).split()
@@ -2083,8 +1939,8 @@ class GUI():
                 for j in range(len(self.__all_rules)):
                     colonne = list(X.columns).index(self.__all_rules[j][2])
                     if (
-                        self.__all_rules[j][0] > X_base.iloc[i, colonne]
-                        or X_base.iloc[i, colonne] > self.__all_rules[j][4]
+                        self.__all_rules[j][0] > self.atk.dataset.X.iloc[i, colonne]
+                        or self.atk.dataset.X.iloc[i, colonne] > self.__all_rules[j][4]
                     ):
                         liste_bool[i] = False
             temp = [i for i in range(len(X)) if liste_bool[i]]
@@ -2093,21 +1949,21 @@ class GUI():
         def fonction_scores_models(temp):
             if temp == None:
                 temp = regles_to_indices()
-            result_models = fonction_models(X.iloc[temp, :], Y.iloc[temp])
+            result_models = fonction_models(X.iloc[temp, :], y.iloc[temp])
             score_tot = []
-            for i in range(len(sub_models)):
-                score_tot.append(fonction_score(Y.iloc[temp], result_models[i][-2]))
-            score_init = fonction_score(Y.iloc[temp], Y_pred[temp])
+            for i in range(len(self.sub_models)):
+                score_tot.append(compute.fonction_score(y.iloc[temp], result_models[i][-2]))
+            score_init = compute.fonction_score(y.iloc[temp], self.atk.dataset.y_pred[temp])
             if score_init == 0:
-                l_compar = ["/"] * len(sub_models)
+                l_compar = ["/"] * len(self.sub_models)
             else:
                 l_compar = [
                     round(100 * (score_init - score_tot[i]) / score_init, 1)
-                    for i in range(len(sub_models))
+                    for i in range(len(self.sub_models))
                 ]
 
             self.__score_models = []
-            for i in range(len(sub_models)):
+            for i in range(len(self.sub_models)):
                 self.__score_models.append(
                     [
                         score_tot[i],
@@ -2153,10 +2009,10 @@ class GUI():
                             + "%)"
                         )
 
-            for i in range(len(sub_models)):
+            for i in range(len(self.sub_models)):
                 mods.children[i].children[0].children[1].children = str_md(i)
 
-        X_train = X_base.copy()
+        X_train = self.atk.dataset.X.copy()
 
         # when you click on the skope-rules button
         def fonction_validation_skope(*sender):
@@ -2230,16 +2086,16 @@ class GUI():
                     ]
 
                     # there we find the values ​​of the skope to use them for the sliders
-                    self.__columns_names, symbole, valeurs = re_transform_string(
+                    self.atk.dataset.X.columns, symbole, valeurs = re_transform_string(
                         chaine_carac[0]
                     )
                     self.__other_columns = [
-                        g for g in X_base.columns if g not in self.__columns_names
+                        g for g in self.atk.dataset.X.columns if g not in self.atk.dataset.X.columns
                     ]
                     widget_list_add_skope.items = self.__other_columns
                     widget_list_add_skope.v_model = self.__other_columns[0]
-                    liste_val_histo = [0] * len(self.__columns_names)
-                    liste_index = [0] * len(self.__columns_names)
+                    liste_val_histo = [0] * len(self.atk.dataset.X.columns)
+                    liste_index = [0] * len(self.atk.dataset.X.columns)
                     le_top = []
                     le_min = []
                     self.__all_rules = []
@@ -2247,65 +2103,65 @@ class GUI():
                     def f_rond(a):
                         return np.round(a, 2)
 
-                    for i in range(len(self.__columns_names)):
+                    for i in range(len(self.atk.dataset.X.columns)):
                         une_regle = [0] * 5
-                        une_regle[2] = self.__columns_names[i]
+                        une_regle[2] = self.atk.dataset.X.columns[i]
                         if symbole[i] == "<":
                             une_regle[0] = f_rond(
-                                float(min(list(X_base[self.__columns_names[i]].values)))
+                                float(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                             )
                             une_regle[1] = "<"
                             une_regle[3] = "<"
                             une_regle[4] = f_rond(float(valeurs[i]))
                             X1 = [
                                 g
-                                for g in list(X_base[self.__columns_names[i]].values)
+                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
                                 if g < valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[self.__columns_names[i]].index.values)
-                                if X_base[self.__columns_names[i]][h] < valeurs[i]
+                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
+                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] < valeurs[i]
                             ]
                             le_top.append(valeurs[i])
-                            le_min.append(min(list(X_base[self.__columns_names[i]].values)))
+                            le_min.append(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                         elif symbole[i] == ">":
                             une_regle[0] = f_rond(float(valeurs[i]))
                             une_regle[1] = "<"
                             une_regle[3] = "<"
                             une_regle[4] = f_rond(
-                                float(max(list(X_base[self.__columns_names[i]].values)))
+                                float(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                             )
                             X1 = [
                                 g
-                                for g in list(X_base[self.__columns_names[i]].values)
+                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
                                 if g > valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[self.__columns_names[i]].index.values)
-                                if X_base[self.__columns_names[i]][h] > valeurs[i]
+                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
+                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] > valeurs[i]
                             ]
                             le_min.append(valeurs[i])
-                            le_top.append(max(list(X_base[self.__columns_names[i]].values)))
+                            le_top.append(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                         elif symbole[i] == "<=":
                             une_regle[0] = f_rond(
-                                float(min(list(X_base[self.__columns_names[i]].values)))
+                                float(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                             )
                             une_regle[1] = "<="
                             une_regle[3] = "<="
                             une_regle[4] = f_rond(float(valeurs[i]))
                             le_top.append(valeurs[i])
-                            le_min.append(min(list(X_base[self.__columns_names[i]].values)))
+                            le_min.append(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                             X1 = [
                                 g
-                                for g in list(X_base[self.__columns_names[i]].values)
+                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
                                 if g <= valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[self.__columns_names[i]].index.values)
-                                if X_base[self.__columns_names[i]][h] <= valeurs[i]
+                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
+                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] <= valeurs[i]
                             ]
                             liste_index[i] = X2
                         elif symbole[i] == ">=":
@@ -2313,19 +2169,19 @@ class GUI():
                             une_regle[1] = "<="
                             une_regle[3] = "<="
                             une_regle[4] = f_rond(
-                                float(max(list(X_base[self.__columns_names[i]].values)))
+                                float(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                             )
                             le_min.append(valeurs[i])
-                            le_top.append(max(list(X_base[self.__columns_names[i]].values)))
+                            le_top.append(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
                             X1 = [
                                 g
-                                for g in list(X_base[self.__columns_names[i]].values)
+                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
                                 if g >= valeurs[i]
                             ]
                             X2 = [
                                 h
-                                for h in list(X_base[self.__columns_names[i]].index.values)
-                                if X_base[self.__columns_names[i]][h] >= valeurs[i]
+                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
+                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] >= valeurs[i]
                             ]
                         liste_index[i] = X2
                         liste_val_histo[i] = X1
@@ -2336,29 +2192,29 @@ class GUI():
                         liste_to_string_skope(self.__all_rules)
                     )
 
-                    [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[0])
+                    [new_y, marker] = fonction_beeswarm_shap(self.atk.dataset.X.columns[0])
                     essaim1.data[0].y = new_y
-                    essaim1.data[0].x = self.__explanatory_values[self.__columns_names[0] + "_shap"]
+                    essaim1.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[0] + "_shap"]
                     essaim1.data[0].marker = marker
 
                     all_histograms = [histogram1]
-                    if len(self.__columns_names) > 1:
+                    if len(self.atk.dataset.X.columns) > 1:
                         all_histograms = [histogram1, histogram2]
-                        [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[1])
+                        [new_y, marker] = fonction_beeswarm_shap(self.atk.dataset.X.columns[1])
                         essaim2.data[0].y = new_y
-                        essaim2.data[0].x = self.__explanatory_values[self.__columns_names[1] + "_shap"]
+                        essaim2.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[1] + "_shap"]
                         essaim2.data[0].marker = marker
 
-                    if len(self.__columns_names) > 2:
+                    if len(self.atk.dataset.X.columns) > 2:
                         all_histograms = [histogram1, histogram2, histogram3]
-                        [new_y, marker] = fonction_beeswarm_shap(self.__columns_names[2])
+                        [new_y, marker] = fonction_beeswarm_shap(self.atk.dataset.X.columns[2])
                         essaim3.data[0].y = new_y
-                        essaim3.data[0].x = self.__explanatory_values[self.__columns_names[2] + "_shap"]
+                        essaim3.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[2] + "_shap"]
                         essaim3.data[0].marker = marker
 
-                    if len(self.__columns_names) == 1:
+                    if len(self.atk.dataset.X.columns) == 1:
                         indices_respectent_skope = liste_index[0]
-                    elif len(self.__columns_names) == 2:
+                    elif len(self.atk.dataset.X.columns) == 2:
                         indices_respectent_skope = [
                             a for a in liste_index[0] if a in liste_index[1]
                         ]
@@ -2371,7 +2227,7 @@ class GUI():
                     y_shape_skope = []
                     y_color_skope = []
                     y_opa_skope = []
-                    for i in range(len(X_base)):
+                    for i in range(len(self.atk.dataset.X)):
                         if i in indices_respectent_skope:
                             y_shape_skope.append("circle")
                             y_color_skope.append("blue")
@@ -2383,36 +2239,36 @@ class GUI():
                     couleur_radio.v_model = "Selec actuelle"
                     fonction_changement_couleur(None)
 
-                    if len(self.__columns_names) == 2:
+                    if len(self.atk.dataset.X.columns) == 2:
                         accordion_skope.children = [
                             dans_accordion1_n,
                             dans_accordion2_n,
                         ]
                         dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + self.__columns_names[0] + ")"
+                            "X1 (" + self.atk.dataset.X.columns[0] + ")"
                         )
                         dans_accordion2_n.children[0].children[0].children = (
-                            "X2 (" + self.__columns_names[1] + ")"
+                            "X2 (" + self.atk.dataset.X.columns[1] + ")"
                         )
-                    elif len(self.__columns_names) == 3:
+                    elif len(self.atk.dataset.X.columns) == 3:
                         accordion_skope.children = [
                             dans_accordion1_n,
                             dans_accordion2_n,
                             dans_accordion3_n,
                         ]
                         dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + self.__columns_names[0] + ")"
+                            "X1 (" + self.atk.dataset.X.columns[0] + ")"
                         )
                         dans_accordion2_n.children[0].children[0].children = (
-                            "X2 (" + self.__columns_names[1] + ")"
+                            "X2 (" + self.atk.dataset.X.columns[1] + ")"
                         )
                         dans_accordion3_n.children[0].children[0].children = (
-                            "X3 (" + self.__columns_names[2] + ")"
+                            "X3 (" + self.atk.dataset.X.columns[2] + ")"
                         )
-                    elif len(self.__columns_names) == 1:
+                    elif len(self.atk.dataset.X.columns) == 1:
                         accordion_skope.children = [dans_accordion1_n]
                         dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + self.__columns_names[0] + ")"
+                            "X1 (" + self.atk.dataset.X.columns[0] + ")"
                         )
 
                     slider_skope1.min = -10e10
@@ -2423,10 +2279,10 @@ class GUI():
                     slider_skope3.max = 10e10
 
                     slider_skope1.max = (
-                        round(max(list(X_base[self.__columns_names[0]].values)), 1)
+                        round(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[0]].values)), 1)
                     ) * 100
                     slider_skope1.min = (
-                        round(min(list(X_base[self.__columns_names[0]].values)), 1)
+                        round(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[0]].values)), 1)
                     ) * 100
                     slider_skope1.v_model = [
                         round(le_min[0], 1) * 100,
@@ -2438,12 +2294,12 @@ class GUI():
                         slider_text_comb1.children[2].v_model,
                     ] = [slider_skope1.v_model[0] / 100, slider_skope1.v_model[1] / 100]
 
-                    if len(self.__columns_names) > 1:
+                    if len(self.atk.dataset.X.columns) > 1:
                         slider_skope2.max = (
-                            max(list(X_base[self.__columns_names[1]].values))
+                            max(list(self.atk.dataset.X[self.atk.dataset.X.columns[1]].values))
                         ) * 100
                         slider_skope2.min = (
-                            min(list(X_base[self.__columns_names[1]].values))
+                            min(list(self.atk.dataset.X[self.atk.dataset.X.columns[1]].values))
                         ) * 100
                         slider_skope2.v_model = [
                             round(le_min[1], 1) * 100,
@@ -2457,13 +2313,13 @@ class GUI():
                             slider_skope2.v_model[1] / 100,
                         ]
 
-                    if len(self.__columns_names) > 2:
-                        slider_skope3.description = self.__columns_names[2]
+                    if len(self.atk.dataset.X.columns) > 2:
+                        slider_skope3.description = self.atk.dataset.X.columns[2]
                         slider_skope3.max = (
-                            max(list(X_base[self.__columns_names[2]].values))
+                            max(list(self.atk.dataset.X[self.atk.dataset.X.columns[2]].values))
                         ) * 100
                         slider_skope3.min = (
-                            min(list(X_base[self.__columns_names[2]].values))
+                            min(list(self.atk.dataset.X[self.atk.dataset.X.columns[2]].values))
                         ) * 100
                         slider_skope3.v_model = [
                             round(le_min[2], 1) * 100,
@@ -2479,15 +2335,15 @@ class GUI():
 
                     with histogram1.batch_update():
                         histogram1.data[0].x = list(
-                            X_base[re_transform_string(chaine_carac[0])[0][0]]
+                            self.atk.dataset.X[re_transform_string(chaine_carac[0])[0][0]]
                         )
                         if len(histogram1.data) > 1:
                             histogram1.data[1].x = liste_val_histo[0]
 
-                    if len(self.__columns_names) > 1:
+                    if len(self.atk.dataset.X.columns) > 1:
                         with histogram2.batch_update():
                             histogram2.data[0].x = list(
-                                X_base[re_transform_string(chaine_carac[0])[0][1]]
+                                self.atk.dataset.X[re_transform_string(chaine_carac[0])[0][1]]
                             )
                             if len(histogram2.data) > 1:
                                 histogram2.data[1].x = liste_val_histo[1]
@@ -2501,10 +2357,10 @@ class GUI():
                                     )
                                 )
 
-                    if len(self.__columns_names) > 2:
+                    if len(self.atk.dataset.X.columns) > 2:
                         with histogram3.batch_update():
                             histogram3.data[0].x = list(
-                                X_base[re_transform_string(chaine_carac[0])[0][2]]
+                                self.atk.dataset.X[re_transform_string(chaine_carac[0])[0][2]]
                             )
                             if len(histogram3.data) > 1:
                                 histogram3.data[1].x = liste_val_histo[2]
@@ -2523,6 +2379,7 @@ class GUI():
                     )
 
                     chaine_carac = transform_string_shap(skope_rules_clf_shap.rules_[0])
+                    print(skope_rules_clf_shap.rules_)
                     texte_skopeEE.children[0].children[3].children = [
                         # str(skope_rules_clf.rules_[0])
                         # + "\n"
@@ -2793,14 +2650,14 @@ class GUI():
             card_selec.children[0].children[1].children = (
                 str(len(les_points))
                 + " points selected ("
-                + str(round(len(les_points) / len(X_base) * 100, 2))
+                + str(round(len(les_points) / len(self.atk.dataset.X) * 100, 2))
                 + "% of the overall)"
             )
             texte_selec.value = (
                 texte_base
                 + str(len(les_points))
                 + " points selected ("
-                + str(round(len(les_points) / len(X_base) * 100, 2))
+                + str(round(len(les_points) / len(self.atk.dataset.X) * 100, 2))
                 + "% of the overall)"
             )
             opa = []
@@ -2817,7 +2674,7 @@ class GUI():
             with fig1.batch_update():
                 fig1.data[0].marker.opacity = opa
 
-            X_train = X_base.copy()
+            X_train = self.atk.dataset.X.copy()
             self.__SHAP_train = self.__explanatory_values.copy()
 
             X_mean = (
@@ -2881,7 +2738,7 @@ class GUI():
                     score_model = [1] * len(self.__score_models[0])
                     indice_model = -1
                 else:
-                    nom_model = sub_models[self.__model_choice].__class__.__name__
+                    nom_model = self.sub_models[self.__model_choice].__class__.__name__
                     score_model = self.__score_models[self.__model_choice]
                     indice_model = self.__model_choice
                 a = [0] * 10
@@ -2898,14 +2755,14 @@ class GUI():
                     a,
                 ]:
                     return
-                nouvelle_tuile = X_base[
-                    (X_base[self.__all_rules[0][2]] >= self.__all_rules[0][0])
-                    & (X_base[self.__all_rules[0][2]] <= self.__all_rules[0][4])
+                nouvelle_tuile = self.atk.dataset.X[
+                    (self.atk.dataset.X[self.__all_rules[0][2]] >= self.__all_rules[0][0])
+                    & (self.atk.dataset.X[self.__all_rules[0][2]] <= self.__all_rules[0][4])
                 ].index
                 for i in range(1, len(self.__all_rules)):
-                    X_temp = X_base[
-                        (X_base[self.__all_rules[i][2]] >= self.__all_rules[i][0])
-                        & (X_base[self.__all_rules[i][2]] <= self.__all_rules[i][4])
+                    X_temp = self.atk.dataset.X[
+                        (self.atk.dataset.X[self.__all_rules[i][2]] >= self.__all_rules[i][0])
+                        & (self.atk.dataset.X[self.__all_rules[i][2]] <= self.__all_rules[i][4])
                     ].index
                     nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
                 self.__list_of_sub_models.append([nom_model, score_model, indice_model])
@@ -2927,7 +2784,7 @@ class GUI():
                         [
                             i + 1,
                             len(self.__list_of_regions[i]),
-                            np.round(len(self.__list_of_regions[i]) / len(X_base) * 100, 2),
+                            np.round(len(self.__list_of_regions[i]) / len(self.atk.dataset.X) * 100, 2),
                             "/",
                             "/",
                             "/",
@@ -2939,7 +2796,7 @@ class GUI():
                         [
                             i + 1,
                             len(self.__list_of_regions[i]),
-                            np.round(len(self.__list_of_regions[i]) / len(X_base) * 100, 2),
+                            np.round(len(self.__list_of_regions[i]) / len(self.atk.dataset.X) * 100, 2),
                             self.__list_of_sub_models[i][0],
                             self.__list_of_sub_models[i][1][0],
                             self.__list_of_sub_models[i][1][1],
@@ -2967,7 +2824,7 @@ class GUI():
                 [
                     "Total",
                     toute_somme,
-                    np.round(toute_somme / len(X_base) * 100, 2),
+                    np.round(toute_somme / len(self.atk.dataset.X) * 100, 2),
                     "/",
                     score_tot,
                     score_tot_glob,
@@ -3090,10 +2947,10 @@ class GUI():
                 return
             self.__other_columns = [a for a in self.__other_columns if a != colonne]
             nouvelle_regle[2] = colonne
-            nouvelle_regle[0] = round(min(list(X_base[colonne].values)), 1)
+            nouvelle_regle[0] = round(min(list(self.atk.dataset.X[colonne].values)), 1)
             nouvelle_regle[1] = "<="
             nouvelle_regle[3] = "<="
-            nouvelle_regle[4] = round(max(list(X_base[colonne].values)), 1)
+            nouvelle_regle[4] = round(max(list(self.atk.dataset.X[colonne].values)), 1)
             self.__all_rules.append(nouvelle_regle)
             une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
 
@@ -3117,7 +2974,7 @@ class GUI():
             new_histogram = go.FigureWidget(
                 data=[
                     go.Histogram(
-                        x=X_base[colonne].values,
+                        x=self.atk.dataset.X[colonne].values,
                         bingroup=1,
                         nbinsx=nombre_bins,
                         marker_color="grey",
@@ -3135,7 +2992,7 @@ class GUI():
 
             new_histogram.add_trace(
                 go.Histogram(
-                    x=X_base[colonne].values,
+                    x=self.atk.dataset.X[colonne].values,
                     bingroup=1,
                     nbinsx=nombre_bins,
                     marker_color="LightSkyBlue",
@@ -3144,7 +3001,7 @@ class GUI():
             )
             new_histogram.add_trace(
                 go.Histogram(
-                    x=X_base[colonne].values,
+                    x=self.atk.dataset.X[colonne].values,
                     bingroup=1,
                     nbinsx=nombre_bins,
                     marker_color="blue",
@@ -3326,28 +3183,28 @@ class GUI():
             with new_histogram.batch_update():
                 new_list = [
                     g
-                    for g in list(X_base[colonne].values)
+                    for g in list(self.atk.dataset.X[colonne].values)
                     if g >= new_slider_skope.v_model[0] / 100
                     and g <= new_slider_skope.v_model[1] / 100
                 ]
                 new_histogram.data[1].x = new_list
 
                 colonne_2 = new_slider_skope.label
-                new_list_regle = X_base.index[
-                    X_base[colonne_2].between(
+                new_list_regle = self.atk.dataset.X.index[
+                    self.atk.dataset.X[colonne_2].between(
                         new_slider_skope.v_model[0] / 100,
                         new_slider_skope.v_model[1] / 100,
                     )
                 ].tolist()
                 new_list_tout = new_list_regle.copy()
                 for i in range(1, len(self.__all_rules)):
-                    new_list_temp = X_base.index[
-                        X_base[self.__all_rules[i][2]].between(
+                    new_list_temp = self.atk.dataset.X.index[
+                        self.atk.dataset.X[self.__all_rules[i][2]].between(
                             self.__all_rules[i][0], self.__all_rules[i][4]
                         )
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
-                new_list_tout_new = X_base[colonne_2][new_list_tout]
+                new_list_tout_new = self.atk.dataset.X[colonne_2][new_list_tout]
                 new_histogram.data[2].x = new_list_tout_new
 
             def new_on_value_change_skope(*b1):
@@ -3365,7 +3222,7 @@ class GUI():
                         break
                 new_list = [
                     g
-                    for g in list(X_base[colonne_2].values)
+                    for g in list(self.atk.dataset.X[colonne_2].values)
                     if g >= new_slider_skope.v_model[0] / 100
                     and g <= new_slider_skope.v_model[1] / 100
                 ]
@@ -3509,7 +3366,7 @@ class GUI():
             items = [{'text': "Imported", 'disabled': False}] + items
             item_default = "Imported"
         else :
-            item_default = explanation
+            item_default = self.explanation
 
         for item in items:
             if item['text'] == item_default:
@@ -3525,50 +3382,25 @@ class GUI():
         )
 
         def fonction_choose_explanation(widget, event, data):
-            EE_proj.v_model = "PaCMAP"
-            EV_proj.v_model = "PaCMAP"
-            if data == "Imported":
-                data = "imported"
-            self.__explanatory_values = eval('self.atk.dataset.explanatory[\"'+data+'\"]')
-            if self.all_values[data] == [None]*4:
-                dim_red = compute.DimensionalityReduction("PaCMAP", True)
-                self.__Espace_explications = ["None", "None", "None", dim_red.compute(self.__explanatory_values, 2)]
-                self.__Espace_explications_3D = ["None", "None", "None", dim_red.compute(self.__explanatory_values, 3)]
-                self.all_values[data] = [self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D].copy()
-            else :
-                self.__Espace_valeurs, self.__Espace_valeurs_3D, self.__Espace_explications, self.__Espace_explications_3D = self.all_values[data].copy()
+            exp_val = eval('self.atk.dataset.explain[\"'+data+'\"]')
+            if self.dim_red['EE'][self.__explanation][self.__projection] == None:
+                dim_red = compute.DimensionalityReduction(EE_proj.v_model, True)
+                self.dim_red['EE'][self.__explanation][self.__projection] = [dim_red.compute(exp_val, 2), dim_red.compute(exp_val, 3)]
 
             with fig1.batch_update():
-                fig1.data[0].x = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
-                fig1.data[0].y = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
+                fig1.data[0].x = self.dim_red['EV'][self.__projection][0][0]
+                fig1.data[0].y = self.dim_red['EV'][self.__projection][0][1]
             with fig1_3D.batch_update():
-                fig1_3D.data[0].x = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    0
-                ]
-                fig1_3D.data[0].y = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    1
-                ]
-                fig1_3D.data[0].z = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    2
-                ]
+                fig1_3D.data[0].x = self.dim_red['EV'][self.__projection][1][0]
+                fig1_3D.data[0].y = self.dim_red['EV'][self.__projection][1][1]
+                fig1_3D.data[0].z = self.dim_red['EV'][self.__projection][0][2]
             with fig2.batch_update():
-                fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
-                    0
-                ]
-                fig2.data[0].y = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
-                    1
-                ]
+                fig2.data[0].x = self.dim_red['EE'][self.__explanation][self.__projection][0][0]
+                fig2.data[0].y = self.dim_red['EE'][self.__explanation][self.__projection][0][1]
             with fig2_3D.batch_update():
-                fig2_3D.data[0].x = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][0]
-                fig2_3D.data[0].y = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][1]
-                fig2_3D.data[0].z = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][2]
-            
+                fig2_3D.data[0].x = self.dim_red['EE'][self.__explanation][self.__projection][1][0]
+                fig2_3D.data[0].y = self.dim_red['EE'][self.__explanation][self.__projection][1][1]
+                fig2_3D.data[0].z = self.dim_red['EE'][self.__explanation][self.__projection][0][2]
         
         choose_explanation.on_event("change", fonction_choose_explanation)
 
@@ -3609,26 +3441,26 @@ class GUI():
         new_prog_SHAP = prog_other("SHAP")
         new_prog_LIME = prog_other("LIME")
 
-        if calculus == True:
-            if explanation == "SHAP":
+        if self.calculus == True:
+            if self.explanation == "SHAP":
                 new_prog_SHAP.children[1].v_model = 100
                 new_prog_SHAP.children[2].v_model = "Computations already done !"
                 new_prog_SHAP.children[-1].disabled = True
-            elif explanation == "LIME":
+            elif self.explanation == "LIME":
                 new_prog_LIME.children[1].v_model = 100
                 new_prog_LIME.children[2].v_model = "Computations already done !"
                 new_prog_LIME.children[-1].disabled = True
 
         def function_validation_explanation(widget, event, data):
             if widget.v_model == "SHAP":
-                self.__compute_SHAP = LongTask.compute_SHAP(self.__X_not_scaled, X_all, model)
+                self.__compute_SHAP = LongTask.compute_SHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_SHAP.children[1], "v_model"), (self.__compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[2], "v_model"), (self.__compute_SHAP.text_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[-1], "color"), (self.__compute_SHAP.done_widget, "v_model"))
                 self.__compute_SHAP.compute_in_thread()
                 new_prog_SHAP.children[-1].disabled = True
             if widget.v_model == "LIME":
-                self.__compute_LIME = LongTask.compute_LIME(self.__X_not_scaled, X_all, model)
+                self.__compute_LIME = LongTask.compute_LIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_LIME.children[1], "v_model"), (self.__compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[2], "v_model"), (self.__compute_LIME.text_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[-1], "color"), (self.__compute_LIME.done_widget, "v_model"))
@@ -3636,7 +3468,7 @@ class GUI():
                 new_prog_LIME.children[-1].disabled = True
                 
         def ok_SHAP(*args):
-            self.atk.dataset.explanatory["SHAP"] = self.__compute_SHAP.value
+            self.atk.dataset.explain["SHAP"] = self.__compute_SHAP.value
             items = choose_explanation.items.copy()
             for item in items:
                 if item['text'] == "SHAP":
@@ -3645,7 +3477,7 @@ class GUI():
             choose_explanation.items = choose_explanation.items[:-1]
 
         def ok_LIME(*args):
-            self.atk.dataset.explanatory["SHAP"] = self.__compute_LIME.value
+            self.atk.dataset.explain["SHAP"] = self.__compute_LIME.value
             items = choose_explanation.items.copy()
             for item in items:
                 if item['text'] == "LIME":
@@ -3975,12 +3807,12 @@ class GUI():
             return "No region has been created !"
         for i in range(len(self.__list_of_regions)):
             dictio = dict()
-            dictio["X"] = self.__X_not_scaled.iloc[self.__list_of_regions[i], :].reset_index(
+            dictio["X"] = self.atk.dataset.X.iloc[self.__list_of_regions[i], :].reset_index(
                 drop=True
             )
-            dictio["y"] = self.__Y_not_scaled.iloc[self.__list_of_regions[i]].reset_index(drop=True)
+            dictio["y"] = y.iloc[self.__list_of_regions[i]].reset_index(drop=True)
             dictio["indices"] = self.__list_of_regions[i]
-            dictio["SHAP"] = self.__SHAP_not_scaled.iloc[self.__list_of_regions[i], :].reset_index(
+            dictio["SHAP"] = self.atk.dataset.explain["SHAP"].iloc[self.__list_of_regions[i], :].reset_index(
                 drop=True
             )
             if self.__list_of_sub_models[i][-1] == -1:
@@ -3990,7 +3822,7 @@ class GUI():
             else:
                 dictio["model name"] = self.__list_of_sub_models[i][0]
                 dictio["model score"] = self.__list_of_sub_models[i][1]
-                dictio["model"] = self.__all_models[self.__list_of_sub_models[i][2]]
+                dictio["model"] = self.sub_models[self.__list_of_sub_models[i][2]]
             dictio["rules"] = self.__all_tiles_rules[i]
             L_f.append(dictio)
         if num_reg == None or item == None:

@@ -4,6 +4,7 @@ import antakia.LongTask as LongTask
 import ipyvuetify as v
 import ipywidgets as widgets
 from IPython.display import display
+from sklearn.preprocessing import StandardScaler
 
 class Dataset():
     """
@@ -12,6 +13,10 @@ class Dataset():
     """
 
     def __init__(self, X:pd.DataFrame = None, model = None, csv:str = None, explanation: pd.DataFrame = None, y:pd.Series = None, y_pred:pd.Series = None):
+        
+        X.columns = [X.columns[i].replace(" ", "_") for i in range(len(X.columns))]
+        X = X.reset_index(drop=True)
+
         if X is None and csv is None :
             raise ValueError("You must provide a dataframe or a csv file")
         if X is not None and csv is not None :
@@ -23,16 +28,17 @@ class Dataset():
         self.X_all = X
         self.model = model
         self.y = y
+        self.X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
 
         if y_pred is None:
             self.y_pred = self.model.predict(self.X)
         else:
             self.y_pred = y_pred
 
-        self.explainability = dict()
-        self.explainability["Imported"] = explanation
-        self.explainability["SHAP"] = None
-        self.explainability["LIME"] = None
+        self.explain = dict()
+        self.explain["Imported"] = explanation
+        self.explain["SHAP"] = None
+        self.explain["LIME"] = None
 
         self.verbose = None
         self.widget = None
@@ -50,9 +56,9 @@ class Dataset():
                     "      Number of variables:", str(self.X.shape[1]), "\n",
                     "Explanations:\n",
                     "------------------\n",
-                    "      Imported:", str(self.explainability["Imported"] != None), "\n",
-                    "      SHAP:", str(self.explainability["SHAP"] != None), "\n",
-                    "      LIME:", str(self.explainability["LIME"] != None)))
+                    "      Imported:", str(self.explain["Imported"] != None), "\n",
+                    "      SHAP:", str(self.explain["SHAP"] != None), "\n",
+                    "      LIME:", str(self.explain["LIME"] != None)))
         return texte
     
     def __create_progress(self, titre:str):
@@ -97,7 +103,7 @@ class Dataset():
             widgets.jslink((self.widget.children[1], "v_model"), (shap.progress_widget, "v_model"))
             widgets.jslink((self.widget.children[2], "v_model"), (shap.text_widget, "v_model"))
             display(self.widget)
-        self.explainability["SHAP"] = shap.compute()
+        self.explain["SHAP"] = shap.compute()
 
     def compute_LIME(self, verbose:bool = True):
         """
@@ -109,7 +115,7 @@ class Dataset():
             widgets.jslink((self.widget.children[1], "v_model"), (lime.progress_widget, "v_model"))
             widgets.jslink((self.widget.children[2], "v_model"), (lime.text_widget, "v_model"))
             display(self.widget)
-        self.explainability["LIME"] = lime.compute()
+        self.explain["LIME"] = lime.compute()
 
     def improve(self):
         """

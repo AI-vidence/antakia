@@ -9,6 +9,7 @@ Deux modules : AntakIA et utils
 from .AntakIA import *
 from .Gui import *
 from .Dataset import *
+from.Potato import *
 from .utils import *
 from ._compute import *
 

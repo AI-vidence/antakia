@@ -35,13 +35,8 @@ class AntakIA():
 
         Parameters
         ---------
-        X : pandas dataframe
-            The dataframe containing the data to explain.
-        Y : pandas series
-            The series containing the target variable of the data to explain.
-        model : object
-            The model used to explain the data.
-            The only thing necessary for the model is that it has a method model.fit(X,Y) and model.predict(X) that takes as input a dataframe X and returns a series of predictions.
+        dataset : Dataset object
+            The Dataset object containing the data to explain.
 
         Returns
         -------
@@ -49,6 +44,9 @@ class AntakIA():
             An Xplainer object.
         """
         self.dataset = dataset
+        self.regions = []
+        self.gui = None
+        self.saves = []
 
     def __str__(self):
         """
