@@ -6,6 +6,8 @@ from sklearn.decomposition import PCA
 import umap
 import pacmap
 
+import numpy as np
+
 class DimensionalityReduction:
     """
     Class that allows to reduce the dimensionality of the data.
@@ -97,29 +99,77 @@ class DimensionalityReduction:
             raise ValueError("The method is not valid.")
 
 def initialize_dim_red_EV(X, default_projection):
-    if default_projection not in ["PCA", "t-SNE", "UMAP", "PaCMAP"]:
-        default_projection = "PaCMAP"
-    indice = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(default_projection)
     dim_red = DimensionalityReduction(method=default_projection, default_parameters=True)
-    Espace_valeurs = ["None", "None", "None", "None"]
-    Espace_valeurs_3D = ["None", "None", "None", "None"]
-    Espace_valeurs[indice] = dim_red.compute(X, 2)
-    Espace_valeurs_3D[indice] = dim_red.compute(X, 3)
-    return Espace_valeurs, Espace_valeurs_3D
+    return dim_red.compute(X, 2), dim_red.compute(X, 3)
 
 def initialize_dim_red_EE(EXP, default_projection):
-    if default_projection not in ["PCA", "t-SNE", "UMAP", "PaCMAP"]:
-        default_projection = "PaCMAP"
-    indice = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(default_projection)
     dim_red = DimensionalityReduction(method=default_projection, default_parameters=True)
-    Espace_explications = ["None", "None", "None", "None"]
-    Espace_explications_3D = ["None", "None", "None", "None"]
-    Espace_explications[indice] = dim_red.compute(EXP, 2)
-    Espace_explications_3D[indice] = dim_red.compute(EXP, 3)
-    return Espace_explications, Espace_explications_3D
+    return dim_red.compute(EXP, 2), dim_red.compute(EXP, 3)
 
 def fonction_score(y, y_chap):
     # function that calculates the score of a machine-learning model
     y = np.array(y)
     y_chap = np.array(y_chap)
     return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
+
+def update_figures(gui, exp, projEV, projEE):
+    # fig1 : EV 2D, fig2 : EE 2D
+    # fig1_3D : EV 3D, fig2_3D : EE 3D
+    with gui.fig1.batch_update():
+        gui.fig1.data[0].x, gui.fig1.data[0].y  = gui.dim_red['EV'][projEV][0][0], gui.dim_red['EV'][projEV][0][1]
+    with gui.fig2.batch_update():
+        gui.fig2.data[0].x, gui.fig2.data[0].y = gui.dim_red['EE'][exp][projEE][0][0], gui.dim_red['EE'][exp][projEE][0][1]
+    with gui.fig1_3D.batch_update():
+        gui.fig1_3D.data[0].x, gui.fig1_3D.data[0].y, gui.fig1_3D.data[0].z = gui.dim_red['EV'][projEV][1][0], gui.dim_red['EV'][projEV][1][1], gui.dim_red['EV'][projEV][1][2]
+    with gui.fig2_3D.batch_update():
+        gui.fig2_3D.data[0].x, gui.fig2_3D.data[0].y, gui.fig2_3D.data[0].z = gui.dim_red['EE'][exp][projEE][1][0], gui.dim_red['EE'][exp][projEE][1][1], gui.dim_red['EE'][exp][projEE][1][2]
+
+def fonction_beeswarm_shap(gui, exp, nom_colonne):
+    X = gui.dataset.X
+    Exp = gui.dataset.explain[exp]
+    y = gui.dataset.y_pred
+    # redefinition de la figure beeswarm de shap
+    def positions_ordre_croissant(lst):
+        positions = list(range(len(lst)))  # Create a list of initial positions
+        positions.sort(key=lambda x: lst[x])
+        l = []
+        for i in range(len(positions)):
+            l.append(positions.index(i))  # Sort positions by list items
+        return l
+
+    nom_colonne_shap = nom_colonne + "_shap"
+    y_histo_shap = [0] * len(Exp)
+    nombre_div = 60
+    garde_indice = []
+    garde_valeur_y = []
+    for i in range(nombre_div):
+        garde_indice.append([])
+        garde_valeur_y.append([])
+    liste_scale = np.linspace(
+        min(Exp[nom_colonne_shap]), max(Exp[nom_colonne_shap]), nombre_div + 1
+    )
+    for i in range(len(Exp)):
+        for j in range(nombre_div):
+            if (
+                Exp[nom_colonne_shap][i] >= liste_scale[j]
+                and Exp[nom_colonne_shap][i] <= liste_scale[j + 1]
+            ):
+                garde_indice[j].append(i)
+                garde_valeur_y[j].append(y[i])
+                break
+    for i in range(nombre_div):
+        l = positions_ordre_croissant(garde_valeur_y[i])
+        for j in range(len(garde_indice[i])):
+            ii = garde_indice[i][j]
+            if l[j] % 2 == 0:
+                y_histo_shap[ii] = l[j]
+            else:
+                y_histo_shap[ii] = -l[j]
+    marker_shap = dict(
+        size=4,
+        opacity=0.6,
+        color=X[nom_colonne],
+        colorscale="Bluered_r",
+        colorbar=dict(thickness=20, title=nom_colonne),
+    )
+    return [y_histo_shap, marker_shap]

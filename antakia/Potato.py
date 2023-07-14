@@ -6,23 +6,39 @@ import pandas as pd
 import numpy as np
 from skrules import SkopeRules
 
+from antakia.Dataset import Dataset
+
+#from antakia import Dataset
+
 
 class Potato():
     """
     An AntakIA Potato is a selection of data.
     """
 
-    def __init__(self, X: pd.DataFrame) -> None:
+    def __init__(self, indexes:list = [], dataset: Dataset = None) -> None:
         """
         Constructor of the class Potato.
         """
-        self.indexes = []
-        self.data = X.iloc[self.indexes]
+        self.indexes = indexes
+        self.dataset = dataset
+        if self.dataset.X is not None:
+            self.data = self.dataset.X.iloc[self.indexes]
+        else :
+            self.data = None
         self.sub_model = None
+
         self.rules = None
-        self.explanatory_rules = None
-        self.__X = X
         self.score_skope = None
+
+        self.rules_exp = None
+        self.score_skope_exp = None
+
+        self.success = None
+
+        self.y = [0]*len(self.dataset.X)
+        for i in self.indexes:
+            self.y[i] = 1
 
     def __str__(self) -> str:
         """
@@ -31,7 +47,7 @@ class Potato():
         texte = ' '.join(("Potato:\n",
                     "------------------\n",
                     "      Number of points:", str(len(self.indexes)), "\n",
-                    "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.__X), 2))+"%", "\n"))
+                    "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.dataset.X), 2))+"%", "\n"))
         return texte
     
     def __len__(self) -> int:
@@ -47,7 +63,7 @@ class Potato():
         return self.data.shape
     
     def apply_rules(self, rules):
-        df = self.__X
+        df = self.X
         for i in range(len(rules)):
             regle1 = "df.loc[" + str(rules[i][0]) + rules[i][1] + "df['" + rules[i][2] + "']]"
             regle2 = "df.loc[" + "df['" + rules[i][2] + "']" + rules[i][3] + str(rules[i][4]) + "]"
@@ -70,20 +86,21 @@ class Potato():
             l[1] = "<="
             l[3] = "<="
             if "<=" in rules[i] or "<" in rules[i]:
-                l[0] = round(float(min(self.__X[l[2]])), 3)
+                l[0] = round(float(min(self.dataset.X[l[2]])), 3)
                 l[4] = round(float(rules[i][-1]), 3)
             elif ">=" in rules[i] or ">" in rules[i]:
                 l[0] = round(float(rules[i][-1]), 3)
-                l[4] = round(float(max(self.__X[l[2]])),3)
+                l[4] = round(float(max(self.dataset.X[l[2]])),3)
             rules_list.append(l)
         return rules_list, score
 
 
-    def apply_skope(self, p:float = 0.5, r:float = 0.5):
-        y_train = np.zeros(len(self.__X))
+    def apply_skope(self, explanation, p:float = 0.5, r:float = 0.5):
+        y_train = np.zeros(len(self.dataset.X))
         y_train[self.indexes] = 1
+
         skope_rules_clf = SkopeRules(
-            feature_names=self.__X.columns,
+            feature_names=self.dataset.X.columns,
             random_state=42,
             n_estimators=5,
             recall_min=r,
@@ -92,6 +109,24 @@ class Potato():
             max_samples=1.0,
             max_depth=3,
         )
-        skope_rules_clf.fit(self.__X, y_train)
-        self.rules, self.score_skope = self.__transform_rules(skope_rules_clf.rules_)
-        self.data = self.apply_rules(self.__X, self.rules)
+        skope_rules_clf.fit(self.dataset.X, y_train)
+
+        skope_rules_clf_exp = SkopeRules(
+            feature_names=self.dataset.explain[explanation].columns,
+            random_state=42,
+            n_estimators=5,
+            recall_min=r,
+            precision_min=p,
+            max_depth_duplication=0,
+            max_samples=1.0,
+            max_depth=3,
+        )
+        skope_rules_clf_exp.fit(self.dataset.explain[explanation], y_train)
+        if skope_rules_clf.rules_ == [] or skope_rules_clf_exp.rules_ == []:
+            self.rules, self.score_skope, self.rules_exp, self.score_skope_exp = None, None, None, None
+            self.success = False
+        else :
+            self.rules, self.score_skope = self.__transform_rules(skope_rules_clf.rules_)
+            self.rules_exp, self.score_skope_exp = self.__transform_rules(skope_rules_clf_exp.rules_)
+            self.data = self.apply_rules(self.dataset.X, self.rules)
+            self.success = True

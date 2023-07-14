@@ -12,7 +12,7 @@ class Dataset():
     This object contains the data to explain.
     """
 
-    def __init__(self, X:pd.DataFrame = None, model = None, csv:str = None, explanation: pd.DataFrame = None, y:pd.Series = None, y_pred:pd.Series = None):
+    def __init__(self, X:pd.DataFrame = None, model = None, csv:str = None, explain: pd.DataFrame = None, y:pd.Series = None, y_pred:pd.Series = None):
         
         X.columns = [X.columns[i].replace(" ", "_") for i in range(len(X.columns))]
         X = X.reset_index(drop=True)
@@ -36,7 +36,7 @@ class Dataset():
             self.y_pred = y_pred
 
         self.explain = dict()
-        self.explain["Imported"] = explanation
+        self.explain["Imported"] = explain
         self.explain["SHAP"] = None
         self.explain["LIME"] = None
 

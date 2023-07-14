@@ -17,6 +17,8 @@ import sklearn.cluster
 
 import json
 
+import ipyvuetify as v
+
 # Private utils functions
 
 def _conflict_handler(gliste, liste):

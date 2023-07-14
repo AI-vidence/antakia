@@ -11,6 +11,9 @@ import webbrowser
 import time
 from importlib.resources import files
 import json
+import plotly.graph_objects as go
+
+import antakia._compute as compute
 
 def add_tooltip(widget, text):
     # function that allows you to add a tooltip to a widget
@@ -424,5 +427,302 @@ def figure_and_text(fig, text):
         layout=Layout(
             display="flex", align_items="center", margin="0px 0px 0px 0px"
         ),
+    )
+    return widget
+
+def create_card_skope():
+    une_carte_EV = v.Card(
+        class_="mx-4 mt-0",
+        elevation=0,
+        children=[
+            v.CardText(
+                children=[
+                    v.Row(
+                        class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
+                        children=[
+                            "Waiting for the skope-rules to be applied...",
+                        ],
+                    )
+                ]
+            )
+        ],
+    )
+
+    texte_skopeEV = v.Card(
+        style_="width: 50%;",
+        class_="ma-3",
+        children=[
+            v.Row(
+                class_="ml-4",
+                children=[
+                    v.Icon(children=["mdi-target"]),
+                    v.CardTitle(children=["Rules applied to the Values Space"]),
+                    v.Spacer(),
+                    v.Html(
+                        class_="mr-5 mt-5 font-italic",
+                        tag="p",
+                        children=["precision = /"],
+                    ),
+                ],
+            ),
+            une_carte_EV,
+        ],
+    )
+
+    # text that will contain the skope info on the EE
+
+    une_carte_EE = v.Card(
+        class_="mx-4 mt-0",
+        elevation=0,
+        # style_="width: 100%;",
+        children=[
+            v.CardText(
+                children=[
+                    v.Row(
+                        class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
+                        children=[
+                            "Waiting for the skope-rules to be applied...",
+                        ],
+                    )
+                ]
+            ),
+        ],
+    )
+
+    texte_skopeEE = v.Card(
+        style_="width: 50%;",
+        class_="ma-3",
+        children=[
+            v.Row(
+                class_="ml-4",
+                children=[
+                    v.Icon(children=["mdi-target"]),
+                    v.CardTitle(children=["Rules applied on the Explanatory Space"]),
+                    v.Spacer(),
+                    v.Html(
+                        class_="mr-5 mt-5 font-italic",
+                        tag="p",
+                        children=["precision = /"],
+                    ),
+                ],
+            ),
+            une_carte_EE,
+        ],
+    )
+
+    # text that will contain the skope info on the EV and EE
+    texte_skope = v.Layout(
+        class_="d-flex flex-row", children=[texte_skopeEV, texte_skopeEE]
+    )
+
+    return texte_skope, texte_skopeEE, texte_skopeEV, une_carte_EV, une_carte_EE
+
+def create_slide_sub_models(gui):
+    liste_mods = []
+    for i in range(len(gui.sub_models)):
+        nom_mdi = "mdi-numeric-" + str(i + 1) + "-box"
+        mod = v.SlideItem(
+            # style_="width: 30%",
+            children=[
+                v.Card(
+                    class_="grow ma-2",
+                    children=[
+                        v.Row(
+                            class_="ml-5 mr-4",
+                            children=[
+                                v.Icon(children=[nom_mdi]),
+                                v.CardTitle(
+                                    children=[gui.sub_models[i].__class__.__name__]
+                                ),
+                            ],
+                        ),
+                        v.CardText(
+                            class_="mt-0 pt-0",
+                            children=["Model's score"],
+                        ),
+                    ],
+                )
+            ],
+        )
+        liste_mods.append(mod)
+
+    mods = v.SlideGroup(
+        v_model=None,
+        class_="ma-3 pa-3",
+        elevation=4,
+        center_active=True,
+        show_arrows=True,
+        children=liste_mods,
+    )
+
+    return mods
+
+def slider_skope():
+    slider_skope1 = v.RangeSlider(
+        class_="ma-3",
+        v_model=[-1, 1],
+        min=-10e10,
+        max=10e10,
+        step=1,
+    )
+
+    bout_temps_reel_graph1 = v.Checkbox(
+        v_model=False, label="Real-time updates on the figures", class_="ma-3"
+    )
+
+    slider_text_comb1 = v.Layout(
+        children=[
+            v.TextField(
+                style_="max-width:100px",
+                v_model=slider_skope1.v_model[0] / 100,
+                hide_details=True,
+                type="number",
+                density="compact",
+            ),
+            slider_skope1,
+            v.TextField(
+                style_="max-width:100px",
+                v_model=slider_skope1.v_model[1] / 100,
+                hide_details=True,
+                type="number",
+                density="compact",
+            ),
+        ],
+    )
+    return slider_skope1, bout_temps_reel_graph1, slider_text_comb1
+
+def create_histograms(nombre_bins, fig_size):
+    x = np.linspace(0, 20, 20)
+    histogram1 = go.FigureWidget(
+        data=[
+            go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="grey")
+        ]
+    )
+    histogram1.update_layout(
+        barmode="overlay",
+        bargap=0.1,
+        width=0.9 * int(fig_size),
+        showlegend=False,
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=150,
+    )
+    histogram1.add_trace(
+        go.Histogram(
+            x=x,
+            bingroup=1,
+            nbinsx=nombre_bins,
+            marker_color="LightSkyBlue",
+            opacity=0.6,
+        )
+    )
+    histogram1.add_trace(
+        go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
+    )
+    return [histogram1]*3
+
+def create_beeswarms(gui, exp, fig_size):
+    choix_couleur_essaim1 = v.Row(
+        class_="pt-3 mt-0 ml-4",
+        children=[
+            "Value of Xi",
+            v.Switch(
+                class_="ml-3 mr-2 mt-0 pt-0",
+                v_model=False,
+                label="",
+            ),
+            "Current selection",
+        ],
+    )
+
+    y_histo_shap = [0] * len(gui.atk.dataset.explain[exp])
+    nom_col_shap = str(gui.atk.dataset.X.columns[0]) + "_shap"
+    essaim1 = go.FigureWidget(
+        data=[go.Scatter(x=gui.atk.dataset.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
+    )
+    essaim1.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=200,
+        width=0.9 * int(fig_size),
+    )
+    essaim1.update_yaxes(visible=False, showticklabels=False)
+
+    total_essaim_1 = widgets.VBox([choix_couleur_essaim1, essaim1])
+    total_essaim_1.layout.margin = "0px 0px 0px 20px"
+
+    choix_couleur_essaim2 = v.Row(
+        class_="pt-3 mt-0 ml-4",
+        children=[
+            "Value of Xi",
+            v.Switch(
+                class_="ml-3 mr-2 mt-0 pt-0",
+                v_model=False,
+                label="",
+            ),
+            "Current selection",
+        ],
+    )
+
+    essaim2 = go.FigureWidget(
+        data=[go.Scatter(x=gui.atk.dataset.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
+    )
+    essaim2.update_layout(
+        margin=dict(l=20, r=0, t=0, b=0),
+        height=200,
+        width=0.9 * int(fig_size),
+    )
+    essaim2.update_yaxes(visible=False, showticklabels=False)
+
+    total_essaim_2 = widgets.VBox([choix_couleur_essaim2, essaim2])
+    total_essaim_2.layout.margin = "0px 0px 0px 20px"
+
+    essaim3 = go.FigureWidget(
+        data=[go.Scatter(x=gui.atk.dataset.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
+    )
+    essaim3.update_layout(
+        margin=dict(l=20, r=0, t=0, b=0),
+        height=200,
+        width=0.9 * int(fig_size),
+    )
+    essaim3.update_yaxes(visible=False, showticklabels=False)
+
+    choix_couleur_essaim3 = v.Row(
+        class_="pt-3 mt-0 ml-4",
+        children=[
+            "Value of Xi",
+            v.Switch(
+                class_="ml-3 mr-2 mt-0 pt-0",
+                v_model=False,
+                label="",
+            ),
+            "Current selection",
+        ],
+    )
+
+    total_essaim_3 = widgets.VBox([choix_couleur_essaim3, essaim3])
+    total_essaim_3.layout.margin = "0px 0px 0px 20px"
+
+    return [total_essaim_1, total_essaim_2, total_essaim_3]
+
+def button_delete_skope():
+    widget = v.Btn(
+        class_="ma-2 ml-4 pa-1",
+        elevation="3",
+        icon=True,
+        children=[v.Icon(children=["mdi-delete"])],
+        disabled=True,
+    )
+    return widget
+
+def accordion_skope(texte, dans_accordion):
+    widget = v.ExpansionPanels(
+        class_="ma-2 mb-1",
+        children=[
+            v.ExpansionPanel(
+                children=[
+                    v.ExpansionPanelHeader(children=[texte]),
+                    v.ExpansionPanelContent(children=[dans_accordion]),
+                ]
+            )
+        ],
     )
     return widget

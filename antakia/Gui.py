@@ -48,7 +48,7 @@ import antakia._compute as compute
 
 from antakia import LongTask
 
-from antakia import Potato
+from antakia.Potato import Potato
 
 import antakia._gui_elements as gui_elements
 
@@ -89,6 +89,9 @@ class GUI():
         self.sub_models : list
             The list of sub-models to choose from for each region created by the user.
         """
+        if type(explanation) != str and type(explanation) != type(None):
+            raise TypeError("explanation must be a string")
+        
         self.atk = atk
 
         if sub_models is None :
@@ -101,16 +104,17 @@ class GUI():
         self.sub_models = sub_models
 
         # Publique :
-        self.selection = Potato(self.atk.X)
+        self.selection = Potato([], self.atk.dataset)
 
         # Privé :
         if explanation is None :
-            if self.atk.dataset.explainability["Imported"] is not None:
+            if self.atk.dataset.explain["Imported"] is not None:
                 explanation = "Imported"
             else :
                 explanation = "SHAP"
-
-        self.__projection = projection #string
+        
+        self.__projectionEV= projection #string
+        self.__projectionEE = projection #string
         self.__explanation = explanation #string
 
         self.dim_red = {}
@@ -118,11 +122,11 @@ class GUI():
         self.dim_red["EE"] = {}
         self.dim_red["EE"]["Imported"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
         self.dim_red["EE"]["SHAP"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
-        self.dim_red["EE"]["LIME"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
+        self.dim_red["EE"]["LIME"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}    
 
-        if self.__explanation == "SHAP" and self.atk.dataset.explain["SHAP"] == None :
+        if self.__explanation == "SHAP" and type(self.atk.dataset.explain["SHAP"]) == type(None) :
             self.__calculus = True
-        elif self.__explanation == "LIME" and self.atk.dataset.explain["LIME"] == None :
+        elif self.__explanation == "LIME" and type(self.atk.dataset.explain["LIME"]) == type(None) :
             self.__calculus = True
         else:
             self.__calculus = False
@@ -130,15 +134,12 @@ class GUI():
         self.__list_of_regions = []
         self.__list_of_sub_models = []
         self.__color_regions = []
-        self.atk.dataset.X.columns = None
         self.__save_rules = None
         self.__other_columns = None
         self.__valider_bool = False
         self.__SHAP_train = None # class Dataset ? Intêret ? À discuter !
         a = [0] * 10
         self.__all_rules = [a, a, a, a, a, a, a, a, a, a]
-        self.atk.dataset.X = None
-        y = None 
         self.__model_choice = None
         self.__Y_auto = None
         self.__all_tiles_rules = []
@@ -206,12 +207,13 @@ class GUI():
         # definition of the default projection
         # base, we take the PaCMAP projection
         
-        choix_init_proj = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(self.__projection)
+        choix_init_proj = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(self.__projectionEV)
+
         prog_red.children[2].children[0].v_model = "Values space... "
-        self.dim_red["EV"][self.__reduction] = compute.initialize_dim_red_EV(self.atk.dataset.X, self.__projection)
+        self.dim_red["EV"][self.__projectionEV] = compute.initialize_dim_red_EV(self.atk.dataset.X_scaled, self.__projectionEV)
         progress_red.v_model = +50
         prog_red.children[2].children[0].v_model = "Values space... Explanatory space..."
-        self.dim_red["EE"][self.__explanation][self.__reduction] = compute.initialize_dim_red_EE(self.atk.dataset.explain[self.__explanation], self.__projection)
+        self.dim_red["EE"][self.__explanation][self.__projectionEE] = compute.initialize_dim_red_EE(self.atk.dataset.explain[self.__explanation], self.__projectionEE)
         progress_red.v_model = +50
 
         # once all this is done, the splash screen is removed
@@ -245,7 +247,7 @@ class GUI():
         EE_proj.v_model = EE_proj.items[choix_init_proj]
 
         # here the sliders of the parameters for the EV!
-        slider_param_PaCMAP_voisins_EV = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors")
+        slider_param_PaCMAP_voisins_EV = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :")
         slider_param_PaCMAP_mn_ratio_EV = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
         slider_param_PaCMAP_fp_ratio_EV = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
@@ -300,62 +302,31 @@ class GUI():
             [tous_sliders_EV, deux_boutons_params], layout=Layout(width="100%")
         )
 
-        # TODO : quitte à séparer GUI en plusieurs modules, on ne pourrait pas organiser le code selon les 4 étapes / onglets ? On gagnerait énormément en lisibilité
-
         def changement_params_EV(*b):
             # function that updates the projections when changing the parameters of the projection
             n_neighbors = slider_param_PaCMAP_voisins_EV.children[0].v_model
             MN_ratio = slider_param_PaCMAP_mn_ratio_EV.children[0].v_model
             FP_ratio = slider_param_PaCMAP_fp_ratio_EV.children[0].v_model
-            if EV_proj.v_model == "PaCMAP":
-                out_loading1.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
-                self.__Espace_valeurs[3] = dim_red.compute(X, 2)
-                self.__Espace_valeurs_3D[3] = dim_red.compute(X, 3)
-                out_loading1.layout.visibility = "hidden"
-            with fig1.batch_update():
-                fig1.data[0].x = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
-                fig1.data[0].y = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].x = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    0
-                ]
-                fig1_3D.data[0].y = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    1
-                ]
-                fig1_3D.data[0].z = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    2
-                ]
+            out_loading1.layout.visibility = "visible"
+            dim_red = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
+            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X, 2), dim_red.compute(self.atk.dataset.X, 3)]
+            out_loading1.layout.visibility = "hidden"
+            compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
         valider_params_proj_EV.on_event("click", changement_params_EV)
 
         def reinit_param_EV(*b):
             # reset projection settings
-            if liste_red.index(EV_proj.v_model) == 3:
-                out_loading1.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReduction("PaCMAP", True)
-                self.__Espace_valeurs[3] = dim_red.compute(X, 2)
-                self.__Espace_valeurs_3D[3] = dim_red.compute(X, 3)
-                out_loading1.layout.visibility = "hidden"
-
-            with fig1.batch_update():
-                fig1.data[0].x = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
-                fig1.data[0].y = self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].x = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    0
-                ]
-                fig1_3D.data[0].y = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    1
-                ]
-                fig1_3D.data[0].z = self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][
-                    2
-                ]
+            out_loading1.layout.visibility = "visible"
+            dim_red = compute.DimensionalityReduction("PaCMAP", True)
+            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X, 2), dim_red.compute(self.atk.dataset.X, 3)]
+            out_loading1.layout.visibility = "hidden"
+            compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
         reinit_params_proj_EV.on_event("click", reinit_param_EV)
 
         # here the sliders of the parameters for the EE!
-        slider_param_PaCMAP_voisins_EE = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors")
+        slider_param_PaCMAP_voisins_EE = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :")
         slider_param_PaCMAP_mn_ratio_EE = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
         slider_param_PaCMAP_fp_ratio_EE = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
@@ -416,56 +387,20 @@ class GUI():
             n_neighbors = slider_param_PaCMAP_voisins_EE.children[0].v_model
             MN_ratio = slider_param_PaCMAP_mn_ratio_EE.children[0].v_model
             FP_ratio = slider_param_PaCMAP_fp_ratio_EE.children[0].v_model
-            if liste_red.index(EV_proj.v_model) == 3:
-                out_loading2.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
-                self.__Espace_explications[3] = dim_red.compute(self.__explanatory_values, 2)
-                self.__Espace_explications_3D[3] = dim_red.compute(self.__explanatory_values, 3)
-                out_loading2.layout.visibility = "hidden"
-            with fig2.batch_update():
-                fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
-                    0
-                ]
-                fig2.data[0].y = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
-                    1
-                ]
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].x = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][0]
-                fig2_3D.data[0].y = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][1]
-                fig2_3D.data[0].z = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][2]
+            out_loading2.layout.visibility = "visible"
+            dim_red_compute = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
+            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.__explanation, 2), dim_red_compute.compute(self.__explanation, 3)]
+            out_loading2.layout.visibility = "hidden"
+            compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
         valider_params_proj_EE.on_event("click", changement_params_EE)
 
         def reinit_param_EE(*b):
-            if EE_proj.v_model == "PaCMAP":
-                out_loading2.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReduction("PaCMAP", True)
-                self.__Espace_explications[3] = dim_red.compute(self.__explanatory_values, 2)
-                self.__Espace_explications_3D[3] = dim_red.compute(self.__explanatory_values, 3)
-                out_loading2.layout.visibility = "hidden"
-            with fig2.batch_update():
-                fig2.data[0].x = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
-                    0
-                ]
-                fig2.data[0].y = self.__Espace_explications[liste_red.index(EE_proj.v_model)][
-                    1
-                ]
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].x = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][0]
-                fig2_3D.data[0].y = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][1]
-                fig2_3D.data[0].z = self.__Espace_explications_3D[
-                    liste_red.index(EE_proj.v_model)
-                ][2]
+            out_loading2.layout.visibility = "visible"
+            dim_red_compute = compute.DimensionalityReduction("PaCMAP", True)
+            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.__explanation, 2), dim_red_compute.compute(self.__explanation, 3)]
+            out_loading2.layout.visibility = "hidden"
+            compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
         reinit_params_proj_EE.on_event("click", reinit_param_EE)
 
@@ -479,16 +414,16 @@ class GUI():
             scale = True
             a_modifier = True
             if couleur_radio.v_model == "y":
-                couleur = y
+                couleur = self.atk.dataset.y
             elif couleur_radio.v_model == "y^":
                 couleur = self.atk.dataset.y_pred
             elif couleur_radio.v_model == "Selec actuelle":
                 scale = False
                 couleur = ["grey"] * len(self.atk.dataset.X)
-                for i in range(len(self.selection)):
-                    couleur[self.selection[i]] = "blue"
+                for i in range(len(self.selection.indexes)):
+                    couleur[self.selection.indexes[i]] = "blue"
             elif couleur_radio.v_model == "Résidus":
-                couleur = y - self.atk.dataset.y_pred
+                couleur = self.atk.dataset.y - self.atk.dataset.y_pred
                 couleur = [abs(i) for i in couleur]
             elif couleur_radio.v_model == "Régions":
                 scale = False
@@ -509,48 +444,44 @@ class GUI():
                 couleur = self.__Y_auto
                 a_modifier = False
                 scale = False
-            with fig1.batch_update():
-                fig1.data[0].marker.color = couleur
+            with self.fig1.batch_update():
+                self.fig1.data[0].marker.color = couleur
                 if opacity:
-                    fig1.data[0].marker.opacity = 1
-            with fig2.batch_update():
-                fig2.data[0].marker.color = couleur
+                    self.fig1.data[0].marker.opacity = 1
+            with self.fig2.batch_update():
+                self.fig2.data[0].marker.color = couleur
                 if opacity:
-                    fig2.data[0].marker.opacity = 1
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].marker.color = couleur
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].marker.color = couleur
+                    self.fig2.data[0].marker.opacity = 1
+            with self.fig1_3D.batch_update():
+                self.fig1_3D.data[0].marker.color = couleur
+            with self.fig2_3D.batch_update():
+                self.fig2_3D.data[0].marker.color = couleur
             if scale:
-                fig1.update_traces(marker=dict(showscale=True))
-                fig1_3D.update_traces(marker=dict(showscale=True))
-                fig1.data[0].marker.colorscale = "Viridis"
-                fig1_3D.data[0].marker.colorscale = "Viridis"
-                fig2.data[0].marker.colorscale = "Viridis"
-                fig2_3D.data[0].marker.colorscale = "Viridis"
+                self.fig1.update_traces(marker=dict(showscale=True))
+                self.fig1_3D.update_traces(marker=dict(showscale=True))
+                self.fig1.data[0].marker.colorscale = "Viridis"
+                self.fig1_3D.data[0].marker.colorscale = "Viridis"
+                self.fig2.data[0].marker.colorscale = "Viridis"
+                self.fig2_3D.data[0].marker.colorscale = "Viridis"
             else:
-                fig1.update_traces(marker=dict(showscale=False))
-                fig1_3D.update_traces(marker=dict(showscale=False))
+                self.fig1.update_traces(marker=dict(showscale=False))
+                self.fig1_3D.update_traces(marker=dict(showscale=False))
                 if a_modifier:
-                    fig1.data[0].marker.colorscale = "Plasma"
-                    fig1_3D.data[0].marker.colorscale = "Plasma"
-                    fig2.data[0].marker.colorscale = "Plasma"
-                    fig2_3D.data[0].marker.colorscale = "Plasma"
+                    self.fig1.data[0].marker.colorscale = "Plasma"
+                    self.fig1_3D.data[0].marker.colorscale = "Plasma"
+                    self.fig2.data[0].marker.colorscale = "Plasma"
+                    self.fig2_3D.data[0].marker.colorscale = "Plasma"
                 else:
-                    fig1.data[0].marker.colorscale = "Viridis"
-                    fig1_3D.data[0].marker.colorscale = "Viridis"
-                    fig2.data[0].marker.colorscale = "Viridis"
-                    fig2_3D.data[0].marker.colorscale = "Viridis"
+                    self.fig1.data[0].marker.colorscale = "Viridis"
+                    self.fig1_3D.data[0].marker.colorscale = "Viridis"
+                    self.fig2.data[0].marker.colorscale = "Viridis"
+                    self.fig2_3D.data[0].marker.colorscale = "Viridis"
 
         couleur_radio.on_event("change", fonction_changement_couleur)
 
-        # EVX and EVY are the coordinates of the points in the value space
-        EVX = np.array(self.__Espace_valeurs[choix_init_proj][0])
-        EVY = np.array(self.__Espace_valeurs[choix_init_proj][1])
-
         # marker 1 is the marker of figure 1
         marker1 = dict(
-            color=y,
+            color=self.atk.dataset.y,
             colorscale="Viridis",
             colorbar=dict(
                 title="y",
@@ -559,7 +490,7 @@ class GUI():
         )
 
         # marker 2 is the marker of figure 2 (without colorbar therefore)
-        marker2 = dict(color=y, colorscale="Viridis")
+        marker2 = dict(color=self.atk.dataset.y, colorscale="Viridis")
 
         barre_menu, fig_size, bouton_save = gui_elements.create_menu_bar()
 
@@ -572,7 +503,7 @@ class GUI():
         def init_save(new: bool = False):
             texte_regions = "There is no backup"
             for i in range(len(self.atk.saves)):
-                if len(self.atk.saves[i]["liste"]) != len(atk.dataset.X_all):
+                if len(self.atk.saves[i]["liste"]) != len(self.atk.dataset.X_all):
                     raise Exception("Your save is not the right size !")
             if len(self.atk.saves) > 0:
                 texte_regions = str(len(self.atk.saves)) + " save(s) found"
@@ -658,36 +589,36 @@ class GUI():
             self.__list_of_regions = n
             couleur = deepcopy(self.atk.saves[indice]["liste"])
             self.__color_regions = deepcopy(couleur)
-            with fig1.batch_update():
-                fig1.data[0].marker.color = couleur
-                fig1.data[0].marker.opacity = 1
-            with fig2.batch_update():
-                fig2.data[0].marker.color = couleur
-                fig2.data[0].marker.opacity = 1
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].marker.color = couleur
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].marker.color = couleur
+            with self.fig1.batch_update():
+                self.fig1.data[0].marker.color = couleur
+                self.fig1.data[0].marker.opacity = 1
+            with self.fig2.batch_update():
+                self.fig2.data[0].marker.color = couleur
+                self.fig2.data[0].marker.opacity = 1
+            with self.fig1_3D.batch_update():
+                self.fig1_3D.data[0].marker.color = couleur
+            with self.fig2_3D.batch_update():
+                self.fig2_3D.data[0].marker.color = couleur
             couleur_radio.v_model = "Régions"
-            fig1.update_traces(marker=dict(showscale=False))
-            fig2.update_traces(marker=dict(showscale=False))
-            if len(self.atk.saves[indice]["self.sub_models"]) != len(self.__list_of_regions):
+            self.fig1.update_traces(marker=dict(showscale=False))
+            self.fig2.update_traces(marker=dict(showscale=False))
+            if len(self.atk.saves[indice]["model"]) != len(self.__list_of_regions):
                 self.__list_of_sub_models = [[None, None, None]] * len(self.__list_of_regions)
             else:
                 self.__list_of_sub_models = []
                 for i in range(len(self.__list_of_regions)):
-                    nom = self.atk.saves[indice]["self.sub_models"][i].__class__.__name__
+                    nom = self.atk.saves[indice]["model"][i].__class__.__name__
                     indices_respectent = self.__list_of_regions[i]
                     score_init = compute.fonction_score(
-                        y.iloc[indices_respectent], self.atk.dataset.y_pred[indices_respectent]
+                        self.atk.dataset.y.iloc[indices_respectent], self.atk.dataset.y_pred[indices_respectent]
                     )
-                    self.atk.saves[indice]["self.sub_models"][i].fit(
-                        X.iloc[indices_respectent], y.iloc[indices_respectent]
+                    self.atk.saves[indice]["model"][i].fit(
+                        self.atk.dataset.X.iloc[indices_respectent], self.atk.dataset.y.iloc[indices_respectent]
                     )
                     score_reg = compute.fonction_score(
-                        y.iloc[indices_respectent],
-                        self.atk.saves[indice]["self.sub_models"][i].predict(
-                            X.iloc[indices_respectent]
+                        self.atk.dataset.y.iloc[indices_respectent],
+                        self.atk.saves[indice]["model"][i].predict(
+                            self.atk.dataset.X.iloc[indices_respectent]
                         ),
                     )
                     if score_init == 0:
@@ -722,32 +653,28 @@ class GUI():
         new_save.on_event("click", fonction_new_save)
 
         # value space graph
-        fig1 = go.FigureWidget(
-            data=go.Scatter(x=EVX, y=EVY, mode="markers", marker=marker1)
+        self.fig1 = go.FigureWidget(
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker1)
         )
 
         # to remove the plotly logo
-        fig1._config = fig1._config | {"displaylogo": False}
+        self.fig1._config = self.fig1._config | {"displaylogo": False}
 
         # border size
         M = 40
 
-        fig1.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
-        fig1.update_layout(dragmode="lasso")
-
-        # coordonnées des points de l'espace des explications
-        EEX = np.array(self.__Espace_explications[choix_init_proj][0])
-        EEY = np.array(self.__Espace_explications[choix_init_proj][1])
+        self.fig1.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
+        self.fig1.update_layout(dragmode="lasso")
 
         # grapbique de l'espace des explications
-        fig2 = go.FigureWidget(
-            data=go.Scatter(x=EEX, y=EEY, mode="markers", marker=marker2)
+        self.fig2 = go.FigureWidget(
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker2)
         )
 
-        fig2.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
-        fig2.update_layout(dragmode="lasso")
+        self.fig2.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
+        self.fig2.update_layout(dragmode="lasso")
 
-        fig2._config = fig2._config | {"displaylogo": False}
+        self.fig2._config = self.fig2._config | {"displaylogo": False}
 
         # two checkboxes to choose the projection dimension of figures 1 and 2
         dimension_projection = v.Switch(
@@ -779,19 +706,9 @@ class GUI():
 
         dimension_projection.on_event("change", fonction_dimension_projection)
 
-        # coordinates of points in the 3D value space
-        EVX_3D = np.array(self.__Espace_valeurs_3D[choix_init_proj][0])
-        EVY_3D = np.array(self.__Espace_valeurs_3D[choix_init_proj][1])
-        EVZ_3D = np.array(self.__Espace_valeurs_3D[choix_init_proj][2])
-
-        # coordinates of the points of the space of the explanations in 3D
-        EEX_3D = np.array(self.__Espace_explications_3D[choix_init_proj][0])
-        EEY_3D = np.array(self.__Espace_explications_3D[choix_init_proj][1])
-        EEZ_3D = np.array(self.__Espace_explications_3D[choix_init_proj][2])
-
         # marker 3D is the marker of figure 1 in 3D
         marker_3D = dict(
-            color=y,
+            color=self.atk.dataset.y,
             colorscale="Viridis",
             colorbar=dict(
                 thickness=20,
@@ -800,108 +717,81 @@ class GUI():
         )
 
         # marker 3D_2 is the marker of figure 2 in 3D (without the colorbar therefore!)
-        marker_3D_2 = dict(color=y, colorscale="Viridis", size=3)
+        marker_3D_2 = dict(color=self.atk.dataset.y, colorscale="Viridis", size=3)
 
-        fig1_3D = go.FigureWidget(
+        self.fig1_3D = go.FigureWidget(
             data=go.Scatter3d(
-                x=EVX_3D, y=EVY_3D, z=EVZ_3D, mode="markers", marker=marker_3D
+                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D
             )
         )
-        fig1_3D.update_layout(
+        self.fig1_3D.update_layout(
             margin=dict(l=M, r=M, t=0, b=M),
             width=int(fig_size.v_model),
             scene=dict(aspectmode="cube"),
             template="none",
         )
 
-        fig1_3D._config = fig1_3D._config | {"displaylogo": False}
+        self.fig1_3D._config = self.fig1_3D._config | {"displaylogo": False}
 
-        fig2_3D = go.FigureWidget(
+        self.fig2_3D = go.FigureWidget(
             data=go.Scatter3d(
-                x=EEX_3D, y=EEY_3D, z=EEZ_3D, mode="markers", marker=marker_3D_2
+                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D_2
             )
         )
-        fig2_3D.update_layout(
+        self.fig2_3D.update_layout(
             margin=dict(l=M, r=M, t=0, b=M),
             width=int(fig_size.v_model),
             scene=dict(aspectmode="cube"),
             template="none",
         )
 
-        fig2_3D._config = fig2_3D._config | {"displaylogo": False}
+        self.fig2_3D._config = self.fig2_3D._config | {"displaylogo": False}
+
+        compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
         # text that indicate spaces for better understanding
         texteEV = widgets.HTML("<h3>Values Space<h3>")
         texteEE = widgets.HTML("<h3>Explanatory Space<h3>")
 
         # we display the figures and the text above!
-        fig1_et_texte = gui_elements.figure_and_text(fig1, texteEV)
-        fig2_et_texte = gui_elements.figure_and_text(fig2, texteEE)
-        fig1_3D_et_texte = gui_elements.figure_and_text(fig1_3D, texteEV)
-        fig2_3D_et_texte = gui_elements.figure_and_text(fig2_3D, texteEE)
+        fig1_et_texte = gui_elements.figure_and_text(self.fig1, texteEV)
+        fig2_et_texte = gui_elements.figure_and_text(self.fig2, texteEE)
+        fig1_3D_et_texte = gui_elements.figure_and_text(self.fig1_3D, texteEV)
+        fig2_3D_et_texte = gui_elements.figure_and_text(self.fig2_3D, texteEE)
 
         # HBox which allows you to choose between 2D and 3D figures by changing its children parameter!
         fig_2D_ou_3D = widgets.HBox([fig1_et_texte, fig2_et_texte])
 
         # allows to update graphs 1 & 2 according to the chosen projection
         def update_scatter(*args):
-            val_act_EV = deepcopy(liste_red.index(EV_proj.v_model))
-            val_act_EE = deepcopy(liste_red.index(EE_proj.v_model))
-            param_EV.v_slots[0]["children"].disabled = True
-            param_EE.v_slots[0]["children"].disabled = True
-            if str(self.__Espace_valeurs[liste_red.index(EV_proj.v_model)]) == "None":
-                out_loading1.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReduction(EV_proj.v_model, True)
-                self.__Espace_valeurs[liste_red.index(EV_proj.v_model)] = dim_red.compute(X, 2)
-                self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)] = dim_red.compute(X, 3)
-                out_loading1.layout.visibility = "hidden"
-            if str(self.__Espace_explications[liste_red.index(EE_proj.v_model)]) == "None":
-                out_loading2.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReduction(EE_proj.v_model, True)
-                self.__Espace_explications[liste_red.index(EE_proj.v_model)] = dim_red.compute(X, 2)
-                self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)] = dim_red.compute(X, 3)
-                out_loading2.layout.visibility = "hidden"
-            if liste_red.index(EE_proj.v_model) == 3:
-                param_EE.v_slots[0]["children"].disabled = False
-            if liste_red.index(EV_proj.v_model) == 3:
-                param_EV.v_slots[0]["children"].disabled = False
-            with fig1.batch_update():
-                fig1.data[0].x = np.array(
-                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][0]
-                )
-                fig1.data[0].y = np.array(
-                    self.__Espace_valeurs[liste_red.index(EV_proj.v_model)][1]
-                )
-            with fig2.batch_update():
-                fig2.data[0].x = np.array(
-                    self.__Espace_explications[liste_red.index(EE_proj.v_model)][0]
-                )
-                fig2.data[0].y = np.array(
-                    self.__Espace_explications[liste_red.index(EE_proj.v_model)][1]
-                )
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].x = np.array(
-                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][0]
-                )
-                fig1_3D.data[0].y = np.array(
-                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][1]
-                )
-                fig1_3D.data[0].z = np.array(
-                    self.__Espace_valeurs_3D[liste_red.index(EV_proj.v_model)][2]
-                )
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].x = np.array(
-                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)][0]
-                )
-                fig2_3D.data[0].y = np.array(
-                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)][1]
-                )
-                fig2_3D.data[0].z = np.array(
-                    self.__Espace_explications_3D[liste_red.index(EE_proj.v_model)][2]
-                )
+            self.__projectionEV = deepcopy(EV_proj.v_model)
+            self.__projectionEE = deepcopy(EE_proj.v_model)
 
-            EV_proj.v_model = liste_red[val_act_EV]
-            EE_proj.v_model = liste_red[val_act_EE]
+            if self.dim_red["EV"][EV_proj.v_model] is None:
+                out_loading1.layout.visibility = "visible"
+                dim_red_compute = compute.DimensionalityReduction(EV_proj.v_model, True)
+                self.dim_red["EV"][EV_proj.v_model] = [dim_red_compute.compute(self.atk.dataset.X_scaled, 2), dim_red_compute.compute(self.atk.dataset.X_scaled, 3)]
+                out_loading1.layout.visibility = "hidden"
+            if self.dim_red["EE"][self.__explanation][EE_proj.v_model] is None:
+                out_loading2.layout.visibility = "visible"
+                dim_red_compute = compute.DimensionalityReduction(EE_proj.v_model, True)
+                self.dim_red["EE"][self.__explanation][EE_proj.v_model] = [dim_red_compute.compute(self.atk.dataset.X_scaled, 2), dim_red_compute.compute(self.atk.dataset.X_scaled, 3)]
+                out_loading2.layout.visibility = "hidden"
+
+            compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
+
+            # for the parameters of the projection
+            if EV_proj.v_model == "PaCMAP":
+                param_EV.v_slots[0]["children"].disabled = False
+            else:
+                param_EV.v_slots[0]["children"].disabled = True
+            if EE_proj.v_model == "PaCMAP":
+                param_EE.v_slots[0]["children"].disabled = False
+            else:
+                param_EE.v_slots[0]["children"].disabled = True
+
+            EV_proj.v_model = self.__projectionEV
+            EE_proj.v_model = self.__projectionEE
 
         # we observe the changes in the values ​​of the dropdowns to change the method of reduction
         EV_proj.on_event("change", update_scatter)
@@ -963,128 +853,10 @@ class GUI():
             ],
         )
 
-        # text that will contain the skope info on the EV
-        une_carte_EV = v.Card(
-            class_="mx-4 mt-0",
-            elevation=0,
-            children=[
-                v.CardText(
-                    children=[
-                        v.Row(
-                            class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
-                            children=[
-                                "Waiting for the skope-rules to be applied...",
-                            ],
-                        )
-                    ]
-                )
-            ],
-        )
-
-        texte_skopeEV = v.Card(
-            style_="width: 50%;",
-            class_="ma-3",
-            children=[
-                v.Row(
-                    class_="ml-4",
-                    children=[
-                        v.Icon(children=["mdi-target"]),
-                        v.CardTitle(children=["Rules applied to the Values Space"]),
-                        v.Spacer(),
-                        v.Html(
-                            class_="mr-5 mt-5 font-italic",
-                            tag="p",
-                            children=["precision = /"],
-                        ),
-                    ],
-                ),
-                une_carte_EV,
-            ],
-        )
-
-        # text that will contain the skope info on the EE
-
-        une_carte_EE = v.Card(
-            class_="mx-4 mt-0",
-            elevation=0,
-            # style_="width: 100%;",
-            children=[
-                v.CardText(
-                    children=[
-                        v.Row(
-                            class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
-                            children=[
-                                "Waiting for the skope-rules to be applied...",
-                            ],
-                        )
-                    ]
-                ),
-            ],
-        )
-
-        texte_skopeEE = v.Card(
-            style_="width: 50%;",
-            class_="ma-3",
-            children=[
-                v.Row(
-                    class_="ml-4",
-                    children=[
-                        v.Icon(children=["mdi-target"]),
-                        v.CardTitle(children=["Rules applied on the Explanatory Space"]),
-                        v.Spacer(),
-                        v.Html(
-                            class_="mr-5 mt-5 font-italic",
-                            tag="p",
-                            children=["precision = /"],
-                        ),
-                    ],
-                ),
-                une_carte_EE,
-            ],
-        )
-
-        # text that will contain the skope info on the EV and EE
-        texte_skope = v.Layout(
-            class_="d-flex flex-row", children=[texte_skopeEV, texte_skopeEE]
-        )
+        texte_skope, texte_skopeEE, texte_skopeEV, une_carte_EV, une_carte_EE = gui_elements.create_card_skope()
 
         # texts that will contain the information on the self.sub_models
-        liste_mods = []
-        for i in range(len(self.sub_models)):
-            nom_mdi = "mdi-numeric-" + str(i + 1) + "-box"
-            mod = v.SlideItem(
-                # style_="width: 30%",
-                children=[
-                    v.Card(
-                        class_="grow ma-2",
-                        children=[
-                            v.Row(
-                                class_="ml-5 mr-4",
-                                children=[
-                                    v.Icon(children=[nom_mdi]),
-                                    v.CardTitle(
-                                        children=[self.sub_models[i].__class__.__name__]
-                                    ),
-                                ],
-                            ),
-                            v.CardText(
-                                class_="mt-0 pt-0",
-                                children=["Model's score"],
-                            ),
-                        ],
-                    )
-                ],
-            )
-            liste_mods.append(mod)
-
-        mods = v.SlideGroup(
-            v_model=None,
-            class_="ma-3 pa-3",
-            elevation=4,
-            center_active=True,
-            show_arrows=True,
-            children=liste_mods,
-        )
+        mods = gui_elements.create_slide_sub_models(self)
 
         def changement(widget, event, data, args: bool = True):
             if args == True:
@@ -1122,153 +894,47 @@ class GUI():
         )
         selection = widgets.VBox([en_deux_b])
 
-        # we define this to be able to initialize the histograms
-        x = np.linspace(0, 20, 20)
-
         # we define the sliders used to modify the histogram resulting from the skope
-        slider_skope1 = v.RangeSlider(
-            class_="ma-3",
-            v_model=[-1, 1],
-            min=-10e10,
-            max=10e10,
-            step=1,
-        )
-
-        bout_temps_reel_graph1 = v.Checkbox(
-            v_model=False, label="Real-time updates on the figures", class_="ma-3"
-        )
-
-        slider_text_comb1 = v.Layout(
-            children=[
-                v.TextField(
-                    style_="max-width:100px",
-                    v_model=slider_skope1.v_model[0] / 100,
-                    hide_details=True,
-                    type="number",
-                    density="compact",
-                ),
-                slider_skope1,
-                v.TextField(
-                    style_="max-width:100px",
-                    v_model=slider_skope1.v_model[1] / 100,
-                    hide_details=True,
-                    type="number",
-                    density="compact",
-                ),
-            ],
-        )
+        slider_skope1, bout_temps_reel_graph1, slider_text_comb1 = gui_elements.slider_skope()
+        slider_skope2, bout_temps_reel_graph2, slider_text_comb2 = gui_elements.slider_skope()
+        slider_skope3, bout_temps_reel_graph3, slider_text_comb3 = gui_elements.slider_skope()
 
         def update_validate1(*args):
             if bout_temps_reel_graph1.v_model:
                 valider_change_1.disabled = True
             else:
                 valider_change_1.disabled = False
-
         bout_temps_reel_graph1.on_event("change", update_validate1)
-
-        slider_skope2 = v.RangeSlider(
-            class_="ma-3",
-            v_model=[-1, 1],
-            min=-10e10,
-            max=10e10,
-            step=1,
-        )
-
-        bout_temps_reel_graph2 = v.Checkbox(
-            v_model=False, label="Real-time updates on the figures", class_="ma-3"
-        )
-
-        slider_text_comb2 = v.Layout(
-            children=[
-                v.TextField(
-                    style_="max-width:100px",
-                    v_model=slider_skope2.v_model[0],
-                    hide_details=True,
-                    type="number",
-                    density="compact",
-                ),
-                slider_skope2,
-                v.TextField(
-                    style_="max-width:100px",
-                    v_model=slider_skope2.v_model[1],
-                    hide_details=True,
-                    type="number",
-                    density="compact",
-                ),
-            ],
-        )
 
         def update_validate2(*args):
             if bout_temps_reel_graph2.value:
                 valider_change_2.disabled = True
             else:
                 valider_change_2.disabled = False
-
         bout_temps_reel_graph2.observe(update_validate2)
-
-        slider_skope3 = v.RangeSlider(
-            class_="ma-3",
-            v_model=[-1, 1],
-            min=-10e10,
-            max=10e10,
-            step=1,
-        )
-
-        bout_temps_reel_graph3 = v.Checkbox(
-            v_model=False, label="Real-time updates on the figures", class_="ma-3"
-        )
-
-        slider_text_comb3 = v.Layout(
-            children=[
-                v.TextField(
-                    style_="max-width:60px",
-                    v_model=slider_skope3.v_model[0],
-                    hide_details=True,
-                    type="number",
-                    density="compact",
-                ),
-                slider_skope3,
-                v.TextField(
-                    style_="max-width:60px",
-                    v_model=slider_skope3.v_model[1],
-                    hide_details=True,
-                    type="number",
-                    density="compact",
-                ),
-            ],
-        )
 
         def update_validate3(*args):
             if bout_temps_reel_graph3.v_model:
                 valider_change_3.disabled = True
             else:
                 valider_change_3.disabled = False
-
         bout_temps_reel_graph3.on_event("change", update_validate3)
 
         # valid buttons definition changes:
 
-        valider_change_1 = v.Btn(
-            class_="ma-3",
-            children=[
-                v.Icon(class_="mr-2", children=["mdi-check"]),
-                "Validate the changes",
-            ],
-        )
-        valider_change_2 = v.Btn(
-            class_="ma-3",
-            children=[
-                v.Icon(class_="mr-2", children=["mdi-check"]),
-                "Validate the changes",
-            ],
-        )
-        valider_change_3 = v.Btn(
-            class_="ma-3",
-            children=[
-                v.Icon(class_="mr-2", children=["mdi-check"]),
-                "Validate the changes",
-            ],
-        )
+        def valider_change():
+            widget = v.Btn(
+                class_="ma-3",
+                children=[
+                    v.Icon(class_="mr-2", children=["mdi-check"]),
+                    "Validate the changes",
+                ],
+            )
+            return widget
+
+        valider_change_1 = valider_change()
+        valider_change_2 = valider_change()
+        valider_change_3 = valider_change()
 
         # we wrap the validation button and the checkbox which allows you to view in real time
         deux_fin1 = widgets.HBox([valider_change_1, bout_temps_reel_graph1])
@@ -1278,152 +944,25 @@ class GUI():
         # we define the number of bars of the histogram
         nombre_bins = 50
         # we define the histograms
-        histogram1 = go.FigureWidget(
-            data=[
-                go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="grey")
-            ]
-        )
-        histogram1.update_layout(
-            barmode="overlay",
-            bargap=0.1,
-            width=0.9 * int(fig_size.v_model),
-            showlegend=False,
-            margin=dict(l=0, r=0, t=0, b=0),
-            height=150,
-        )
-        histogram1.add_trace(
-            go.Histogram(
-                x=x,
-                bingroup=1,
-                nbinsx=nombre_bins,
-                marker_color="LightSkyBlue",
-                opacity=0.6,
-            )
-        )
-        histogram1.add_trace(
-            go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
-        )
-
-        histogram2 = go.FigureWidget(
-            data=[
-                go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="grey")
-            ]
-        )
-        histogram2.update_layout(
-            barmode="overlay",
-            bargap=0.1,
-            width=0.9 * int(fig_size.v_model),
-            showlegend=False,
-            margin=dict(l=0, r=0, t=0, b=0),
-            height=150,
-        )
-        histogram2.add_trace(
-            go.Histogram(
-                x=x,
-                bingroup=1,
-                nbinsx=nombre_bins,
-                marker_color="LightSkyBlue",
-                opacity=0.6,
-            )
-        )
-        histogram2.add_trace(
-            go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
-        )
-
-        histogram3 = go.FigureWidget(
-            data=[
-                go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="grey")
-            ]
-        )
-        histogram3.update_layout(
-            barmode="overlay",
-            bargap=0.1,
-            width=0.9 * int(fig_size.v_model),
-            showlegend=False,
-            margin=dict(l=0, r=0, t=0, b=0),
-            height=150,
-        )
-        histogram3.add_trace(
-            go.Histogram(
-                x=x,
-                bingroup=1,
-                nbinsx=nombre_bins,
-                marker_color="LightSkyBlue",
-                opacity=0.6,
-            )
-        )
-        histogram3.add_trace(
-            go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
-        )
+        [histogram1, histogram2, histogram3] = gui_elements.create_histograms(nombre_bins, fig_size.v_model)
 
         all_histograms = [histogram1, histogram2, histogram3]
 
-        def fonction_beeswarm_shap(nom_colonne):
-            # redefinition de la figure beeswarm de shap
-            def positions_ordre_croissant(lst):
-                positions = list(range(len(lst)))  # Create a list of initial positions
-                positions.sort(key=lambda x: lst[x])
-                l = []
-                for i in range(len(positions)):
-                    l.append(positions.index(i))  # Sort positions by list items
-                return l
-
-            nom_colonne_shap = nom_colonne + "_shap"
-            y_histo_shap = [0] * len(self.__explanatory_values)
-            nombre_div = 60
-            garde_indice = []
-            garde_valeur_y = []
-            for i in range(nombre_div):
-                garde_indice.append([])
-                garde_valeur_y.append([])
-            liste_scale = np.linspace(
-                min(self.__explanatory_values[nom_colonne_shap]), max(self.__explanatory_values[nom_colonne_shap]), nombre_div + 1
-            )
-            for i in range(len(self.__explanatory_values)):
-                for j in range(nombre_div):
-                    if (
-                        self.__explanatory_values[nom_colonne_shap][i] >= liste_scale[j]
-                        and self.__explanatory_values[nom_colonne_shap][i] <= liste_scale[j + 1]
-                    ):
-                        garde_indice[j].append(i)
-                        garde_valeur_y[j].append(y[i])
-                        break
-            for i in range(nombre_div):
-                l = positions_ordre_croissant(garde_valeur_y[i])
-                for j in range(len(garde_indice[i])):
-                    ii = garde_indice[i][j]
-                    if l[j] % 2 == 0:
-                        y_histo_shap[ii] = l[j]
-                    else:
-                        y_histo_shap[ii] = -l[j]
-            marker_shap = dict(
-                size=4,
-                opacity=0.6,
-                color=self.atk.dataset.X[nom_colonne],
-                colorscale="Bluered_r",
-                colorbar=dict(thickness=20, title=nom_colonne),
-            )
-            return [y_histo_shap, marker_shap]
-
         # definitions of the different color choices for the swarm
 
-        choix_couleur_essaim1 = v.Row(
-            class_="pt-3 mt-0 ml-4",
-            children=[
+        [total_essaim_1, total_essaim_2, total_essaim_3] = gui_elements.create_beeswarms(self, self.__explanation, fig_size.v_model)
 
-                "Value of Xi",
-                v.Switch(
-                    class_="ml-3 mr-2 mt-0 pt-0",
-                    v_model=False,
-                    label="",
-                ),
-                "Current selection",
-            ],
-        )
+        choix_couleur_essaim1 = total_essaim_1.children[0]
+        choix_couleur_essaim2 = total_essaim_2.children[0]
+        choix_couleur_essaim3 = total_essaim_3.children[0]
+
+        essaim1 = total_essaim_1.children[1]
+        essaim2 = total_essaim_2.children[1]
+        essaim3 = total_essaim_3.children[1]
 
         def changement_couleur_essaim_shap1(*args):
             if choix_couleur_essaim1.children[1].v_model == False:
-                marker = fonction_beeswarm_shap(self.__all_rules[0][2])[1]
+                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[0][2])[1]
                 essaim1.data[0].marker = marker
                 essaim1.update_traces(marker=dict(showscale=True))
             else:
@@ -1436,37 +975,9 @@ class GUI():
             "change", changement_couleur_essaim_shap1
         )
 
-        y_histo_shap = [0] * len(self.__explanatory_values)
-        nom_col_shap = str(X.columns[0]) + "_shap"
-        essaim1 = go.FigureWidget(
-            data=[go.Scatter(x=self.__explanatory_values[nom_col_shap], y=y_histo_shap, mode="markers")]
-        )
-        essaim1.update_layout(
-            margin=dict(l=0, r=0, t=0, b=0),
-            height=200,
-            width=0.9 * int(fig_size.v_model),
-        )
-        essaim1.update_yaxes(visible=False, showticklabels=False)
-
-        total_essaim_1 = widgets.VBox([choix_couleur_essaim1, essaim1])
-        total_essaim_1.layout.margin = "0px 0px 0px 20px"
-
-        choix_couleur_essaim2 = v.Row(
-            class_="pt-3 mt-0 ml-4",
-            children=[
-                "Value of Xi",
-                v.Switch(
-                    class_="ml-3 mr-2 mt-0 pt-0",
-                    v_model=False,
-                    label="",
-                ),
-                "Current selection",
-            ],
-        )
-
         def changement_couleur_essaim_shap2(*args):
             if choix_couleur_essaim2.children[1].v_model == False:
-                marker = fonction_beeswarm_shap(self.__all_rules[1][2])[1]
+                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[1][2])[1]
                 essaim2.data[0].marker = marker
                 essaim2.update_traces(marker=dict(showscale=True))
             else:
@@ -1479,45 +990,9 @@ class GUI():
             "change", changement_couleur_essaim_shap2
         )
 
-        essaim2 = go.FigureWidget(
-            data=[go.Scatter(x=self.__explanatory_values[nom_col_shap], y=y_histo_shap, mode="markers")]
-        )
-        essaim2.update_layout(
-            margin=dict(l=20, r=0, t=0, b=0),
-            height=200,
-            width=0.9 * int(fig_size.v_model),
-        )
-        essaim2.update_yaxes(visible=False, showticklabels=False)
-
-        total_essaim_2 = widgets.VBox([choix_couleur_essaim2, essaim2])
-        total_essaim_2.layout.margin = "0px 0px 0px 20px"
-
-        essaim3 = go.FigureWidget(
-            data=[go.Scatter(x=self.__explanatory_values[nom_col_shap], y=y_histo_shap, mode="markers")]
-        )
-        essaim3.update_layout(
-            margin=dict(l=20, r=0, t=0, b=0),
-            height=200,
-            width=0.9 * int(fig_size.v_model),
-        )
-        essaim3.update_yaxes(visible=False, showticklabels=False)
-
-        choix_couleur_essaim3 = v.Row(
-            class_="pt-3 mt-0 ml-4",
-            children=[
-                "Value of Xi",
-                v.Switch(
-                    class_="ml-3 mr-2 mt-0 pt-0",
-                    v_model=False,
-                    label="",
-                ),
-                "Current selection",
-            ],
-        )
-
         def changement_couleur_essaim_shap3(*args):
             if choix_couleur_essaim3.children[1].v_model == False:
-                marker = fonction_beeswarm_shap(self.__all_rules[2][2])[1]
+                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[2][2])[1]
                 essaim3.data[0].marker = marker
                 essaim3.update_traces(marker=dict(showscale=True))
             else:
@@ -1529,9 +1004,6 @@ class GUI():
         choix_couleur_essaim3.children[1].on_event(
             "change", changement_couleur_essaim_shap3
         )
-
-        total_essaim_3 = widgets.VBox([choix_couleur_essaim3, essaim3])
-        total_essaim_3.layout.margin = "0px 0px 0px 20px"
 
         all_beeswarms_total = [total_essaim_1, total_essaim_2, total_essaim_3]
 
@@ -1548,27 +1020,9 @@ class GUI():
         ens_slider_histo3 = widgets.VBox([slider_text_comb3, histogram3, deux_fin3])
 
         # definition of buttons to delete features (disabled for the first 3 for the moment)
-        b_delete_skope1 = v.Btn(
-            class_="ma-2 ml-4 pa-1",
-            elevation="3",
-            icon=True,
-            children=[v.Icon(children=["mdi-delete"])],
-            disabled=True,
-        )
-        b_delete_skope2 = v.Btn(
-            class_="ma-2 ml-4 pa-1",
-            elevation="3",
-            icon=True,
-            children=[v.Icon(children=["mdi-delete"])],
-            disabled=True,
-        )
-        b_delete_skope3 = v.Btn(
-            class_="ma-2 ml-4 pa-1",
-            elevation="3",
-            icon=True,
-            children=[v.Icon(children=["mdi-delete"])],
-            disabled=True,
-        )
+        b_delete_skope1 = gui_elements.button_delete_skope()
+        b_delete_skope2 = gui_elements.button_delete_skope()
+        b_delete_skope3 = gui_elements.button_delete_skope()
 
         dans_accordion1 = widgets.HBox(
             [ens_slider_histo1, total_essaim_1, b_delete_skope1],
@@ -1586,41 +1040,9 @@ class GUI():
         elements_final_accordion = [dans_accordion1, dans_accordion2, dans_accordion3]
 
         # we define several accordions in this way to be able to open several at the same time
-        dans_accordion1_n = v.ExpansionPanels(
-            class_="ma-2 mb-1",
-            children=[
-                v.ExpansionPanel(
-                    children=[
-                        v.ExpansionPanelHeader(children=["X1"]),
-                        v.ExpansionPanelContent(children=[dans_accordion1]),
-                    ]
-                )
-            ],
-        )
-
-        dans_accordion2_n = v.ExpansionPanels(
-            class_="ma-2 mt-0 mb-1",
-            children=[
-                v.ExpansionPanel(
-                    children=[
-                        v.ExpansionPanelHeader(children=["X2"]),
-                        v.ExpansionPanelContent(children=[dans_accordion2]),
-                    ]
-                )
-            ],
-        )
-
-        dans_accordion3_n = v.ExpansionPanels(
-            class_="ma-2 mt-0",
-            children=[
-                v.ExpansionPanel(
-                    children=[
-                        v.ExpansionPanelHeader(children=["X3"]),
-                        v.ExpansionPanelContent(children=[dans_accordion3]),
-                    ]
-                )
-            ],
-        )
+        dans_accordion1_n = gui_elements.accordion_skope("X1", dans_accordion1)
+        dans_accordion2_n = gui_elements.accordion_skope("X2", dans_accordion2)
+        dans_accordion3_n = gui_elements.accordion_skope("X3", dans_accordion3)
 
         accordion_skope = widgets.VBox(
             children=[dans_accordion1_n, dans_accordion2_n, dans_accordion3_n],
@@ -1642,7 +1064,7 @@ class GUI():
             y_shape_skope = []
             y_color_skope = []
             y_opa_skope = []
-            self.selection = nouvelle_tuile
+            self.selection.indexes = Potato(nouvelle_tuile, self.atk.dataset)
             for i in range(len(self.atk.dataset.X)):
                 if i in nouvelle_tuile:
                     y_shape_skope.append("circle")
@@ -1652,20 +1074,14 @@ class GUI():
                     y_shape_skope.append("cross")
                     y_color_skope.append("grey")
                     y_opa_skope.append(0.5)
-            with fig1.batch_update():
-                # fig1.data[0].marker.symbol = y_shape_skope
-                fig1.data[0].marker.color = y_color_skope
-                # fig1.data[0].marker.opacity = y_opa_skope
-            with fig2.batch_update():
-                # fig2.data[0].marker.symbol = y_shape_skope
-                fig2.data[0].marker.color = y_color_skope
-                # fig2.data[0].marker.opacity = y_opa_skope
-            with fig1_3D.batch_update():
-                # fig1_3D.data[0].marker.symbol = y_shape_skope
-                fig1_3D.data[0].marker.color = y_color_skope
-            with fig2_3D.batch_update():
-                # fig2_3D.data[0].marker.symbol = y_shape_skope
-                fig2_3D.data[0].marker.color = y_color_skope
+            with self.fig1.batch_update():
+                self.fig1.data[0].marker.color = y_color_skope
+            with self.fig2.batch_update():
+                self.fig2.data[0].marker.color = y_color_skope
+            with self.fig1_3D.batch_update():
+                self.fig1_3D.data[0].marker.color = y_color_skope
+            with self.fig2_3D.batch_update():
+                self.fig2_3D.data[0].marker.color = y_color_skope
 
         # allows to modify all the histograms according to the rules
         def modifier_tous_histograms(value_min, value_max, indice):
@@ -1934,26 +1350,26 @@ class GUI():
         valider_change_3.on_event("click", fonction_change_valider_3)
 
         def regles_to_indices():
-            liste_bool = [True] * len(X)
-            for i in range(len(X)):
+            liste_bool = [True] * len(self.atk.dataset.X)
+            for i in range(len(self.atk.dataset.X)):
                 for j in range(len(self.__all_rules)):
-                    colonne = list(X.columns).index(self.__all_rules[j][2])
+                    colonne = list(self.atk.dataset.X.columns).index(self.__all_rules[j][2])
                     if (
                         self.__all_rules[j][0] > self.atk.dataset.X.iloc[i, colonne]
                         or self.atk.dataset.X.iloc[i, colonne] > self.__all_rules[j][4]
                     ):
                         liste_bool[i] = False
-            temp = [i for i in range(len(X)) if liste_bool[i]]
+            temp = [i for i in range(len(self.atk.dataset.X)) if liste_bool[i]]
             return temp
 
         def fonction_scores_models(temp):
             if temp == None:
                 temp = regles_to_indices()
-            result_models = fonction_models(X.iloc[temp, :], y.iloc[temp])
+            result_models = fonction_models(self.atk.dataset.X.iloc[temp, :], self.atk.dataset.y.iloc[temp])
             score_tot = []
             for i in range(len(self.sub_models)):
-                score_tot.append(compute.fonction_score(y.iloc[temp], result_models[i][-2]))
-            score_init = compute.fonction_score(y.iloc[temp], self.atk.dataset.y_pred[temp])
+                score_tot.append(compute.fonction_score(self.atk.dataset.y.iloc[temp], result_models[i][-2]))
+            score_init = compute.fonction_score(self.atk.dataset.y.iloc[temp], self.atk.dataset.y_pred[temp])
             if score_init == 0:
                 l_compar = ["/"] * len(self.sub_models)
             else:
@@ -2016,17 +1432,16 @@ class GUI():
 
         # when you click on the skope-rules button
         def fonction_validation_skope(*sender):
-            y_train = self.__y_train
             loading_models.class_ = "d-flex"
             self.__valider_bool = True
-            if y_train == None:
+            if self.selection.y == None:
                 texte_skopeEV.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
                 texte_skopeEE.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
-            elif 0 not in y_train or 1 not in y_train:
+            elif 0 not in self.selection.y or 1 not in self.selection.y:
                 texte_skopeEV.children[1].children = [
                     widgets.HTML("You can't choose everything/nothing !")
                 ]
@@ -2035,35 +1450,9 @@ class GUI():
                 ]
             else:
                 # skope calculation for X
-                skope_rules_clf = SkopeRules(
-                    feature_names=X_train.columns,
-                    random_state=42,
-                    n_estimators=5,
-                    recall_min=0.2,
-                    precision_min=0.2,
-                    max_depth_duplication=0,
-                    max_samples=1.0,
-                    max_depth=3,
-                )
-                skope_rules_clf.fit(X_train, y_train)
-
-                # skope calculation for SHAP
-                skope_rules_clf_shap = SkopeRules(
-                    feature_names=self.__SHAP_train.columns,
-                    random_state=42,
-                    n_estimators=5,
-                    recall_min=0.2,
-                    precision_min=0.2,
-                    max_depth_duplication=0,
-                    max_samples=1.0,
-                    max_depth=3,
-                )
-                skope_rules_clf_shap.fit(self.__SHAP_train, y_train)
+                self.selection.apply_skope(self.__explanation, 0.2, 0.2)
                 # if no rule for one of the two, nothing is displayed
-                if (
-                    len(skope_rules_clf.rules_) == 0
-                    or len(skope_rules_clf_shap.rules_) == 0
-                ):
+                if self.success == False:
                     texte_skopeEV.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
@@ -2074,6 +1463,7 @@ class GUI():
                 # otherwise we display
                 else:
                     chaine_carac = transform_string(skope_rules_clf.rules_[0])
+                    print(chaine_carac)
                     texte_skopeEV.children[0].children[3].children = [
                         "p = "
                         + str(np.round(float(chaine_carac[1][0]) * 100, 5))
@@ -2192,7 +1582,7 @@ class GUI():
                         liste_to_string_skope(self.__all_rules)
                     )
 
-                    [new_y, marker] = fonction_beeswarm_shap(self.atk.dataset.X.columns[0])
+                    [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.atk.dataset.X.columns[0])
                     essaim1.data[0].y = new_y
                     essaim1.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[0] + "_shap"]
                     essaim1.data[0].marker = marker
@@ -2200,14 +1590,14 @@ class GUI():
                     all_histograms = [histogram1]
                     if len(self.atk.dataset.X.columns) > 1:
                         all_histograms = [histogram1, histogram2]
-                        [new_y, marker] = fonction_beeswarm_shap(self.atk.dataset.X.columns[1])
+                        [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.atk.dataset.X.columns[1])
                         essaim2.data[0].y = new_y
                         essaim2.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[1] + "_shap"]
                         essaim2.data[0].marker = marker
 
                     if len(self.atk.dataset.X.columns) > 2:
                         all_histograms = [histogram1, histogram2, histogram3]
-                        [new_y, marker] = fonction_beeswarm_shap(self.atk.dataset.X.columns[2])
+                        [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.atk.dataset.X.columns[2])
                         essaim3.data[0].y = new_y
                         essaim3.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[2] + "_shap"]
                         essaim3.data[0].marker = marker
@@ -2379,7 +1769,6 @@ class GUI():
                     )
 
                     chaine_carac = transform_string_shap(skope_rules_clf_shap.rules_[0])
-                    print(skope_rules_clf_shap.rules_)
                     texte_skopeEE.children[0].children[3].children = [
                         # str(skope_rules_clf.rules_[0])
                         # + "\n"
@@ -2394,7 +1783,7 @@ class GUI():
                     ]
                     une_carte_EE.children = generate_card(chaine_carac[0])
                     fonction_scores_models(indices_respectent_skope)
-                    self.selection = indices_respectent_skope
+                    self.selection = Potato(indices_respectent_skope, self.atk.dataset)
             slider_skope1.on_event("input", on_value_change_skope1)
             slider_skope2.on_event("input", on_value_change_skope2)
             slider_skope3.on_event("input", on_value_change_skope3)
@@ -2524,23 +1913,23 @@ class GUI():
         def fonction_clusters(*b):
             loading_clusters.class_ = "d-flex"
             if check_nb_clusters.v_model:
-                result = fonction_auto_clustering(X, self.__explanatory_values, 3, True)
+                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.dataset.explain[self.__explanation], 3, True)
             else:
                 nb_clusters = slider_clusters.v_model
-                result = fonction_auto_clustering(X, self.__explanatory_values, nb_clusters, False)
+                result = fonction_auto_clustering(elf.atk.dataset.X, self.atk.dataset.explain[self.__explanation], nb_clusters, False)
             self.__result_dyadic_clustering = result
             labels = result[1]
             self.__Y_auto = labels
-            with fig1.batch_update():
-                fig1.data[0].marker.color = labels
-                fig1.update_traces(marker=dict(showscale=False))
-            with fig2.batch_update():
-                fig2.data[0].marker.color = labels
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].marker.color = labels
-                fig1_3D.update_traces(marker=dict(showscale=False))
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].marker.color = labels
+            with self.fig1.batch_update():
+                self.fig1.data[0].marker.color = labels
+                self.fig1.update_traces(marker=dict(showscale=False))
+            with self.fig2.batch_update():
+                self.fig2.data[0].marker.color = labels
+            with self.fig1_3D.batch_update():
+                self.fig1_3D.data[0].marker.color = labels
+                self.fig1_3D.update_traces(marker=dict(showscale=False))
+            with self.fig2_3D.batch_update():
+                self.fig2_3D.data[0].marker.color = labels
             labels_regions = result[0]
             new_df = []
             for i in range(len(labels_regions)):
@@ -2548,7 +1937,7 @@ class GUI():
                     [
                         i + 1,
                         len(labels_regions[i]),
-                        str(round(len(labels_regions[i]) / len(X) * 100, 5)) + "%",
+                        str(round(len(labels_regions[i]) / len(self.atk.dataset.X) * 100, 5)) + "%",
                     ]
                 )
             new_df = pd.DataFrame(
@@ -2642,7 +2031,7 @@ class GUI():
                 les_points = liste
             else:
                 les_points = points.point_inds
-            self.selection = les_points
+            self.selection = Potato(les_points, self.atk.dataset)
             if len(les_points) == 0:
                 card_selec.children[0].children[1].children = "0 point !"
                 texte_selec.value = texte_base_debut
@@ -2661,25 +2050,22 @@ class GUI():
                 + "% of the overall)"
             )
             opa = []
-            self.__y_train = []
-            for i in range(len(fig2.data[0].x)):
+            for i in range(len(self.fig2.data[0].x)):
                 if i in les_points:
                     opa.append(1)
-                    self.__y_train.append(1)
                 else:
                     opa.append(0.1)
-                    self.__y_train.append(0)
-            with fig2.batch_update():
-                fig2.data[0].marker.opacity = opa
-            with fig1.batch_update():
-                fig1.data[0].marker.opacity = opa
+            with self.fig2.batch_update():
+                self.fig2.data[0].marker.opacity = opa
+            with self.fig1.batch_update():
+                self.fig1.data[0].marker.opacity = opa
 
             X_train = self.atk.dataset.X.copy()
-            self.__SHAP_train = self.__explanatory_values.copy()
+            self.__SHAP_train = self.atk.dataset.explain[self.__explanation].copy()
 
             X_mean = (
                 pd.DataFrame(
-                    X_train.iloc[self.selection, :].mean(axis=0).values.reshape(1, -1),
+                    X_train.iloc[self.selection.indexes, :].mean(axis=0).values.reshape(1, -1),
                     columns=X_train.columns,
                 )
                 .round(2)
@@ -2695,7 +2081,7 @@ class GUI():
             X_mean = pd.concat([X_mean, X_mean_tot], axis=0)
             SHAP_mean = (
                 pd.DataFrame(
-                    self.__SHAP_train.iloc[self.selection, :]
+                    self.__SHAP_train.iloc[self.selection.indexes, :]
                     .mean(axis=0)
                     .values.reshape(1, -1),
                     columns=self.__SHAP_train.columns,
@@ -2719,14 +2105,14 @@ class GUI():
                 display(HTML("<h5>Average point of the selection :<h5>"))
                 display(HTML(X_mean.to_html()))
                 display(HTML("<h5>Points selected :<h5>"))
-                display(HTML(X_train.iloc[self.selection, :].to_html(index=False)))
+                display(HTML(X_train.iloc[self.selection.indexes, :].to_html(index=False)))
             with out_selec_SHAP:
                 clear_output()
                 display(HTML("<h4> Explanatory Space </h4>"))
                 display(HTML("<h5>Average point of the selection :<h5>"))
                 display(HTML(SHAP_mean.to_html()))
                 display(HTML("<h5>Points selected :<h5>"))
-                display(HTML(self.__SHAP_train.iloc[self.selection, :].to_html(index=False)))
+                display(HTML(self.__SHAP_train.iloc[self.selection.indexes, :].to_html(index=False)))
 
         # function that is called when validating a tile to add it to the set of regions
         def fonction_validation_une_tuile(*args):
@@ -2770,7 +2156,7 @@ class GUI():
                 self.__list_of_regions = _conflict_handler(self.__list_of_regions, nouvelle_tuile)
                 self.__list_of_regions.append(nouvelle_tuile)
             for i in range(len(self.__color_regions)):
-                if i in self.selection:
+                if i in self.selection.indexes:
                     self.__color_regions[i] = len(self.__list_of_regions)
 
             toute_somme = 0
@@ -2907,18 +2293,18 @@ class GUI():
         valider_une_region.on_event("click", fonction_validation_une_tuile)
         button_valider_skope.on_event("click", fonction_validation_skope)
 
-        fig1.data[0].on_selection(selection_fn)
-        fig2.data[0].on_selection(selection_fn)
+        self.fig1.data[0].on_selection(selection_fn)
+        self.fig2.data[0].on_selection(selection_fn)
 
         def fonction_fig_size(*args):
-            with fig1.batch_update():
-                fig1.layout.width = int(fig_size.v_model)
-            with fig2.batch_update():
-                fig2.layout.width = int(fig_size.v_model)
-            with fig1_3D.batch_update():
-                fig1_3D.layout.width = int(fig_size.v_model)
-            with fig2_3D.batch_update():
-                fig2_3D.layout.width = int(fig_size.v_model)
+            with self.fig1.batch_update():
+                self.fig1.layout.width = int(fig_size.v_model)
+            with self.fig2.batch_update():
+                self.fig2.layout.width = int(fig_size.v_model)
+            with self.fig1_3D.batch_update():
+                self.fig1_3D.layout.width = int(fig_size.v_model)
+            with self.fig2_3D.batch_update():
+                self.fig2_3D.layout.width = int(fig_size.v_model)
             for i in range(len(all_histograms)):
                 with all_histograms[i].batch_update():
                     all_histograms[i].layout.width = 0.9 * int(fig_size.v_model)
@@ -3074,7 +2460,7 @@ class GUI():
                 width=0.9 * int(fig_size.v_model),
             )
             new_essaim.update_yaxes(visible=False, showticklabels=False)
-            [new_y, marker] = fonction_beeswarm_shap(colonne)
+            [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, colonne)
             new_essaim.data[0].y = new_y
             new_essaim.data[0].x = self.__explanatory_values[colonne_shap]
             new_essaim.data[0].marker = marker
@@ -3094,7 +2480,7 @@ class GUI():
 
             def new_changement_couleur_essaim_shap(*args):
                 if new_choix_couleur_essaim.children[1].value == False:
-                    marker = fonction_beeswarm_shap(self.__all_rules[len(self.__all_rules) - 1][2])[1]
+                    marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[len(self.__all_rules) - 1][2])[1]
                     new_essaim.data[0].marker = marker
                     new_essaim.update_traces(marker=dict(showscale=True))
                 else:
@@ -3353,23 +2739,20 @@ class GUI():
         ]
 
         def fonction_reinit_opa(*args):
-            with fig1.batch_update():
-                fig1.data[0].marker.opacity = 1
-            with fig2.batch_update():
-                fig2.data[0].marker.opacity = 1
+            with self.fig1.batch_update():
+                self.fig1.data[0].marker.opacity = 1
+            with self.fig2.batch_update():
+                self.fig2.data[0].marker.opacity = 1
 
         bouton_reinit_opa.on_event("click", fonction_reinit_opa)
 
-        items = [{'text': "SHAP", 'disabled': True},
+        items = [{'text': "Imported", 'disabled': True},
+                {'text': "SHAP", 'disabled': True},
                 {'text': "LIME", 'disabled': True}]
-        if type(self.explanation) != str:
-            items = [{'text': "Imported", 'disabled': False}] + items
-            item_default = "Imported"
-        else :
-            item_default = self.explanation
-
+        
         for item in items:
-            if item['text'] == item_default:
+            if self.atk.dataset.explain[item['text']] is not None:
+                item_default = item['text']
                 item['disabled'] = False
 
         choose_explanation = v.Select(
@@ -3382,26 +2765,15 @@ class GUI():
         )
 
         def fonction_choose_explanation(widget, event, data):
-            exp_val = eval('self.atk.dataset.explain[\"'+data+'\"]')
-            if self.dim_red['EE'][self.__explanation][self.__projection] == None:
+            self.__explanation = data
+            exp_val = self.atk.dataset.explain[data]
+            if self.dim_red['EE'][self.__explanation][self.__projectionEE] == None:
+                out_loading2.layout.visibility = "visible"
                 dim_red = compute.DimensionalityReduction(EE_proj.v_model, True)
-                self.dim_red['EE'][self.__explanation][self.__projection] = [dim_red.compute(exp_val, 2), dim_red.compute(exp_val, 3)]
+                self.dim_red['EE'][self.__explanation][self.__projectionEE] = [dim_red.compute(exp_val, 2), dim_red.compute(exp_val, 3)]
+                out_loading2.layout.visibility = "hidden"
+            compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
-            with fig1.batch_update():
-                fig1.data[0].x = self.dim_red['EV'][self.__projection][0][0]
-                fig1.data[0].y = self.dim_red['EV'][self.__projection][0][1]
-            with fig1_3D.batch_update():
-                fig1_3D.data[0].x = self.dim_red['EV'][self.__projection][1][0]
-                fig1_3D.data[0].y = self.dim_red['EV'][self.__projection][1][1]
-                fig1_3D.data[0].z = self.dim_red['EV'][self.__projection][0][2]
-            with fig2.batch_update():
-                fig2.data[0].x = self.dim_red['EE'][self.__explanation][self.__projection][0][0]
-                fig2.data[0].y = self.dim_red['EE'][self.__explanation][self.__projection][0][1]
-            with fig2_3D.batch_update():
-                fig2_3D.data[0].x = self.dim_red['EE'][self.__explanation][self.__projection][1][0]
-                fig2_3D.data[0].y = self.dim_red['EE'][self.__explanation][self.__projection][1][1]
-                fig2_3D.data[0].z = self.dim_red['EE'][self.__explanation][self.__projection][0][2]
-        
         choose_explanation.on_event("change", fonction_choose_explanation)
 
         def prog_other(titre):
@@ -3441,12 +2813,12 @@ class GUI():
         new_prog_SHAP = prog_other("SHAP")
         new_prog_LIME = prog_other("LIME")
 
-        if self.calculus == True:
-            if self.explanation == "SHAP":
+        if self.__calculus == True:
+            if self.__explanation == "SHAP":
                 new_prog_SHAP.children[1].v_model = 100
                 new_prog_SHAP.children[2].v_model = "Computations already done !"
                 new_prog_SHAP.children[-1].disabled = True
-            elif self.explanation == "LIME":
+            elif self.__explanation == "LIME":
                 new_prog_LIME.children[1].v_model = 100
                 new_prog_LIME.children[2].v_model = "Computations already done !"
                 new_prog_LIME.children[-1].disabled = True
@@ -3810,7 +3182,7 @@ class GUI():
             dictio["X"] = self.atk.dataset.X.iloc[self.__list_of_regions[i], :].reset_index(
                 drop=True
             )
-            dictio["y"] = y.iloc[self.__list_of_regions[i]].reset_index(drop=True)
+            dictio["y"] = self.atk.dataset.y.iloc[self.__list_of_regions[i]].reset_index(drop=True)
             dictio["indices"] = self.__list_of_regions[i]
             dictio["SHAP"] = self.atk.dataset.explain["SHAP"].iloc[self.__list_of_regions[i], :].reset_index(
                 drop=True

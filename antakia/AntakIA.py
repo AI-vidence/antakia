@@ -55,11 +55,9 @@ class AntakIA():
         print("Xplainer object")
 
     def startGUI(self,
-                explanation: str = "SHAP",
-                X_all: pd.DataFrame = None,
-                default_projection: str = "PaCMAP",
+                explanation: str = None,
+                projection: str = "PaCMAP",
                 sub_models: list = None,
-                save_regions: list = None,
                 display = True) -> GUI:
         """
         Function that starts the interface.
@@ -88,6 +86,6 @@ class AntakIA():
         Gui object
             The Gui object that contains the interface. Displayed if display = True.
         """
-        self.gui = GUI(self, explanation, X_all, default_projection, sub_models, save_regions)
+        self.gui = GUI(self, explanation, projection, sub_models)
         if display:
             self.gui.display()

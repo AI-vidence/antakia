@@ -78,6 +78,18 @@ pip install antakia
 
 <!-- V-env -->
 
+### :house: Local installation
+
+Clone the repo and create a virtual environment!
+
+```
+git clone URL Github
+cd antaktia  
+python3.10 -m venv .
+source bin/activate
+pip install -r requirements.txt
+```
+
 ### :whale: Installation with docker
 
 Be sure to have a Docker engine running on your computer.
