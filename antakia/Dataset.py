@@ -9,7 +9,7 @@ from sklearn.preprocessing import StandardScaler
 class Dataset():
     """
     Dataset object.
-    This object contains the data to explain.
+    This object contains the data to explain !
     """
 
     def __init__(self, X:pd.DataFrame = None, model = None, csv:str = None, explain: pd.DataFrame = None, y:pd.Series = None, y_pred:pd.Series = None):
