@@ -137,7 +137,7 @@ class GUI():
         self.__save_rules = None
         self.__other_columns = None
         self.__valider_bool = False
-        self.__SHAP_train = None # class Dataset ? Intêret ? À discuter !
+        self.__SHAP_train = None
         self.__model_choice = None
         self.__Y_auto = None
         self.__all_tiles_rules = []
@@ -772,7 +772,7 @@ class GUI():
             if self.dim_red["EE"][self.__explanation][EE_proj.v_model] is None:
                 out_loading2.layout.visibility = "visible"
                 dim_red_compute = compute.DimensionalityReduction(EE_proj.v_model, True)
-                self.dim_red["EE"][self.__explanation][EE_proj.v_model] = [dim_red_compute.compute(self.atk.dataset.X_scaled, 2), dim_red_compute.compute(self.atk.dataset.X_scaled, 3)]
+                self.dim_red["EE"][self.__explanation][EE_proj.v_model] = [dim_red_compute.compute(self.atk.dataset.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.dataset.explain[self.__explanation], 3)]
                 out_loading2.layout.visibility = "hidden"
 
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
@@ -2479,43 +2479,9 @@ class GUI():
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
         choose_explanation.on_event("change", fonction_choose_explanation)
-
-        def prog_other(titre):
-            progress_other = v.ProgressLinear(
-                style_="width: 80%",
-                v_model=0,
-                color="primary",
-                height="15",
-                striped=True,
-            )
-            widget = v.Col(
-                class_="d-flex flex-column align-center",
-                children=[
-                        v.Html(
-                            tag="h3",
-                            class_="mb-3",
-                            children=["Compute " + titre + " values"],
-                    ),
-                    progress_other,
-                    v.TextField(
-                        class_="w-100",
-                        style_="width: 100%",
-                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
-                        readonly=True,
-                    ),
-                    v.Btn(
-                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"],
-                        class_="ma-2 ml-6 pa-3",
-                        elevation="3",
-                        v_model=titre,
-                        color="primary",
-                    ),
-                ],
-            )
-            return widget
         
-        new_prog_SHAP = prog_other("SHAP")
-        new_prog_LIME = prog_other("LIME")
+        new_prog_SHAP = gui_elements.prog_other("SHAP")
+        new_prog_LIME = gui_elements.prog_other("LIME")
 
         if self.__calculus == True:
             if self.__explanation == "SHAP":
@@ -2553,7 +2519,7 @@ class GUI():
             choose_explanation.items = choose_explanation.items[:-1]
 
         def ok_LIME(*args):
-            self.atk.dataset.explain["SHAP"] = self.__compute_LIME.value
+            self.atk.dataset.explain["LIME"] = self.__compute_LIME.value
             items = choose_explanation.items.copy()
             for item in items:
                 if item['text'] == "LIME":

@@ -72,6 +72,40 @@ def TotalProgress(texte, element):
         )
     return widget
 
+def prog_other(titre):
+    progress_other = v.ProgressLinear(
+        style_="width: 80%",
+        v_model=0,
+        color="primary",
+        height="15",
+        striped=True,
+    )
+    widget = v.Col(
+        class_="d-flex flex-column align-center",
+        children=[
+                v.Html(
+                    tag="h3",
+                    class_="mb-3",
+                    children=["Compute " + titre + " values"],
+            ),
+            progress_other,
+            v.TextField(
+                class_="w-100",
+                style_="width: 100%",
+                v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                readonly=True,
+            ),
+            v.Btn(
+                children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"],
+                class_="ma-2 ml-6 pa-3",
+                elevation="3",
+                v_model=titre,
+                color="primary",
+            ),
+        ],
+    )
+    return widget
+
 def SliderParam(v_model, min, max, step, label):
     widget = v.Layout(
             class_="mt-3",
