@@ -84,7 +84,7 @@ Clone the repo and create a virtual environment!
 
 ```
 git clone https://github.com/AI-vidence/antakia.git
-cd antaktia
+cd antakia
 python3.10 -m venv .
 source bin/activate
 pip install -e .
