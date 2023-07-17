@@ -13,6 +13,8 @@ from importlib.resources import files
 import json
 import plotly.graph_objects as go
 
+from copy import deepcopy
+
 import antakia._compute as compute
 
 def add_tooltip(widget, text):
@@ -91,13 +93,13 @@ def color_choice():
             v.Btn(
                 icon=True,
                 children=[v.Icon(children=["mdi-alpha-y-circle-outline"])],
-                value="Y",
+                value="y",
                 v_model=True,
             ),
             v.Btn(
                 icon=True,
                 children=[v.Icon(children=["mdi-alpha-y-circle"])],
-                value="Y^",
+                value="y^",
                 v_model=True,
             ),
             v.Btn(
@@ -563,7 +565,7 @@ def slider_skope():
         v_model=[-1, 1],
         min=-10e10,
         max=10e10,
-        step=1,
+        step=0.01,
     )
 
     bout_temps_reel_graph1 = v.Checkbox(
@@ -574,7 +576,7 @@ def slider_skope():
         children=[
             v.TextField(
                 style_="max-width:100px",
-                v_model=slider_skope1.v_model[0] / 100,
+                v_model=slider_skope1.v_model[0],
                 hide_details=True,
                 type="number",
                 density="compact",
@@ -582,7 +584,7 @@ def slider_skope():
             slider_skope1,
             v.TextField(
                 style_="max-width:100px",
-                v_model=slider_skope1.v_model[1] / 100,
+                v_model=slider_skope1.v_model[1],
                 hide_details=True,
                 type="number",
                 density="compact",
@@ -618,7 +620,9 @@ def create_histograms(nombre_bins, fig_size):
     histogram1.add_trace(
         go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
     )
-    return [histogram1]*3
+    histogram2 = deepcopy(histogram1)
+    histogram3 = deepcopy(histogram2)
+    return [histogram1, histogram2, histogram3]
 
 def create_beeswarms(gui, exp, fig_size):
     choix_couleur_essaim1 = v.Row(
@@ -726,3 +730,28 @@ def accordion_skope(texte, dans_accordion):
         ],
     )
     return widget
+
+def generate_rule_card(chaine):
+    chaine_carac = str(chaine).split()
+    taille = int(len(chaine_carac) / 5)
+    l = []
+    for i in range(taille):
+        l.append(
+            v.CardText(
+                children=[
+                    v.Row(
+                        class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
+                        children=[
+                            chaine_carac[5 * i],
+                            v.Icon(children=["mdi-less-than-or-equal"]),
+                            chaine_carac[5 * i + 2],
+                            v.Icon(children=["mdi-less-than-or-equal"]),
+                            chaine_carac[5 * i + 4],
+                        ],
+                    )
+                ]
+            )
+        )
+        if i != taille - 1:
+            l.append(v.Divider())
+    return l

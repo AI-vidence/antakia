@@ -125,9 +125,10 @@ def update_figures(gui, exp, projEV, projEE):
         gui.fig2_3D.data[0].x, gui.fig2_3D.data[0].y, gui.fig2_3D.data[0].z = gui.dim_red['EE'][exp][projEE][1][0], gui.dim_red['EE'][exp][projEE][1][1], gui.dim_red['EE'][exp][projEE][1][2]
 
 def fonction_beeswarm_shap(gui, exp, nom_colonne):
-    X = gui.dataset.X
-    Exp = gui.dataset.explain[exp]
-    y = gui.dataset.y_pred
+    X = gui.atk.dataset.X
+    Exp = gui.atk.dataset.explain[exp]
+    y = gui.atk.dataset.y_pred
+    
     # redefinition de la figure beeswarm de shap
     def positions_ordre_croissant(lst):
         positions = list(range(len(lst)))  # Create a list of initial positions
@@ -136,7 +137,7 @@ def fonction_beeswarm_shap(gui, exp, nom_colonne):
         for i in range(len(positions)):
             l.append(positions.index(i))  # Sort positions by list items
         return l
-
+    
     nom_colonne_shap = nom_colonne + "_shap"
     y_histo_shap = [0] * len(Exp)
     nombre_div = 60

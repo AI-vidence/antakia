@@ -138,14 +138,11 @@ class GUI():
         self.__other_columns = None
         self.__valider_bool = False
         self.__SHAP_train = None # class Dataset ? Intêret ? À discuter !
-        a = [0] * 10
-        self.__all_rules = [a, a, a, a, a, a, a, a, a, a]
         self.__model_choice = None
         self.__Y_auto = None
         self.__all_tiles_rules = []
         self.__result_dyadic_clustering = None
         self.__score_models = []
-        self.__explanatory_values = None
         self.__table_save = None
 
     def display(self):
@@ -946,6 +943,10 @@ class GUI():
         # we define the histograms
         [histogram1, histogram2, histogram3] = gui_elements.create_histograms(nombre_bins, fig_size.v_model)
 
+        histogram1 = deepcopy(histogram1)
+        histogram2 = deepcopy(histogram2)
+        histogram3 = deepcopy(histogram3)
+
         all_histograms = [histogram1, histogram2, histogram3]
 
         # definitions of the different color choices for the swarm
@@ -962,12 +963,12 @@ class GUI():
 
         def changement_couleur_essaim_shap1(*args):
             if choix_couleur_essaim1.children[1].v_model == False:
-                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[0][2])[1]
+                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[0][2])[1]
                 essaim1.data[0].marker = marker
                 essaim1.update_traces(marker=dict(showscale=True))
             else:
                 modifier_tous_histograms(
-                    slider_skope1.v_model[0] / 100, slider_skope1.v_model[1] / 100, 0
+                    slider_skope1.v_model[0]  , slider_skope1.v_model[1]  , 0
                 )
                 essaim1.update_traces(marker=dict(showscale=False))
 
@@ -977,12 +978,12 @@ class GUI():
 
         def changement_couleur_essaim_shap2(*args):
             if choix_couleur_essaim2.children[1].v_model == False:
-                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[1][2])[1]
+                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[1][2])[1]
                 essaim2.data[0].marker = marker
                 essaim2.update_traces(marker=dict(showscale=True))
             else:
                 modifier_tous_histograms(
-                    slider_skope2.v_model[0] / 100, slider_skope2.v_model[1] / 100, 1
+                    slider_skope2.v_model[0]  , slider_skope2.v_model[1]  , 1
                 )
             essaim2.update_traces(marker=dict(showscale=False))
 
@@ -992,12 +993,12 @@ class GUI():
 
         def changement_couleur_essaim_shap3(*args):
             if choix_couleur_essaim3.children[1].v_model == False:
-                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[2][2])[1]
+                marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[2][2])[1]
                 essaim3.data[0].marker = marker
                 essaim3.update_traces(marker=dict(showscale=True))
             else:
                 modifier_tous_histograms(
-                    slider_skope3.v_model[0] / 100, slider_skope3.v_model[1] / 100, 2
+                    slider_skope3.v_model[0]  , slider_skope3.v_model[1]  , 2
                 )
                 essaim3.update_traces(marker=dict(showscale=False))
 
@@ -1052,19 +1053,18 @@ class GUI():
         # allows you to take the set of rules and modify the graph so that it responds to everything!
         def tout_modifier_graphique():
             nouvelle_tuile = self.atk.dataset.X[
-                (self.atk.dataset.X[self.__all_rules[0][2]] >= self.__all_rules[0][0])
-                & (self.atk.dataset.X[self.__all_rules[0][2]] <= self.__all_rules[0][4])
+                (self.atk.dataset.X[self.selection.rules[0][2]] >= self.selection.rules[0][0])
+                & (self.atk.dataset.X[self.selection.rules[0][2]] <= self.selection.rules[0][4])
             ].index
-            for i in range(1, len(self.__all_rules)):
+            for i in range(1, len(self.selection.rules)):
                 X_temp = self.atk.dataset.X[
-                    (self.atk.dataset.X[self.__all_rules[i][2]] >= self.__all_rules[i][0])
-                    & (self.atk.dataset.X[self.__all_rules[i][2]] <= self.__all_rules[i][4])
+                    (self.atk.dataset.X[self.selection.rules[i][2]] >= self.selection.rules[i][0])
+                    & (self.atk.dataset.X[self.selection.rules[i][2]] <= self.selection.rules[i][4])
                 ].index
                 nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
             y_shape_skope = []
             y_color_skope = []
             y_opa_skope = []
-            self.selection.indexes = Potato(nouvelle_tuile, self.atk.dataset)
             for i in range(len(self.atk.dataset.X)):
                 if i in nouvelle_tuile:
                     y_shape_skope.append("circle")
@@ -1086,33 +1086,33 @@ class GUI():
         # allows to modify all the histograms according to the rules
         def modifier_tous_histograms(value_min, value_max, indice):
             new_list_tout = self.atk.dataset.X.index[
-                self.atk.dataset.X[self.__all_rules[indice][2]].between(value_min, value_max)
+                self.atk.dataset.X[self.selection.rules[indice][2]].between(value_min, value_max)
             ].tolist()
-            for i in range(len(self.__all_rules)):
-                min = self.__all_rules[i][0]
-                max = self.__all_rules[i][4]
+            for i in range(len(self.selection.rules)):
+                min = self.selection.rules[i][0]
+                max = self.selection.rules[i][4]
                 if i != indice:
                     new_list_temp = self.atk.dataset.X.index[
-                        self.atk.dataset.X[self.__all_rules[i][2]].between(min, max)
+                        self.atk.dataset.X[self.selection.rules[i][2]].between(min, max)
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
-            for i in range(len(self.__all_rules)):
+            for i in range(len(self.selection.rules)):
                 with all_histograms[i].batch_update():
-                    all_histograms[i].data[2].x = self.atk.dataset.X[self.__all_rules[i][2]][new_list_tout]
+                    all_histograms[i].data[2].x = self.atk.dataset.X[self.selection.rules[i][2]][new_list_tout]
                 if all_color_choosers_beeswarms[i].children[1].v_model:
                     with all_beeswarms[i].batch_update():
-                        y_color = [0] * len(self.__explanatory_values)
+                        y_color = [0] * len(self.atk.dataset.explain[self.__explanation])
                         if i == indice:
                             indices = self.atk.dataset.X.index[
-                                self.atk.dataset.X[self.__all_rules[i][2]].between(value_min, value_max)
+                                self.atk.dataset.X[self.selection.rules[i][2]].between(value_min, value_max)
                             ].tolist()
                         else:
                             indices = self.atk.dataset.X.index[
-                                self.atk.dataset.X[self.__all_rules[i][2]].between(
-                                    self.__all_rules[i][0], self.__all_rules[i][4]
+                                self.atk.dataset.X[self.selection.rules[i][2]].between(
+                                    self.selection.rules[i][0], self.selection.rules[i][4]
                                 )
                             ].tolist()
-                        for j in range(len(self.__explanatory_values)):
+                        for j in range(len(self.atk.dataset.explain[self.__explanation])):
                             if j in new_list_tout:
                                 y_color[j] = "blue"
                             elif j in indices:
@@ -1123,192 +1123,69 @@ class GUI():
 
         # when the value of a slider is modified, the histograms and graphs are modified
         def on_value_change_skope1(*b1):
-            slider_text_comb1.children[0].v_model = slider_skope1.v_model[0] / 100
-            slider_text_comb1.children[2].v_model = slider_skope1.v_model[1] / 100
+            slider_text_comb1.children[0].v_model = slider_skope1.v_model[0]
+            slider_text_comb1.children[2].v_model = slider_skope1.v_model[1]
             new_list = [
                 g
-                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[0]].values)
-                if g >= slider_skope1.v_model[0] / 100
-                and g <= slider_skope1.v_model[1] / 100
+                for g in list(self.atk.dataset.X[self.selection.rules[0][2]].values)
+                if g >= slider_skope1.v_model[0]
+                and g <= slider_skope1.v_model[1]
             ]
             with histogram1.batch_update():
                 histogram1.data[1].x = new_list
             if self.__valider_bool:
                 modifier_tous_histograms(
-                    slider_skope1.v_model[0] / 100, slider_skope1.v_model[1] / 100, 0
+                    slider_skope1.v_model[0], slider_skope1.v_model[1], 0
                 )
             if bout_temps_reel_graph1.v_model:
-                self.__all_rules[0][0] = float(deepcopy(slider_skope1.v_model[0] / 100))
-                self.__all_rules[0][4] = float(deepcopy(slider_skope1.v_model[1] / 100))
-                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+                #self.selection.rules[0][0] = float(deepcopy(slider_skope1.v_model[0]))
+                #self.selection.rules[0][4] = float(deepcopy(slider_skope1.v_model[1]))
+                self.selection.rules[0][0] = float(deepcopy(slider_skope1.v_model[0]))
+                self.selection.rules[0][4] = float(deepcopy(slider_skope1.v_model[1]))
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 tout_modifier_graphique()
 
         def on_value_change_skope2(*b):
-            slider_text_comb2.children[0].v_model = slider_skope2.v_model[0] / 100
-            slider_text_comb2.children[2].v_model = slider_skope2.v_model[1] / 100
+            slider_text_comb2.children[0].v_model = slider_skope2.v_model[0]  
+            slider_text_comb2.children[2].v_model = slider_skope2.v_model[1]  
             new_list = [
                 g
-                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[1]].values)
-                if g >= slider_skope2.v_model[0] / 100
-                and g <= slider_skope2.v_model[1] / 100
+                for g in list(self.atk.dataset.X[self.selection.rules[1][2]].values)
+                if g >= slider_skope2.v_model[0]  
+                and g <= slider_skope2.v_model[1]  
             ]
             with histogram2.batch_update():
                 histogram2.data[1].x = new_list
             if self.__valider_bool:
                 modifier_tous_histograms(
-                    slider_skope2.v_model[0] / 100, slider_skope2.v_model[1] / 100, 1
+                    slider_skope2.v_model[0]  , slider_skope2.v_model[1]  , 1
                 )
             if bout_temps_reel_graph2.v_model:
-                self.__all_rules[1][0] = float(deepcopy(slider_skope2.v_model[0] / 100))
-                self.__all_rules[1][4] = float(deepcopy(slider_skope2.v_model[1] / 100))
-                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+                self.selection.rules[1][0] = float(deepcopy(slider_skope2.v_model[0]  ))
+                self.selection.rules[1][4] = float(deepcopy(slider_skope2.v_model[1]  ))
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 tout_modifier_graphique()
 
         def on_value_change_skope3(*b):
-            slider_text_comb3.children[0].v_model = slider_skope3.v_model[0] / 100
-            slider_text_comb3.children[2].v_model = slider_skope3.v_model[1] / 100
+            slider_text_comb3.children[0].v_model = slider_skope3.v_model[0]  
+            slider_text_comb3.children[2].v_model = slider_skope3.v_model[1]  
             new_list = [
                 g
-                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[2]].values)
-                if g >= slider_skope3.v_model[0] / 100
-                and g <= slider_skope3.v_model[1] / 100
+                for g in list(self.atk.dataset.X[self.selection.rules[2][2]].values)
+                if g >= slider_skope3.v_model[0]  
+                and g <= slider_skope3.v_model[1]  
             ]
             with histogram3.batch_update():
                 histogram3.data[1].x = new_list
             if self.__valider_bool:
                 modifier_tous_histograms(
-                    slider_skope3.v_model[0] / 100, slider_skope3.v_model[1] / 100, 2
+                    slider_skope3.v_model[0]  , slider_skope3.v_model[1]  , 2
                 )
             if bout_temps_reel_graph3.v_model:
-                self.__all_rules[2][0] = float(deepcopy(slider_skope3.v_model[0] / 100))
-                self.__all_rules[2][4] = float(deepcopy(slider_skope3.v_model[1] / 100))
-                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+                self.selection.rules[2][0] = float(deepcopy(slider_skope3.v_model[0]  ))
+                self.selection.rules[2][4] = float(deepcopy(slider_skope3.v_model[1]  ))
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 tout_modifier_graphique()
-
-        # allows you to display certain values ​​correctly (here su skope du shap)
-        def transform_string(skope_result):
-            chaine_carac = str(skope_result).split()
-            regles = []
-            regles.append(chaine_carac[0][2:] + " ")
-            regles.append(chaine_carac[1] + " ")
-            if chaine_carac[2][-1] == ",":
-                regles.append(str(round(float(chaine_carac[2][:-2]), 3)))
-            else:
-                regles.append(str(round(float(chaine_carac[2]), 3)))
-            ii = 3
-            while ii < len(chaine_carac):
-                if chaine_carac[ii] == "and":
-                    regles.append("\n")
-                    regles.append(chaine_carac[ii + 1] + " ")
-                    regles.append(chaine_carac[ii + 2] + " ")
-                    if chaine_carac[ii + 3][-1] == ",":
-                        regles.append(str(round(float(chaine_carac[ii + 3][:-2]), 3)))
-                    else:
-                        regles.append(str(round(float(chaine_carac[ii + 3]), 3)))
-                else:
-                    break
-                ii += 4
-            precision = []
-            precision.append(chaine_carac[ii][1:-1])
-            precision.append(chaine_carac[ii + 1][:-1])
-            precision.append(chaine_carac[ii + 2][:-2])
-            return ["".join(regles), precision]
-
-        def transform_string_shap(skope_result):
-            chaine_carac = str(skope_result).split()
-            regles = []
-            if chaine_carac[1] == "<" or chaine_carac[1] == "<=":
-                regles.append("min <= ")
-                regles.append(chaine_carac[0][2:] + " ")
-                regles.append(chaine_carac[1] + " ")
-                if chaine_carac[2][-1] == ",":
-                    regles.append(str(round(float(chaine_carac[2][:-2]), 3)))
-                else:
-                    regles.append(str(round(float(chaine_carac[2]), 3)))
-            else:
-                if chaine_carac[2][-1] == ",":
-                    regles.append(str(round(float(chaine_carac[2][:-2]), 3)))
-                else:
-                    regles.append(str(round(float(chaine_carac[2]), 3)))
-                regles.append(" <= ")
-                regles.append(chaine_carac[0][2:] + " ")
-                regles.append(chaine_carac[1] + " ")
-                regles.append("max")
-
-            ii = 3
-            while ii < len(chaine_carac):
-                if chaine_carac[ii] == "and":
-                    regles.append(" ")
-                    if chaine_carac[ii + 2] == "<" or chaine_carac[ii + 2] == "<=":
-                        regles.append("min <= ")
-                        regles.append(chaine_carac[ii + 1] + " ")
-                        regles.append(chaine_carac[ii + 2] + " ")
-                        if chaine_carac[ii + 3][-1] == ",":
-                            regles.append(
-                                str(round(float(chaine_carac[ii + 3][:-2]), 3))
-                            )
-                        else:
-                            regles.append(str(round(float(chaine_carac[ii + 3]), 3)))
-                    else:
-                        if chaine_carac[ii + 3][-1] == ",":
-                            regles.append(
-                                str(round(float(chaine_carac[ii + 3][:-2]), 3))
-                            )
-                        else:
-                            regles.append(str(round(float(chaine_carac[ii + 3]), 3)))
-                        regles.append(" <= ")
-                        regles.append(chaine_carac[ii + 1] + " ")
-                        regles.append(chaine_carac[ii + 2] + " ")
-                        regles.append("max")
-                else:
-                    break
-                ii += 4
-            precision = []
-            precision.append(chaine_carac[ii][1:-1])
-            precision.append(chaine_carac[ii + 1][:-1])
-            precision.append(chaine_carac[ii + 2][:-2])
-            return ["".join(regles), precision]
-
-        # function to grab skope values ​​in float, used for modification sliders!
-        def re_transform_string(chaine):
-            chaine_carac = str(chaine).split()
-            self.atk.dataset.X.columns = []
-            valeurs = []
-            symbole = []
-            for i in range(len(chaine_carac)):
-                if "<" in chaine_carac[i] or ">" in chaine_carac[i]:
-                    self.atk.dataset.X.columns.append(chaine_carac[i - 1])
-                    symbole.append(chaine_carac[i])
-                    if chaine_carac[i + 1][-1] == ",":
-                        valeurs.append(float(chaine_carac[i + 1][:-2]))
-                    else:
-                        valeurs.append(float(chaine_carac[i + 1]))
-            return [self.atk.dataset.X.columns, symbole, valeurs]
-
-        def generate_card(chaine):
-            chaine_carac = str(chaine).split()
-            taille = int(len(chaine_carac) / 5)
-            l = []
-            for i in range(taille):
-                l.append(
-                    v.CardText(
-                        children=[
-                            v.Row(
-                                class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
-                                children=[
-                                    chaine_carac[5 * i],
-                                    v.Icon(children=["mdi-less-than-or-equal"]),
-                                    chaine_carac[5 * i + 2],
-                                    v.Icon(children=["mdi-less-than-or-equal"]),
-                                    chaine_carac[5 * i + 4],
-                                ],
-                            )
-                        ]
-                    )
-                )
-                if i != taille - 1:
-                    l.append(v.Divider())
-            return l
 
         def liste_to_string_skope(liste):
             chaine = ""
@@ -1323,25 +1200,25 @@ class GUI():
 
         # commit skope changes
         def fonction_change_valider_1(*change):
-            a = deepcopy(float(slider_skope1.v_model[0] / 100))
-            b = deepcopy(float(slider_skope1.v_model[1] / 100))
-            self.__all_rules[0][0] = a
-            self.__all_rules[0][4] = b
-            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+            a = deepcopy(float(slider_skope1.v_model[0]))
+            b = deepcopy(float(slider_skope1.v_model[1]))
+            self.selection.rules[0][0] = a
+            self.selection.rules[0][4] = b
+            une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
             tout_modifier_graphique()
             fonction_scores_models(None)
 
         def fonction_change_valider_2(*change):
-            self.__all_rules[1][0] = float(slider_skope2.v_model[0] / 100)
-            self.__all_rules[1][4] = float(slider_skope2.v_model[1] / 100)
-            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+            self.selection.rules[1][0] = float(slider_skope2.v_model[0])
+            self.selection.rules[1][4] = float(slider_skope2.v_model[1])
+            une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
             tout_modifier_graphique()
             fonction_scores_models(None)
 
         def fonction_change_valider_3(*change):
-            self.__all_rules[2][0] = float(slider_skope3.v_model[0] / 100)
-            self.__all_rules[2][4] = float(slider_skope3.v_model[1] / 100)
-            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+            self.selection.rules[2][0] = float(slider_skope3.v_model[0])
+            self.selection.rules[2][4] = float(slider_skope3.v_model[1])
+            une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
             tout_modifier_graphique()
             fonction_scores_models(None)
 
@@ -1352,20 +1229,20 @@ class GUI():
         def regles_to_indices():
             liste_bool = [True] * len(self.atk.dataset.X)
             for i in range(len(self.atk.dataset.X)):
-                for j in range(len(self.__all_rules)):
-                    colonne = list(self.atk.dataset.X.columns).index(self.__all_rules[j][2])
+                for j in range(len(self.selection.rules)):
+                    colonne = list(self.atk.dataset.X.columns).index(self.selection.rules[j][2])
                     if (
-                        self.__all_rules[j][0] > self.atk.dataset.X.iloc[i, colonne]
-                        or self.atk.dataset.X.iloc[i, colonne] > self.__all_rules[j][4]
+                        self.selection.rules[j][0] > self.atk.dataset.X.iloc[i, colonne]
+                        or self.atk.dataset.X.iloc[i, colonne] > self.selection.rules[j][4]
                     ):
                         liste_bool[i] = False
             temp = [i for i in range(len(self.atk.dataset.X)) if liste_bool[i]]
             return temp
 
         def fonction_scores_models(temp):
-            if temp == None:
+            if type(temp) == type(None):
                 temp = regles_to_indices()
-            result_models = fonction_models(self.atk.dataset.X.iloc[temp, :], self.atk.dataset.y.iloc[temp])
+            result_models = fonction_models(self.atk.dataset.X.iloc[temp, :], self.atk.dataset.y.iloc[temp], self.sub_models)
             score_tot = []
             for i in range(len(self.sub_models)):
                 score_tot.append(compute.fonction_score(self.atk.dataset.y.iloc[temp], result_models[i][-2]))
@@ -1428,8 +1305,6 @@ class GUI():
             for i in range(len(self.sub_models)):
                 mods.children[i].children[0].children[1].children = str_md(i)
 
-        X_train = self.atk.dataset.X.copy()
-
         # when you click on the skope-rules button
         def fonction_validation_skope(*sender):
             loading_models.class_ = "d-flex"
@@ -1452,173 +1327,66 @@ class GUI():
                 # skope calculation for X
                 self.selection.apply_skope(self.__explanation, 0.2, 0.2)
                 # if no rule for one of the two, nothing is displayed
-                if self.success == False:
+                if self.selection.success == False:
                     texte_skopeEV.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
                     texte_skopeEE.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
-                    indices_respectent_skope = [0]
                 # otherwise we display
                 else:
-                    chaine_carac = transform_string(skope_rules_clf.rules_[0])
-                    print(chaine_carac)
+                    #chaine_carac = transform_string(skope_rules_clf.rules_[0])
                     texte_skopeEV.children[0].children[3].children = [
                         "p = "
-                        + str(np.round(float(chaine_carac[1][0]) * 100, 5))
+                        + str(self.selection.score[0])
                         + "%"
                         + " r = "
-                        + str(np.round(float(chaine_carac[1][1]) * 100, 5))
+                        + str(self.selection.score[1])
                         + "%"
                         + " ext. of the tree = "
-                        + chaine_carac[1][2]
+                        + str(self.selection.score[2])
                     ]
 
                     # there we find the values ​​of the skope to use them for the sliders
-                    self.atk.dataset.X.columns, symbole, valeurs = re_transform_string(
-                        chaine_carac[0]
-                    )
-                    self.__other_columns = [
-                        g for g in self.atk.dataset.X.columns if g not in self.atk.dataset.X.columns
-                    ]
+                    columns_rules = [self.selection.rules[i][2] for i in range(len(self.selection.rules))]
+
+                    self.__other_columns = [g for g in self.atk.dataset.X.columns if g not in columns_rules]
+
                     widget_list_add_skope.items = self.__other_columns
                     widget_list_add_skope.v_model = self.__other_columns[0]
-                    liste_val_histo = [0] * len(self.atk.dataset.X.columns)
-                    liste_index = [0] * len(self.atk.dataset.X.columns)
-                    le_top = []
-                    le_min = []
-                    self.__all_rules = []
 
-                    def f_rond(a):
-                        return np.round(a, 2)
+                    self.selection.rules = self.selection.rules
 
-                    for i in range(len(self.atk.dataset.X.columns)):
-                        une_regle = [0] * 5
-                        une_regle[2] = self.atk.dataset.X.columns[i]
-                        if symbole[i] == "<":
-                            une_regle[0] = f_rond(
-                                float(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                            )
-                            une_regle[1] = "<"
-                            une_regle[3] = "<"
-                            une_regle[4] = f_rond(float(valeurs[i]))
-                            X1 = [
-                                g
-                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
-                                if g < valeurs[i]
-                            ]
-                            X2 = [
-                                h
-                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
-                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] < valeurs[i]
-                            ]
-                            le_top.append(valeurs[i])
-                            le_min.append(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                        elif symbole[i] == ">":
-                            une_regle[0] = f_rond(float(valeurs[i]))
-                            une_regle[1] = "<"
-                            une_regle[3] = "<"
-                            une_regle[4] = f_rond(
-                                float(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                            )
-                            X1 = [
-                                g
-                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
-                                if g > valeurs[i]
-                            ]
-                            X2 = [
-                                h
-                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
-                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] > valeurs[i]
-                            ]
-                            le_min.append(valeurs[i])
-                            le_top.append(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                        elif symbole[i] == "<=":
-                            une_regle[0] = f_rond(
-                                float(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                            )
-                            une_regle[1] = "<="
-                            une_regle[3] = "<="
-                            une_regle[4] = f_rond(float(valeurs[i]))
-                            le_top.append(valeurs[i])
-                            le_min.append(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                            X1 = [
-                                g
-                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
-                                if g <= valeurs[i]
-                            ]
-                            X2 = [
-                                h
-                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
-                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] <= valeurs[i]
-                            ]
-                            liste_index[i] = X2
-                        elif symbole[i] == ">=":
-                            une_regle[0] = f_rond(float(valeurs[i]))
-                            une_regle[1] = "<="
-                            une_regle[3] = "<="
-                            une_regle[4] = f_rond(
-                                float(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                            )
-                            le_min.append(valeurs[i])
-                            le_top.append(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)))
-                            X1 = [
-                                g
-                                for g in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].values)
-                                if g >= valeurs[i]
-                            ]
-                            X2 = [
-                                h
-                                for h in list(self.atk.dataset.X[self.atk.dataset.X.columns[i]].index.values)
-                                if self.atk.dataset.X[self.atk.dataset.X.columns[i]][h] >= valeurs[i]
-                            ]
-                        liste_index[i] = X2
-                        liste_val_histo[i] = X1
-                        self.__all_rules.append(une_regle)
-                    self.__save_rules = deepcopy(self.__all_rules)
-
-                    une_carte_EV.children = generate_card(
-                        liste_to_string_skope(self.__all_rules)
+                    une_carte_EV.children = gui_elements.generate_rule_card(
+                        liste_to_string_skope(self.selection.rules)
                     )
 
-                    [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.atk.dataset.X.columns[0])
-                    essaim1.data[0].y = new_y
-                    essaim1.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[0] + "_shap"]
+                    [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[0][2])
+                    essaim1.data[0].y = deepcopy(new_y)
+                    essaim1.data[0].x = self.atk.dataset.explain[self.__explanation][columns_rules[0] + "_shap"]
                     essaim1.data[0].marker = marker
 
                     all_histograms = [histogram1]
-                    if len(self.atk.dataset.X.columns) > 1:
+                    if len(self.selection.rules) > 1:
                         all_histograms = [histogram1, histogram2]
-                        [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.atk.dataset.X.columns[1])
-                        essaim2.data[0].y = new_y
-                        essaim2.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[1] + "_shap"]
+                        [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[1][2])
+                        essaim2.data[0].y = deepcopy(new_y)
+                        essaim2.data[0].x = self.atk.dataset.explain[self.__explanation][columns_rules[1] + "_shap"]
                         essaim2.data[0].marker = marker
 
-                    if len(self.atk.dataset.X.columns) > 2:
+                    if len(self.selection.rules) > 2:
                         all_histograms = [histogram1, histogram2, histogram3]
-                        [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.atk.dataset.X.columns[2])
-                        essaim3.data[0].y = new_y
-                        essaim3.data[0].x = self.__explanatory_values[self.atk.dataset.X.columns[2] + "_shap"]
+                        [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[2][2])
+                        essaim3.data[0].y = deepcopy(new_y)
+                        essaim3.data[0].x = self.atk.dataset.explain[self.__explanation][columns_rules[2] + "_shap"]
                         essaim3.data[0].marker = marker
 
-                    if len(self.atk.dataset.X.columns) == 1:
-                        indices_respectent_skope = liste_index[0]
-                    elif len(self.atk.dataset.X.columns) == 2:
-                        indices_respectent_skope = [
-                            a for a in liste_index[0] if a in liste_index[1]
-                        ]
-                    else:
-                        indices_respectent_skope = [
-                            a
-                            for a in liste_index[0]
-                            if a in liste_index[1] and a in liste_index[2]
-                        ]
                     y_shape_skope = []
                     y_color_skope = []
                     y_opa_skope = []
                     for i in range(len(self.atk.dataset.X)):
-                        if i in indices_respectent_skope:
+                        if i in self.selection.indexes:
                             y_shape_skope.append("circle")
                             y_color_skope.append("blue")
                             y_opa_skope.append(0.5)
@@ -1629,36 +1397,29 @@ class GUI():
                     couleur_radio.v_model = "Selec actuelle"
                     fonction_changement_couleur(None)
 
-                    if len(self.atk.dataset.X.columns) == 2:
+                    accordion_skope.children = [
+                        dans_accordion1_n,
+                    ]
+                    dans_accordion1_n.children[0].children[0].children = (
+                        "X1 (" + columns_rules[0] + ")"
+                    )
+
+                    if len(columns_rules) > 1:
                         accordion_skope.children = [
                             dans_accordion1_n,
                             dans_accordion2_n,
                         ]
-                        dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + self.atk.dataset.X.columns[0] + ")"
-                        )
                         dans_accordion2_n.children[0].children[0].children = (
-                            "X2 (" + self.atk.dataset.X.columns[1] + ")"
+                            "X2 (" + columns_rules[1] + ")"
                         )
-                    elif len(self.atk.dataset.X.columns) == 3:
+                    if len(columns_rules) > 2:
                         accordion_skope.children = [
                             dans_accordion1_n,
                             dans_accordion2_n,
                             dans_accordion3_n,
                         ]
-                        dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + self.atk.dataset.X.columns[0] + ")"
-                        )
-                        dans_accordion2_n.children[0].children[0].children = (
-                            "X2 (" + self.atk.dataset.X.columns[1] + ")"
-                        )
                         dans_accordion3_n.children[0].children[0].children = (
-                            "X3 (" + self.atk.dataset.X.columns[2] + ")"
-                        )
-                    elif len(self.atk.dataset.X.columns) == 1:
-                        accordion_skope.children = [dans_accordion1_n]
-                        dans_accordion1_n.children[0].children[0].children = (
-                            "X1 (" + self.atk.dataset.X.columns[0] + ")"
+                            "X3 (" + columns_rules[2] + ")"
                         )
 
                     slider_skope1.min = -10e10
@@ -1668,122 +1429,62 @@ class GUI():
                     slider_skope3.min = -10e10
                     slider_skope3.max = 10e10
 
-                    slider_skope1.max = (
-                        round(max(list(self.atk.dataset.X[self.atk.dataset.X.columns[0]].values)), 1)
-                    ) * 100
-                    slider_skope1.min = (
-                        round(min(list(self.atk.dataset.X[self.atk.dataset.X.columns[0]].values)), 1)
-                    ) * 100
-                    slider_skope1.v_model = [
-                        round(le_min[0], 1) * 100,
-                        round(le_top[0], 1) * 100,
-                    ]
+                    slider_skope1.max = max(self.atk.dataset.X[columns_rules[0]])
+                    slider_skope1.min = min(self.atk.dataset.X[columns_rules[0]])
+                    slider_skope1.v_model = [self.selection.rules[0][0], self.selection.rules[0][-1]]
+                    [slider_text_comb1.children[0].v_model, slider_text_comb1.children[2].v_model] = [slider_skope1.v_model[0], slider_skope1.v_model[1]]
 
-                    [
-                        slider_text_comb1.children[0].v_model,
-                        slider_text_comb1.children[2].v_model,
-                    ] = [slider_skope1.v_model[0] / 100, slider_skope1.v_model[1] / 100]
+                    if len(self.selection.rules) > 1 :
+                        slider_skope2.max = max(self.atk.dataset.X[columns_rules[1]])
+                        slider_skope2.min = min(self.atk.dataset.X[columns_rules[1]])
+                        slider_skope2.v_model = [self.selection.rules[1][0], self.selection.rules[1][-1]]
+                        [slider_text_comb2.children[0].v_model, slider_text_comb2.children[2].v_model] = [slider_skope2.v_model[0],slider_skope2.v_model[1]]
 
-                    if len(self.atk.dataset.X.columns) > 1:
-                        slider_skope2.max = (
-                            max(list(self.atk.dataset.X[self.atk.dataset.X.columns[1]].values))
-                        ) * 100
-                        slider_skope2.min = (
-                            min(list(self.atk.dataset.X[self.atk.dataset.X.columns[1]].values))
-                        ) * 100
-                        slider_skope2.v_model = [
-                            round(le_min[1], 1) * 100,
-                            round(le_top[1], 1) * 100,
-                        ]
-                        [
-                            slider_text_comb2.children[0].v_model,
-                            slider_text_comb2.children[2].v_model,
-                        ] = [
-                            slider_skope2.v_model[0] / 100,
-                            slider_skope2.v_model[1] / 100,
-                        ]
-
-                    if len(self.atk.dataset.X.columns) > 2:
-                        slider_skope3.description = self.atk.dataset.X.columns[2]
-                        slider_skope3.max = (
-                            max(list(self.atk.dataset.X[self.atk.dataset.X.columns[2]].values))
-                        ) * 100
-                        slider_skope3.min = (
-                            min(list(self.atk.dataset.X[self.atk.dataset.X.columns[2]].values))
-                        ) * 100
-                        slider_skope3.v_model = [
-                            round(le_min[2], 1) * 100,
-                            round(le_top[2], 1) * 100,
-                        ]
+                    if len(self.selection.rules) > 2:
+                        slider_skope3.max = max(self.atk.dataset.X[columns_rules[2]])
+                        slider_skope3.min = min(self.atk.dataset.X[columns_rules[2]])
+                        slider_skope3.v_model = [self.selection.rules[2][0], self.selection.rules[2][-1]]
                         [
                             slider_text_comb3.children[0].v_model,
                             slider_text_comb3.children[2].v_model,
                         ] = [
-                            slider_skope3.v_model[0] / 100,
-                            slider_skope3.v_model[1] / 100,
+                            slider_skope3.v_model[0],
+                            slider_skope3.v_model[1],
                         ]
 
                     with histogram1.batch_update():
-                        histogram1.data[0].x = list(
-                            self.atk.dataset.X[re_transform_string(chaine_carac[0])[0][0]]
-                        )
-                        if len(histogram1.data) > 1:
-                            histogram1.data[1].x = liste_val_histo[0]
-
-                    if len(self.atk.dataset.X.columns) > 1:
+                        histogram1.data[0].x = list(self.atk.dataset.X[columns_rules[0]])
+                        df_respect1 = self.selection.respect_one_rule(0)
+                        histogram1.data[1].x = list(df_respect1[columns_rules[0]])
+                    if len(self.selection.rules) > 1:
                         with histogram2.batch_update():
-                            histogram2.data[0].x = list(
-                                self.atk.dataset.X[re_transform_string(chaine_carac[0])[0][1]]
-                            )
-                            if len(histogram2.data) > 1:
-                                histogram2.data[1].x = liste_val_histo[1]
-                            else:
-                                histogram2.add_trace(
-                                    go.Histogram(
-                                        x=liste_val_histo[1],
-                                        bingroup=1,
-                                        marker_color="LightSkyBlue",
-                                        opacity=0.7,
-                                    )
-                                )
-
-                    if len(self.atk.dataset.X.columns) > 2:
+                            histogram2.data[0].x = list(self.atk.dataset.X[columns_rules[1]])
+                            df_respect2 = self.selection.respect_one_rule(1)
+                            histogram2.data[1].x = list(df_respect2[columns_rules[1]])
+                    if len(self.selection.rules) > 2:
                         with histogram3.batch_update():
-                            histogram3.data[0].x = list(
-                                self.atk.dataset.X[re_transform_string(chaine_carac[0])[0][2]]
-                            )
-                            if len(histogram3.data) > 1:
-                                histogram3.data[1].x = liste_val_histo[2]
-                            else:
-                                histogram3.add_trace(
-                                    go.Histogram(
-                                        x=liste_val_histo[2],
-                                        bingroup=1,
-                                        marker_color="LightSkyBlue",
-                                        opacity=0.7,
-                                    )
-                                )
+                            histogram3.data[0].x = list(self.atk.dataset.X[columns_rules[2]])
+                            df_respect3 = self.selection.respect_one_rule(2)
+                            histogram3.data[1].x = list(df_respect3[columns_rules[2]])
 
                     modifier_tous_histograms(
                         slider_skope1.v_model[0], slider_skope1.v_model[1], 0
                     )
 
-                    chaine_carac = transform_string_shap(skope_rules_clf_shap.rules_[0])
                     texte_skopeEE.children[0].children[3].children = [
                         # str(skope_rules_clf.rules_[0])
                         # + "\n"
                         "p = "
-                        + str(np.round(float(chaine_carac[1][0]) * 100, 5))
+                        + str(self.selection.score_exp[0])
                         + "%"
                         + " r = "
-                        + str(np.round(np.round(float(chaine_carac[1][1]), 2) * 100, 5))
+                        + str(self.selection.score_exp[1])
                         + "%"
                         + " ext. of the tree ="
-                        + chaine_carac[1][2]
+                        + str(self.selection.score_exp[2])
                     ]
-                    une_carte_EE.children = generate_card(chaine_carac[0])
-                    fonction_scores_models(indices_respectent_skope)
-                    self.selection = Potato(indices_respectent_skope, self.atk.dataset)
+                    une_carte_EE.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules_exp))
+                    fonction_scores_models(self.selection.indexes)
             slider_skope1.on_event("input", on_value_change_skope1)
             slider_skope2.on_event("input", on_value_change_skope2)
             slider_skope3.on_event("input", on_value_change_skope3)
@@ -1793,7 +1494,7 @@ class GUI():
             fonction_changement_couleur(None)
 
         def reinit_skope(*b):
-            self.__all_rules = self.__save_rules
+            self.selection.rules = self.__save_rules
             fonction_validation_skope(None)
             fonction_scores_models(None)
 
@@ -2032,6 +1733,7 @@ class GUI():
             else:
                 les_points = points.point_inds
             self.selection = Potato(les_points, self.atk.dataset)
+            self.selection.state = "lasso"
             if len(les_points) == 0:
                 card_selec.children[0].children[1].children = "0 point !"
                 texte_selec.value = texte_base_debut
@@ -2128,7 +1830,7 @@ class GUI():
                     score_model = self.__score_models[self.__model_choice]
                     indice_model = self.__model_choice
                 a = [0] * 10
-                if self.__all_rules == None or self.__all_rules == [
+                if self.selection.rules == None or self.selection.rules == [
                     a,
                     a,
                     a,
@@ -2142,13 +1844,13 @@ class GUI():
                 ]:
                     return
                 nouvelle_tuile = self.atk.dataset.X[
-                    (self.atk.dataset.X[self.__all_rules[0][2]] >= self.__all_rules[0][0])
-                    & (self.atk.dataset.X[self.__all_rules[0][2]] <= self.__all_rules[0][4])
+                    (self.atk.dataset.X[self.selection.rules[0][2]] >= self.selection.rules[0][0])
+                    & (self.atk.dataset.X[self.selection.rules[0][2]] <= self.selection.rules[0][4])
                 ].index
-                for i in range(1, len(self.__all_rules)):
+                for i in range(1, len(self.selection.rules)):
                     X_temp = self.atk.dataset.X[
-                        (self.atk.dataset.X[self.__all_rules[i][2]] >= self.__all_rules[i][0])
-                        & (self.atk.dataset.X[self.__all_rules[i][2]] <= self.__all_rules[i][4])
+                        (self.atk.dataset.X[self.selection.rules[i][2]] >= self.selection.rules[i][0])
+                        & (self.atk.dataset.X[self.selection.rules[i][2]] <= self.selection.rules[i][4])
                     ].index
                     nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
                 self.__list_of_sub_models.append([nom_model, score_model, indice_model])
@@ -2156,7 +1858,7 @@ class GUI():
                 self.__list_of_regions = _conflict_handler(self.__list_of_regions, nouvelle_tuile)
                 self.__list_of_regions.append(nouvelle_tuile)
             for i in range(len(self.__color_regions)):
-                if i in self.selection.indexes:
+                if i in range(len(self.selection.indexes)):
                     self.__color_regions[i] = len(self.__list_of_regions)
 
             toute_somme = 0
@@ -2287,8 +1989,8 @@ class GUI():
 
             a = [0] * 10
             pas_avoir = [a, a, a, a, a, a, a, a, a, a]
-            if self.__all_rules != pas_avoir:
-                self.__all_tiles_rules.append(deepcopy(self.__all_rules))
+            if self.selection.rules != pas_avoir:
+                self.__all_tiles_rules.append(deepcopy(self.selection.rules))
 
         valider_une_region.on_event("click", fonction_validation_une_tuile)
         button_valider_skope.on_event("click", fonction_validation_skope)
@@ -2337,8 +2039,8 @@ class GUI():
             nouvelle_regle[1] = "<="
             nouvelle_regle[3] = "<="
             nouvelle_regle[4] = round(max(list(self.atk.dataset.X[colonne].values)), 1)
-            self.__all_rules.append(nouvelle_regle)
-            une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+            self.selection.rules.append(nouvelle_regle)
+            une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
 
             new_valider_change = v.Btn(
                 class_="ma-3",
@@ -2350,9 +2052,9 @@ class GUI():
 
             new_slider_skope = v.RangeSlider(
                 class_="ma-3",
-                v_model=[nouvelle_regle[0] * 100, nouvelle_regle[4] * 100],
-                min=nouvelle_regle[0] * 100,
-                max=nouvelle_regle[4] * 100,
+                v_model=[nouvelle_regle[0]  , nouvelle_regle[4]  ],
+                min=nouvelle_regle[0]  ,
+                max=nouvelle_regle[4]  ,
                 step=1,
                 label=nouvelle_regle[2],
             )
@@ -2398,14 +2100,16 @@ class GUI():
 
             def new_fonction_change_valider(*change):
                 ii = -1
-                for i in range(len(self.__all_rules)):
-                    if self.__all_rules[i][2] == colonne_2:
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i][2] == colonne_2:
                         ii = int(i)
-                a = deepcopy(float(new_slider_skope.v_model[0] / 100))
-                b = deepcopy(float(new_slider_skope.v_model[1] / 100))
-                self.__all_rules[ii][0] = a
-                self.__all_rules[ii][4] = b
-                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+                a = deepcopy(float(new_slider_skope.v_model[0]  ))
+                b = deepcopy(float(new_slider_skope.v_model[1]  ))
+                self.selection.rules[ii][0] = a
+                self.selection.rules[ii][4] = b
+                self.selection.rules[ii][0] = a
+                self.selection.rules[ii][4] = b
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 tout_modifier_graphique()
                 fonction_scores_models(None)
 
@@ -2419,7 +2123,7 @@ class GUI():
                 children=[
                     v.TextField(
                         style_="max-width:100px",
-                        v_model=new_slider_skope.v_model[0] / 100,
+                        v_model=new_slider_skope.v_model[0]  ,
                         hide_details=True,
                         type="number",
                         density="compact",
@@ -2427,7 +2131,7 @@ class GUI():
                     new_slider_skope,
                     v.TextField(
                         style_="max-width:100px",
-                        v_model=new_slider_skope.v_model[1] / 100,
+                        v_model=new_slider_skope.v_model[1]  ,
                         hide_details=True,
                         type="number",
                         density="compact",
@@ -2450,9 +2154,9 @@ class GUI():
             )
 
             colonne_shap = colonne + "_shap"
-            y_histo_shap = [0] * len(self.__explanatory_values)
+            y_histo_shap = [0] * len(self.atk.dataset.explain[self.__explanation])
             new_essaim = go.FigureWidget(
-                data=[go.Scatter(x=self.__explanatory_values[colonne_shap], y=y_histo_shap, mode="markers")]
+                data=[go.Scatter(x=self.atk.dataset.explain[self.__explanation][colonne_shap], y=y_histo_shap, mode="markers")]
             )
             new_essaim.update_layout(
                 margin=dict(l=0, r=0, t=0, b=0),
@@ -2462,13 +2166,13 @@ class GUI():
             new_essaim.update_yaxes(visible=False, showticklabels=False)
             [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, colonne)
             new_essaim.data[0].y = new_y
-            new_essaim.data[0].x = self.__explanatory_values[colonne_shap]
+            new_essaim.data[0].x = self.atk.dataset.explain[self.__explanation][colonne_shap]
             new_essaim.data[0].marker = marker
 
             new_choix_couleur_essaim = v.Row(
                 class_="pt-3 mt-0 ml-4",
                 children=[
-                    "Valeur de Xi",
+                    "Value of Xi",
                     v.Switch(
                         class_="ml-3 mr-2 mt-0 pt-0",
                         v_model=False,
@@ -2479,14 +2183,14 @@ class GUI():
             )
 
             def new_changement_couleur_essaim_shap(*args):
-                if new_choix_couleur_essaim.children[1].value == False:
-                    marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.__all_rules[len(self.__all_rules) - 1][2])[1]
+                if new_choix_couleur_essaim.children[1].v_model == False:
+                    marker = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[len(self.selection.rules) - 1][2])[1]
                     new_essaim.data[0].marker = marker
                     new_essaim.update_traces(marker=dict(showscale=True))
                 else:
                     modifier_tous_histograms(
-                        new_slider_skope.v_model[0] / 100,
-                        new_slider_skope.v_model[1] / 100,
+                        new_slider_skope.v_model[0]  ,
+                        new_slider_skope.v_model[1]  ,
                         0,
                     )
                     new_essaim.update_traces(marker=dict(showscale=False))
@@ -2521,25 +2225,25 @@ class GUI():
             def new_delete_skope(*b):
                 colonne_2 = new_slider_skope.label
                 ii = 0
-                for i in range(len(self.__all_rules)):
-                    if self.__all_rules[i][2] == colonne_2:
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i][2] == colonne_2:
                         ii = i
                         break
                 elements_final_accordion.pop(ii)
                 all_beeswarms_total.pop(ii)
                 all_histograms.pop(ii)
-                self.__all_rules.pop(ii)
+                self.selection.rules.pop(ii)
                 all_beeswarms.pop(ii)
                 all_color_choosers_beeswarms.pop(ii)
                 self.__other_columns = [colonne_2] + self.__other_columns
-                une_carte_EV.children = generate_card(liste_to_string_skope(self.__all_rules))
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 widget_list_add_skope.items = self.__other_columns
                 widget_list_add_skope.v_model = self.__other_columns[0]
                 accordion_skope.children = [
                     a for a in accordion_skope.children if a != new_dans_accordion_n
                 ]
                 for i in range(ii, len(accordion_skope.children)):
-                    col = "X" + str(i + 1) + " (" + self.__all_rules[i][2] + ")"
+                    col = "X" + str(i + 1) + " (" + self.selection.rules[i][2] + ")"
                     accordion_skope.children[i].titles = [col]
                 tout_modifier_graphique()
 
@@ -2570,23 +2274,23 @@ class GUI():
                 new_list = [
                     g
                     for g in list(self.atk.dataset.X[colonne].values)
-                    if g >= new_slider_skope.v_model[0] / 100
-                    and g <= new_slider_skope.v_model[1] / 100
+                    if g >= new_slider_skope.v_model[0]  
+                    and g <= new_slider_skope.v_model[1]  
                 ]
                 new_histogram.data[1].x = new_list
 
                 colonne_2 = new_slider_skope.label
                 new_list_regle = self.atk.dataset.X.index[
                     self.atk.dataset.X[colonne_2].between(
-                        new_slider_skope.v_model[0] / 100,
-                        new_slider_skope.v_model[1] / 100,
+                        new_slider_skope.v_model[0]  ,
+                        new_slider_skope.v_model[1]  ,
                     )
                 ].tolist()
                 new_list_tout = new_list_regle.copy()
-                for i in range(1, len(self.__all_rules)):
+                for i in range(1, len(self.selection.rules)):
                     new_list_temp = self.atk.dataset.X.index[
-                        self.atk.dataset.X[self.__all_rules[i][2]].between(
-                            self.__all_rules[i][0], self.__all_rules[i][4]
+                        self.atk.dataset.X[self.selection.rules[i][2]].between(
+                            self.selection.rules[i][0], self.selection.rules[i][4]
                         )
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
@@ -2595,40 +2299,40 @@ class GUI():
 
             def new_on_value_change_skope(*b1):
                 new_slider_text_comb.children[0].v_model = (
-                    new_slider_skope.v_model[0] / 100
+                    new_slider_skope.v_model[0]  
                 )
                 new_slider_text_comb.children[2].v_model = (
-                    new_slider_skope.v_model[1] / 100
+                    new_slider_skope.v_model[1]  
                 )
                 colonne_2 = new_slider_skope.label
                 ii = 0
-                for i in range(len(self.__all_rules)):
-                    if self.__all_rules[i][2] == colonne_2:
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i][2] == colonne_2:
                         ii = i
                         break
                 new_list = [
                     g
                     for g in list(self.atk.dataset.X[colonne_2].values)
-                    if g >= new_slider_skope.v_model[0] / 100
-                    and g <= new_slider_skope.v_model[1] / 100
+                    if g >= new_slider_skope.v_model[0]  
+                    and g <= new_slider_skope.v_model[1]  
                 ]
                 with new_histogram.batch_update():
                     new_histogram.data[1].x = new_list
                 if self.__valider_bool:
                     modifier_tous_histograms(
-                        new_slider_skope.v_model[0] / 100,
-                        new_slider_skope.v_model[1] / 100,
+                        new_slider_skope.v_model[0]  ,
+                        new_slider_skope.v_model[1]  ,
                         ii,
                     )
                 if new_bout_temps_reel_graph.v_model:
-                    self.__all_rules[ii - 1][0] = float(
-                        deepcopy(new_slider_skope.v_model[0] / 100)
+                    self.selection.rules[ii - 1][0] = float(
+                        deepcopy(new_slider_skope.v_model[0]  )
                     )
-                    self.__all_rules[ii - 1][4] = float(
-                        deepcopy(new_slider_skope.v_model[1] / 100)
+                    self.selection.rules[ii - 1][4] = float(
+                        deepcopy(new_slider_skope.v_model[1]  )
                     )
-                    une_carte_EV.children = generate_card(
-                        liste_to_string_skope(self.__all_rules)
+                    une_carte_EV.children = gui_elements.generate_rule_card(
+                        liste_to_string_skope(self.selection.rules)
                     )
                     tout_modifier_graphique()
 

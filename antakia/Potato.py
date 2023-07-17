@@ -8,6 +8,8 @@ from skrules import SkopeRules
 
 from antakia.Dataset import Dataset
 
+from copy import deepcopy
+
 #from antakia import Dataset
 
 
@@ -20,6 +22,7 @@ class Potato():
         """
         Constructor of the class Potato.
         """
+        self.state = None
         self.indexes = indexes
         self.dataset = dataset
         if self.dataset.X is not None:
@@ -29,10 +32,10 @@ class Potato():
         self.sub_model = None
 
         self.rules = None
-        self.score_skope = None
+        self.score = None
 
         self.rules_exp = None
-        self.score_skope_exp = None
+        self.score_exp = None
 
         self.success = None
 
@@ -46,6 +49,7 @@ class Potato():
         """
         texte = ' '.join(("Potato:\n",
                     "------------------\n",
+                    "      State:", str(self.state), "\n",
                     "      Number of points:", str(len(self.indexes)), "\n",
                     "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.dataset.X), 2))+"%", "\n"))
         return texte
@@ -62,8 +66,10 @@ class Potato():
         """
         return self.data.shape
     
-    def apply_rules(self, rules):
-        df = self.X
+    def apply_rules(self):
+        self.state = "skope-ruled"
+        rules = self.rules
+        df = self.dataset.X
         for i in range(len(rules)):
             regle1 = "df.loc[" + str(rules[i][0]) + rules[i][1] + "df['" + rules[i][2] + "']]"
             regle2 = "df.loc[" + "df['" + rules[i][2] + "']" + rules[i][3] + str(rules[i][4]) + "]"
@@ -72,12 +78,11 @@ class Potato():
         self.data = df
         self.indexes = df.index
     
-    def __transform_rules(self, rules):
+    def __transform_rules(self, rules, df):
         rules = rules[0]
         score = (round(rules[1][0], 3), round(rules[1][1], 3), rules[1][2])
         rules = rules[0]
         rules = rules.split(" and ")
-        print(rules)
         rules_list = []
         for i in range(len(rules)):
             rules[i] = rules[i].split(" ")
@@ -86,11 +91,11 @@ class Potato():
             l[1] = "<="
             l[3] = "<="
             if "<=" in rules[i] or "<" in rules[i]:
-                l[0] = round(float(min(self.dataset.X[l[2]])), 3)
+                l[0] = round(float(min(df[l[2]])), 3)
                 l[4] = round(float(rules[i][-1]), 3)
             elif ">=" in rules[i] or ">" in rules[i]:
                 l[0] = round(float(rules[i][-1]), 3)
-                l[4] = round(float(max(self.dataset.X[l[2]])),3)
+                l[4] = round(float(max(df[l[2]])),3)
             rules_list.append(l)
         return rules_list, score
 
@@ -126,7 +131,16 @@ class Potato():
             self.rules, self.score_skope, self.rules_exp, self.score_skope_exp = None, None, None, None
             self.success = False
         else :
-            self.rules, self.score_skope = self.__transform_rules(skope_rules_clf.rules_)
-            self.rules_exp, self.score_skope_exp = self.__transform_rules(skope_rules_clf_exp.rules_)
-            self.data = self.apply_rules(self.dataset.X, self.rules)
+            self.rules, self.score = self.__transform_rules(skope_rules_clf.rules_, self.dataset.X)
+            self.rules_exp, self.score_exp = self.__transform_rules(skope_rules_clf_exp.rules_, self.dataset.explain[explanation])
+            self.apply_rules()
             self.success = True
+
+    def respect_one_rule(self, indice:int):
+        rules = self.rules
+        df = deepcopy(self.dataset.X)
+        regle1 = "df.loc[" + str(rules[indice][0]) + rules[indice][1] + "df['" + rules[indice][2] + "']]"
+        regle2 = "df.loc[" + "df['" + rules[indice][2] + "']" + rules[indice][3] + str(rules[indice][4]) + "]"
+        df = eval(regle1)
+        df = eval(regle2)
+        return df
