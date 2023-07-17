@@ -1,5 +1,5 @@
 # **`Potato`** (Class)
 
-::: antakia.potato
+::: antakia.potato.Potato
     selection:
       docstring_style: numpy

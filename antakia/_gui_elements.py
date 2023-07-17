@@ -672,10 +672,10 @@ def create_beeswarms(gui, exp, fig_size):
         ],
     )
 
-    y_histo_shap = [0] * len(gui.atk.dataset.explain[exp])
+    y_histo_shap = [0] * len(gui.atk.explain[exp])
     nom_col_shap = str(gui.atk.dataset.X.columns[0]) + "_shap"
     essaim1 = go.FigureWidget(
-        data=[go.Scatter(x=gui.atk.dataset.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
+        data=[go.Scatter(x=gui.atk.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
     )
     essaim1.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
@@ -701,7 +701,7 @@ def create_beeswarms(gui, exp, fig_size):
     )
 
     essaim2 = go.FigureWidget(
-        data=[go.Scatter(x=gui.atk.dataset.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
+        data=[go.Scatter(x=gui.atk.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
     )
     essaim2.update_layout(
         margin=dict(l=20, r=0, t=0, b=0),
@@ -714,7 +714,7 @@ def create_beeswarms(gui, exp, fig_size):
     total_essaim_2.layout.margin = "0px 0px 0px 20px"
 
     essaim3 = go.FigureWidget(
-        data=[go.Scatter(x=gui.atk.dataset.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
+        data=[go.Scatter(x=gui.atk.explain[exp][nom_col_shap], y=y_histo_shap, mode="markers")]
     )
     essaim3.update_layout(
         margin=dict(l=20, r=0, t=0, b=0),

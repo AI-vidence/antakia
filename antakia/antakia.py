@@ -6,31 +6,32 @@ from antakia.dataset import Dataset
 
 from antakia.utils import fonction_auto_clustering
 
+import ipywidgets as widgets
+
+import antakia.longtask as LongTask
+
+from IPython.display import display
+
 class AntakIA():
     """AntakIA object.
-    This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
+    This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.GUI).
 
     Attributes
     -------
-    X : pandas dataframe
-        The dataframe containing the data to explain.
-    Y : pandas series
-        The series containing the target variable of the data to explain.
-    model : object
-        The model used to explain the data.
-    selection : list
-        The list of the indices of the data currently selected by the user.
+    dataset : Dataset object
+        The Dataset object containing the data to explain. For more information, please see the documentation of the class Dataset.
+    explain : dict
+        The dictionary containing the explanations. The keys are the names of the explanations (for example "SHAP" or "LIME"). The values are the explanations. The explanations are pandas dataframes.
+        You can import your own explanations using `import_explanation`.
+    regions : list
+        The list of the regions computed by the user. A region is an AntakIA object, named Potato. For more information, please see the documentation of the class Potato.
+    saves : list
+        The list of the saves. A save is a list of regions.
     gui : Gui object
-        The Gui object that contains the interface.
-    imported_values : pandas dataframe
-        The dataframe containing the explanatory data imported by the user.
-    SHAP_values : pandas dataframe
-        The dataframe containing the SHAP values of the data.
-    LIME_values : pandas dataframe
-        The dataframe containing the LIME values of the data.
+        The Gui object that contains the interface. For more information, please see the documentation of the class Gui.
     """
 
-    def __init__(self, dataset: Dataset):
+    def __init__(self, dataset: Dataset, import_explanation: pd.DataFrame = None):
         """
         Constructor of the class Xplainer.
 
@@ -38,10 +39,13 @@ class AntakIA():
         ---------
         dataset : Dataset object
             The Dataset object containing the data to explain.
+        import_explanation : pandas dataframe
+            The dataframe containing the explanations. The dataframe must have the same number of rows as the dataset.
+            The GUI can compute other types of explanations using different methods.
 
         Returns
         -------
-        Xplainer object
+        AntakIA object
             An Xplainer object.
         """
         self.dataset = dataset
@@ -49,10 +53,12 @@ class AntakIA():
         self.gui = None
         self.saves = []
 
+        self.explain = dict()
+        self.explain["Imported"] = import_explanation
+        self.explain["SHAP"] = None
+        self.explain["LIME"] = None
+
     def __str__(self):
-        """
-        Function that allows to print the Xplainer object.
-        """
         print("Xplainer object")
 
     def startGUI(self,
@@ -65,27 +71,15 @@ class AntakIA():
 
         Parameters
         ---------
-        explanation : str or pandas dataframe
-            The type of explanation to display.
-            If not computed : string ("SHAP" or "LIME", default : "SHAP")
-            If already computed : pandas dataframe containing the explanations
-        X_all : pandas dataframe
-            The dataframe containing the data to explain.
-        default_projection : str
-            The default projection method used to display the data.
-            The possible values are "PaCMAP" and "UMAP".
+        explanation : str
+            The type of explanation to use. If an explanation is already computed (see antakia.dataset), it is used by default. If not, the user must choose between "SHAP" and "LIME".
+            The explanatory values caen be computed directly in the interface!
+        projection : str
+            The default projection to use. The possible values are "PaCMAP", "PCA", "t-SNE" and "UMAP".
         sub_models : list
-            The list of the submodels used to explain the data.
-        save_regions : list
-            The list of the regions saved by the user.
+            The list of the sub_models to choose from for each region. The only constraint is that sub_models must have a predict method.
         display : bool
-            If True, the interface is displayed.
-            If False, the interface is not displayed.
-
-        Returns
-        -------
-        Gui object
-            The Gui object that contains the interface. Displayed if display = True.
+            If True, the interface is displayed. Else, You can access the interface with the attribute gui of the class.
         """
         self.gui = GUI(self, explanation, projection, sub_models)
         if display:
@@ -93,7 +87,8 @@ class AntakIA():
 
     def dyadic_clustering(self, explanation:str = "Imported", min_clusters:int = 3, automatic:bool = True):
         """
-        Function that computes the dyadic clustering.
+        Function that computes the dyadic-clustering.
+        Our dyadic-clustering (sometimes found as co-clusetring or bi-clustering), uses `mvlearn` and `skope-rules` to compute the clusters.
 
         Parameters
         ---------
@@ -110,6 +105,50 @@ class AntakIA():
         list
             The list of the regions computed.
         """
+        if self.dataset.explain[explanation] is None:
+            raise ValueError("You must compute the explanations before computing the dyadic-clustering!")
         if min_clusters <2 or min_clusters > len(self.dataset.X):
             raise ValueError("The minimum number of clusters must be between 2 and the number of observations!")
         return fonction_auto_clustering(self.dataset.X, self.dataset.explain[explanation], min_clusters, automatic)
+    
+    def compute_SHAP(self, verbose:bool = True):
+        """
+        Computes the SHAP values of the dataset.
+
+        Parameters
+        ---------
+        verbose : bool
+            If True, a progress bar is displayed.
+
+        See also:
+        ---------
+        The Shap library.
+        """
+        shap = LongTask.compute_SHAP(self.X, self.X_all, self.model)
+        if verbose:
+            self.verbose = self.__create_progress("SHAP")
+            widgets.jslink((self.widget.children[1], "v_model"), (shap.progress_widget, "v_model"))
+            widgets.jslink((self.widget.children[2], "v_model"), (shap.text_widget, "v_model"))
+            display(self.widget)
+        self.explain["SHAP"] = shap.compute()
+
+    def compute_LIME(self, verbose:bool = True):
+        """
+        Computes the LIME values of the dataset.
+
+        Parameters
+        ---------
+        verbose : bool
+            If True, a progress bar is displayed.
+
+        See also:
+        ---------
+        The Lime library.
+        """
+        lime = LongTask.compute_LIME(self.X, self.X_all, self.model)
+        if verbose:
+            self.verbose = self.__create_progress("SHAP")
+            widgets.jslink((self.widget.children[1], "v_model"), (lime.progress_widget, "v_model"))
+            widgets.jslink((self.widget.children[2], "v_model"), (lime.text_widget, "v_model"))
+            display(self.widget)
+        self.explain["LIME"] = lime.compute()

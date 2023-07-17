@@ -54,16 +54,15 @@ import antakia._gui_elements as gui_elements
 
 class GUI():
     """
-    Gui object.
+    Gui object. This object contains all the data and variables needed to run the interface.
+    The interface is built using ipyvuetify and plotly. For more information, please see to the references.
 
     Attributes
     -------
     atk : atk object
         The atk object containing the data to explain.
-    explanation_values : pandas dataframe
-        The dataframe containing the explanations of the model. Can be given by the user (in explanation) or computed by the Gui.
-    selection : list
-        The list of the indices of the data currently selected by the user (lasso, skope-rules, or else).
+    selection : Potato object
+        The `Potato` object containing the current selection. For more information, please see the documentation of the class Potato.
     """
     def __init__(
         self,
@@ -76,18 +75,14 @@ class GUI():
 
         Parameters
         ----------
-        explanation : str or pandas dataframe
-            The type of explanation to display.
-            If not computed : string ("SHAP" or "LIME", default : "SHAP")
-            If already computed : pandas dataframe containing the explanations
-            TODO : les calculs de SHAP ou LIME sont lancés depuis AntakIA en local ou envoyés à un serveur (avec GPU) distant. Je suggère que les fonctions de calcul long implémentent l'interface LongTask avec les métodes (start, update etc.)
-        atk.dataset.X_all : pandas dataframe
-            The dataframe containing the entire data. It is used to compute the explanations if they are not already computed.
-        dprojection : str
+        atk : AntakIA object
+            See the documentation of the class AntakIA.
+        explanation : str
+            The default explanation to display. It can be "Imported", "SHAP" or "LIME".
+        projection : str
             The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
-            TODO : ça mériterait une interface "Projection" où chaque implémentation fournit son nom via un getProjType par ex. Ces types pourraient être à choisir parmi une liste de constantes (PCA, TSNE, UMAP ...) définies dans l'interface
-        self.sub_models : list
-            The list of sub-models to choose from for each region created by the user.
+        sub_models : list
+            The list of sub-models to choose from for each region created by the user. The sub-models must have a predict method.
         """
         if type(explanation) != str and type(explanation) != type(None):
             raise TypeError("explanation must be a string")
@@ -104,11 +99,11 @@ class GUI():
         self.sub_models = sub_models
 
         # Publique :
-        self.selection = Potato([], self.atk.dataset)
+        self.selection = Potato([], self.atk)
 
         # Privé :
         if explanation is None :
-            if self.atk.dataset.explain["Imported"] is not None:
+            if self.atk.explain["Imported"] is not None:
                 explanation = "Imported"
             else :
                 explanation = "SHAP"
@@ -124,9 +119,9 @@ class GUI():
         self.dim_red["EE"]["SHAP"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
         self.dim_red["EE"]["LIME"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}    
 
-        if self.__explanation == "SHAP" and type(self.atk.dataset.explain["SHAP"]) == type(None) :
+        if self.__explanation == "SHAP" and type(self.atk.explain["SHAP"]) == type(None) :
             self.__calculus = True
-        elif self.__explanation == "LIME" and type(self.atk.dataset.explain["LIME"]) == type(None) :
+        elif self.__explanation == "LIME" and type(self.atk.explain["LIME"]) == type(None) :
             self.__calculus = True
         else:
             self.__calculus = False
@@ -147,10 +142,6 @@ class GUI():
 
     def display(self):
         """Function that displays the interface.
-
-        Returns
-        -------
-        An interface
         """
 
         if self.sub_models != None and len(self.sub_models) > 9:
@@ -193,12 +184,12 @@ class GUI():
                 compute_SHAP = LongTask.compute_SHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
-                self.atk.dataset.explain["SHAP"] = compute_SHAP.compute()
+                self.atk.explain["SHAP"] = compute_SHAP.compute()
             elif self.__explanation == "LIME":
                 compute_LIME = LongTask.compute_LIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
-                self.atk.dataset.explain["LIME"] = compute_LIME.compute()
+                self.atk.explain["LIME"] = compute_LIME.compute()
 
         # definition of the default projection
         # base, we take the PaCMAP projection
@@ -209,7 +200,7 @@ class GUI():
         self.dim_red["EV"][self.__projectionEV] = compute.initialize_dim_red_EV(self.atk.dataset.X_scaled, self.__projectionEV)
         progress_red.v_model = +50
         prog_red.children[2].children[0].v_model = "Values space... Explanatory space..."
-        self.dim_red["EE"][self.__explanation][self.__projectionEE] = compute.initialize_dim_red_EE(self.atk.dataset.explain[self.__explanation], self.__projectionEE)
+        self.dim_red["EE"][self.__explanation][self.__projectionEE] = compute.initialize_dim_red_EE(self.atk.explain[self.__explanation], self.__projectionEE)
         progress_red.v_model = +50
 
         # once all this is done, the splash screen is removed
@@ -770,7 +761,7 @@ class GUI():
             if self.dim_red["EE"][self.__explanation][EE_proj.v_model] is None:
                 out_loading2.layout.visibility = "visible"
                 dim_red_compute = compute.DimensionalityReduction(EE_proj.v_model, True)
-                self.dim_red["EE"][self.__explanation][EE_proj.v_model] = [dim_red_compute.compute(self.atk.dataset.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.dataset.explain[self.__explanation], 3)]
+                self.dim_red["EE"][self.__explanation][EE_proj.v_model] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.explain[self.__explanation], 3)]
                 out_loading2.layout.visibility = "hidden"
 
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
@@ -1099,7 +1090,7 @@ class GUI():
                     all_histograms[i].data[2].x = self.atk.dataset.X[self.selection.rules[i][2]][new_list_tout]
                 if all_color_choosers_beeswarms[i].children[1].v_model:
                     with all_beeswarms[i].batch_update():
-                        y_color = [0] * len(self.atk.dataset.explain[self.__explanation])
+                        y_color = [0] * len(self.atk.explain[self.__explanation])
                         if i == indice:
                             indices = self.atk.dataset.X.index[
                                 self.atk.dataset.X[self.selection.rules[i][2]].between(value_min, value_max)
@@ -1110,7 +1101,7 @@ class GUI():
                                     self.selection.rules[i][0], self.selection.rules[i][4]
                                 )
                             ].tolist()
-                        for j in range(len(self.atk.dataset.explain[self.__explanation])):
+                        for j in range(len(self.atk.explain[self.__explanation])):
                             if j in new_list_tout:
                                 y_color[j] = "blue"
                             elif j in indices:
@@ -1362,7 +1353,7 @@ class GUI():
 
                     [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[0][2])
                     essaim1.data[0].y = deepcopy(new_y)
-                    essaim1.data[0].x = self.atk.dataset.explain[self.__explanation][columns_rules[0] + "_shap"]
+                    essaim1.data[0].x = self.atk.explain[self.__explanation][columns_rules[0] + "_shap"]
                     essaim1.data[0].marker = marker
 
                     all_histograms = [histogram1]
@@ -1370,14 +1361,14 @@ class GUI():
                         all_histograms = [histogram1, histogram2]
                         [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[1][2])
                         essaim2.data[0].y = deepcopy(new_y)
-                        essaim2.data[0].x = self.atk.dataset.explain[self.__explanation][columns_rules[1] + "_shap"]
+                        essaim2.data[0].x = self.atk.explain[self.__explanation][columns_rules[1] + "_shap"]
                         essaim2.data[0].marker = marker
 
                     if len(self.selection.rules) > 2:
                         all_histograms = [histogram1, histogram2, histogram3]
                         [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[2][2])
                         essaim3.data[0].y = deepcopy(new_y)
-                        essaim3.data[0].x = self.atk.dataset.explain[self.__explanation][columns_rules[2] + "_shap"]
+                        essaim3.data[0].x = self.atk.explain[self.__explanation][columns_rules[2] + "_shap"]
                         essaim3.data[0].marker = marker
 
                     y_shape_skope = []
@@ -1612,10 +1603,10 @@ class GUI():
         def fonction_clusters(*b):
             loading_clusters.class_ = "d-flex"
             if check_nb_clusters.v_model:
-                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.dataset.explain[self.__explanation], 3, True)
+                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.explain[self.__explanation], 3, True)
             else:
                 nb_clusters = slider_clusters.v_model
-                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.dataset.explain[self.__explanation], nb_clusters, False)
+                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.explain[self.__explanation], nb_clusters, False)
             self.__result_dyadic_clustering = result
             labels = result[1]
             self.__Y_auto = labels
@@ -1730,7 +1721,7 @@ class GUI():
                 les_points = liste
             else:
                 les_points = points.point_inds
-            self.selection = Potato(les_points, self.atk.dataset)
+            self.selection = Potato(les_points, self.atk)
             self.selection.state = "lasso"
             if len(les_points) == 0:
                 card_selec.children[0].children[1].children = "0 point !"
@@ -1761,7 +1752,7 @@ class GUI():
                 self.fig1.data[0].marker.opacity = opa
 
             X_train = self.atk.dataset.X.copy()
-            self.__SHAP_train = self.atk.dataset.explain[self.__explanation].copy()
+            self.__SHAP_train = self.atk.explain[self.__explanation].copy()
 
             X_mean = (
                 pd.DataFrame(
@@ -2152,9 +2143,9 @@ class GUI():
             )
 
             colonne_shap = colonne + "_shap"
-            y_histo_shap = [0] * len(self.atk.dataset.explain[self.__explanation])
+            y_histo_shap = [0] * len(self.atk.explain[self.__explanation])
             new_essaim = go.FigureWidget(
-                data=[go.Scatter(x=self.atk.dataset.explain[self.__explanation][colonne_shap], y=y_histo_shap, mode="markers")]
+                data=[go.Scatter(x=self.atk.explain[self.__explanation][colonne_shap], y=y_histo_shap, mode="markers")]
             )
             new_essaim.update_layout(
                 margin=dict(l=0, r=0, t=0, b=0),
@@ -2164,7 +2155,7 @@ class GUI():
             new_essaim.update_yaxes(visible=False, showticklabels=False)
             [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, colonne)
             new_essaim.data[0].y = new_y
-            new_essaim.data[0].x = self.atk.dataset.explain[self.__explanation][colonne_shap]
+            new_essaim.data[0].x = self.atk.explain[self.__explanation][colonne_shap]
             new_essaim.data[0].marker = marker
 
             new_choix_couleur_essaim = v.Row(
@@ -2453,7 +2444,7 @@ class GUI():
                 {'text': "LIME", 'disabled': True}]
         
         for item in items:
-            if self.atk.dataset.explain[item['text']] is not None:
+            if self.atk.explain[item['text']] is not None:
                 item_default = item['text']
                 item['disabled'] = False
 
@@ -2468,7 +2459,7 @@ class GUI():
 
         def fonction_choose_explanation(widget, event, data):
             self.__explanation = data
-            exp_val = self.atk.dataset.explain[data]
+            exp_val = self.atk.explain[data]
             if self.dim_red['EE'][self.__explanation][self.__projectionEE] == None:
                 out_loading2.layout.visibility = "visible"
                 dim_red = compute.DimensionalityReduction(EE_proj.v_model, True)
@@ -2508,7 +2499,7 @@ class GUI():
                 new_prog_LIME.children[-1].disabled = True
                 
         def ok_SHAP(*args):
-            self.atk.dataset.explain["SHAP"] = self.__compute_SHAP.value
+            self.atk.explain["SHAP"] = self.__compute_SHAP.value
             items = choose_explanation.items.copy()
             for item in items:
                 if item['text'] == "SHAP":
@@ -2517,7 +2508,7 @@ class GUI():
             choose_explanation.items = choose_explanation.items[:-1]
 
         def ok_LIME(*args):
-            self.atk.dataset.explain["LIME"] = self.__compute_LIME.value
+            self.atk.explain["LIME"] = self.__compute_LIME.value
             items = choose_explanation.items.copy()
             for item in items:
                 if item['text'] == "LIME":
@@ -2817,20 +2808,20 @@ class GUI():
         display(partie_data)
         #return partie_data
 
-    def results(self, num_reg: int = None, item: str = None):
+    def results(self, number: int = None, item: str = None):
         """
-        This function returns the results.
+        Returns the results the work made with the interface.
 
         Parameters
         ----------
-        num_reg : int, optional
+        number : int, optional
             The number of the region you want to see the results. The default is None.
         item : str, optional
-            The item you want to see the results. Can be the following :
+            The item you want to see the results. Can be the following : \n
                 - "X" : the X values of the region
                 - "y" : the y values of the region
                 - "indices" : the indices of the region in the original dataset
-                - "SHAP" : the SHAP values of the region
+                - "explain" : the explanability values of the region. A dict ("Imported", "SHAP", "LIME" accessible)
                 - "model name" : the name of the sub-model used for the region
                 - "model" : the sub-model used for the region
                 - "model score" : the score of the sub-model used for the region
@@ -2852,9 +2843,19 @@ class GUI():
             )
             dictio["y"] = self.atk.dataset.y.iloc[self.__list_of_regions[i]].reset_index(drop=True)
             dictio["indices"] = self.__list_of_regions[i]
-            dictio["SHAP"] = self.atk.dataset.explain["SHAP"].iloc[self.__list_of_regions[i], :].reset_index(
-                drop=True
-            )
+            dictio["explain"] = {"Imported": None, "SHAP": None, "LIME": None}
+            if self.atk.explain["Imported"] is not None:
+                dictio["explain"]["Imported"] = self.atk.explain["Imported"].iloc[self.__list_of_regions[i], :].reset_index(
+                    drop=True
+                )
+            if self.atk.explain["LIME"] is not None:
+                dictio["explain"]["LIME"] = self.atk.explain["LIME"].iloc[self.__list_of_regions[i], :].reset_index(
+                    drop=True
+                )
+            if self.atk.explain["SHAP"] is not None:
+                dictio["explain"]["SHAP"] = self.atk.explain["SHAP"].iloc[self.__list_of_regions[i], :].reset_index(
+                    drop=True
+                )
             if self.__list_of_sub_models[i][-1] == -1:
                 dictio["model name"] = None
                 dictio["model score"] = None
@@ -2865,7 +2866,7 @@ class GUI():
                 dictio["model"] = self.sub_models[self.__list_of_sub_models[i][2]]
             dictio["rules"] = self.__all_tiles_rules[i]
             L_f.append(dictio)
-        if num_reg == None or item == None:
+        if number == None or item == None:
             return L_f
         else:
-            return L_f[num_reg][item]
+            return L_f[number][item]

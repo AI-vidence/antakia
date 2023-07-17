@@ -6,25 +6,56 @@ import pandas as pd
 import numpy as np
 from skrules import SkopeRules
 
-from antakia.dataset import Dataset
-
 from copy import deepcopy
+
+import antakia
 
 #from antakia import Dataset
 
 
 class Potato():
     """
-    An AntakIA Potato is a selection of data.
+    A Potato object!
+    A Potato is a selection of points from the dataset, on wich the user can apply a surrogate-model.
+
+    Attributes
+    ----------
+    atk : AntakIA object
+        The AntakIA object linked to the potato.
+    indexes : list
+        The list of the indexes of the points in the dataset.
+    dataset : Dataset object
+        The Dataset object containing the data of the selection.
+    data : pandas dataframe
+        The dataframe containing the data of the selection.
+    sub_model : model object
+        The surrogate-model of the selection. Could be None.
+    rules : list
+        The list of the rules that defines the selection.
+    score : tuple
+        The score of the surrogate-model. Is the following format : (precision, recall, extract of the tree).
+    rules_exp : list
+        The list of the rules that defines the selection in the explanation space.
+    score_exp : tuple
+        The score of the surrogate-model in the explanation space. Is the following format : (precision, recall, extract of the tree).
+
     """
 
-    def __init__(self, indexes:list = [], dataset: Dataset = None) -> None:
+    def __init__(self, indexes:list = [], atk = None) -> None:
         """
         Constructor of the class Potato.
+
+        Parameters
+        ----------
+        indexes : list
+            The list of the indexes of the points in the dataset.
+        atk : AntakIA object
+            The AntakIA object linked to the potato.
         """
+        self.atk = atk
         self.state = None
         self.indexes = indexes
-        self.dataset = dataset
+        self.dataset = atk.dataset
         if self.dataset.X is not None:
             self.data = self.dataset.X.iloc[self.indexes]
         else :
@@ -44,9 +75,6 @@ class Potato():
             self.y[i] = 1
 
     def __str__(self) -> str:
-        """
-        Function that allows to print the Potato object.
-        """
         texte = ' '.join(("Potato:\n",
                     "------------------\n",
                     "      State:", str(self.state), "\n",
@@ -56,17 +84,42 @@ class Potato():
     
     def __len__(self) -> int:
         """
-        Function that returns the number of points in the potato.
+        The length of the potato.
+
+        Returns
+        -------
+        int
+            The length of the potato.
         """
         return len(self.indexes)
     
-    def shape(self) -> tuple:
+    def __shape__(self) -> tuple:
         """
         Function that returns the shape of the potato.
+
+        Returns
+        -------
+        tuple
+            The shape of the potato.
         """
         return self.data.shape
     
     def apply_rules(self):
+        """
+        Function that applies the rules to the dataset, in order to create a new selection.
+
+        Examples
+        --------
+        >>> from antakia import AntakIA, Dataset, Potato
+        >>> X = pd.DataFrame([[1, 2, 3], [4, 5, 6], [7, 8, 9]], columns = ["col1", "col2", "col3"], index = [1, 3, 4])
+        >>> atk = AntakIA(Dataset(X, model))
+        >>> potato = Potato(indexes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], atk)
+        >>> potato.rules = [[0, "<=", "col1", "<=", 9], [3, "<=", "col2", "<=", 8]]
+        >>> potato.apply_rules()
+        >>> potato.indexes
+        [3, 4] # only the two last points respect the rules !
+
+        """
         self.state = "skope-ruled"
         rules = self.rules
         df = self.dataset.X
@@ -101,6 +154,19 @@ class Potato():
 
 
     def apply_skope(self, explanation, p:float = 0.5, r:float = 0.5):
+        """
+        Function that applies the skope-rules algorithm to the dataset, in order to create a new selection.
+        Must be connected to the AntakIA object (for the explanation space).
+
+        Parameters
+        ----------
+        explanation : str
+            The name of the explanation to use.
+        p : float
+            The minimum precision of the rules.
+        r : float
+            The minimum recall of the rules.
+        """
         y_train = np.zeros(len(self.dataset.X))
         y_train[self.indexes] = 1
 
@@ -117,7 +183,7 @@ class Potato():
         skope_rules_clf.fit(self.dataset.X, y_train)
 
         skope_rules_clf_exp = SkopeRules(
-            feature_names=self.dataset.explain[explanation].columns,
+            feature_names=self.atk.explain[explanation].columns,
             random_state=42,
             n_estimators=5,
             recall_min=r,
@@ -126,21 +192,34 @@ class Potato():
             max_samples=1.0,
             max_depth=3,
         )
-        skope_rules_clf_exp.fit(self.dataset.explain[explanation], y_train)
+        skope_rules_clf_exp.fit(self.atk.explain[explanation], y_train)
         if skope_rules_clf.rules_ == [] or skope_rules_clf_exp.rules_ == []:
             self.rules, self.score_skope, self.rules_exp, self.score_skope_exp = None, None, None, None
             self.success = False
         else :
             self.rules, self.score = self.__transform_rules(skope_rules_clf.rules_, self.dataset.X)
-            self.rules_exp, self.score_exp = self.__transform_rules(skope_rules_clf_exp.rules_, self.dataset.explain[explanation])
+            self.rules_exp, self.score_exp = self.__transform_rules(skope_rules_clf_exp.rules_, self.atk.explain[explanation])
             self.apply_rules()
             self.success = True
 
-    def respect_one_rule(self, indice:int):
+    def respect_one_rule(self, index:int):
+        """
+        Function that returns the points of the dataset that respect only one rule of the list of rules.
+
+        Parameters
+        ----------
+        index : int
+            The index of the rule to respect.
+
+        Returns
+        -------
+        pandas dataframe
+            The dataframe containing the points of the dataset that respect only one rule of the list of rules.
+        """
         rules = self.rules
         df = deepcopy(self.dataset.X)
-        regle1 = "df.loc[" + str(rules[indice][0]) + rules[indice][1] + "df['" + rules[indice][2] + "']]"
-        regle2 = "df.loc[" + "df['" + rules[indice][2] + "']" + rules[indice][3] + str(rules[indice][4]) + "]"
+        regle1 = "df.loc[" + str(rules[index][0]) + rules[index][1] + "df['" + rules[index][2] + "']]"
+        regle2 = "df.loc[" + "df['" + rules[index][2] + "']" + rules[index][3] + str(rules[index][4]) + "]"
         df = eval(regle1)
         df = eval(regle2)
         return df

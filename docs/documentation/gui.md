@@ -1,5 +1,5 @@
 # **`GUI`** (Class)
 
-::: antakia.gui
+::: antakia.gui.GUI
     selection:
       docstring_style: numpy

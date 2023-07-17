@@ -19,7 +19,7 @@ nav:
 theme:
   name: material
   palette:
-    primary: white
+    primary: indigo
   logo: img/logo_antakia_transp.png
   favicon: img/logo_antakia_transp.png
   features:
@@ -33,9 +33,11 @@ plugins:
       handlers:
         python:
           options:
-            docstring_section_style: list
-            show_source: true
-            show_bases: false
+            docstring_section_style: table
+            docstring_style: numpy
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
   - search:
       lang: en
 

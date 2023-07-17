@@ -7,13 +7,46 @@ from IPython.display import display
 from sklearn.preprocessing import StandardScaler
 
 class Dataset():
-    """
-    Dataset object.
-    This object contains the data to explain !
+    """Dataset object.
+    This object contains the all data, the model to explain, the explanations and the predictions.
+
+    Attributes
+    -------
+    X : pandas dataframe
+        The dataframe containing the dataset (might not be the entire dataset, see `frac` method)
+    X_all : pandas dataframe
+        The dataframe containing the entire dataset, in order for the explanations to be computed.
+    X_scaled : pandas dataframe
+        The dataframe containing the scaled dataset.
+    y : pandas series
+        The series containing the target values.
+    model : model object
+        The "black-box" model to explain.
+    y_pred : pandas series
+        The series containing the predictions of the model. If None, the predictions are computed using the model and the data.
     """
 
-    def __init__(self, X:pd.DataFrame = None, model = None, csv:str = None, explain: pd.DataFrame = None, y:pd.Series = None, y_pred:pd.Series = None):
+    def __init__(self, X:pd.DataFrame = None, csv:str = None, y:pd.Series = None, model = None):
+        """
+        Constructor of the class Dataset.
         
+        Parameters
+        ---------
+        X : pandas dataframe
+            The dataframe containing the dataset.
+        csv : str
+            The path to the csv file containing the dataset.
+        y : pandas series
+            The series containing the target values.
+        model : model object
+            The "black-box" model to explain. The model must have a predict method.
+
+        Returns
+        -------
+        Dataset object
+            A Dataset object.
+        """
+
         X.columns = [X.columns[i].replace(" ", "_") for i in range(len(X.columns))]
         X = X.reset_index(drop=True)
 
@@ -30,26 +63,12 @@ class Dataset():
         self.y = y
         self.X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
 
-        if y_pred is None:
-            self.y_pred = self.model.predict(self.X)
-        else:
-            self.y_pred = y_pred
-
-        self.explain = dict()
-        self.explain["Imported"] = explain
-        self.explain["SHAP"] = None
-        self.explain["LIME"] = None
+        self.y_pred = self.model.predict(self.X)
 
         self.verbose = None
         self.widget = None
 
     def __str__(self):
-        """
-        Returns
-        -------
-        str
-            A string containing the information about the dataset
-        """
         texte = ' '.join(("Dataset:\n",
                     "------------------\n",
                     "      Number of observations:", str(self.X.shape[0]), "\n",
@@ -87,35 +106,32 @@ class Dataset():
         )
         return widget
     
-    def frac(self, p:float = 0.2):
+    def frac(self, p:float):
+        """
+        Reduces the dataset to a fraction of its size.
+
+        Parameters
+        ---------
+        p : float
+            The fraction of the dataset to keep.
+
+        Examples
+        --------
+        >>> import antakia
+        >>> import pandas as pd
+        >>> X = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]], columns=["a", "b"])
+        >>> my_dataset = antakia.Dataset(X)
+        >>> my_dataset.frac(0.5)
+        >>> my_dataset.X
+              a  b
+        0     1  2
+        1     5  6
+        """
+
         self.X = self.X_all.sample(frac=p, random_state=9)
         self.y_pred = self.y_pred.sample(frac=p, random_state=9)
         if self.y is not None:
             self.y = self.y.sample(frac=p, random_state=9)
-
-    def compute_SHAP(self, verbose:bool = True):
-        """
-        Computes the SHAP values of the dataset.
-        """
-        shap = LongTask.compute_SHAP(self.X, self.X_all, self.model)
-        if verbose:
-            self.verbose = self.__create_progress("SHAP")
-            widgets.jslink((self.widget.children[1], "v_model"), (shap.progress_widget, "v_model"))
-            widgets.jslink((self.widget.children[2], "v_model"), (shap.text_widget, "v_model"))
-            display(self.widget)
-        self.explain["SHAP"] = shap.compute()
-
-    def compute_LIME(self, verbose:bool = True):
-        """
-        Computes the LIME values of the dataset.
-        """
-        lime = LongTask.compute_LIME(self.X, self.X_all, self.model)
-        if verbose:
-            self.verbose = self.__create_progress("SHAP")
-            widgets.jslink((self.widget.children[1], "v_model"), (lime.progress_widget, "v_model"))
-            widgets.jslink((self.widget.children[2], "v_model"), (lime.text_widget, "v_model"))
-            display(self.widget)
-        self.explain["LIME"] = lime.compute()
 
     def improve(self):
         """

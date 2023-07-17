@@ -1,5 +1,3 @@
 # **`Dataset`** (Class)
 
-::: antakia.dataset
-    selection:
-      docstring_style: numpy
+::: antakia.dataset.Dataset

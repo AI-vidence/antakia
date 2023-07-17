@@ -14,7 +14,18 @@ import threading
 from abc import ABC, abstractmethod
 
 class LongTask(ABC):
+    '''
+    Abstract class to compute long tasks, often in a separate thread.
 
+    Attributes
+    ----------
+    X : pandas dataframe
+        The dataframe containing the data to explain.
+    X_all : pandas dataframe
+        The dataframe containing the entire dataset, in order for the explanations to be computed.
+    model : model object
+        The "black-box" model to explain.
+    '''
     def __init__(self, X, X_all, model):
         self.X = X
         self.X_all = X_all
@@ -29,9 +40,15 @@ class LongTask(ABC):
     
     @abstractmethod
     def compute(self):
+        """
+        Method to compute the long task.
+        """
         pass
 
     def compute_in_thread(self):
+        """
+        Method to compute the long task in a separate thread.
+        """
         self.thread = threading.Thread(target=self.compute)
         self.thread.start()
 
@@ -62,6 +79,9 @@ class LongTask(ABC):
         )
 
 class compute_SHAP(LongTask):
+    """
+    SHAP computation class.
+    """
     def compute(self):
         self.progress = 0
         self.done_widget.v_model = "primary"
@@ -84,6 +104,9 @@ class compute_SHAP(LongTask):
         return shap_values
 
 class compute_LIME(LongTask):
+    """
+    LIME computation class.
+    """
     
     def compute(self):
         self.done_widget.v_model = "primary"

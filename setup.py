@@ -8,7 +8,7 @@ requirements += ["mkdocstrings-python", "mkdocs-material", "mkdocs", "mkdocstrin
 
 git_r = [line for line in lines.split("\n") if line != "" and line.startswith("git+")]
 for git in git_r:
-    git = 'skope-rules @ '+git
+    git = 'skope-rules @ ' + git
     requirements.append(git)
 
 setuptools.setup(

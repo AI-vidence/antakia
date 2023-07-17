@@ -126,7 +126,7 @@ def update_figures(gui, exp, projEV, projEE):
 
 def fonction_beeswarm_shap(gui, exp, nom_colonne):
     X = gui.atk.dataset.X
-    Exp = gui.atk.dataset.explain[exp]
+    Exp = gui.atk.explain[exp]
     y = gui.atk.dataset.y_pred
     
     # redefinition de la figure beeswarm de shap
