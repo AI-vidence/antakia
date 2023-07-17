@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import antakia.LongTask as LongTask
+import antakia.longtask as LongTask
 import ipyvuetify as v
 import ipywidgets as widgets
 from IPython.display import display

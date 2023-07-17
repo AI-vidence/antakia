@@ -1,5 +1,5 @@
-# **`GUI`** (Class)
+# **`Potato`** (Class)
 
-::: antakia.gui
+::: antakia.potato
     selection:
       docstring_style: numpy

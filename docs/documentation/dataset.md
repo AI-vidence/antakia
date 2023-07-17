@@ -1,5 +1,5 @@
-# **`GUI`** (Class)
+# **`Dataset`** (Class)
 
-::: antakia.gui
+::: antakia.dataset
     selection:
       docstring_style: numpy

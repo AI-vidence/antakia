@@ -1,4 +1,4 @@
-site_name: AntakIA - Read the Docs
+site_name: AntakIA - Documentation
 
 site_url: https://ai-vidence.com/documentation-antakia/
 
@@ -8,9 +8,12 @@ nav:
   - User Guide: usage.md
   - API Reference:
       - Documentation: documentation/index.md
-      - Xplainer: documentation/xplainer.md
-      - Gui: documentation/gui.md
-      - Utils: documentation/utils.md
+      - AntakIA: documentation/antakia.md
+      - GUI: documentation/gui.md
+      - Dataset: documentation/dataset.md
+      - Potato: documentation/potato.md
+      - utils: documentation/utils.md
+      - LongTask: documentation/longtask.md
   - About: about.md
 
 theme:
@@ -18,12 +21,12 @@ theme:
   palette:
     primary: white
   logo: img/logo_antakia_transp.png
+  favicon: img/logo_antakia_transp.png
   features:
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.sections
     - navigation.top
-    - navigation.path
 
 plugins:
   - mkdocstrings:
@@ -31,8 +34,10 @@ plugins:
         python:
           options:
             docstring_section_style: list
-            show_source: false
+            show_source: true
             show_bases: false
+  - search:
+      lang: en
 
 markdown_extensions:
   - attr_list

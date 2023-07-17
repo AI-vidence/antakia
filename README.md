@@ -83,11 +83,11 @@ pip install antakia
 Clone the repo and create a virtual environment!
 
 ```
-git clone URL Github
-cd antaktia  
+git clone https://github.com/AI-vidence/antakia.git
+cd antaktia
 python3.10 -m venv .
 source bin/activate
-pip install -r requirements.txt
+pip install -e .
 ```
 
 ### :whale: Installation with docker

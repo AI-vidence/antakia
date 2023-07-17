@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from skrules import SkopeRules
 
-from antakia.Dataset import Dataset
+from antakia.dataset import Dataset
 
 from copy import deepcopy
 

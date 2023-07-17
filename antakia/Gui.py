@@ -46,9 +46,9 @@ from antakia.utils import _fonction_models as fonction_models
 
 import antakia._compute as compute
 
-from antakia import LongTask
+import antakia.longtask as LongTask
 
-from antakia.Potato import Potato
+from antakia.potato import Potato
 
 import antakia._gui_elements as gui_elements
 
@@ -152,7 +152,6 @@ class GUI():
         -------
         An interface
         """
-        liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
 
         if self.sub_models != None and len(self.sub_models) > 9:
             raise ValueError("You can enter up to 9 sub-models maximum ! (changes to come)")
@@ -380,7 +379,6 @@ class GUI():
         )
 
         def changement_params_EE(*b):
-            liste_red = ["PCA", "t-SNE", "UMAP", "PaCMAP"]
             n_neighbors = slider_param_PaCMAP_voisins_EE.children[0].v_model
             MN_ratio = slider_param_PaCMAP_mn_ratio_EE.children[0].v_model
             FP_ratio = slider_param_PaCMAP_fp_ratio_EE.children[0].v_model
@@ -1610,14 +1608,14 @@ class GUI():
             ],
         )
 
-        # allows you to make clusters on one or the other of the spaces
+        # allows you to make dyadic clustering
         def fonction_clusters(*b):
             loading_clusters.class_ = "d-flex"
             if check_nb_clusters.v_model:
                 result = fonction_auto_clustering(self.atk.dataset.X, self.atk.dataset.explain[self.__explanation], 3, True)
             else:
                 nb_clusters = slider_clusters.v_model
-                result = fonction_auto_clustering(elf.atk.dataset.X, self.atk.dataset.explain[self.__explanation], nb_clusters, False)
+                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.dataset.explain[self.__explanation], nb_clusters, False)
             self.__result_dyadic_clustering = result
             labels = result[1]
             self.__Y_auto = labels

@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
 
-from antakia.Gui import GUI
-from antakia.Dataset import Dataset
+from antakia.gui import GUI
+from antakia.dataset import Dataset
+
+from antakia.utils import fonction_auto_clustering
 
 class AntakIA():
-    """
-    Xplainer object.
+    """AntakIA object.
     This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
 
     Attributes
@@ -89,3 +90,26 @@ class AntakIA():
         self.gui = GUI(self, explanation, projection, sub_models)
         if display:
             self.gui.display()
+
+    def dyadic_clustering(self, explanation:str = "Imported", min_clusters:int = 3, automatic:bool = True):
+        """
+        Function that computes the dyadic clustering.
+
+        Parameters
+        ---------
+        explanation : str
+            The type of explanation to use.
+            The possible values are "Imported", "SHAP" and "LIME".
+        min_clusters : int
+            The minimum number of clusters to compute.
+        automatic : bool
+            If True, the number of clusters is computed automatically, respecting the minimum number of clusters.
+
+        Returns
+        -------
+        list
+            The list of the regions computed.
+        """
+        if min_clusters <2 or min_clusters > len(self.dataset.X):
+            raise ValueError("The minimum number of clusters must be between 2 and the number of observations!")
+        return fonction_auto_clustering(self.dataset.X, self.dataset.explain[explanation], min_clusters, automatic)
