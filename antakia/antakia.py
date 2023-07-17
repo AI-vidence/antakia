@@ -8,10 +8,11 @@ from antakia.utils import fonction_auto_clustering
 
 class AntakIA():
     """AntakIA object.
-    This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
+    This class is the for tee main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.interface).
 
     Attributes
     -------
+    # TODO : Ne correspond pas aux valeurs d'entrée de init()
     X : pandas dataframe
         The dataframe containing the data to explain.
     Y : pandas series
@@ -22,6 +23,7 @@ class AntakIA():
         The list of the indices of the data currently selected by the user.
     gui : Gui object
         The Gui object that contains the interface.
+    # TODO : les variables d'explication ne doivent pas être dans le Dataset
     imported_values : pandas dataframe
         The dataframe containing the explanatory data imported by the user.
     SHAP_values : pandas dataframe
@@ -30,9 +32,10 @@ class AntakIA():
         The dataframe containing the LIME values of the data.
     """
 
+    # TODO : proposer un constructeur plus "brut", sans Dataset mais avec X,Y, model etc.?
     def __init__(self, dataset: Dataset):
         """
-        Constructor of the class Xplainer.
+        Constructor of the class AntakIA.
 
         Parameters
         ---------
@@ -45,15 +48,15 @@ class AntakIA():
             An Xplainer object.
         """
         self.dataset = dataset
-        self.regions = []
+        self.regions = [] #TODO : regions peut être une liste de N listes de régions. Le liste N est en cours, les N-1 précédentes sont "saved"
         self.gui = None
-        self.saves = []
+        self.saves = [] #TODO : voir intule. regions
 
     def __str__(self):
         """
-        Function that allows to print the Xplainer object.
+        Function that allows to print the AntakIA object. 
         """
-        print("Xplainer object")
+        print("AntakIA object") #TODO : Rajouter Dataset.__str__ () ? Par ex : modèle de type ?, jeu de données de ? lignes et ? colonnes ...
 
     def startGUI(self,
                 explanation: str = None,
@@ -61,7 +64,7 @@ class AntakIA():
                 sub_models: list = None,
                 display = True) -> GUI:
         """
-        Function that starts the interface.
+        Function that instantiates the GUI and calls it display() function
 
         Parameters
         ---------
@@ -82,7 +85,7 @@ class AntakIA():
             If True, the interface is displayed.
             If False, the interface is not displayed.
 
-        Returns
+        Returns 
         -------
         Gui object
             The Gui object that contains the interface. Displayed if display = True.
@@ -90,6 +93,7 @@ class AntakIA():
         self.gui = GUI(self, explanation, projection, sub_models)
         if display:
             self.gui.display()
+        #TODO : soit retourner gui, soit changer la doc / "returns"
 
     def dyadic_clustering(self, explanation:str = "Imported", min_clusters:int = 3, automatic:bool = True):
         """

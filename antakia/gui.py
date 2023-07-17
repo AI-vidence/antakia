@@ -52,6 +52,8 @@ from antakia.potato import Potato
 
 import antakia._gui_elements as gui_elements
 
+#TODO : il faut trouver un moyen pour faire maigrer ce module ! Découper par onglet : une fonction par onglet ?
+
 class GUI():
     """
     Gui object.

@@ -18,6 +18,8 @@ class Potato():
     An AntakIA Potato is a selection of data.
     """
 
+    # TODO : ne faudrait-il pas gérer l'état d'une potato ? lasso ? skr ? skr-tuned ? validated region ?
+
     def __init__(self, indexes:list = [], dataset: Dataset = None) -> None:
         """
         Constructor of the class Potato.

@@ -1,16 +1,21 @@
 import pandas as pd
 import numpy as np
 import antakia.longtask as LongTask
+
+#  Bizarre ces 3 imports qui suivent (pas de GUI dans Dataset)
 import ipyvuetify as v
 import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display 
+
 from sklearn.preprocessing import StandardScaler
 
 class Dataset():
     """
     Dataset object.
-    This object contains the data to explain !
+    This object contains the input data.
     """
+
+    #TODO :  bizzare ce "csv" en input de __init__ ? besoin de ça pour faire un Dataset 
 
     def __init__(self, X:pd.DataFrame = None, model = None, csv:str = None, explain: pd.DataFrame = None, y:pd.Series = None, y_pred:pd.Series = None):
         
