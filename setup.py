@@ -2,9 +2,14 @@ import pathlib
 import setuptools
 
 lines = pathlib.Path("requirements.txt").read_text()
-requirements = [line for line in lines.split("\n") if line != ""]
+requirements = [line for line in lines.split("\n") if line != "" and not line.startswith("git+")]
 
 requirements += ["mkdocstrings-python", "mkdocs-material", "mkdocs", "mkdocstrings"]
+
+git_r = [line for line in lines.split("\n") if line != "" and line.startswith("git+")]
+for git in git_r:
+    git = 'skope-rules @ '+git
+    requirements.append(git)
 
 setuptools.setup(
     name="antakia",
