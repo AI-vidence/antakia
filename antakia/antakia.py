@@ -33,7 +33,7 @@ class AntakIA():
 
     def __init__(self, dataset: Dataset, import_explanation: pd.DataFrame = None):
         """
-        Constructor of the class Xplainer.
+        Constructor of the class AntakIA.
 
         Parameters
         ---------
@@ -49,9 +49,9 @@ class AntakIA():
             An Xplainer object.
         """
         self.dataset = dataset
-        self.regions = []
+        self.regions = [] #TODO : regions peut être une liste de N listes de régions. Le liste N est en cours, les N-1 précédentes sont "saved"
         self.gui = None
-        self.saves = []
+        self.saves = [] #TODO : voir intule. regions
 
         self.explain = dict()
         self.explain["Imported"] = import_explanation
@@ -67,7 +67,7 @@ class AntakIA():
                 sub_models: list = None,
                 display = True) -> GUI:
         """
-        Function that starts the interface.
+        Function that instantiates the GUI and calls it display() function
 
         Parameters
         ---------
@@ -84,6 +84,7 @@ class AntakIA():
         self.gui = GUI(self, explanation, projection, sub_models)
         if display:
             self.gui.display()
+        #TODO : soit retourner gui, soit changer la doc / "returns"
 
     def dyadic_clustering(self, explanation:str = "Imported", min_clusters:int = 3, automatic:bool = True):
         """

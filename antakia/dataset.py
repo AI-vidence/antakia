@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
 import antakia.longtask as LongTask
+
+#  Bizarre ces 3 imports qui suivent (pas de GUI dans Dataset)
 import ipyvuetify as v
 import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display 
+
 from sklearn.preprocessing import StandardScaler
 
 class Dataset():
