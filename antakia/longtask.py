@@ -1,5 +1,5 @@
 """
-Class to compute long tasks in a separate thread.
+This class handles computation of long tasks in a separate thread.
 """
 
 import time

@@ -8,9 +8,7 @@ from skrules import SkopeRules
 
 from copy import deepcopy
 
-import antakia
-
-#from antakia import Dataset
+from antakia.dataset import Dataset
 
 
 class Potato():

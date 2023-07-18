@@ -1,5 +1,5 @@
 """
-Gui elements for antakia
+GUI elements for AntakIA
 """
 
 import ipywidgets as widgets
@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 
 from copy import deepcopy
 
-import antakia._compute as compute
+import antakia.compute as compute
 
 def add_tooltip(widget, text):
     # function that allows you to add a tooltip to a widget
