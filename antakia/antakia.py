@@ -4,17 +4,17 @@ import numpy as np
 from antakia.gui import GUI
 from antakia.dataset import Dataset
 
-from antakia.utils import fonction_auto_clustering
+# from antakia.utils import fonction_auto_clustering
 
 import ipywidgets as widgets
 
-import antakia.longtask as LongTask
+# import antakia.longtask as LongTask
 
 from IPython.display import display
 
 class AntakIA():
     """AntakIA object.
-    This object is the main object of the package antakia. It contains all the data and variables needed to run the interface (see antakia.GUI).
+    This main class of the antakia package. It contains all the data and variables needed to run the interface (see antakia.GUI).
 
     Attributes
     -------
@@ -27,10 +27,11 @@ class AntakIA():
         The list of the regions computed by the user. A region is an AntakIA object, named Potato. For more information, please see the documentation of the class Potato.
     saves : list
         The list of the saves. A save is a list of regions.
-    gui : Gui object
-        The Gui object that contains the interface. For more information, please see the documentation of the class Gui.
+    gui : GUI object
+        The GUI object is in charge of the interface. For more information, please see the documentation of the class GUI.
     """
 
+    # TODO : il faudrait un constructeur __init__(self, dataset) tout court non ?
     def __init__(self, dataset: Dataset, import_explanation: pd.DataFrame = None):
         """
         Constructor of the class AntakIA.
@@ -46,7 +47,7 @@ class AntakIA():
         Returns
         -------
         AntakIA object
-            An Xplainer object.
+            The AntakIA object.
         """
         self.dataset = dataset
         self.regions = [] #TODO : regions peut être une liste de N listes de régions. Le liste N est en cours, les N-1 précédentes sont "saved"
@@ -112,6 +113,7 @@ class AntakIA():
             raise ValueError("The minimum number of clusters must be between 2 and the number of observations!")
         return fonction_auto_clustering(self.dataset.X, self.dataset.explain[explanation], min_clusters, automatic)
     
+    # TODO : ça devrait subclasser LongTask
     def compute_SHAP(self, verbose:bool = True):
         """
         Computes the SHAP values of the dataset.
@@ -133,6 +135,8 @@ class AntakIA():
             display(self.widget)
         self.explain["SHAP"] = shap.compute()
 
+        
+    # TODO : ça devrait subclasser LongTask
     def compute_LIME(self, verbose:bool = True):
         """
         Computes the LIME values of the dataset.

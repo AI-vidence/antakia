@@ -1,24 +1,9 @@
-#Importations
 
-# Imports Python
-import time
-from copy import deepcopy
-from importlib.resources import files
 
-# Imports warnings
-import warnings
-from numba.core.errors import NumbaDeprecationWarning
-warnings.simplefilter(action="ignore", category=FutureWarning)
-warnings.simplefilter(action="ignore", category=UserWarning)
-warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
-warnings.filterwarnings("ignore")
-
-# Imports data science
+# Datascience imports
 import pandas as pd
 import numpy as np
 from skrules import SkopeRules
-
-# Imports sklearn
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
 from sklearn import linear_model
@@ -27,7 +12,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 
-# Imports pour le GUI
+# GUI related imports
 import ipywidgets as widgets
 from ipywidgets import Layout
 from IPython.display import display, clear_output, HTML
@@ -35,22 +20,26 @@ import plotly.graph_objects as go
 import ipyvuetify as v
 import seaborn as sns
 
-# Import internes
-from antakia.utils import from_rules
-from antakia.utils import create_save
-from antakia.utils import load_save
-from antakia.utils import fonction_auto_clustering
-from antakia.utils import _conflict_handler
-from antakia.utils import _add_tooltip as add_tooltip
-from antakia.utils import _fonction_models as fonction_models
+# Others imports
+import time
+from copy import deepcopy
+from importlib.resources import files
 
-import antakia._compute as compute
+# Warnings imports
+import warnings
+from numba.core.errors import NumbaDeprecationWarning
+warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.simplefilter(action="ignore", category=UserWarning)
+warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
+warnings.filterwarnings("ignore")
 
-import antakia.longtask as LongTask
-
+# Internal imports
+from antakia.utils import *
+from antakia.compute import DimensionalityReduction
+from antakia.longtask import LongTask
 from antakia.potato import Potato
 
-import antakia._gui_elements as gui_elements
+import antakia.gui_elements as gui_elements
 
 #TODO : il faut trouver un moyen pour faire maigrer ce module ! Découper par onglet : une fonction par onglet ?
 
