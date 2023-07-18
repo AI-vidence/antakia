@@ -4,11 +4,11 @@ import numpy as np
 from antakia.gui import GUI
 from antakia.dataset import Dataset
 
-# from antakia.utils import fonction_auto_clustering
+from antakia.utils import fonction_auto_clustering
 
 import ipywidgets as widgets
 
-# import antakia.longtask as LongTask
+import longtask
 
 from IPython.display import display
 
@@ -127,7 +127,7 @@ class AntakIA():
         ---------
         The Shap library.
         """
-        shap = LongTask.compute_SHAP(self.X, self.X_all, self.model)
+        shap = longtask.compute_SHAP(self.X, self.X_all, self.model)
         if verbose:
             self.verbose = self.__create_progress("SHAP")
             widgets.jslink((self.widget.children[1], "v_model"), (shap.progress_widget, "v_model"))
