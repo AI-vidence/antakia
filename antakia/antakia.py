@@ -8,7 +8,7 @@ from antakia.utils import fonction_auto_clustering
 
 import ipywidgets as widgets
 
-import longtask
+import antakia.longtask as longtask
 
 from IPython.display import display
 
@@ -127,7 +127,7 @@ class AntakIA():
         ---------
         The Shap library.
         """
-        shap = longtask.compute_SHAP(self.X, self.X_all, self.model)
+        shap = longtask.SHAP_computation(self.X, self.X_all, self.model)
         if verbose:
             self.verbose = self.__create_progress("SHAP")
             widgets.jslink((self.widget.children[1], "v_model"), (shap.progress_widget, "v_model"))
@@ -150,7 +150,7 @@ class AntakIA():
         ---------
         The Lime library.
         """
-        lime = LongTask.compute_LIME(self.X, self.X_all, self.model)
+        lime = longtask.SHAP_computation(self.X, self.X_all, self.model)
         if verbose:
             self.verbose = self.__create_progress("SHAP")
             widgets.jslink((self.widget.children[1], "v_model"), (lime.progress_widget, "v_model"))

@@ -78,7 +78,7 @@ class LongTask(ABC):
             + "s)"
         )
 
-class compute_SHAP(LongTask):
+class SHAP_computation(LongTask):
     """
     SHAP computation class.
     """
@@ -103,7 +103,7 @@ class compute_SHAP(LongTask):
         self.done_widget.v_model = "success"
         return shap_values
 
-class compute_LIME(LongTask):
+class LIME_computation(LongTask):
     """
     LIME computation class.
     """

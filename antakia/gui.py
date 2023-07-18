@@ -33,9 +33,13 @@ warnings.filterwarnings("ignore")
 
 # Internal imports
 from antakia.utils import *
-from antakia.compute import DimensionalityReduction
+from antakia.utils import _add_tooltip as add_tooltip
+from antakia.utils import _fonction_models as fonction_models
+from antakia.utils import _conflict_handler as conflict_handler
 from antakia.longtask import LongTask
 from antakia.potato import Potato
+
+from antakia import compute
 
 import antakia.gui_elements as gui_elements
 
@@ -128,6 +132,46 @@ class GUI():
         self.__result_dyadic_clustering = None
         self.__score_models = []
         self.__table_save = None
+
+    def getSelection(self):
+        """Function that returns the current selection.
+
+        Returns
+        -------
+        Potato object
+            The current selection.
+        """
+        return self.selection
+    
+    def setSelection(self, selection):
+        """Function that sets the current selection.
+
+        Parameters
+        ----------
+        selection : Potato object
+            The new selection.
+        """
+        self.selection = selection
+
+    def getSubModels(self):
+        """Function that returns the list of sub-models.
+
+        Returns
+        -------
+        list
+            The list of sub-models.
+        """
+        return self.sub_models
+    
+    def setSubModels(self, sub_models):
+        """Function that sets the list of sub-models.
+
+        Parameters
+        ----------
+        sub_models : list
+            The new list of sub-models.
+        """
+        self.sub_models = sub_models
 
     def display(self):
         """Function that displays the interface.
@@ -1596,6 +1640,8 @@ class GUI():
             else:
                 nb_clusters = slider_clusters.v_model
                 result = fonction_auto_clustering(self.atk.dataset.X_scaled, self.atk.explain[self.__explanation], nb_clusters, False)
+            for i in result[0]:
+                print(len(i))
             self.__result_dyadic_clustering = result
             labels = result[1]
             self.__Y_auto = labels
@@ -1833,7 +1879,7 @@ class GUI():
                     nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
                 self.__list_of_sub_models.append([nom_model, score_model, indice_model])
                 # here we will force so that all the points of the new tile belong only to it: we will modify the existing tiles
-                self.__list_of_regions = _conflict_handler(self.__list_of_regions, nouvelle_tuile)
+                self.__list_of_regions = conflict_handler(self.__list_of_regions, nouvelle_tuile)
                 self.__list_of_regions.append(nouvelle_tuile)
             for i in range(len(self.__color_regions)):
                 if i in range(len(self.selection.indexes)):

@@ -48,15 +48,15 @@ def _reset_list(l):
 
 
 def _find_best_k(X, indices, recall_min, precision_min):
-    recall_min = 0.6
-    precision_min = 0.6
+    recall_min = 0.7
+    precision_min = 0.7
     new_X = X.iloc[indices]
     ind_f = 2
     for i in range(2, 9):
-        kmeans = sklearn.cluster.KMeans(n_clusters=i, random_state=9, n_init="auto")
-        kmeans = sklearn.cluster.AgglomerativeClustering(n_clusters=i)
-        kmeans.fit(new_X)
-        labels = kmeans.labels_
+        #kmeans = sklearn.cluster.KMeans(n_clusters=i, random_state=9, n_init="auto")
+        agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=i)
+        agglo.fit(new_X)
+        labels = agglo.labels_
         a = True
         for j in range(max(labels) + 1):
             y = []
@@ -88,6 +88,7 @@ def _find_best_k(X, indices, recall_min, precision_min):
 def _clustering_dyadique(X, SHAP, n_clusters, default):
     m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
     l = m_kmeans.fit_predict([X, SHAP])
+    nombre_clusters = 0
     if default != False:
         X_train = pd.DataFrame(X.copy())
         recall_min = 0.8
@@ -110,12 +111,19 @@ def _clustering_dyadique(X, SHAP, n_clusters, default):
             skope_rules_clf.fit(X_train, y_train)
             if len(skope_rules_clf.rules_) == 0:
                 k = _find_best_k(X, indices, recall_min, precision_min)
-                kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
-                kmeans.fit(X.iloc[indices])
-                labels = np.array(kmeans.labels_) + max_
+                nombre_clusters += k
+                #kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
+                agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=k)
+                agglo.fit(X.iloc[indices])
+                labels = np.array(agglo.labels_) + max_
                 max_ += k
                 l[indices] = labels
+            else :
+                nombre_clusters +=1
         l = _reset_list(l)
+    print(nombre_clusters)
+    l = list(np.array(l) - min(l))
+    print(l)
     return _create_list_invert(l, max(l) + 1), l
 
 # Public utils functions

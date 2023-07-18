@@ -8,8 +8,6 @@ from skrules import SkopeRules
 
 from copy import deepcopy
 
-from antakia.dataset import Dataset
-
 
 class Potato():
     """
@@ -38,7 +36,6 @@ class Potato():
         The score of the surrogate-model in the explanation space. Is the following format : (precision, recall, extract of the tree).
 
     """
-
     def __init__(self, indexes:list = [], atk = None) -> None:
         """
         Constructor of the class Potato.
@@ -50,6 +47,9 @@ class Potato():
         atk : AntakIA object
             The AntakIA object linked to the potato.
         """
+        import antakia
+        if not isinstance(atk, antakia.AntakIA):
+            raise ValueError("You must provide an AntakIA object")
         self.atk = atk
         self.state = None
         self.indexes = indexes
@@ -151,7 +151,7 @@ class Potato():
         return rules_list, score
 
 
-    def apply_skope(self, explanation, p:float = 0.5, r:float = 0.5):
+    def apply_skope(self, explanation, p:float = 0.7, r:float = 0.7):
         """
         Function that applies the skope-rules algorithm to the dataset, in order to create a new selection.
         Must be connected to the AntakIA object (for the explanation space).

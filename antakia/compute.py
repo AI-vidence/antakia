@@ -8,7 +8,9 @@ import pacmap
 
 import numpy as np
 
-class DimensionalityReduction:
+from abc import ABC, abstractmethod
+
+class DimensionalityReduction():
     """
     Class that allows to reduce the dimensionality of the data.
     """
