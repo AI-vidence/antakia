@@ -298,7 +298,7 @@ class GUI():
             FP_ratio = slider_param_PaCMAP_fp_ratio_EV.children[0].v_model
             out_loading1.layout.visibility = "visible"
             dim_red = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
-            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X, 2), dim_red.compute(self.atk.dataset.X, 3)]
+            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2), dim_red.compute(self.atk.dataset.X_scaled, 3)]
             out_loading1.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
@@ -308,7 +308,7 @@ class GUI():
             # reset projection settings
             out_loading1.layout.visibility = "visible"
             dim_red = compute.DimensionalityReduction("PaCMAP", True)
-            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X, 2), dim_red.compute(self.atk.dataset.X, 3)]
+            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2), dim_red.compute(self.atk.dataset.X_scaled, 3)]
             out_loading1.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
@@ -1605,10 +1605,10 @@ class GUI():
         def fonction_clusters(*b):
             loading_clusters.class_ = "d-flex"
             if check_nb_clusters.v_model:
-                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.explain[self.__explanation], 3, True)
+                result = fonction_auto_clustering(self.atk.dataset.X_scaled, self.atk.explain[self.__explanation], 3, True)
             else:
                 nb_clusters = slider_clusters.v_model
-                result = fonction_auto_clustering(self.atk.dataset.X, self.atk.explain[self.__explanation], nb_clusters, False)
+                result = fonction_auto_clustering(self.atk.dataset.X_scaled, self.atk.explain[self.__explanation], nb_clusters, False)
             self.__result_dyadic_clustering = result
             labels = result[1]
             self.__Y_auto = labels

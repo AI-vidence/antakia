@@ -4,7 +4,9 @@ Here is a simple use case of the AntaKIA package.
 
 _(find more examples in the <a href="https://github.com/AI-vidence/antakia/tree/main/examples">this folder</a>)_
 
-## :rocket: Launch the GUI
+## Using the GUI
+
+### :rocket: Launch the GUI
 
 After installing the package (see [here](getting-started.md)), you can use the package in a notebook:
 
@@ -32,12 +34,53 @@ atk.startGUI()
 
 ![Screenshot 1](img/screenshot1.png)
 
-## :mag: Create our first Potato
+### :pencil: Modify the explainability method and the projections
 
-## :straight_ruler: Apply Skope Rules
+We can first modify the explainability method 
 
-## :control_knobs: Apply sub-model
+![Screenshot 2](img/screenshot2.png)
 
-## :white_check_mark: Validate the region
+and then the projections, by choosing between the different projections available or by modifying the parameters of the projection!
 
-## :magic_wand: Have everything done for you : the magic button !
+![Screenshot 3](img/screenshot3.png)
+
+### :mag: Create our first Potato
+
+We can now create our first Potato. Select the region of interest on one or the other space, and visualize the points selected in the other one.
+
+![Screenshot 4](img/screenshot4.png)
+
+### :straight_ruler: Apply Skope-Rules
+
+We can now apply Skope Rules on the selected region, in order to define it with a set of rules on the features.
+
+![Screenshot 5](img/screenshot5.png)
+
+### :control_knobs: Modify the rules
+
+We can now modify the rules, by changing the parameters of the rules, or by adding or removing rules.
+This feature come with interesting data-visualization tools!
+
+![Screenshot 6](img/screenshot6.png)
+
+### :control_knobs: Apply sub-model
+
+We can now apply a sub-model on the selected region. The sub-models are to be choosen in the list of the available models. To import your own modles, please refer to the [documentation](documentation/antakia.md).
+
+![Screenshot 7](img/screenshot7.png)
+
+### :white_check_mark: Validate the region
+
+We can now validate the region, and add it to the list of the validated regions.
+
+![Screenshot 8](img/screenshot8.png)
+
+### :magic_wand: Have everything done for you : the magic button !
+
+Click the button on the very bottom of the GUI, and let the magic happen !
+The potatoes are created automatically using our dyadic-clusterign algorithm, skope-rules are found, the best submodel is chosen and the region is added to the list !
+For more information about the dyadic-clustering, see [utils](documentation/utils.md).
+
+![GIF1](img/gif1.gif)
+
+# In command lines

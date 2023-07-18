@@ -65,6 +65,7 @@ class Dataset():
         self.model = model
         self.y = y
         self.X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
+        self.X_scaled.columns = X.columns
 
         self.y_pred = self.model.predict(self.X)
 

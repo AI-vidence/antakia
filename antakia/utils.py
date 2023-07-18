@@ -48,8 +48,8 @@ def _reset_list(l):
 
 
 def _find_best_k(X, indices, recall_min, precision_min):
-    recall_min = 0.5
-    precision_min = 0.5
+    recall_min = 0.6
+    precision_min = 0.6
     new_X = X.iloc[indices]
     ind_f = 2
     for i in range(2, 9):
