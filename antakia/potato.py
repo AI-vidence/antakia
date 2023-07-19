@@ -8,6 +8,10 @@ from skrules import SkopeRules
 
 from copy import deepcopy
 
+# from antakia.antakia import AntakIA
+from antakia.dataset import Dataset
+
+
 
 class Potato():
     """
@@ -38,6 +42,12 @@ class Potato():
         The score of the surrogate-model in the explanation space. Is the following format : (precision, recall, extract of the tree).
 
     """
+    UNKNOWN=-1
+    LASSO=0 # Manually defined
+    SKR=1 # Defined with Skope Rules
+    REFINED_SKR=2 # Rules have been manually refined by the user
+    REGION=3 # validated / to be stored in Regions
+
     def __init__(self,  atk, indexes:list = []) -> None:
         """
         Constructor of the class Potato.
@@ -53,7 +63,7 @@ class Potato():
         if not isinstance(atk, antakia.AntakIA):
             raise ValueError("You must provide an AntakIA object")
         self.atk = atk
-        self.state = None
+        self.state = Potato.UNKNOWN
         self.indexes = indexes
         self.dataset = atk.dataset
         if self.dataset.X is not None:
@@ -84,7 +94,7 @@ class Potato():
     def __str__(self) -> str:
         texte = ' '.join(("Potato:\n",
                     "------------------\n",
-                    "      State:", str(self.state), "\n",
+                    "      State:", self.stateToSring(), "\n",
                     "      Number of points:", str(len(self.indexes)), "\n",
                     "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.dataset.X), 2))+"%", "\n"))
         return texte
@@ -111,6 +121,21 @@ class Potato():
         """
         return self.data.shape
     
+    def stateToSring(self)-> str :
+        """
+        Returns the state of the potato
+
+        Returns
+        -------
+        str
+            The name of the state
+        """
+        if self.state == Potato.UNKNOWN : return "unknown"
+        elif self.state == Potato.LASSO : return "lasso"
+        elif self.state == Potato.SKR : return "skope ruled"
+        elif self.state == Potato.REFINED_SKR : return "refined skope rules"
+        else : raise ValueError("unknown state for a potato")
+
     def getIndexes(self) -> list:
         """
         Function that returns the indexes of the potato.
@@ -122,6 +147,7 @@ class Potato():
         """
         return self.indexes
     
+    # TODO : le nom de la méthode devrait être + explicite (cf. lasso)
     def setIndexes(self, indexes:list) -> None:
         """
         Function that sets the indexes of the potato.
@@ -142,7 +168,7 @@ class Potato():
             else :
                 self.y_train.append(0)
 
-        self.state = "lasso"
+        self.state = Potato.LASSO
         self.success = None
     
     def apply_rules(self):
@@ -161,7 +187,7 @@ class Potato():
         [3, 4] # only the two last points respect the rules !
 
         """
-        self.state = "skope-ruled"
+        self.state = Potato.SKR
         rules = self.rules
         df = self.dataset.X
         for i in range(len(rules)):
