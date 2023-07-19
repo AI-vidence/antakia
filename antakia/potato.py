@@ -132,8 +132,8 @@ class Potato():
         """
         if self.state == Potato.UNKNOWN : return "unknown"
         elif self.state == Potato.LASSO : return "lasso"
-        elif self.state == Potato.SKR : return "slope ruled"
-        elif self.state == Potato.REFINED_SKR : return "refined slope rules"
+        elif self.state == Potato.SKR : return "skope ruled"
+        elif self.state == Potato.REFINED_SKR : return "refined skope rules"
         else : raise ValueError("unknown state for a potato")
 
     def getIndexes(self) -> list:
