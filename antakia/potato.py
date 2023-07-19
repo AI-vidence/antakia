@@ -24,6 +24,8 @@ class Potato():
         The Dataset object containing the data of the selection.
     data : pandas dataframe
         The dataframe containing the data of the selection.
+    y : list
+        The list of the target values of the selection.
     sub_model : model object
         The surrogate-model of the selection. Could be None.
     rules : list
@@ -36,7 +38,7 @@ class Potato():
         The score of the surrogate-model in the explanation space. Is the following format : (precision, recall, extract of the tree).
 
     """
-    def __init__(self, indexes:list = [], atk = None) -> None:
+    def __init__(self,  atk, indexes:list = []) -> None:
         """
         Constructor of the class Potato.
 
@@ -58,7 +60,11 @@ class Potato():
             self.data = self.dataset.X.iloc[self.indexes]
         else :
             self.data = None
-        self.sub_model = None
+        if self.dataset.y is not None:
+            self.y = self.dataset.y.iloc[self.indexes]
+        else :
+            self.y = None
+        self.sub_model = {"name": None, "score": None}
 
         self.rules = None
         self.score = None
@@ -68,9 +74,12 @@ class Potato():
 
         self.success = None
 
-        self.y = [0]*len(self.dataset.X)
-        for i in self.indexes:
-            self.y[i] = 1
+        self.y_train = []
+        for i in range(len(self.dataset.X)):
+            if i in self.indexes:
+                self.y_train.append(1)
+            else :
+                self.y_train.append(0)
 
     def __str__(self) -> str:
         texte = ' '.join(("Potato:\n",
@@ -101,6 +110,40 @@ class Potato():
             The shape of the potato.
         """
         return self.data.shape
+    
+    def getIndexes(self) -> list:
+        """
+        Function that returns the indexes of the potato.
+
+        Returns
+        -------
+        list
+            The indexes of the potato.
+        """
+        return self.indexes
+    
+    def setIndexes(self, indexes:list) -> None:
+        """
+        Function that sets the indexes of the potato.
+
+        Parameters
+        ----------
+        indexes : list
+            The new indexes of the potato.
+        """
+        self.indexes = indexes
+        self.data = self.dataset.X.iloc[self.indexes]
+        self.y = self.dataset.y.iloc[self.indexes]
+
+        self.y_train = []
+        for i in range(len(self.dataset.X)):
+            if i in self.indexes:
+                self.y_train.append(1)
+            else :
+                self.y_train.append(0)
+
+        self.state = "lasso"
+        self.success = None
     
     def apply_rules(self):
         """

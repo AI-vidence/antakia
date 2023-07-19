@@ -50,9 +50,9 @@ class AntakIA():
             The AntakIA object.
         """
         self.dataset = dataset
-        self.regions = [] #TODO : regions peut être une liste de N listes de régions. Le liste N est en cours, les N-1 précédentes sont "saved"
+        self.regions = []
         self.gui = None
-        self.saves = [] #TODO : voir intule. regions
+        self.saves = []
 
         self.explain = dict()
         self.explain["Imported"] = import_explanation
@@ -61,6 +61,17 @@ class AntakIA():
 
     def __str__(self):
         print("Xplainer object")
+
+    def getRegions(self) -> list:
+        """
+        Function that returns the list of the regions computed by the user.
+
+        Returns
+        -------
+        list
+            The list of the regions computed.
+        """
+        return self.regions
 
     def startGUI(self,
                 explanation: str = None,

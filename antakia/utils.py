@@ -21,16 +21,19 @@ import ipyvuetify as v
 
 # Private utils functions
 
-def _conflict_handler(gliste, liste):
+def _conflict_handler(ens_potatoes, liste):
     # function that allows you to manage conflicts in the list of regions.
     # indeed, as soon as a region is added to the list of regions, the points it contains are removed from the other regions
+    gliste = [x.indexes for x in ens_potatoes]
     for i in range(len(gliste)):
         a = 0
         for j in range(len(gliste[i])):
             if gliste[i][j - a] in liste:
                 gliste[i].pop(j - a)
                 a += 1
-    return gliste
+    for i in range(len(ens_potatoes)):
+        ens_potatoes[i].setIndexes(gliste[i])
+    return ens_potatoes
 
 def _create_list_invert(liste, taille):
     l = [[] for _ in range(taille)]
@@ -121,9 +124,7 @@ def _clustering_dyadique(X, SHAP, n_clusters, default):
             else :
                 nombre_clusters +=1
         l = _reset_list(l)
-    print(nombre_clusters)
     l = list(np.array(l) - min(l))
-    print(l)
     return _create_list_invert(l, max(l) + 1), l
 
 # Public utils functions
@@ -170,7 +171,7 @@ def fonction_auto_clustering(X1, X2, n_clusters, default):
     return _clustering_dyadique(X1, X2, n_clusters, default)
 
 
-def create_save(liste=None, nom: str = "Default name", sub_models: list = None):
+def create_save(liste=None, nom: str = "Default name"):
     """Return a save file from a list of pre-defined regions.
 
     Function that allows to create a save file from a list of pre-defined regions.
@@ -182,25 +183,21 @@ def create_save(liste=None, nom: str = "Default name", sub_models: list = None):
         The list of pre-defined regions to save.
     nom : str
         The name of the save file.
-    sub_models : list
-        The list of sub_models used to generate the pre-defined regions.
-
     Returns
     -------
     retour : dict
-        A dictionary containing the name of the save file, the list of pre-defined regions and the list of sub_models used to generate the pre-defined regions.
+        A dictionary containing the name of the save file, the list of pre-defined regions.
     
     Examples
     --------
     >>> import antakia
-    >>> from sklearn.linear_model import LogisticRegression, LinearRegression
-    >>> my_save = antakia.create_save([0,1,1,0], "save", [LogisticRegression, LinearRegression])
+    >>> my_save = antakia.create_save([0,1,1,0], "save")
     >>> my_save
-    {'nom': 'save', 'liste': [[0, 1], [2, 3]], 'sub_models': [<class 'sklearn.linear_model._logistic.LogisticRegression'>, <class 'sklearn.linear_model._base.LinearRegression'>]}
+    {'nom': 'save', 'liste': [[0, 1], [2, 3]]}
     """
     if sub_models is None:
         sub_models = []
-    return {"nom": nom, "liste": liste, "sub_models": sub_models}
+    return {"nom": nom, "region": liste}
 
 
 def load_save(local_path):

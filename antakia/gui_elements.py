@@ -789,3 +789,204 @@ def generate_rule_card(chaine):
         if i != taille - 1:
             l.append(v.Divider())
     return l
+
+def create_selection_card():
+    texte_base = "About the current selection : \n"
+    texte_base_debut = (
+        "About the current selection : \n0 pont selected (0% of the overall data)"
+    )
+    # text that will take the value of text_base + information on the selection
+    texte_selec = widgets.Textarea(
+        value=texte_base_debut,
+        placeholder="Infos",
+        description="",
+        disabled=True,
+        layout=Layout(width="100%"),
+    )
+
+    card_selec = v.Card(
+        class_="ma-2",
+        elevation=0,
+        children=[
+            v.Layout(
+                children=[
+                    v.Icon(children=["mdi-lasso"]),
+                    v.Html(
+                        class_="mt-2 ml-4",
+                        tag="h4",
+                        children=[
+                            "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"
+                        ],
+                    ),
+                ]
+            ),
+        ],
+    )
+
+    button_valider_skope = v.Btn(
+        class_="ma-1",
+        children=[
+            v.Icon(class_="mr-2", children=["mdi-auto-fix"]),
+            "Skope-Rules",
+        ],
+    )
+
+    # button that allows you to return to the initial rules in part 2. Skope-rules
+
+    boutton_reinit_skope = v.Btn(
+        class_="ma-1",
+        children=[
+            v.Icon(class_="mr-2", children=["mdi-skip-backward"]),
+            "Come back to the initial rules",
+        ],
+    )
+    return texte_base, texte_base_debut, texte_selec, card_selec, button_valider_skope, boutton_reinit_skope
+
+def create_buttons_regions():
+    # selection validation button to create a region
+    valider_une_region = v.Btn(
+        class_="ma-3",
+        children=[
+            v.Icon(class_="mr-3", children=["mdi-check"]),
+            "Validate the selection",
+        ],
+    )
+    # button to delete all regions
+    supprimer_toutes_les_tuiles = v.Btn(
+        class_="ma-3",
+        children=[
+            v.Icon(class_="mr-3", children=["mdi-trash-can-outline"]),
+            "Delete the selected regions",
+        ],
+    )
+
+    # we wrap the sets of buttons in Boxes to put them online
+    en_deux_b = v.Layout(
+        class_="ma-3 d-flex flex-row",
+        children=[valider_une_region, v.Spacer(), supprimer_toutes_les_tuiles],
+    )
+    selection = widgets.VBox([en_deux_b])
+    return valider_une_region, supprimer_toutes_les_tuiles, selection
+
+def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size):
+    new_valider_change = v.Btn(
+        class_="ma-3",
+        children=[
+            v.Icon(class_="mr-2", children=["mdi-check"]),
+            "Validate the change",
+        ],
+    )
+
+    new_slider_skope = v.RangeSlider(
+        class_="ma-3",
+        v_model=[nouvelle_regle[0]  , nouvelle_regle[4]  ],
+        min=nouvelle_regle[0]  ,
+        max=nouvelle_regle[4]  ,
+        step=1,
+        label=nouvelle_regle[2],
+    )
+
+    new_histogram = go.FigureWidget(
+        data=[
+            go.Histogram(
+                x=gui.atk.dataset.X[colonne].values,
+                bingroup=1,
+                nbinsx=nombre_bins,
+                marker_color="grey",
+            )
+        ]
+    )
+    new_histogram.update_layout(
+        barmode="overlay",
+        bargap=0.1,
+        width=0.9 * int(fig_size),
+        showlegend=False,
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=150,
+    )
+
+    new_histogram.add_trace(
+        go.Histogram(
+            x=gui.atk.dataset.X[colonne].values,
+            bingroup=1,
+            nbinsx=nombre_bins,
+            marker_color="LightSkyBlue",
+            opacity=0.6,
+        )
+    )
+    new_histogram.add_trace(
+        go.Histogram(
+            x=self.gui.dataset.X[colonne].values,
+            bingroup=1,
+            nbinsx=nombre_bins,
+            marker_color="blue",
+        )
+    )
+    return new_valider_change, new_slider_skope, new_histogram
+
+def create_settings_card(children):
+    param_EV = v.Menu(
+        v_slots=[
+            {
+                "name": "activator",
+                "variable": "props",
+                "children": v.Btn(
+                    v_on="props.on",
+                    icon=True,
+                    size="x-large",
+                    children=[v.Icon(children=["mdi-cogs"], size="large")],
+                    class_="ma-2 pa-3",
+                    elevation="3",
+                ),
+            }
+        ],
+        children=[
+            v.Card(
+                class_="pa-4",
+                rounded=True,
+                children=[children],
+                min_width="500",
+            )
+        ],
+        v_model=False,
+        close_on_content_click=False,
+        offset_y=True,
+    )
+
+    param_EV.v_slots[0]["children"].children = [
+        add_tooltip(
+            param_EV.v_slots[0]["children"].children[0],
+            "Settings of the projection in the Values Space",
+        )
+    ]
+    return param_EV
+
+def time_computing(new_prog_SHAP, new_prog_LIME):
+    widget = v.Card(
+        class_="m-0 p-0",
+        elevation="0",
+        children=[
+            v.Tabs(
+                class_="w-100",
+                v_model="tabs",
+                children=[
+                    v.Tab(value="one", children=["SHAP"]),
+                    v.Tab(value="two", children=["LIME"]),
+                ],
+            ),
+            v.CardText(
+                class_="w-100",
+                children=[
+                    v.Window(
+                        class_="w-100",
+                        v_model="tabs",
+                        children=[
+                            v.WindowItem(value=0, children=[new_prog_SHAP]),
+                            v.WindowItem(value=1, children=[new_prog_LIME]),
+                        ],
+                    )
+                ],
+            ),
+        ],
+    )
+    return widget

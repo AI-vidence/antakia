@@ -36,10 +36,10 @@ from antakia.utils import *
 from antakia.utils import _add_tooltip as add_tooltip
 from antakia.utils import _fonction_models as fonction_models
 from antakia.utils import _conflict_handler as conflict_handler
-from antakia.longtask import LongTask
 from antakia.potato import Potato
 
 from antakia import compute
+from antakia import longtask
 
 import antakia.gui_elements as gui_elements
 
@@ -92,7 +92,7 @@ class GUI():
         self.sub_models = sub_models
 
         # Publique :
-        self.selection = Potato([], self.atk)
+        self.selection = Potato(self.atk, [])
 
         # Privé :
         if explanation is None :
@@ -119,8 +119,6 @@ class GUI():
         else:
             self.__calculus = False
 
-        self.__list_of_regions = []
-        self.__list_of_sub_models = []
         self.__color_regions = []
         self.__save_rules = None
         self.__other_columns = None
@@ -214,12 +212,12 @@ class GUI():
             ].v_model = "Imported explanatory values"
         else :
             if self.__explanation == "SHAP":
-                compute_SHAP = LongTask.compute_SHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                compute_SHAP = longtask.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
                 self.atk.explain["SHAP"] = compute_SHAP.compute()
             elif self.__explanation == "LIME":
-                compute_LIME = LongTask.compute_LIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                compute_LIME = longtask.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
                 self.atk.explain["LIME"] = compute_LIME.compute()
@@ -328,8 +326,8 @@ class GUI():
             MN_ratio = slider_param_PaCMAP_mn_ratio_EV.children[0].v_model
             FP_ratio = slider_param_PaCMAP_fp_ratio_EV.children[0].v_model
             out_loading1.layout.visibility = "visible"
-            dim_red = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
-            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2), dim_red.compute(self.atk.dataset.X_scaled, 3)]
+            dim_red = compute.DimensionalityReductionChooser(method="PaCMAP")
+            self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red.compute(self.atk.dataset.X_scaled, 3, False, n_neighbors, MN_ratio, FP_ratio)]
             out_loading1.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
@@ -338,7 +336,7 @@ class GUI():
         def reinit_param_EV(*b):
             # reset projection settings
             out_loading1.layout.visibility = "visible"
-            dim_red = compute.DimensionalityReduction("PaCMAP", True)
+            dim_red = compute.DimensionalityReductionChooser(method="PaCMAP")
             self.dim_red['EV']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2), dim_red.compute(self.atk.dataset.X_scaled, 3)]
             out_loading1.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
@@ -407,8 +405,8 @@ class GUI():
             MN_ratio = slider_param_PaCMAP_mn_ratio_EE.children[0].v_model
             FP_ratio = slider_param_PaCMAP_fp_ratio_EE.children[0].v_model
             out_loading2.layout.visibility = "visible"
-            dim_red_compute = compute.DimensionalityReduction("PaCMAP", False, n_neighbors, MN_ratio, FP_ratio)
-            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.__explanation, 2), dim_red_compute.compute(self.__explanation, 3)]
+            dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
+            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.__explanation, 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red_compute.compute(self.__explanation, 3, False, n_neighbors, MN_ratio, FP_ratio)]
             out_loading2.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
@@ -416,7 +414,7 @@ class GUI():
 
         def reinit_param_EE(*b):
             out_loading2.layout.visibility = "visible"
-            dim_red_compute = compute.DimensionalityReduction("PaCMAP", True)
+            dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
             self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.__explanation, 2), dim_red_compute.compute(self.__explanation, 3)]
             out_loading2.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
@@ -448,16 +446,16 @@ class GUI():
                 scale = False
                 couleur = [0] * len(self.atk.dataset.X)
                 for i in range(len(self.atk.dataset.X)):
-                    for j in range(len(self.__list_of_regions)):
-                        if i in self.__list_of_regions[j]:
+                    for j in range(len(self.atk.regions)):
+                        if i in self.atk.regions[j].indexes:
                             couleur[i] = j + 1
             elif couleur_radio.v_model == "Non selec":
                 scale = False
                 couleur = ["red"] * len(self.atk.dataset.X)
-                if len(self.__list_of_regions) > 0:
+                if len(self.atk.regions) > 0:
                     for i in range(len(self.atk.dataset.X)):
-                        for j in range(len(self.__list_of_regions)):
-                            if i in self.__list_of_regions[j]:
+                        for j in range(len(self.atk.regions)):
+                            if i in self.atk.regions[j].indexes:
                                 couleur[i] = "grey"
             elif couleur_radio.v_model == "Clustering auto":
                 couleur = self.__Y_auto
@@ -513,37 +511,27 @@ class GUI():
 
         barre_menu, fig_size, bouton_save = gui_elements.create_menu_bar()
 
-        if self.atk.saves == None:
-            self.atk.saves = []
-
-        len_init_regions = len(self.atk.saves)
-
         # for the part on backups
+        init_len_saves = len(self.atk.saves)
+
         def init_save(new: bool = False):
             texte_regions = "There is no backup"
             for i in range(len(self.atk.saves)):
-                if len(self.atk.saves[i]["liste"]) != len(self.atk.dataset.X_all):
+                if len(self.atk.saves[i]["regions"]) != len(self.atk.dataset.X_all):
                     raise Exception("Your save is not the right size !")
             if len(self.atk.saves) > 0:
                 texte_regions = str(len(self.atk.saves)) + " save(s) found"
             self.__table_save = []
             for i in range(len(self.atk.saves)):
-                sous_mod_bool = "No"
                 new_or_not = "Imported"
-                if i > len_init_regions:
+                if i > init_len_saves:
                     new_or_not = "Created"
-                if (
-                    len(self.atk.saves[i]["self.sub_models"])
-                    == max(self.atk.saves[i]["liste"]) + 1
-                ):
-                    sous_mod_bool = "Yes"
                 self.__table_save.append(
                     [
                         i + 1,
                         self.atk.saves[i]["nom"],
                         new_or_not,
-                        max(self.atk.saves[i]["liste"]) + 1,
-                        sous_mod_bool,
+                        max(self.atk.saves[i]["regions"]) + 1,
                     ]
                 )
             self.__table_save = pd.DataFrame(
@@ -553,7 +541,6 @@ class GUI():
                     "Name",
                     "Origin",
                     "Number of regions",
-                    "Sub-models ?",
                 ],
             )
 
@@ -598,15 +585,15 @@ class GUI():
                 return
             indice = self.__table_save.v_model[0]["Save #"] - 1
             n = []
-            for i in range(int(max(self.atk.saves[indice]["liste"])) + 1):
+            for i in range(int(max(self.atk.saves[indice]["regions"])) + 1):
                 temp = []
-                for j in range(len(self.atk.saves[indice]["liste"])):
-                    if self.atk.saves[indice]["liste"][j] == i:
+                for j in range(len(self.atk.saves[indice]["regions"])):
+                    if self.atk.saves[indice]["regions"][j] == i:
                         temp.append(j)
                 if len(temp) > 0:
-                    n.append(temp)
-            self.__list_of_regions = n
-            couleur = deepcopy(self.atk.saves[indice]["liste"])
+                    n.append(Potato(self.atk, temp))
+            self.atk.regions = n
+            couleur = deepcopy(self.atk.saves[indice]["regions"])
             self.__color_regions = deepcopy(couleur)
             with self.fig1.batch_update():
                 self.fig1.data[0].marker.color = couleur
@@ -621,31 +608,26 @@ class GUI():
             couleur_radio.v_model = "Régions"
             self.fig1.update_traces(marker=dict(showscale=False))
             self.fig2.update_traces(marker=dict(showscale=False))
-            if len(self.atk.saves[indice]["model"]) != len(self.__list_of_regions):
-                self.__list_of_sub_models = [[None, None, None]] * len(self.__list_of_regions)
-            else:
-                self.__list_of_sub_models = []
-                for i in range(len(self.__list_of_regions)):
-                    nom = self.atk.saves[indice]["model"][i].__class__.__name__
-                    indices_respectent = self.__list_of_regions[i]
-                    score_init = compute.fonction_score(
-                        self.atk.dataset.y.iloc[indices_respectent], self.atk.dataset.y_pred[indices_respectent]
-                    )
-                    self.atk.saves[indice]["model"][i].fit(
-                        self.atk.dataset.X.iloc[indices_respectent], self.atk.dataset.y.iloc[indices_respectent]
-                    )
-                    score_reg = compute.fonction_score(
-                        self.atk.dataset.y.iloc[indices_respectent],
-                        self.atk.saves[indice]["model"][i].predict(
-                            self.atk.dataset.X.iloc[indices_respectent]
-                        ),
-                    )
-                    if score_init == 0:
-                        l_compar = "inf"
-                    else:
-                        l_compar = round(100 * (score_init - score_reg) / score_init, 1)
-                    score = [score_reg, score_init, l_compar]
-                    self.__list_of_sub_models.append([nom, score, -1])
+            for i in range(len(self.atk.regions)):
+                nom = self.atk.saves[indice]["regions"][i].sub_model.__class__.__name__
+                indices_respectent = self.atk.regions[i].indexes
+                score_init = compute.fonction_score(
+                    self.atk.dataset.y.iloc[indices_respectent], self.atk.dataset.y_pred[indices_respectent]
+                )
+                self.atk.saves[indice]["model"][i].fit(
+                    self.atk.dataset.X.iloc[indices_respectent], self.atk.dataset.y.iloc[indices_respectent]
+                )
+                score_reg = compute.fonction_score(
+                    self.atk.dataset.y.iloc[indices_respectent],
+                    self.atk.saves[indice]["regions"][i].sub_model.predict(
+                        self.atk.dataset.X.iloc[indices_respectent]
+                    ),
+                )
+                if score_init == 0:
+                    l_compar = "inf"
+                else:
+                    l_compar = round(100 * (score_init - score_reg) / score_init, 1)
+                score = [score_reg, score_init, l_compar]
             fonction_validation_une_tuile()
 
         visu_save.on_event("click", fonction_visu_save)
@@ -653,16 +635,8 @@ class GUI():
         # create a new savegame with the current regions
         def fonction_new_save(*args):
             if len(nom_sauvegarde.v_model) == 0 or len(nom_sauvegarde.v_model) > 25:
-                return
-            l_m = []
-            if len(self.__list_of_sub_models) == 0:
-                return
-            for i in range(len(self.__list_of_sub_models)):
-                if self.__list_of_sub_models[i][-1] == None:
-                    l_m.append(None)
-                else:
-                    l_m.append(self.sub_models[self.__list_of_sub_models[i][-1]])
-            save = create_save(self.__color_regions, nom_sauvegarde.v_model, l_m)
+                raise Exception("The name of the save must be between 1 and 25 characters !")
+            save = create_save(self.__color_regions, nom_sauvegarde.v_model)
             self.atk.saves.append(save)
             self.__table_save, texte = init_save(True)
             carte_save.children = [texte, self.__table_save] + carte_save.children[
@@ -788,12 +762,12 @@ class GUI():
 
             if self.dim_red["EV"][EV_proj.v_model] is None:
                 out_loading1.layout.visibility = "visible"
-                dim_red_compute = compute.DimensionalityReduction(EV_proj.v_model, True)
+                dim_red_compute = compute.DimensionalityReductionChooser(method=EV_proj.v_model)
                 self.dim_red["EV"][EV_proj.v_model] = [dim_red_compute.compute(self.atk.dataset.X_scaled, 2), dim_red_compute.compute(self.atk.dataset.X_scaled, 3)]
                 out_loading1.layout.visibility = "hidden"
             if self.dim_red["EE"][self.__explanation][EE_proj.v_model] is None:
                 out_loading2.layout.visibility = "visible"
-                dim_red_compute = compute.DimensionalityReduction(EE_proj.v_model, True)
+                dim_red_compute = compute.DimensionalityReductionChooser(method=EE_proj.v_model)
                 self.dim_red["EE"][self.__explanation][EE_proj.v_model] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.explain[self.__explanation], 3)]
                 out_loading2.layout.visibility = "hidden"
 
@@ -822,55 +796,7 @@ class GUI():
         table_regions = widgets.Output()
 
         # definition of the text that will give information on the selection
-        texte_base = "About the current selection : \n"
-        texte_base_debut = (
-            "About the current selection : \n0 pont selected (0% of the overall data)"
-        )
-        # text that will take the value of text_base + information on the selection
-        texte_selec = widgets.Textarea(
-            value=texte_base_debut,
-            placeholder="Infos",
-            description="",
-            disabled=True,
-            layout=Layout(width="100%"),
-        )
-
-        card_selec = v.Card(
-            class_="ma-2",
-            elevation=0,
-            children=[
-                v.Layout(
-                    children=[
-                        v.Icon(children=["mdi-lasso"]),
-                        v.Html(
-                            class_="mt-2 ml-4",
-                            tag="h4",
-                            children=[
-                                "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"
-                            ],
-                        ),
-                    ]
-                ),
-            ],
-        )
-
-        button_valider_skope = v.Btn(
-            class_="ma-1",
-            children=[
-                v.Icon(class_="mr-2", children=["mdi-auto-fix"]),
-                "Skope-Rules",
-            ],
-        )
-
-        # button that allows you to return to the initial rules in part 2. Skope-rules
-
-        boutton_reinit_skope = v.Btn(
-            class_="ma-1",
-            children=[
-                v.Icon(class_="mr-2", children=["mdi-skip-backward"]),
-                "Come back to the initial rules",
-            ],
-        )
+        texte_base, texte_base_debut, texte_selec, card_selec, button_valider_skope, boutton_reinit_skope = gui_elements.create_selection_card()
 
         texte_skope, texte_skopeEE, texte_skopeEV, une_carte_EV, une_carte_EE = gui_elements.create_card_skope()
 
@@ -889,30 +815,7 @@ class GUI():
         for i in range(len(mods.children)):
             mods.children[i].children[0].on_event("click", changement)
 
-        # selection validation button to create a region
-        valider_une_region = v.Btn(
-            class_="ma-3",
-            children=[
-                v.Icon(class_="mr-3", children=["mdi-check"]),
-                "Validate the selection",
-            ],
-        )
-        # button to delete all regions
-        supprimer_toutes_les_tuiles = v.Btn(
-            class_="ma-3",
-            children=[
-                v.Icon(class_="mr-3", children=["mdi-trash-can-outline"]),
-                "Delete the selected regions",
-            ],
-        )
-
-        # we wrap the sets of buttons in Boxes to put them online
-        en_deux_b = v.Layout(
-            class_="ma-3 d-flex flex-row",
-            children=[valider_une_region, v.Spacer(), supprimer_toutes_les_tuiles],
-        )
-        selection = widgets.VBox([en_deux_b])
-
+        valider_une_region, supprimer_toutes_les_tuiles, selection = gui_elements.create_buttons_regions()
         # we define the sliders used to modify the histogram resulting from the skope
         slider_skope1, bout_temps_reel_graph1, slider_text_comb1 = gui_elements.slider_skope()
         slider_skope2, bout_temps_reel_graph2, slider_text_comb2 = gui_elements.slider_skope()
@@ -1331,14 +1234,14 @@ class GUI():
         def fonction_validation_skope(*sender):
             loading_models.class_ = "d-flex"
             self.__valider_bool = True
-            if self.selection.y == None:
+            if self.selection.y_train == None:
                 texte_skopeEV.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
                 texte_skopeEE.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
-            elif 0 not in self.selection.y or 1 not in self.selection.y:
+            elif 0 not in self.selection.y_train or 1 not in self.selection.y_train:
                 texte_skopeEV.children[1].children = [
                     widgets.HTML("You can't choose everything/nothing !")
                 ]
@@ -1618,6 +1521,7 @@ class GUI():
             items=new_df.to_dict("records"),
             item_value="Region #",
             item_key="Region #",
+            hide_default_footer=True,
         )
         resultats_clusters = v.Row(
             children=[
@@ -1640,8 +1544,6 @@ class GUI():
             else:
                 nb_clusters = slider_clusters.v_model
                 result = fonction_auto_clustering(self.atk.dataset.X_scaled, self.atk.explain[self.__explanation], nb_clusters, False)
-            for i in result[0]:
-                print(len(i))
             self.__result_dyadic_clustering = result
             labels = result[1]
             self.__Y_auto = labels
@@ -1683,6 +1585,7 @@ class GUI():
                 items=donnees,
                 item_value="Region #",
                 item_key="Region #",
+                hide_default_footer=True,
             )
             all_chips = []
             all_radio = []
@@ -1708,7 +1611,7 @@ class GUI():
                 children=all_radio,
             )
             partie_chips = v.Col(
-                class_="w-10 ma-5 mt-10 mb-12 pb-4 d-flex flex-column justify-space-between",
+                class_="mt-10 mb-2 ml-0 d-flex flex-column justify-space-between",
                 style_="width : 10%",
                 children=all_chips,
             )
@@ -1756,7 +1659,7 @@ class GUI():
                 les_points = liste
             else:
                 les_points = points.point_inds
-            self.selection = Potato(les_points, self.atk)
+            self.selection = Potato(self.atk, les_points)
             self.selection.state = "lasso"
             if len(les_points) == 0:
                 card_selec.children[0].children[1].children = "0 point !"
@@ -1847,25 +1750,11 @@ class GUI():
             else:
                 if self.__model_choice == None:
                     nom_model = None
-                    score_model = [1] * len(self.__score_models[0])
-                    indice_model = -1
+                    score_model = [1,1,1]
                 else:
                     nom_model = self.sub_models[self.__model_choice].__class__.__name__
                     score_model = self.__score_models[self.__model_choice]
-                    indice_model = self.__model_choice
-                a = [0] * 10
-                if self.selection.rules == None or self.selection.rules == [
-                    a,
-                    a,
-                    a,
-                    a,
-                    a,
-                    a,
-                    a,
-                    a,
-                    a,
-                    a,
-                ]:
+                if self.selection.rules == None :
                     return
                 nouvelle_tuile = self.atk.dataset.X[
                     (self.atk.dataset.X[self.selection.rules[0][2]] >= self.selection.rules[0][0])
@@ -1877,26 +1766,27 @@ class GUI():
                         & (self.atk.dataset.X[self.selection.rules[i][2]] <= self.selection.rules[i][4])
                     ].index
                     nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
-                self.__list_of_sub_models.append([nom_model, score_model, indice_model])
+                self.selection.sub_model["name"], self.selection.sub_model["score"] = nom_model, score_model
                 # here we will force so that all the points of the new tile belong only to it: we will modify the existing tiles
-                self.__list_of_regions = conflict_handler(self.__list_of_regions, nouvelle_tuile)
-                self.__list_of_regions.append(nouvelle_tuile)
+                self.atk.regions = conflict_handler(self.atk.regions, nouvelle_tuile)
+                self.atk.regions.append(Potato(self.atk, nouvelle_tuile))
+                self.atk.regions[-1].sub_model = self.selection.sub_model
             for i in range(len(self.__color_regions)):
                 if i in range(len(self.selection.indexes)):
-                    self.__color_regions[i] = len(self.__list_of_regions)
+                    self.__color_regions[i] = len(self.atk.regions)
 
             toute_somme = 0
             temp = []
             score_tot = 0
             score_tot_glob = 0
             autre_toute_somme = 0
-            for i in range(len(self.__list_of_regions)):
-                if self.__list_of_sub_models[i][0] == None:
+            for i in range(len(self.atk.regions)):
+                if self.atk.regions[i].sub_model == None:
                     temp.append(
                         [
                             i + 1,
-                            len(self.__list_of_regions[i]),
-                            np.round(len(self.__list_of_regions[i]) / len(self.atk.dataset.X) * 100, 2),
+                            len(self.atk.regions[i]),
+                            np.round(len(self.atk.regions[i]) / len(self.atk.dataset.X) * 100, 2),
                             "/",
                             "/",
                             "/",
@@ -1907,20 +1797,20 @@ class GUI():
                     temp.append(
                         [
                             i + 1,
-                            len(self.__list_of_regions[i]),
-                            np.round(len(self.__list_of_regions[i]) / len(self.atk.dataset.X) * 100, 2),
-                            self.__list_of_sub_models[i][0],
-                            self.__list_of_sub_models[i][1][0],
-                            self.__list_of_sub_models[i][1][1],
-                            str(self.__list_of_sub_models[i][1][2]) + "%",
+                            len(self.atk.regions[i]),
+                            np.round(len(self.atk.regions[i]) / len(self.atk.dataset.X) * 100, 2),
+                            self.atk.regions[i].sub_model["name"],
+                            self.atk.regions[i].sub_model["score"][0],
+                            self.atk.regions[i].sub_model["score"][1],
+                            str(self.atk.regions[i].sub_model["score"][2]) + "%",
                         ]
                     )
-                    score_tot += self.__list_of_sub_models[i][1][0] * len(self.__list_of_regions[i])
-                    score_tot_glob += self.__list_of_sub_models[i][1][1] * len(
-                        self.__list_of_regions[i]
+                    score_tot += self.atk.regions[i].sub_model["score"][0] * len(self.atk.regions[i])
+                    score_tot_glob += self.atk.regions[i].sub_model["score"][1] * len(
+                        self.atk.regions[i]
                     )
-                    autre_toute_somme += len(self.__list_of_regions[i])
-                toute_somme += len(self.__list_of_regions[i])
+                    autre_toute_somme += len(self.atk.regions[i])
+                toute_somme += len(self.atk.regions[i])
             if autre_toute_somme == 0:
                 score_tot = "/"
                 score_tot_glob = "/"
@@ -1997,8 +1887,7 @@ class GUI():
                     a = 0
                     for i in range(taille):
                         indice = table_donnes.v_model[i]["Region #"] - 1
-                        self.__list_of_regions.pop(indice - a)
-                        self.__list_of_sub_models.pop(indice - a)
+                        self.atk.regions.pop(indice - a)
                         fonction_validation_une_tuile()
                         self.__all_tiles_rules.pop(indice - a)
                         a += 1
@@ -2066,59 +1955,7 @@ class GUI():
             self.selection.rules.append(nouvelle_regle)
             une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
 
-            new_valider_change = v.Btn(
-                class_="ma-3",
-                children=[
-                    v.Icon(class_="mr-2", children=["mdi-check"]),
-                    "Validate the change",
-                ],
-            )
-
-            new_slider_skope = v.RangeSlider(
-                class_="ma-3",
-                v_model=[nouvelle_regle[0]  , nouvelle_regle[4]  ],
-                min=nouvelle_regle[0]  ,
-                max=nouvelle_regle[4]  ,
-                step=1,
-                label=nouvelle_regle[2],
-            )
-
-            new_histogram = go.FigureWidget(
-                data=[
-                    go.Histogram(
-                        x=self.atk.dataset.X[colonne].values,
-                        bingroup=1,
-                        nbinsx=nombre_bins,
-                        marker_color="grey",
-                    )
-                ]
-            )
-            new_histogram.update_layout(
-                barmode="overlay",
-                bargap=0.1,
-                width=0.9 * int(fig_size.v_model),
-                showlegend=False,
-                margin=dict(l=0, r=0, t=0, b=0),
-                height=150,
-            )
-
-            new_histogram.add_trace(
-                go.Histogram(
-                    x=self.atk.dataset.X[colonne].values,
-                    bingroup=1,
-                    nbinsx=nombre_bins,
-                    marker_color="LightSkyBlue",
-                    opacity=0.6,
-                )
-            )
-            new_histogram.add_trace(
-                go.Histogram(
-                    x=self.atk.dataset.X[colonne].values,
-                    bingroup=1,
-                    nbinsx=nombre_bins,
-                    marker_color="blue",
-                )
-            )
+            new_valider_change, new_slider_skope, new_histogram = gui_elements.create_new_feature_rule(self, nouvelle_regle, colonne, nombre_bins, fig_size.v_model)
 
             all_histograms.append(new_histogram)
 
@@ -2368,74 +2205,8 @@ class GUI():
 
         boutton_add_skope.on_event("click", fonction_add_skope)
 
-        param_EV = v.Menu(
-            v_slots=[
-                {
-                    "name": "activator",
-                    "variable": "props",
-                    "children": v.Btn(
-                        v_on="props.on",
-                        icon=True,
-                        size="x-large",
-                        children=[v.Icon(children=["mdi-cogs"], size="large")],
-                        class_="ma-2 pa-3",
-                        elevation="3",
-                    ),
-                }
-            ],
-            children=[
-                v.Card(
-                    class_="pa-4",
-                    rounded=True,
-                    children=[params_proj_EV],
-                    min_width="500",
-                )
-            ],
-            v_model=False,
-            close_on_content_click=False,
-            offset_y=True,
-        )
-
-        param_EV.v_slots[0]["children"].children = [
-            add_tooltip(
-                param_EV.v_slots[0]["children"].children[0],
-                "Settings of the projection in the Values Space",
-            )
-        ]
-
-        param_EE = v.Menu(
-            v_slots=[
-                {
-                    "name": "activator",
-                    "variable": "props",
-                    "children": v.Btn(
-                        v_on="props.on",
-                        icon=True,
-                        size="x-large",
-                        children=[v.Icon(children=["mdi-cogs"], size="large")],
-                        class_="ma-2 pa-3",
-                        elevation="3",
-                    ),
-                }
-            ],
-            children=[
-                v.Card(
-                    class_="pa-4",
-                    rounded=True,
-                    children=[params_proj_EE],
-                    min_width="500",
-                )
-            ],
-            v_model=False,
-            close_on_content_click=False,
-            offset_y=True,
-        )
-        param_EE.v_slots[0]["children"].children = [
-            add_tooltip(
-                param_EE.v_slots[0]["children"].children[0],
-                "Settings of the projection in the Explanatory Space",
-            )
-        ]
+        param_EV = gui_elements.create_settings_card(params_proj_EV)
+        param_EE = gui_elements.create_settings_card(params_proj_EE)
 
         projEV_et_load = widgets.HBox(
             [
@@ -2497,7 +2268,7 @@ class GUI():
             exp_val = self.atk.explain[data]
             if self.dim_red['EE'][self.__explanation][self.__projectionEE] == None:
                 out_loading2.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReduction(EE_proj.v_model, True)
+                dim_red = compute.DimensionalityReductionChooser(method=EE_proj.v_model)
                 self.dim_red['EE'][self.__explanation][self.__projectionEE] = [dim_red.compute(exp_val, 2), dim_red.compute(exp_val, 3)]
                 out_loading2.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
@@ -2519,14 +2290,14 @@ class GUI():
 
         def function_validation_explanation(widget, event, data):
             if widget.v_model == "SHAP":
-                self.__compute_SHAP = LongTask.compute_SHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                self.__compute_SHAP = longtask.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_SHAP.children[1], "v_model"), (self.__compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[2], "v_model"), (self.__compute_SHAP.text_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[-1], "color"), (self.__compute_SHAP.done_widget, "v_model"))
                 self.__compute_SHAP.compute_in_thread()
                 new_prog_SHAP.children[-1].disabled = True
             if widget.v_model == "LIME":
-                self.__compute_LIME = LongTask.compute_LIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                self.__compute_LIME = longtask.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_LIME.children[1], "v_model"), (self.__compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[2], "v_model"), (self.__compute_LIME.text_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[-1], "color"), (self.__compute_LIME.done_widget, "v_model"))
@@ -2558,33 +2329,7 @@ class GUI():
         new_prog_SHAP.children[-1].on_event("click", function_validation_explanation)
         new_prog_LIME.children[-1].on_event("click", function_validation_explanation)
 
-        time_computing = v.Card(
-            class_="m-0 p-0",
-            elevation="0",
-            children=[
-                v.Tabs(
-                    class_="w-100",
-                    v_model="tabs",
-                    children=[
-                        v.Tab(value="one", children=["SHAP"]),
-                        v.Tab(value="two", children=["LIME"]),
-                    ],
-                ),
-                v.CardText(
-                    class_="w-100",
-                    children=[
-                        v.Window(
-                            class_="w-100",
-                            v_model="tabs",
-                            children=[
-                                v.WindowItem(value=0, children=[new_prog_SHAP]),
-                                v.WindowItem(value=1, children=[new_prog_LIME]),
-                            ],
-                        )
-                    ],
-                ),
-            ],
-        )
+        time_computing = gui_elements.time_computing(new_prog_SHAP, new_prog_LIME)
 
         widgets.jslink(
             (time_computing.children[0], "v_model"), (time_computing.children[1].children[0], "v_model")
@@ -2869,36 +2614,36 @@ class GUI():
         """
 
         L_f = []
-        if len(self.__list_of_regions) == 0:
+        if len(self.atk.regions) == 0:
             return "No region has been created !"
-        for i in range(len(self.__list_of_regions)):
+        for i in range(len(self.atk.regions)):
             dictio = dict()
-            dictio["X"] = self.atk.dataset.X.iloc[self.__list_of_regions[i], :].reset_index(
+            dictio["X"] = self.atk.dataset.X.iloc[self.atk.regions[i].indexes, :].reset_index(
                 drop=True
             )
-            dictio["y"] = self.atk.dataset.y.iloc[self.__list_of_regions[i]].reset_index(drop=True)
-            dictio["indices"] = self.__list_of_regions[i]
+            dictio["y"] = self.atk.dataset.y.iloc[self.atk.regions[i].indexes].reset_index(drop=True)
+            dictio["indices"] = self.atk.regions[i].indexes
             dictio["explain"] = {"Imported": None, "SHAP": None, "LIME": None}
             if self.atk.explain["Imported"] is not None:
-                dictio["explain"]["Imported"] = self.atk.explain["Imported"].iloc[self.__list_of_regions[i], :].reset_index(
+                dictio["explain"]["Imported"] = self.atk.explain["Imported"].iloc[self.atk.regions[i].indexes, :].reset_index(
                     drop=True
                 )
             if self.atk.explain["LIME"] is not None:
-                dictio["explain"]["LIME"] = self.atk.explain["LIME"].iloc[self.__list_of_regions[i], :].reset_index(
+                dictio["explain"]["LIME"] = self.atk.explain["LIME"].iloc[self.atk.regions[i].indexes, :].reset_index(
                     drop=True
                 )
             if self.atk.explain["SHAP"] is not None:
-                dictio["explain"]["SHAP"] = self.atk.explain["SHAP"].iloc[self.__list_of_regions[i], :].reset_index(
+                dictio["explain"]["SHAP"] = self.atk.explain["SHAP"].iloc[self.atk.regions[i].indexes, :].reset_index(
                     drop=True
                 )
-            if self.__list_of_sub_models[i][-1] == -1:
+            if self.atk.regions[i].sub_model == None:
                 dictio["model name"] = None
                 dictio["model score"] = None
                 dictio["model"] = None
             else:
-                dictio["model name"] = self.__list_of_sub_models[i][0]
-                dictio["model score"] = self.__list_of_sub_models[i][1]
-                dictio["model"] = self.sub_models[self.__list_of_sub_models[i][2]]
+                dictio["model name"] =  self.atk.regions[i].sub_model["name"].__name__
+                dictio["model score"] = self.atk.regions[i].sub_model["score"]
+                dictio["model"] = self.atk.regions[i].sub_model["name"]
             dictio["rules"] = self.__all_tiles_rules[i]
             L_f.append(dictio)
         if number == None or item == None:

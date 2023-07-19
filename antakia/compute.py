@@ -10,30 +10,22 @@ import numpy as np
 
 from abc import ABC, abstractmethod
 
-class DimensionalityReduction():
+class DimensionalityReduction(ABC):
     """
     Class that allows to reduce the dimensionality of the data.
     """
-    def __init__(self, method: str = "PaCMAP", default_parameters: bool = True, *params):
+    def __init__(self):
         """
         Constructor of the class DimensionalityReduction.
-
-        Parameters
-        ---------
-        method : str
-            The method used to reduce the dimensionality of the data.
-        n_dimensions : int
-            The number of dimensions of the data after the reduction.
-        default_parameters : bool
-            Whether to use the default parameters of the method or not.
-        params : list
-            The parameters of the method.
         """
-        self.method = method
-        self.default_parameters = default_parameters
-        self.params = params
+        pass
 
-    def red_PCA(self, X, n, default):
+    @abstractmethod
+    def compute(self):
+        pass
+        
+class PCA_computation(DimensionalityReduction):
+    def compute(self, X, n, default=True):
         # definition of the method PCA, used for the EE and the EV
         if default:
             pca = PCA(n_components=n)
@@ -41,24 +33,28 @@ class DimensionalityReduction():
         X_pca = pca.transform(X)
         X_pca = pd.DataFrame(X_pca)
         return X_pca
+    
+class TSNE_computation(DimensionalityReduction):
 
-    def red_TSNE(self, X, n, default):
+    def compute(self, X, n, default=True):
         # definition of the method TSNE, used for the EE and the EV
         if default:
             tsne = TSNE(n_components=n)
         X_tsne = tsne.fit_transform(X)
         X_tsne = pd.DataFrame(X_tsne)
         return X_tsne
-
-    def red_UMAP(self, X, n, default):
+    
+class UMAP_computation(DimensionalityReduction):
+    def compute(self, X, n, default=True):
         # definition of the method UMAP, used for the EE and the EV
         if default:
             reducer = umap.UMAP(n_components=n)
         embedding = reducer.fit_transform(X)
         embedding = pd.DataFrame(embedding)
         return embedding
-
-    def red_PACMAP(self, X, n, default, *args):
+    
+class PaCMAP_computation(DimensionalityReduction):
+    def compute(self, X, n, default, *args):
         # definition of the method PaCMAP, used for the EE and the EV
         # if default : no change of parameters (only for PaCMAP for now)
         if default:
@@ -74,39 +70,25 @@ class DimensionalityReduction():
         embedding = reducer.fit_transform(X, init="pca")
         embedding = pd.DataFrame(embedding)
         return embedding
+    
+def DimensionalityReductionChooser(method):
+    if method == 'PCA':
+        return PCA_computation()
+    elif method == 't-SNE':
+        return TSNE_computation()
+    elif method == 'UMAP':
+        return UMAP_computation()
+    elif method == 'PaCMAP':
+        return PaCMAP_computation()
 
-    def compute(self, X: pd.DataFrame, n_dimensions: int):
-        """
-        Function that computes the dimensionality reduction.
-
-        Parameters
-        ---------
-        X : pandas dataframe
-            The dataframe containing the data to reduce.
-
-        Returns
-        -------
-        X_reduced : pandas dataframe
-            The dataframe containing the data reduced.
-        """
-        if self.method == "PCA":
-            return self.red_PCA(X, n_dimensions, self.default_parameters)
-        elif self.method == "t-SNE":
-            return self.red_TSNE(X, n_dimensions, self.default_parameters)
-        elif self.method == "UMAP":
-            return self.red_UMAP(X, n_dimensions, self.default_parameters)
-        elif self.method == "PaCMAP":
-            return self.red_PACMAP(X, n_dimensions, self.default_parameters, *self.params)
-        else:
-            raise ValueError("The method is not valid.")
 
 def initialize_dim_red_EV(X, default_projection):
-    dim_red = DimensionalityReduction(method=default_projection, default_parameters=True)
-    return dim_red.compute(X, 2), dim_red.compute(X, 3)
+    dim_red = DimensionalityReductionChooser(method=default_projection)
+    return dim_red.compute(X, 2, True), dim_red.compute(X, 3, True)
 
 def initialize_dim_red_EE(EXP, default_projection):
-    dim_red = DimensionalityReduction(method=default_projection, default_parameters=True)
-    return dim_red.compute(EXP, 2), dim_red.compute(EXP, 3)
+    dim_red = DimensionalityReductionChooser(method=default_projection)
+    return dim_red.compute(EXP, 2, True), dim_red.compute(EXP, 3, True)
 
 def fonction_score(y, y_chap):
     # function that calculates the score of a machine-learning model
