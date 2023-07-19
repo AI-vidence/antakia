@@ -2205,8 +2205,8 @@ class GUI():
 
         boutton_add_skope.on_event("click", fonction_add_skope)
 
-        param_EV = gui_elements.create_settings_card(params_proj_EV)
-        param_EE = gui_elements.create_settings_card(params_proj_EE)
+        param_EV = gui_elements.create_settings_card(params_proj_EV, "Settings of the projection in the Values Space")
+        param_EE = gui_elements.create_settings_card(params_proj_EE, "Settings of the projection in the Explanatory Space")
 
         projEV_et_load = widgets.HBox(
             [
@@ -2258,7 +2258,7 @@ class GUI():
             label="Explainability method",
             items=items,
             v_model=item_default,
-            class_="ma-2 ml-6",
+            class_="ma-2 mt-1 ml-6",
             style_="width: 150px",
             disabled = False,
         )
@@ -2344,7 +2344,7 @@ class GUI():
                         v_on="props.on",
                         icon=True,
                         size="x-large",
-                        children=[v.Icon(children=["mdi-timer-sand"], size="large")],
+                        children=[add_tooltip(v.Icon(children=["mdi-timer-sand"], size="large"), "Time of computing")],
                         class_="ma-2 pa-3",
                         elevation="3",
                     ),
@@ -2374,7 +2374,7 @@ class GUI():
                         add_tooltip(
                             v.Icon(
                                 children=["mdi-format-color-fill"],
-                                class_="mr-4",
+                                class_="mt-n5 mr-4"
                             ),
                             "Color of the points",
                         ),
@@ -2384,7 +2384,7 @@ class GUI():
                         choose_computing,
                     ],
                 ),
-                v.Layout(class_="mt-5", children=[projEV_et_load, projEE_et_load]),
+                v.Layout(class_="mt-3", children=[projEV_et_load, projEE_et_load]),
             ],
             layout=Layout(
                 width="100%",

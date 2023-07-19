@@ -924,7 +924,7 @@ def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size)
     )
     return new_valider_change, new_slider_skope, new_histogram
 
-def create_settings_card(children):
+def create_settings_card(children, text):
     param_EV = v.Menu(
         v_slots=[
             {
@@ -956,7 +956,7 @@ def create_settings_card(children):
     param_EV.v_slots[0]["children"].children = [
         add_tooltip(
             param_EV.v_slots[0]["children"].children[0],
-            "Settings of the projection in the Values Space",
+            text,
         )
     ]
     return param_EV
@@ -990,3 +990,102 @@ def time_computing(new_prog_SHAP, new_prog_LIME):
         ],
     )
     return widget
+
+def create_slide_dataset(name, i, type, taille, commentaire, sensible, infos):
+    types=['None', 'int64', 'float64', 'str', 'bool']
+    infos = v.Card(
+        class_="ma-0 pa-0",
+        elevation=0,
+        children=[
+            v.CardText(
+                children=[
+                    v.Html(tag="h3", children=["Min: " + str(infos[0])]),
+                    v.Html(tag="h3", children=["Max: " + str(infos[1])]),
+                    v.Html(tag="h3", children=["Mean: " + str(infos[2])]),
+                    v.Html(tag="h3", children=["Standard deviation: " + str(infos[3])])
+                ]
+            ),]
+    )
+    if str(type) not in types:
+        types.append(str(type))
+    slide = v.SlideItem(
+        style_="max-width: 12%; min-width: 12%;",
+        children=[
+            v.Card(
+                elevation=3,
+                class_="grow ma-2",
+                children=[
+                    v.CardTitle(
+                        class_="mx-5 mb-0 pb-0",
+                        children=[v.TextField(v_model=name, class_="mb-0 pb-0", label=f"Name: (init: {name})", value=i)]
+                    ),
+                    v.CardText(class_="d-flex flex-column align-center", children=[
+                        v.Menu(
+                            location="top",
+                            v_slots=[
+                                {
+                                    "name": "activator",
+                                    "variable": "props",
+                                    "children": v.Btn(
+                                        class_="mt-0 pt-0 mb-5",
+                                        v_on="props.on",
+                                        icon=True,
+                                        size="x-large",
+                                        children=[v.Icon(children=["mdi-information-outline"])],
+                                        elevation=2,
+                                    ),
+                                }
+                            ],
+                            children=[
+                                v.Card(
+                                    class_="pa-4",
+                                    rounded=True,
+                                    children=[infos],
+                                )
+                            ],
+                            v_model=False,
+                            close_on_content_click=True,
+                            offset_y=True,
+                        ),
+                        v.Row(class_='d-flex flex-row justify-center',
+                            children=[
+                                v.Select(
+                                items=types,
+                                v_model=str(type),
+                                label=f"Type: (init: {type})",
+                                style_="max-width: 40%",
+                                value=i
+                                ),
+                                v.Btn(
+                                    icon=True,
+                                    elevation=2,
+                                    class_="mt-2 ml-2",
+                                    children=[add_tooltip(v.Icon(children=["mdi-check"]), "Validate the change")],
+                                    value=i
+                                ),]),
+                        v.Checkbox(
+                            v_model=sensible,
+                            label="Sensible feature",
+                            color="red",
+                            class_ = str(i)
+                        ),
+                        v.Textarea(
+                            variant="outlined",
+                            v_model=commentaire,
+                            label="Comments:",
+                            style_="max-width: 90%",
+                            rows="3",
+                            value=i
+                            ),
+                        v.Html(
+                            tag="p",
+                            children=[f"{i}/{taille}"],
+                        )
+                    ]),
+                ],
+            )
+        ],
+    )
+    if sensible:
+        slide.children[0].color = "red lighten-5"
+    return slide

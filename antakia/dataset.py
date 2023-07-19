@@ -10,6 +10,12 @@ from IPython.display import display
 
 from sklearn.preprocessing import StandardScaler
 
+from antakia import gui_elements
+
+import time
+
+import warnings
+
 class Dataset():
     """Dataset object.
     This object contains the all data, the model to explain, the explanations and the predictions.
@@ -72,6 +78,9 @@ class Dataset():
 
         self.verbose = None
         self.widget = None
+
+        self.comments = [""]*len(self.X.columns)
+        self.sensible = [False]*len(self.X.columns)
 
     def __str__(self):
         texte = ' '.join(("Dataset:\n",
@@ -142,14 +151,68 @@ class Dataset():
         """
         Improves the dataset.
         """
-        colonnes = [
-                {"text": c, "sortable": True, "value": c} for c in self.X.columns
-            ]
-        self.widget = v.DataTable(
-            v_model=[],
-            headers=colonnes,
-            items=self.X.to_dict("records"),
+        general_infos = v.Row(class_="ma-2", children=[
+            v.Icon(children=["mdi-database"], size="30px"),
+            v.Html(tag="h3", class_="mb-3 mt-3 ml-4", children=[
+                str(self.X.shape[0]) + " observations, " + str(self.X.shape[1]) + " features"
+                ])])
+        liste_slides = []
+        for i in range(self.X.shape[1]):
+            infos = [min(self.X.iloc[:,i]), max(self.X.iloc[:,i]), np.mean(self.X.iloc[:,i]), np.std(self.X.iloc[:,i])]
+            infos = [round(infos[j], 3) for j in range(len(infos))]
+            liste_slides.append(gui_elements.create_slide_dataset(self.X.columns[i], i+1, self.X.dtypes[i], len(self.X.columns), self.comments[i], self.sensible[i], infos))
+
+        slidegroup = v.SlideGroup(
+            v_model=None,
+            class_="ma-3 pa-3",
+            elevation=4,
+            center_active=True,
+            show_arrows=True,
+            children=liste_slides,
         )
-        display(self.widget)
+
+        def changement_sensible(widget, event, data):
+            i = int(widget.class_)-1
+            if widget.v_model :
+                liste_slides[i].children[0].color = "red lighten-5"
+                self.sensible[i] = True
+            else:
+                liste_slides[i].children[0].color = "white"
+                self.sensible[i] = False
+
+        def changement_names(widget, event, data):
+            i = widget.value-1
+            self.X = self.X.rename(columns={self.X.columns[i]: widget.v_model})
+
+        def changement_type(widget, event, data):
+            i = widget.value-1
+            widget2 = liste_slides[i].children[0].children[-1].children[1].children[0]
+            try :
+                self.X = self.X.astype({self.X.columns[i]: widget2.v_model})
+            except:
+                print("The type of the column " + self.X.columns[i] + " cannot be changed to " + widget2.v_model)
+                widget.color = "error"
+                time.sleep(2)
+                widget.color = ""
+            else:
+                widget.color = "success"
+                time.sleep(2)
+                widget.color = ""
+
+        def changement_comment(widget, event, data):
+            i = widget.value-1
+            self.comments[i] = widget.v_model
+
+        for i in range(len(liste_slides)):
+            liste_slides[i].children[0].children[-1].children[2].on_event("change", changement_sensible)
+            liste_slides[i].children[0].children[-1].children[3].on_event("change", changement_comment)
+            liste_slides[i].children[0].children[0].children[0].on_event("change", changement_names)
+            liste_slides[i].children[0].children[-1].children[1].children[-1].on_event("click", changement_type)
+
+        widget = v.Col(children=[
+            general_infos,
+            slidegroup,
+        ])
+        display(widget)
 
 
