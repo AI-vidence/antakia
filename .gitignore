@@ -168,3 +168,5 @@ cython_debug/
 test.ipynb
 .vscode
 examples/test.ipynb
+
+data/data_mnist
