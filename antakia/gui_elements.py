@@ -5,6 +5,7 @@ GUI elements for AntakIA
 import ipywidgets as widgets
 from ipywidgets import Layout
 import ipyvuetify as v
+
 import pandas as pd
 import numpy as np
 import webbrowser

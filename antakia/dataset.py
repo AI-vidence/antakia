@@ -3,7 +3,7 @@ import numpy as np
 
 # import antakia.longtask as LongTask
 
-#  TODO Bizarre ces 3 imports qui suivent (pas de GUI dans Dataset)
+# TODO : these references to IPython should be removed in favor of a new scheme (see Wiki)
 import ipyvuetify as v
 import ipywidgets as widgets
 from IPython.display import display 
