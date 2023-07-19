@@ -59,7 +59,7 @@ Our Python library combines all the steps of our regional approach for your mode
 ### :camera: Screenshots
 
 <div align="center"> 
-  <img src="antakia/asset/git_screen.png" alt="screenshot" />
+  <img src="antakia/assets/git_screen.png" alt="screenshot" />
 </div>
 
 <!-- Getting Started -->
