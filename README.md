@@ -51,7 +51,7 @@ Our Python library combines all the steps of our regional approach for your mode
 - Performance, continuity and completeness testing of the final model
 
 <div align="center"> 
-  <img src="assets_git/gif_antakia.gif" alt="AntaKIA idea" />
+  <img src="antakia/assets/gif_antakia.gif" alt="AntaKIA idea" />
 </div>
 
 <!-- Screenshots -->
@@ -59,7 +59,7 @@ Our Python library combines all the steps of our regional approach for your mode
 ### :camera: Screenshots
 
 <div align="center"> 
-  <img src="assets_git/git_screen.png" alt="screenshot" />
+  <img src="antakia/assets/git_screen.png" alt="screenshot" />
 </div>
 
 <!-- Getting Started -->
