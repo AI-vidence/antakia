@@ -1,0 +1,3 @@
+# **`LongTask`** (Class)
+
+::: antakia.longtask

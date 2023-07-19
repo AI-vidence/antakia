@@ -1,0 +1,3 @@
+# **`AntakIA`** (Class)
+
+::: antakia.AntakIA
