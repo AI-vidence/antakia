@@ -134,6 +134,7 @@ class Potato():
         elif self.state == Potato.LASSO : return "lasso"
         elif self.state == Potato.SKR : return "skope ruled"
         elif self.state == Potato.REFINED_SKR : return "refined skope rules"
+        elif self.state == Potato.REGION : return "region"
         else : raise ValueError("unknown state for a potato")
 
     def getIndexes(self) -> list:
@@ -266,8 +267,34 @@ class Potato():
         else :
             self.rules, self.score = self.__transform_rules(skope_rules_clf.rules_, self.dataset.X)
             self.rules_exp, self.score_exp = self.__transform_rules(skope_rules_clf_exp.rules_, self.atk.explain[explanation])
+            self.check_for_duplicates()
             self.apply_rules()
             self.success = True
+
+    def check_for_duplicates(self):
+        """
+        Function that checks if there are duplicates in the rules.
+
+        """
+        features = [self.rules[i][2] for i in range(len(self.rules))]
+        features_alone = list(set(features))
+        if len(features) == len(features_alone):
+            return
+        else :
+            for feature in features:
+                if features.count(feature) > 1:
+                    a=0
+                    for i in range(len(self.rules)):
+                        min_feature = -10e99
+                        max_feature = 10e99
+                        if self.rules[i-a][2] == feature:
+                            if self.rules[i-a][0] > min_feature:
+                                min_feature = self.rules[i-a][0]
+                            if self.rules[i-a][4] < max_feature:
+                                max_feature = self.rules[i-a][4]
+                            self.rules.pop(i-a)
+                            a+=1
+                    self.rules.append([min_feature, "<=", feature, "<=", max_feature])
 
     def respect_one_rule(self, index:int):
         """

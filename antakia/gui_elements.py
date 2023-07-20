@@ -281,7 +281,8 @@ def create_menu_bar():
         class_="ma-4",
         rounded=True,
         children=[
-            logo_aividence,
+            #logo_aividence,
+            v.Html(tag="h2", children=["AntakIA"], class_="ml-3"),
             v.Spacer(),
             bouton_save,
             bouton_settings,
@@ -623,6 +624,7 @@ def slider_skope():
                 hide_details=True,
                 type="number",
                 density="compact",
+                step="0.1",
             ),
         ],
     )
@@ -757,6 +759,7 @@ def accordion_skope(texte, dans_accordion):
         class_="ma-2 mb-1",
         children=[
             v.ExpansionPanel(
+                disabled = True,
                 children=[
                     v.ExpansionPanelHeader(children=[texte]),
                     v.ExpansionPanelContent(children=[dans_accordion]),
@@ -883,7 +886,7 @@ def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size)
         v_model=[nouvelle_regle[0]  , nouvelle_regle[4]  ],
         min=nouvelle_regle[0]  ,
         max=nouvelle_regle[4]  ,
-        step=1,
+        step=0.01,
         label=nouvelle_regle[2],
     )
 
@@ -917,7 +920,7 @@ def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size)
     )
     new_histogram.add_trace(
         go.Histogram(
-            x=self.gui.dataset.X[colonne].values,
+            x=gui.atk.dataset.X[colonne].values,
             bingroup=1,
             nbinsx=nombre_bins,
             marker_color="blue",

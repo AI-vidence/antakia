@@ -19,6 +19,8 @@ import json
 
 import ipyvuetify as v
 
+from antakia.potato import Potato
+
 # Private utils functions
 
 def _conflict_handler(ens_potatoes, liste):
@@ -171,7 +173,7 @@ def fonction_auto_clustering(X1, X2, n_clusters, default):
     return _clustering_dyadique(X1, X2, n_clusters, default)
 
 
-def create_save(liste=None, nom: str = "Default name"):
+def create_save(atk, liste, nom: str = "Default name"):
     """Return a save file from a list of pre-defined regions.
 
     Function that allows to create a save file from a list of pre-defined regions.
@@ -195,9 +197,13 @@ def create_save(liste=None, nom: str = "Default name"):
     >>> my_save
     {'nom': 'save', 'liste': [[0, 1], [2, 3]]}
     """
-    if sub_models is None:
-        sub_models = []
-    return {"nom": nom, "region": liste}
+    l = np.array([[] for _ in range(max(liste) + 1)]).tolist()
+    for i in range(len(liste)):
+        l[liste[i]].append(i)
+    l = [x for x in l if x != []]
+    for i in range(len(l)):
+        l[i] = Potato(atk, l[i])
+    return {"name": nom, "regions": l, "labels": liste}
 
 
 def load_save(local_path):

@@ -1,8 +1,28 @@
 # User guide
 
-Here is a simple use case of the AntaKIA package.
+Here is a simple use case of the AntakIA package.
 
 _(find more examples in the <a href="https://github.com/AI-vidence/antakia/tree/main/examples">this folder</a>)_
+
+AntakIA is made to be used in a notebook. You can either:
+
+* open a notebook in your IDE if supported (e.g. VSCode). Just open a `.ipynb` file directly from here !
+
+* open a notebook using JupyterLab (recommended). To do so, open a terminal and type:
+```bash
+pip install jupyterlab #if not already installed
+ipython kernel install --name "local-venv" --user #to add your virtual environment to the list of kernels
+jupyter lab
+```
+!!! tip
+
+    Using jupyterlab, you might want to manage your kernels. The following commands are useful:
+
+    To access to the list of kernels: 
+    `jupyter kernelspec list`
+
+    To remove a kernel:
+    `jupyter kernelspec remove old_kernel`
 
 ## Using the GUI
 

@@ -120,16 +120,14 @@ class GUI():
             self.__calculus = False
 
         self.__color_regions = []
-        self.__save_rules = None
-        self.__other_columns = None
-        self.__valider_bool = False
-        self.__SHAP_train = None
-        self.__model_choice = None
-        self.__Y_auto = None
-        self.__all_tiles_rules = []
-        self.__result_dyadic_clustering = None
-        self.__score_models = []
-        self.__table_save = None
+        self.__save_rules = None #useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
+        self.__other_columns = None #to keep track of the columns that are not used in the rules !
+        self.__activate_histograms = False #to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
+        self.__model_index = None #to know which sub_model is selected by the user. 
+        self.__labels_automatic_clustering = None #to keep track of the labels from the automatic-clustering, used for the colors !
+        self.__result_dyadic_clustering = None #to keep track  of the entire results from the dyadic-clustering
+        self.__score_sub_models = None #to keep track of the scores of the sub-models
+        self.__table_save = None #to manipulate the table of the saves
 
     def getSelection(self):
         """Function that returns the current selection.
@@ -237,7 +235,6 @@ class GUI():
         # once all this is done, the splash screen is removed
         splash.class_ = "d-none"
 
-        # loading_bar = widgets.Image(value=img, width=30, height=20)
         loading_bar = v.ProgressCircular(
             indeterminate=True, color="blue", width="6", size="35", class_="mx-4 my-3"
         )
@@ -458,21 +455,37 @@ class GUI():
                             if i in self.atk.regions[j].indexes:
                                 couleur[i] = "grey"
             elif couleur_radio.v_model == "Clustering auto":
-                couleur = self.__Y_auto
+                couleur = self.__labels_automatic_clustering
                 a_modifier = False
                 scale = False
             with self.fig1.batch_update():
                 self.fig1.data[0].marker.color = couleur
+                if couleur is not None:
+                    self.fig1.data[0].customdata= couleur
+                else:
+                    self.fig1.data[0].customdata= [None]*len(self.atk.dataset.X)
                 if opacity:
                     self.fig1.data[0].marker.opacity = 1
             with self.fig2.batch_update():
                 self.fig2.data[0].marker.color = couleur
                 if opacity:
                     self.fig2.data[0].marker.opacity = 1
+                if couleur is not None:
+                    self.fig2.data[0].customdata= couleur
+                else:
+                    self.fig2.data[0].customdata= [None]*len(self.atk.dataset.X)
             with self.fig1_3D.batch_update():
                 self.fig1_3D.data[0].marker.color = couleur
+                if couleur is not None:
+                    self.fig1_3D.data[0].customdata= couleur
+                else:
+                    self.fig1_3D.data[0].customdata= [None]*len(self.atk.dataset.X)
             with self.fig2_3D.batch_update():
                 self.fig2_3D.data[0].marker.color = couleur
+                if couleur is not None:
+                    self.fig2_3D.data[0].customdata= couleur
+                else:
+                    self.fig2_3D.data[0].customdata= [None]*len(self.atk.dataset.X)
             if scale:
                 self.fig1.update_traces(marker=dict(showscale=True))
                 self.fig1_3D.update_traces(marker=dict(showscale=True))
@@ -512,30 +525,27 @@ class GUI():
         barre_menu, fig_size, bouton_save = gui_elements.create_menu_bar()
 
         # for the part on backups
-        init_len_saves = len(self.atk.saves)
+        init_len_saves = deepcopy(len(self.atk.saves))
 
-        def init_save(new: bool = False):
+        def init_save(save):
             texte_regions = "There is no backup"
-            for i in range(len(self.atk.saves)):
-                if len(self.atk.saves[i]["regions"]) != len(self.atk.dataset.X_all):
-                    raise Exception("Your save is not the right size !")
-            if len(self.atk.saves) > 0:
-                texte_regions = str(len(self.atk.saves)) + " save(s) found"
-            self.__table_save = []
-            for i in range(len(self.atk.saves)):
+            if len(save) > 0:
+                texte_regions = str(len(save)) + " save(s) found"
+            table_save = []
+            for i in range(len(save)):
                 new_or_not = "Imported"
                 if i > init_len_saves:
                     new_or_not = "Created"
-                self.__table_save.append(
+                table_save.append(
                     [
                         i + 1,
-                        self.atk.saves[i]["nom"],
+                        save[i]["name"],
                         new_or_not,
-                        max(self.atk.saves[i]["regions"]) + 1,
+                        len(save[i]["regions"]),
                     ]
                 )
-            self.__table_save = pd.DataFrame(
-                self.__table_save,
+            table_save = pd.DataFrame(
+                table_save,
                 columns=[
                     "Save #",
                     "Name",
@@ -545,24 +555,24 @@ class GUI():
             )
 
             colonnes = [
-                {"text": c, "sortable": True, "value": c} for c in self.__table_save.columns
+                {"text": c, "sortable": True, "value": c} for c in table_save.columns
             ]
 
-            self.__table_save = v.DataTable(
+            table_save = v.DataTable(
                 v_model=[],
                 show_select=True,
                 single_select=True,
                 headers=colonnes,
-                items=self.__table_save.to_dict("records"),
+                items=table_save.to_dict("records"),
                 item_value="Save #",
                 item_key="Save #",
             )
-            return [self.__table_save, texte_regions]
+            return [table_save, texte_regions]
 
         # the table that contains the backups
-        self.__table_save = init_save()[0]
+        self.__table_save = init_save(self.atk.saves)[0]
 
-        dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save = gui_elements.dialog_save(bouton_save, init_save()[1], self.__table_save, self.atk.saves)
+        dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save = gui_elements.dialog_save(bouton_save, init_save(self.atk.saves)[1], self.__table_save, self.atk.saves)
 
         # save a backup
         def delete_save_fonction(*args):
@@ -571,7 +581,7 @@ class GUI():
             self.__table_save = carte_save.children[1]
             indice = self.__table_save.v_model[0]["Save #"] - 1
             self.atk.saves.pop(indice)
-            self.__table_save, texte = init_save(True)
+            self.__table_save, texte = init_save(self.atk.saves)
             carte_save.children = [texte, self.__table_save] + carte_save.children[
                 2:
             ]
@@ -584,16 +594,8 @@ class GUI():
             if len(self.__table_save.v_model) == 0:
                 return
             indice = self.__table_save.v_model[0]["Save #"] - 1
-            n = []
-            for i in range(int(max(self.atk.saves[indice]["regions"])) + 1):
-                temp = []
-                for j in range(len(self.atk.saves[indice]["regions"])):
-                    if self.atk.saves[indice]["regions"][j] == i:
-                        temp.append(j)
-                if len(temp) > 0:
-                    n.append(Potato(self.atk, temp))
-            self.atk.regions = n
-            couleur = deepcopy(self.atk.saves[indice]["regions"])
+            self.atk.regions = [element for element in self.atk.saves[indice]["regions"]]
+            couleur = deepcopy(self.atk.saves[indice]["labels"])
             self.__color_regions = deepcopy(couleur)
             with self.fig1.batch_update():
                 self.fig1.data[0].marker.color = couleur
@@ -608,6 +610,7 @@ class GUI():
             couleur_radio.v_model = "Régions"
             self.fig1.update_traces(marker=dict(showscale=False))
             self.fig2.update_traces(marker=dict(showscale=False))
+            """
             for i in range(len(self.atk.regions)):
                 nom = self.atk.saves[indice]["regions"][i].sub_model.__class__.__name__
                 indices_respectent = self.atk.regions[i].indexes
@@ -628,6 +631,7 @@ class GUI():
                 else:
                     l_compar = round(100 * (score_init - score_reg) / score_init, 1)
                 score = [score_reg, score_init, l_compar]
+            """
             fonction_validation_une_tuile()
 
         visu_save.on_event("click", fonction_visu_save)
@@ -636,18 +640,18 @@ class GUI():
         def fonction_new_save(*args):
             if len(nom_sauvegarde.v_model) == 0 or len(nom_sauvegarde.v_model) > 25:
                 raise Exception("The name of the save must be between 1 and 25 characters !")
-            save = create_save(self.__color_regions, nom_sauvegarde.v_model)
+            save1 = {"regions": self.atk.regions, "labels": self.__color_regions,"name": nom_sauvegarde.v_model}
+            save = {key: value[:] for key, value in save1.items()}
             self.atk.saves.append(save)
-            self.__table_save, texte = init_save(True)
-            carte_save.children = [texte, self.__table_save] + carte_save.children[
-                2:
-            ]
+            self.__table_save, texte_region = init_save(self.atk.saves)
+            carte_save.children = [texte_region, self.__table_save] + carte_save.children[2:]
+            
 
         new_save.on_event("click", fonction_new_save)
 
         # value space graph
         self.fig1 = go.FigureWidget(
-            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker1)
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker1, customdata=marker1["color"], hovertemplate = '%{customdata:.3f}')
         )
 
         # to remove the plotly logo
@@ -661,7 +665,7 @@ class GUI():
 
         # grapbique de l'espace des explications
         self.fig2 = go.FigureWidget(
-            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker2)
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker2, customdata=marker2["color"], hovertemplate = '%{customdata:.3f}')
         )
 
         self.fig2.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
@@ -714,7 +718,7 @@ class GUI():
 
         self.fig1_3D = go.FigureWidget(
             data=go.Scatter3d(
-                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D
+                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D,  customdata=marker_3D["color"], hovertemplate = '%{customdata:.3f}'
             )
         )
         self.fig1_3D.update_layout(
@@ -728,7 +732,7 @@ class GUI():
 
         self.fig2_3D = go.FigureWidget(
             data=go.Scatter3d(
-                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D_2
+                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D_2, customdata=marker_3D_2["color"], hovertemplate = '%{customdata:.3f}'
             )
         )
         self.fig2_3D.update_layout(
@@ -810,7 +814,7 @@ class GUI():
                 widget.color = "blue lighten-4"
             for i in range(len(mods.children)):
                 if mods.children[i].children[0].color == "blue lighten-4":
-                    self.__model_choice = i
+                    self.__model_index = i
 
         for i in range(len(mods.children)):
             mods.children[i].children[0].on_event("click", changement)
@@ -977,6 +981,7 @@ class GUI():
 
         # allows you to take the set of rules and modify the graph so that it responds to everything!
         def tout_modifier_graphique():
+            self.selection.state = Potato.REFINED_SKR
             nouvelle_tuile = self.atk.dataset.X[
                 (self.atk.dataset.X[self.selection.rules[0][2]] >= self.selection.rules[0][0])
                 & (self.atk.dataset.X[self.selection.rules[0][2]] <= self.selection.rules[0][4])
@@ -1047,9 +1052,15 @@ class GUI():
                         all_beeswarms[i].data[0].marker.color = y_color
 
         # when the value of a slider is modified, the histograms and graphs are modified
-        def on_value_change_skope1(*b1):
-            slider_text_comb1.children[0].v_model = slider_skope1.v_model[0]
-            slider_text_comb1.children[2].v_model = slider_skope1.v_model[1]
+        def on_value_change_skope1(widget, event, data):
+            if widget.__class__.__name__ == "RangeSlider":
+                slider_text_comb1.children[0].v_model = slider_skope1.v_model[0]
+                slider_text_comb1.children[2].v_model = slider_skope1.v_model[1]
+            else :
+                if slider_text_comb1.children[0].v_model == '' or slider_text_comb1.children[2].v_model == '':
+                    return
+                else:
+                    slider_skope1.v_model = [float(slider_text_comb1.children[0].v_model), float(slider_text_comb1.children[2].v_model)]
             new_list = [
                 g
                 for g in list(self.atk.dataset.X[self.selection.rules[0][2]].values)
@@ -1058,7 +1069,7 @@ class GUI():
             ]
             with histogram1.batch_update():
                 histogram1.data[1].x = new_list
-            if self.__valider_bool:
+            if self.__activate_histograms:
                 modifier_tous_histograms(
                     slider_skope1.v_model[0], slider_skope1.v_model[1], 0
                 )
@@ -1071,8 +1082,8 @@ class GUI():
                 tout_modifier_graphique()
 
         def on_value_change_skope2(*b):
-            slider_text_comb2.children[0].v_model = slider_skope2.v_model[0]  
-            slider_text_comb2.children[2].v_model = slider_skope2.v_model[1]  
+            #slider_text_comb2.children[0].v_model = slider_skope2.v_model[0]  
+            #slider_text_comb2.children[2].v_model = slider_skope2.v_model[1]  
             new_list = [
                 g
                 for g in list(self.atk.dataset.X[self.selection.rules[1][2]].values)
@@ -1081,7 +1092,7 @@ class GUI():
             ]
             with histogram2.batch_update():
                 histogram2.data[1].x = new_list
-            if self.__valider_bool:
+            if self.__activate_histograms:
                 modifier_tous_histograms(
                     slider_skope2.v_model[0]  , slider_skope2.v_model[1]  , 1
                 )
@@ -1092,8 +1103,8 @@ class GUI():
                 tout_modifier_graphique()
 
         def on_value_change_skope3(*b):
-            slider_text_comb3.children[0].v_model = slider_skope3.v_model[0]  
-            slider_text_comb3.children[2].v_model = slider_skope3.v_model[1]  
+            #slider_text_comb3.children[0].v_model = slider_skope3.v_model[0]  
+            #slider_text_comb3.children[2].v_model = slider_skope3.v_model[1]  
             new_list = [
                 g
                 for g in list(self.atk.dataset.X[self.selection.rules[2][2]].values)
@@ -1102,7 +1113,7 @@ class GUI():
             ]
             with histogram3.batch_update():
                 histogram3.data[1].x = new_list
-            if self.__valider_bool:
+            if self.__activate_histograms:
                 modifier_tous_histograms(
                     slider_skope3.v_model[0]  , slider_skope3.v_model[1]  , 2
                 )
@@ -1180,9 +1191,9 @@ class GUI():
                     for i in range(len(self.sub_models))
                 ]
 
-            self.__score_models = []
+            self.__score_sub_models = []
             for i in range(len(self.sub_models)):
-                self.__score_models.append(
+                self.__score_sub_models.append(
                     [
                         score_tot[i],
                         score_init,
@@ -1233,7 +1244,7 @@ class GUI():
         # when you click on the skope-rules button
         def fonction_validation_skope(*sender):
             loading_models.class_ = "d-flex"
-            self.__valider_bool = True
+            self.__activate_histograms = True
             if self.selection.y_train == None:
                 texte_skopeEV.children[1].children = [
                     widgets.HTML("Please select points")
@@ -1410,11 +1421,21 @@ class GUI():
                     ]
                     une_carte_EE.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules_exp))
                     fonction_scores_models(self.selection.indexes)
+
+                    dans_accordion1_n.children[0].disabled = False
+                    dans_accordion2_n.children[0].disabled = False
+                    dans_accordion3_n.children[0].disabled = False
+
             slider_skope1.on_event("input", on_value_change_skope1)
             slider_skope2.on_event("input", on_value_change_skope2)
             slider_skope3.on_event("input", on_value_change_skope3)
 
+            slider_text_comb1.children[0].on_event("input", on_value_change_skope1)
+            slider_text_comb1.children[2].on_event("input", on_value_change_skope1)
+
             loading_models.class_ = "d-none"
+
+            self.__save_rules = deepcopy(self.selection.rules)
 
             fonction_changement_couleur(None)
 
@@ -1426,27 +1447,14 @@ class GUI():
         boutton_reinit_skope.on_event("click", reinit_skope)
 
         # here to see the values ​​of the selected points (EV and EE)
-        out_selec = widgets.Output()
-        with out_selec:
-            display(
-                HTML(
-                    "Select points on the figure to see their values ​​here"
-                )
-            )
-        out_selec_SHAP = widgets.Output()
-        with out_selec_SHAP:
-            display(
-                HTML(
-                    "Select points on the figure to see their values ​​here"
-                )
-            )
-        out_selec_2 = v.Alert(
-            class_="ma-1 pa-3",
+        out_selec = v.Layout(style_="min-width: 47%; max-width: 47%", children=[v.Html(tag="h4", children=["Select points on the figure to see their values ​​here"])])
+        out_selec_SHAP = v.Layout(style_="min-width: 47%; max-width: 47%", children=[v.Html(tag="h4", children=["Select points on the figure to see their SHAP values ​​here"])])
+        out_selec_all = v.Alert(
             max_height="400px",
             style_="overflow: auto",
-            elevation="3",
+            elevation="0",
             children=[
-                widgets.HBox(children=[out_selec, out_selec_SHAP]),
+                v.Row(class_='d-flex flex-row justify-space-between', children=[out_selec, v.Divider(class_="ma-2", vertical=True), out_selec_SHAP]),
             ],
         )
 
@@ -1456,7 +1464,7 @@ class GUI():
                 v.ExpansionPanel(
                     children=[
                         v.ExpansionPanelHeader(children=["Data selected"]),
-                        v.ExpansionPanelContent(children=[out_selec_2]),
+                        v.ExpansionPanelContent(children=[out_selec_all]),
                     ]
                 )
             ],
@@ -1546,7 +1554,7 @@ class GUI():
                 result = fonction_auto_clustering(self.atk.dataset.X_scaled, self.atk.explain[self.__explanation], nb_clusters, False)
             self.__result_dyadic_clustering = result
             labels = result[1]
-            self.__Y_auto = labels
+            self.__labels_automatic_clustering = labels
             with self.fig1.batch_update():
                 self.fig1.data[0].marker.color = labels
                 self.fig1.update_traces(marker=dict(showscale=False))
@@ -1660,7 +1668,7 @@ class GUI():
             else:
                 les_points = points.point_inds
             self.selection = Potato(self.atk, les_points)
-            self.selection.state = "lasso"
+            self.selection.state = Potato.LASSO
             if len(les_points) == 0:
                 card_selec.children[0].children[1].children = "0 point !"
                 texte_selec.value = texte_base_debut
@@ -1690,7 +1698,6 @@ class GUI():
                 self.fig1.data[0].marker.opacity = opa
 
             X_train = self.atk.dataset.X.copy()
-            self.__SHAP_train = self.atk.explain[self.__explanation].copy()
 
             X_mean = (
                 pd.DataFrame(
@@ -1710,50 +1717,107 @@ class GUI():
             X_mean = pd.concat([X_mean, X_mean_tot], axis=0)
             SHAP_mean = (
                 pd.DataFrame(
-                    self.__SHAP_train.iloc[self.selection.indexes, :]
+                    self.atk.explain[self.__explanation].iloc[self.selection.indexes, :]
                     .mean(axis=0)
                     .values.reshape(1, -1),
-                    columns=self.__SHAP_train.columns,
+                    columns=self.atk.explain[self.__explanation].columns,
                 )
                 .round(2)
                 .rename(index={0: "Mean of the selection"})
             )
             SHAP_mean_tot = (
                 pd.DataFrame(
-                    self.__SHAP_train.mean(axis=0).values.reshape(1, -1),
-                    columns=self.__SHAP_train.columns,
+                    self.atk.explain[self.__explanation].mean(axis=0).values.reshape(1, -1),
+                    columns=self.atk.explain[self.__explanation].columns,
                 )
                 .round(2)
                 .rename(index={0: "Mean of the whole dataset"})
             )
             SHAP_mean = pd.concat([SHAP_mean, SHAP_mean_tot], axis=0)
 
-            with out_selec:
-                clear_output()
-                display(HTML("<h4> Values Space </h4>"))
-                display(HTML("<h5>Average point of the selection :<h5>"))
-                display(HTML(X_mean.to_html()))
-                display(HTML("<h5>Points selected :<h5>"))
-                display(HTML(X_train.iloc[self.selection.indexes, :].to_html(index=False)))
-            with out_selec_SHAP:
-                clear_output()
-                display(HTML("<h4> Explanatory Space </h4>"))
-                display(HTML("<h5>Average point of the selection :<h5>"))
-                display(HTML(SHAP_mean.to_html()))
-                display(HTML("<h5>Points selected :<h5>"))
-                display(HTML(self.__SHAP_train.iloc[self.selection.indexes, :].to_html(index=False)))
+            X_mean.insert(loc=0, column=' ', value=["Mean of the selection", "Mean of the whole dataset"])
+            donnees = X_mean.to_dict("records")
+            colonnes = [
+                {"text": c, "sortable": True, "value": c} for c in X_mean.columns
+            ]
+
+            out_selec_table_means = v.DataTable(
+                v_model=[],
+                show_select=False,
+                headers=colonnes.copy(),
+                items=donnees.copy(),
+                hide_default_footer=True,
+                disable_sort=True,
+            )
+
+            donnees = X_train.iloc[self.selection.indexes, :].round(3).to_dict("records")
+            colonnes = [
+                {"text": c, "sortable": True, "value": c} for c in X_train.columns
+            ]
+
+            out_selec_table = v.DataTable(
+                v_model=[],
+                show_select=False,
+                headers=colonnes.copy(),
+                items=donnees.copy(),
+            )
+
+            out_selec.children = [v.Col(class_= "d-flex flex-column justify-center align-center", children=[
+                v.Html(tag="h3", children=["Values Space"]),
+                out_selec_table_means,
+                v.Divider(class_="ma-6"),
+                v.Html(tag="h4", children=["Entire dataset:"], class_="mb-2"),
+                out_selec_table
+            ])]
+
+            SHAP_mean.insert(loc=0, column=' ', value=["Mean of the selection", "Mean of the whole dataset"])
+            donnees = SHAP_mean.to_dict("records")
+            colonnes = [
+                {"text": c, "sortable": True, "value": c} for c in SHAP_mean.columns
+            ]
+
+            out_selec_table_means = v.DataTable(
+                v_model=[],
+                show_select=False,
+                headers=colonnes.copy(),
+                items=donnees.copy(),
+                hide_default_footer=True,
+                disable_sort=True,
+            )
+
+            donnees = self.atk.explain[self.__explanation].iloc[self.selection.indexes, :].round(3).to_dict("records")
+            colonnes = [
+                {"text": c, "sortable": True, "value": c} for c in self.atk.explain[self.__explanation].columns
+            ]
+
+            out_selec_table = v.DataTable(
+                v_model=[],
+                show_select=False,
+                headers=colonnes.copy(),
+                items=donnees.copy(),
+            )
+
+            out_selec_SHAP.children = [v.Col(class_="d-flex flex-column justify-center align-center", children=[
+                v.Html(tag="h3", children=["Explanatory Space"]),
+                out_selec_table_means,
+                v.Divider(class_="ma-6"),
+                v.Html(tag="h4", children=["Entire dataset:"], class_="mb-2"),
+                out_selec_table
+            ])]
+
 
         # function that is called when validating a tile to add it to the set of regions
         def fonction_validation_une_tuile(*args):
             if len(args) == 0:
                 pass
             else:
-                if self.__model_choice == None:
+                self.selection.state = Potato.REGION
+                if self.__model_index == None:
                     nom_model = None
                     score_model = [1,1,1]
                 else:
-                    nom_model = self.sub_models[self.__model_choice].__class__.__name__
-                    score_model = self.__score_models[self.__model_choice]
+                    nom_model = self.sub_models[self.__model_index].__class__.__name__
+                    score_model = self.__score_sub_models[self.__model_index]
                 if self.selection.rules == None :
                     return
                 nouvelle_tuile = self.atk.dataset.X[
@@ -1771,9 +1835,12 @@ class GUI():
                 self.atk.regions = conflict_handler(self.atk.regions, nouvelle_tuile)
                 self.atk.regions.append(Potato(self.atk, nouvelle_tuile))
                 self.atk.regions[-1].sub_model = self.selection.sub_model
+            self.__color_regions=[0]*len(self.atk.dataset.X)
             for i in range(len(self.__color_regions)):
-                if i in range(len(self.selection.indexes)):
-                    self.__color_regions[i] = len(self.atk.regions)
+                for j in range(len(self.atk.regions)):
+                    if i in self.atk.regions[j].indexes:
+                        self.__color_regions[i] = j+1
+                        break
 
             toute_somme = 0
             temp = []
@@ -1781,7 +1848,7 @@ class GUI():
             score_tot_glob = 0
             autre_toute_somme = 0
             for i in range(len(self.atk.regions)):
-                if self.atk.regions[i].sub_model == None:
+                if self.atk.regions[i].sub_model["score"] == None:
                     temp.append(
                         [
                             i + 1,
@@ -1889,7 +1956,6 @@ class GUI():
                         indice = table_donnes.v_model[i]["Region #"] - 1
                         self.atk.regions.pop(indice - a)
                         fonction_validation_une_tuile()
-                        self.__all_tiles_rules.pop(indice - a)
                         a += 1
                     couleur_radio.v_model = "Régions"
                     fonction_changement_couleur()
@@ -1899,11 +1965,6 @@ class GUI():
                 )
 
                 display(ensemble_tables)
-
-            a = [0] * 10
-            pas_avoir = [a, a, a, a, a, a, a, a, a, a]
-            if self.selection.rules != pas_avoir:
-                self.__all_tiles_rules.append(deepcopy(self.selection.rules))
 
         valider_une_region.on_event("click", fonction_validation_une_tuile)
         button_valider_skope.on_event("click", fonction_validation_skope)
@@ -1929,7 +1990,7 @@ class GUI():
         fig_size.on_event("input", fonction_fig_size)
 
         boutton_add_skope = v.Btn(
-            class_="ma-4 pa-1 mb-0",
+            class_="ma-4 pa-1 mb-1",
             children=[v.Icon(children=["mdi-plus"]), "Add a rule"],
         )
 
@@ -2105,7 +2166,7 @@ class GUI():
                 ]
                 for i in range(ii, len(accordion_skope.children)):
                     col = "X" + str(i + 1) + " (" + self.selection.rules[i][2] + ")"
-                    accordion_skope.children[i].titles = [col]
+                    accordion_skope.children[i].children[0].children[0].children = [col]
                 tout_modifier_graphique()
 
             new_b_delete_skope.on_event("click", new_delete_skope)
@@ -2179,7 +2240,7 @@ class GUI():
                 ]
                 with new_histogram.batch_update():
                     new_histogram.data[1].x = new_list
-                if self.__valider_bool:
+                if self.__activate_histograms:
                     modifier_tous_histograms(
                         new_slider_skope.v_model[0]  ,
                         new_slider_skope.v_model[1]  ,
@@ -2457,8 +2518,8 @@ class GUI():
 
         def find_best_score():
             a = 1000
-            for i in range(len(self.__score_models)):
-                score = self.__score_models[i][0]
+            for i in range(len(self.__score_sub_models)):
+                score = self.__score_sub_models[i][0]
                 if score < a:
                     a = score
                     indice = i
@@ -2644,7 +2705,7 @@ class GUI():
                 dictio["model name"] =  self.atk.regions[i].sub_model["name"].__name__
                 dictio["model score"] = self.atk.regions[i].sub_model["score"]
                 dictio["model"] = self.atk.regions[i].sub_model["name"]
-            dictio["rules"] = self.__all_tiles_rules[i]
+            dictio["rules"] = self.atk.regions[i].rules
             L_f.append(dictio)
         if number == None or item == None:
             return L_f
