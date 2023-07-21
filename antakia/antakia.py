@@ -61,7 +61,7 @@ class AntakIA():
         self.widget = None
 
         self.explain = dict()
-        self.explain["Imported"] = import_explanation.sample(frac=dataset.fraction, random_state=9)
+        self.explain["Imported"] = import_explanation.sample(frac=dataset.fraction, random_state=9).reset_index(drop=True)
         self.explain["SHAP"] = None
         self.explain["LIME"] = None
 

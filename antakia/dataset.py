@@ -116,11 +116,11 @@ class Dataset():
         0     1  2
         1     5  6
         """
-        self.X = self.X_all.sample(frac=p, random_state=9)
-        self.X_scaled = self.X_scaled.sample(frac=p, random_state=9)
-        self.y_pred = self.y_pred.sample(frac=p, random_state=9)
+        self.X = self.X_all.sample(frac=p, random_state=9).reset_index(drop=True)
+        self.X_scaled = self.X_scaled.sample(frac=p, random_state=9).reset_index(drop=True)
+        self.y_pred = self.y_pred.sample(frac=p, random_state=9).reset_index(drop=True)
         if self.y is not None:
-            self.y = self.y.sample(frac=p, random_state=9)
+            self.y = self.y.sample(frac=p, random_state=9).reset_index(drop=True)
         self.fraction = p
 
     def improve(self):

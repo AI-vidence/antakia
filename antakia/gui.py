@@ -1564,7 +1564,7 @@ class GUI():
                     [
                         i + 1,
                         len(labels_regions[i]),
-                        str(round(len(labels_regions[i]) / len(self.atk.dataset.X) * 100, 5)) + "%",
+                        str(round(len(labels_regions[i]) / len(self.atk.dataset.X) * 100, 2)) + "%",
                     ]
                 )
             new_df = pd.DataFrame(
