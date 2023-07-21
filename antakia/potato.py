@@ -6,12 +6,11 @@ import pandas as pd
 import numpy as np
 from skrules import SkopeRules
 
+import json as JSON
 from copy import deepcopy
 
 # from antakia.antakia import AntakIA
 from antakia.dataset import Dataset
-
-
 
 class Potato():
     """
@@ -47,8 +46,9 @@ class Potato():
     SKR=1 # Defined with Skope Rules
     REFINED_SKR=2 # Rules have been manually refined by the user
     REGION=3 # validated / to be stored in Regions
+    JSON=4 # imported from JSON
 
-    def __init__(self,  atk, indexes:list = []) -> None:
+    def __init__(self,  atk, array:list = [], json: str = None) -> None:
         """
         Constructor of the class Potato.
 
@@ -64,7 +64,20 @@ class Potato():
             raise ValueError("You must provide an AntakIA object")
         self.atk = atk
         self.state = Potato.UNKNOWN
-        self.indexes = indexes
+
+        if json is not None and array != []:
+            raise ValueError("You can't provide a list and a json file")
+        
+        if json is not None:
+            self.state = Potato.JSON
+            if json[-5:] != ".json":
+                json += ".json"
+            fileObject = open(json, "r")
+            jsonContent = fileObject.read()
+            self.indexes = JSON.loads(jsonContent)
+        else :
+            self.indexes = array
+
         self.dataset = atk.dataset
         if self.dataset.X is not None:
             self.data = self.dataset.X.iloc[self.indexes]
@@ -74,7 +87,7 @@ class Potato():
             self.y = self.dataset.y.iloc[self.indexes]
         else :
             self.y = None
-        self.sub_model = {"name": None, "score": None}
+        self.sub_model = {"model": None, "score": None}
 
         self.rules = None
         self.score = None
@@ -91,12 +104,21 @@ class Potato():
             else :
                 self.y_train.append(0)
 
+        self.explain = {"Imported": None, "SHAP": None, "LIME": None}
+        if self.atk.explain["Imported"] is not None:
+            self.explain["Imported"] = self.atk.explain["Imported"].iloc[self.indexes]
+        if self.atk.explain["SHAP"] is not None:
+            self.explain["SHAP"] = self.atk.explain["SHAP"].iloc[self.indexes]
+        if self.atk.explain["LIME"] is not None:
+            self.explain["LIME"] = self.atk.explain["LIME"].iloc[self.indexes]
+
     def __str__(self) -> str:
         texte = ' '.join(("Potato:\n",
                     "------------------\n",
                     "      State:", self.stateToSring(), "\n",
                     "      Number of points:", str(len(self.indexes)), "\n",
-                    "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.dataset.X), 2))+"%", "\n"))
+                    "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.dataset.X), 2))+"%", "\n",
+                    "      Sub-model:", str(self.sub_model["model"].__class__.__name__))) 
         return texte
     
     def __len__(self) -> int:
@@ -135,6 +157,7 @@ class Potato():
         elif self.state == Potato.SKR : return "skope ruled"
         elif self.state == Potato.REFINED_SKR : return "refined skope rules"
         elif self.state == Potato.REGION : return "region"
+        elif self.state == Potato.JSON : return "json importation"
         else : raise ValueError("unknown state for a potato")
 
     def getIndexes(self) -> list:
@@ -171,6 +194,33 @@ class Potato():
 
         self.state = Potato.LASSO
         self.success = None
+
+    def getVSdata(self) -> pd.DataFrame:
+        """
+        Function that returns the data of the potato.
+
+        Returns
+        -------
+        pandas dataframe
+            The data of the potato.
+        """
+        return self.data
+    
+    def getESdata(self, explanation="Imported") -> list:
+        """
+        Function that returns the data of the potato in the explanation space.
+
+        Parameters
+        ----------
+        explanation : str
+            The name of the explanation space.
+
+        Returns
+        -------
+        pandas dataframe
+            The data of the potato in the explanation space.
+        """
+        return self.explain[explanation]
     
     def apply_rules(self):
         """
@@ -197,7 +247,31 @@ class Potato():
             df = eval(regle1)
             df = eval(regle2)
         self.data = df
-        self.indexes = df.index
+        self.setIndexes(df.index)
+
+    def setSubModel(self, model) -> None:
+        """
+        Function that sets the sub-model of the potato.
+
+        Parameters
+        ----------
+        model : model object
+            The new sub-model of the potato.
+        """
+        self.sub_model["model"] = model
+        model.fit(self.data, self.y)
+        self.sub_model["score"] = model.score(self.data, self.y)
+
+    def getSubModel(self):
+        """
+        Function that returns the sub-model of the potato.
+
+        Returns
+        -------
+        dict
+            The sub-model of the potato. Is the following format : {"model": model object, "score": score of the model}.
+        """
+        return self.sub_model
     
     def __transform_rules(self, rules, df):
         rules = rules[0]
@@ -219,6 +293,17 @@ class Potato():
                 l[4] = round(float(max(df[l[2]])),3)
             rules_list.append(l)
         return rules_list, score
+    
+    def __error_message(self, message:str):
+        """
+        Function that prints an error message.
+
+        Parameters
+        ----------
+        message : str
+            The message to print.
+        """
+        print("AntakIA ERROR : " + message)
 
 
     def apply_skope(self, explanation, p:float = 0.7, r:float = 0.7):
@@ -235,6 +320,8 @@ class Potato():
         r : float
             The minimum recall of the rules.
         """
+        if self.atk.explain[explanation] is None:
+            raise ValueError("You must provide a valid explanation space")
         y_train = np.zeros(len(self.dataset.X))
         y_train[self.indexes] = 1
 
@@ -264,6 +351,7 @@ class Potato():
         if skope_rules_clf.rules_ == [] or skope_rules_clf_exp.rules_ == []:
             self.rules, self.score_skope, self.rules_exp, self.score_skope_exp = None, None, None, None
             self.success = False
+            self.__error_message("No rules found for this precision and recall")
         else :
             self.rules, self.score = self.__transform_rules(skope_rules_clf.rules_, self.dataset.X)
             self.rules_exp, self.score_exp = self.__transform_rules(skope_rules_clf_exp.rules_, self.atk.explain[explanation])

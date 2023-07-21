@@ -39,7 +39,6 @@ from antakia.utils import _conflict_handler as conflict_handler
 from antakia.potato import Potato
 
 from antakia import compute
-from antakia import longtask
 
 import antakia.gui_elements as gui_elements
 
@@ -138,16 +137,6 @@ class GUI():
             The current selection.
         """
         return self.selection
-    
-    def setSelection(self, selection):
-        """Function that sets the current selection.
-
-        Parameters
-        ----------
-        selection : Potato object
-            The new selection.
-        """
-        self.selection = selection
 
     def getSubModels(self):
         """Function that returns the list of sub-models.
@@ -159,7 +148,7 @@ class GUI():
         """
         return self.sub_models
     
-    def setSubModels(self, sub_models):
+    def setSubModel(self, sub_models):
         """Function that sets the list of sub-models.
 
         Parameters
@@ -168,6 +157,9 @@ class GUI():
             The new list of sub-models.
         """
         self.sub_models = sub_models
+
+    def __repr__(self):
+        return self.display()
 
     def display(self):
         """Function that displays the interface.
@@ -210,12 +202,12 @@ class GUI():
             ].v_model = "Imported explanatory values"
         else :
             if self.__explanation == "SHAP":
-                compute_SHAP = longtask.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                compute_SHAP = compute.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
                 self.atk.explain["SHAP"] = compute_SHAP.compute()
             elif self.__explanation == "LIME":
-                compute_LIME = longtask.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                compute_LIME = compute.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
                 self.atk.explain["LIME"] = compute_LIME.compute()
@@ -2351,14 +2343,14 @@ class GUI():
 
         def function_validation_explanation(widget, event, data):
             if widget.v_model == "SHAP":
-                self.__compute_SHAP = longtask.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                self.__compute_SHAP = compute.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_SHAP.children[1], "v_model"), (self.__compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[2], "v_model"), (self.__compute_SHAP.text_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[-1], "color"), (self.__compute_SHAP.done_widget, "v_model"))
                 self.__compute_SHAP.compute_in_thread()
                 new_prog_SHAP.children[-1].disabled = True
             if widget.v_model == "LIME":
-                self.__compute_LIME = longtask.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                self.__compute_LIME = compute.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_LIME.children[1], "v_model"), (self.__compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[2], "v_model"), (self.__compute_LIME.text_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[-1], "color"), (self.__compute_LIME.done_widget, "v_model"))

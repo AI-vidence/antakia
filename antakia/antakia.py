@@ -8,9 +8,13 @@ from antakia.utils import fonction_auto_clustering
 
 import ipywidgets as widgets
 
-import antakia.longtask as longtask
+from antakia import compute
 
 from IPython.display import display
+
+from antakia.potato import Potato
+
+import ipyvuetify as v
 
 class AntakIA():
     """AntakIA object.
@@ -54,13 +58,28 @@ class AntakIA():
         self.gui = None
         self.saves = []
 
+        self.widget = None
+
         self.explain = dict()
-        self.explain["Imported"] = import_explanation
+        self.explain["Imported"] = import_explanation.sample(frac=dataset.fraction, random_state=9)
         self.explain["SHAP"] = None
         self.explain["LIME"] = None
 
+        self.gui = GUI(self)
+
     def __str__(self):
         print("Xplainer object")
+
+    def getGUI(self) -> GUI:
+        """
+        Function that returns the GUI object.
+
+        Returns
+        -------
+        GUI object
+            The GUI object.
+        """
+        return self.gui
 
     def getRegions(self) -> list:
         """
@@ -72,6 +91,17 @@ class AntakIA():
             The list of the regions computed.
         """
         return self.regions
+    
+    def newRegion(self, potato: Potato):
+        """
+        Function that adds a region to the list of regions.
+
+        Parameters
+        ---------
+        name : str
+            The name of the region.
+        """
+        self.regions.append(potato)
 
     def startGUI(self,
                 explanation: str = None,
@@ -96,9 +126,8 @@ class AntakIA():
         self.gui = GUI(self, explanation, projection, sub_models)
         if display:
             self.gui.display()
-        #TODO : soit retourner gui, soit changer la doc / "returns"
 
-    def dyadic_clustering(self, explanation:str = "Imported", min_clusters:int = 3, automatic:bool = True):
+    def computeDyadicClustering(self, explanation:str = "Imported", min_clusters:int = 3, automatic:bool = True, sub_models:bool = False):
         """
         Function that computes the dyadic-clustering.
         Our dyadic-clustering (sometimes found as co-clusetring or bi-clustering), uses `mvlearn` and `skope-rules` to compute the clusters.
@@ -118,13 +147,72 @@ class AntakIA():
         list
             The list of the regions computed.
         """
-        if self.dataset.explain[explanation] is None:
+        if self.explain[explanation] is None:
             raise ValueError("You must compute the explanations before computing the dyadic-clustering!")
         if min_clusters <2 or min_clusters > len(self.dataset.X):
             raise ValueError("The minimum number of clusters must be between 2 and the number of observations!")
-        return fonction_auto_clustering(self.dataset.X, self.dataset.explain[explanation], min_clusters, automatic)
+        clusters, clusters_axis = fonction_auto_clustering(self.dataset.X, self.explain[explanation], min_clusters, automatic)
+        self.regions = []
+        for i in range(len(clusters)):
+            self.regions.append(Potato(self, clusters[i]))
+            if sub_models:
+                self.regions[i].sub_model["model"], self.regions[i].sub_model["score"] = self.__find_best_model(self.regions[i].data, self.regions[i].y, self.gui.sub_models)
+
+    def __find_best_model(self, X:pd.DataFrame, y:pd.Series, sub_models:list):
+        """
+        Function that finds the best model for a region.
+
+        Parameters
+        ---------
+        X : pandas dataframe
+            The data of the region.
+        y : pandas series
+            The target of the region.
+        sub_models : list
+            The list of the sub_models to choose from for each region. The only constraint is that sub_models must have a predict method.
+
+        Returns
+        -------
+        sklearn model
+            The best model for the region.
+        """
+        best_model = None
+        best_score = 0
+        for model in sub_models:
+            model.fit(X, y)
+            score = model.score(X, y)
+            if score > best_score:
+                best_score = score
+                best_model = model
+        return best_model.__class__.__name__, round(best_score, 4)
+
+    def __create_progress(self, titre:str):
+        widget = v.Col(
+            class_="d-flex flex-column align-center",
+            children=[
+                    v.Html(
+                        tag="h3",
+                        class_="mb-3",
+                        children=["Compute " + titre + " values"],
+                ),
+                v.ProgressLinear(
+                    style_="width: 80%",
+                    v_model=0,
+                    color="primary",
+                    height="15",
+                    striped=True,
+                ),
+                v.TextField(
+                    class_="w-100",
+                    style_="width: 100%",
+                    v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                    readonly=True,
+                ),
+            ],
+        )
+        self.widget = widget
+
     
-    # TODO : ça devrait subclasser LongTask
     def compute_SHAP(self, verbose:bool = True):
         """
         Computes the SHAP values of the dataset.
@@ -138,7 +226,7 @@ class AntakIA():
         ---------
         The Shap library.
         """
-        shap = longtask.SHAP_computation(self.X, self.X_all, self.model)
+        shap = compute.SHAP_computation(self.dataset.X, self.dataset.X_all, self.dataset.model)
         if verbose:
             self.verbose = self.__create_progress("SHAP")
             widgets.jslink((self.widget.children[1], "v_model"), (shap.progress_widget, "v_model"))
@@ -161,9 +249,9 @@ class AntakIA():
         ---------
         The Lime library.
         """
-        lime = longtask.SHAP_computation(self.X, self.X_all, self.model)
+        lime = compute.SHAP_computation(self.dataset.X, self.dataset.X_all, self.dataset.model)
         if verbose:
-            self.verbose = self.__create_progress("SHAP")
+            self.verbose = self.__create_progress("LIME")
             widgets.jslink((self.widget.children[1], "v_model"), (lime.progress_widget, "v_model"))
             widgets.jslink((self.widget.children[2], "v_model"), (lime.text_widget, "v_model"))
             display(self.widget)

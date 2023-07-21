@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 
-# import antakia.longtask as LongTask
-
 # TODO : these references to IPython should be removed in favor of a new scheme (see Wiki)
 import ipyvuetify as v
 import ipywidgets as widgets
@@ -13,8 +11,6 @@ from sklearn.preprocessing import StandardScaler
 from antakia import gui_elements
 
 import time
-
-import warnings
 
 class Dataset():
     """Dataset object.
@@ -74,13 +70,15 @@ class Dataset():
         self.X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
         self.X_scaled.columns = X.columns
 
-        self.y_pred = self.model.predict(self.X)
+        self.y_pred = pd.Series(self.model.predict(self.X))
 
         self.verbose = None
         self.widget = None
 
         self.comments = [""]*len(self.X.columns)
         self.sensible = [False]*len(self.X.columns)
+
+        self.fraction = 1
 
     def __str__(self):
         texte = ' '.join(("Dataset:\n",
@@ -94,31 +92,8 @@ class Dataset():
                     "      LIME:", str(self.explain["LIME"] != None)))
         return texte
     
-    def __create_progress(self, titre:str):
-        widget = v.Col(
-            class_="d-flex flex-column align-center",
-            children=[
-                    v.Html(
-                        tag="h3",
-                        class_="mb-3",
-                        children=["Compute " + titre + " values"],
-                ),
-                v.ProgressLinear(
-                    style_="width: 80%",
-                    v_model=0,
-                    color="primary",
-                    height="15",
-                    striped=True,
-                ),
-                v.TextField(
-                    class_="w-100",
-                    style_="width: 100%",
-                    v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
-                    readonly=True,
-                ),
-            ],
-        )
-        return widget
+    def __len__(self):
+        return self.X.shape[0]
     
     def frac(self, p:float):
         """
@@ -141,11 +116,12 @@ class Dataset():
         0     1  2
         1     5  6
         """
-
         self.X = self.X_all.sample(frac=p, random_state=9)
+        self.X_scaled = self.X_scaled.sample(frac=p, random_state=9)
         self.y_pred = self.y_pred.sample(frac=p, random_state=9)
         if self.y is not None:
             self.y = self.y.sample(frac=p, random_state=9)
+        self.fraction = p
 
     def improve(self):
         """
