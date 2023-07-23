@@ -202,12 +202,12 @@ class GUI():
             ].v_model = "Imported explanatory values"
         else :
             if self.__explanation == "SHAP":
-                compute_SHAP = compute.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                compute_SHAP = compute.computationSHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
                 self.atk.explain["SHAP"] = compute_SHAP.compute()
             elif self.__explanation == "LIME":
-                compute_LIME = compute.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                compute_LIME = compute.computationLIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
                 self.atk.explain["LIME"] = compute_LIME.compute()
@@ -2343,14 +2343,14 @@ class GUI():
 
         def function_validation_explanation(widget, event, data):
             if widget.v_model == "SHAP":
-                self.__compute_SHAP = compute.SHAP_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                self.__compute_SHAP = compute.computationSHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_SHAP.children[1], "v_model"), (self.__compute_SHAP.progress_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[2], "v_model"), (self.__compute_SHAP.text_widget, "v_model"))
                 widgets.jslink((new_prog_SHAP.children[-1], "color"), (self.__compute_SHAP.done_widget, "v_model"))
                 self.__compute_SHAP.compute_in_thread()
                 new_prog_SHAP.children[-1].disabled = True
             if widget.v_model == "LIME":
-                self.__compute_LIME = compute.LIME_computation(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
+                self.__compute_LIME = compute.computationLIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
                 widgets.jslink((new_prog_LIME.children[1], "v_model"), (self.__compute_LIME.progress_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[2], "v_model"), (self.__compute_LIME.text_widget, "v_model"))
                 widgets.jslink((new_prog_LIME.children[-1], "color"), (self.__compute_LIME.done_widget, "v_model"))
@@ -2642,30 +2642,6 @@ class GUI():
         #return partie_data
 
     def results(self, number: int = None, item: str = None):
-        """
-        Returns the results the work made with the interface.
-
-        Parameters
-        ----------
-        number : int, optional
-            The number of the region you want to see the results. The default is None.
-        item : str, optional
-            The item you want to see the results. Can be the following : \n
-                - "X" : the X values of the region
-                - "y" : the y values of the region
-                - "indices" : the indices of the region in the original dataset
-                - "explain" : the explanability values of the region. A dict ("Imported", "SHAP", "LIME" accessible)
-                - "model name" : the name of the sub-model used for the region
-                - "model" : the sub-model used for the region
-                - "model score" : the score of the sub-model used for the region
-                - "rules" : the rules defining the region
-
-        Returns
-        -------
-        dictio : dict
-            The results.
-        """
-
         L_f = []
         if len(self.atk.regions) == 0:
             return "No region has been created !"

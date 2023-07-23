@@ -39,6 +39,14 @@ class Potato():
         The list of the rules that defines the selection in the explanation space.
     score_exp : tuple
         The score of the surrogate-model in the explanation space. Is the following format : (precision, recall, extract of the tree).
+    success : bool
+        True if the rules have been found, False otherwise.
+    y_train : list
+        The list of the target values of the dataset.
+    explain : dict
+        The dict containing the explanations of the selection. Is the following format : {"Imported": imported explanations, "SHAP": SHAP explanations, "LIME": LIME explanations}.
+    state : int
+        The state of the potato.
 
     """
     UNKNOWN=-1
@@ -54,10 +62,12 @@ class Potato():
 
         Parameters
         ----------
-        indexes : list
-            The list of the indexes of the points in the dataset.
         atk : AntakIA object
             The AntakIA object linked to the potato.
+        array : list
+            The list of the indexes of the points in the dataset.
+        json : str
+            The name of the json file containing the indexes of the points in the dataset.
         """
         import antakia
         if not isinstance(atk, antakia.AntakIA):
@@ -132,7 +142,7 @@ class Potato():
         """
         return len(self.indexes)
     
-    def __shape__(self) -> tuple:
+    def size(self) -> int:
         """
         Function that returns the shape of the potato.
 
@@ -141,7 +151,7 @@ class Potato():
         tuple
             The shape of the potato.
         """
-        return self.data.shape
+        return len(self.indexes)
     
     def stateToSring(self)-> str :
         """
@@ -295,16 +305,7 @@ class Potato():
         return rules_list, score
     
     def __error_message(self, message:str):
-        """
-        Function that prints an error message.
-
-        Parameters
-        ----------
-        message : str
-            The message to print.
-        """
         print("AntakIA ERROR : " + message)
-
 
     def apply_skope(self, explanation, p:float = 0.7, r:float = 0.7):
         """
@@ -315,9 +316,9 @@ class Potato():
         ----------
         explanation : str
             The name of the explanation to use.
-        p : float
+        p : float = 0.7
             The minimum precision of the rules.
-        r : float
+        r : float = 0.7
             The minimum recall of the rules.
         """
         if self.atk.explain[explanation] is None:

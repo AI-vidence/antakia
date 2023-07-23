@@ -30,6 +30,10 @@ class Dataset():
         The "black-box" model to explain.
     y_pred : pandas series
         The series containing the predictions of the model. If None, the predictions are computed using the model and the data.
+    comments : list of str
+        The comments associated to each feature.
+    sensible : list of bool
+        The list of boolean indicating if the feature is sensible or not. If True, a warning will be displayed when the feature is used in the explanations. More to come in the future.
     """
 
     def __init__(self, X:pd.DataFrame = None, csv:str = None, y:pd.Series = None, model = None):
@@ -46,11 +50,6 @@ class Dataset():
             The series containing the target values.
         model : model object
             The "black-box" model to explain. The model must have a predict method.
-
-        Returns
-        -------
-        Dataset object
-            A Dataset object.
         """
 
         X.columns = [X.columns[i].replace(" ", "_") for i in range(len(X.columns))]
@@ -109,7 +108,7 @@ class Dataset():
         >>> import antakia
         >>> import pandas as pd
         >>> X = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]], columns=["a", "b"])
-        >>> my_dataset = antakia.Dataset(X)
+        >>> my_dataset = antakia.Dataset(X, model)
         >>> my_dataset.frac(0.5)
         >>> my_dataset.X
               a  b
@@ -125,7 +124,8 @@ class Dataset():
 
     def improve(self):
         """
-        Improves the dataset.
+        Improves the dataset. Displays a widget to modify the dataset. For each feature, you can change its name, its type, its comment and if it is sensible or not.
+        You also have the access to the general informations of the dataset.
         """
         general_infos = v.Row(class_="ma-2", children=[
             v.Icon(children=["mdi-database"], size="30px"),

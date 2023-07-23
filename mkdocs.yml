@@ -13,7 +13,7 @@ nav:
       - Dataset: documentation/dataset.md
       - Potato: documentation/potato.md
       - utils: documentation/utils.md
-      - LongTask: documentation/longtask.md
+      - compute: documentation/compute.md
   - About: about.md
 
 theme:

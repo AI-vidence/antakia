@@ -25,7 +25,7 @@ class AntakIA():
     dataset : Dataset object
         The Dataset object containing the data to explain. For more information, please see the documentation of the class Dataset.
     explain : dict
-        The dictionary containing the explanations. The keys are the names of the explanations (for example "SHAP" or "LIME"). The values are the explanations. The explanations are pandas dataframes.
+        The dictionary containing the explanations. The keys are the names of the explanations (for example "SHAP" or "LIME"). The explanations are pandas dataframes.
         You can import your own explanations using `import_explanation`.
     regions : list
         The list of the regions computed by the user. A region is an AntakIA object, named Potato. For more information, please see the documentation of the class Potato.
@@ -47,11 +47,6 @@ class AntakIA():
         import_explanation : pandas dataframe
             The dataframe containing the explanations. The dataframe must have the same number of rows as the dataset.
             The GUI can compute other types of explanations using different methods.
-
-        Returns
-        -------
-        AntakIA object
-            The AntakIA object.
         """
         self.dataset = dataset
         self.regions = []
@@ -67,12 +62,10 @@ class AntakIA():
 
         self.gui = GUI(self)
 
-    def __str__(self):
-        print("Xplainer object")
-
     def getGUI(self) -> GUI:
         """
         Function that returns the GUI object.
+        For more information, please see the documentation of the class GUI.
 
         Returns
         -------
@@ -88,9 +81,49 @@ class AntakIA():
         Returns
         -------
         list
-            The list of the regions computed.
+            The list of the regions computed. A region is a list of AntakIA objects, named `Potato`.
         """
         return self.regions
+    
+    def getSaves(self) -> list:
+        """
+        Function that returns the list of the saves.
+
+        Returns
+        -------
+        list
+            The list of the saves. A save is a list of regions.
+        """
+        return self.saves
+    
+    def getExplanations(self, method=None) -> dict:
+        """
+        Function that returns the dictionary containing the explanations.
+        The keys are the names of the explanations (for example "SHAP" or "LIME"). The explanations are pandas dataframes.
+
+        Returns
+        -------
+        dict or pandas dataframe
+            The dictionary containing the explanations or the explanation corresponding to the key explanation.
+        """
+        if method is None:
+            return self.explain
+        try :
+            return self.explain[method]
+        except KeyError:
+            raise KeyError("The method " + method + " is not a valid method. The possible methods are " + str(list(self.explain.keys())) + ".")
+    
+    def getDataset(self) -> Dataset:
+        """
+        Function that returns the Dataset object containing the data to explain.
+        For more information, please see the documentation of the class Dataset.
+
+        Returns
+        -------
+        Dataset object
+            The Dataset object.
+        """
+        return self.dataset
     
     def newRegion(self, potato: Potato):
         """
@@ -98,8 +131,8 @@ class AntakIA():
 
         Parameters
         ---------
-        name : str
-            The name of the region.
+        potato : Potato object
+            The Potato object to add to the list of regions.
         """
         self.regions.append(potato)
 
@@ -109,7 +142,8 @@ class AntakIA():
                 sub_models: list = None,
                 display = True) -> GUI:
         """
-        Function that instantiates the GUI and calls it display() function
+        Function that instantiates the GUI and calls its display() function.
+        For more information, please see the documentation of the class GUI.
 
         Parameters
         ---------
@@ -141,11 +175,8 @@ class AntakIA():
             The minimum number of clusters to compute.
         automatic : bool
             If True, the number of clusters is computed automatically, respecting the minimum number of clusters.
-
-        Returns
-        -------
-        list
-            The list of the regions computed.
+        sub_models : bool
+            If True, the best model for each region is computed. The possible models are the ones in the list sub_models.
         """
         if self.explain[explanation] is None:
             raise ValueError("You must compute the explanations before computing the dyadic-clustering!")
@@ -159,23 +190,6 @@ class AntakIA():
                 self.regions[i].sub_model["model"], self.regions[i].sub_model["score"] = self.__find_best_model(self.regions[i].data, self.regions[i].y, self.gui.sub_models)
 
     def __find_best_model(self, X:pd.DataFrame, y:pd.Series, sub_models:list):
-        """
-        Function that finds the best model for a region.
-
-        Parameters
-        ---------
-        X : pandas dataframe
-            The data of the region.
-        y : pandas series
-            The target of the region.
-        sub_models : list
-            The list of the sub_models to choose from for each region. The only constraint is that sub_models must have a predict method.
-
-        Returns
-        -------
-        sklearn model
-            The best model for the region.
-        """
         best_model = None
         best_score = 0
         for model in sub_models:
@@ -213,7 +227,7 @@ class AntakIA():
         self.widget = widget
 
     
-    def compute_SHAP(self, verbose:bool = True):
+    def computeSHAP(self, verbose:bool = True):
         """
         Computes the SHAP values of the dataset.
 
@@ -224,9 +238,9 @@ class AntakIA():
 
         See also:
         ---------
-        The Shap library.
+        The Shap library on GitHub : https://github.com/shap/shap/tree/master
         """
-        shap = compute.SHAP_computation(self.dataset.X, self.dataset.X_all, self.dataset.model)
+        shap = compute.computationSHAP(self.dataset.X, self.dataset.X_all, self.dataset.model)
         if verbose:
             self.verbose = self.__create_progress("SHAP")
             widgets.jslink((self.widget.children[1], "v_model"), (shap.progress_widget, "v_model"))
@@ -234,9 +248,7 @@ class AntakIA():
             display(self.widget)
         self.explain["SHAP"] = shap.compute()
 
-        
-    # TODO : ça devrait subclasser LongTask
-    def compute_LIME(self, verbose:bool = True):
+    def computeLIME(self, verbose:bool = True):
         """
         Computes the LIME values of the dataset.
 
@@ -247,9 +259,9 @@ class AntakIA():
 
         See also:
         ---------
-        The Lime library.
+        The Lime library on GitHub : https://github.com/marcotcr/lime/tree/master
         """
-        lime = compute.SHAP_computation(self.dataset.X, self.dataset.X_all, self.dataset.model)
+        lime = compute.computationSHAP(self.dataset.X, self.dataset.X_all, self.dataset.model)
         if verbose:
             self.verbose = self.__create_progress("LIME")
             widgets.jslink((self.widget.children[1], "v_model"), (lime.progress_widget, "v_model"))
