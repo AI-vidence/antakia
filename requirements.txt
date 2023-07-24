@@ -13,8 +13,6 @@ pandas
 plotly
 pre-commit
 scikit-learn
-seaborn
 shap
-shutup
 umap-learn
 git+https://github.com/scikit-learn-contrib/skope-rules.git

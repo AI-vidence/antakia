@@ -12,12 +12,12 @@ for git in git_r:
     requirements.append(git)
 
 setuptools.setup(
-    name="antakia",
-    version="0.1",
+    name="antakia-test",
+    version="0.2",
     author="Antoine EDY AI-vidence (c)",
     author_email="antoineedy@outlook.fr",
     description="XAI made simple",
-    long_description=open("README.md").read(),
+    long_description=open('DESCRIPTION.rst').read(),
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",

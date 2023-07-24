@@ -1,1 +1,3 @@
 include src/antakia/assets/*
+
+bash include DESCRIPTION.rst
