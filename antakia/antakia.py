@@ -54,7 +54,10 @@ class AntakIA():
         self.gui = None
 
         self.explain = dict()
-        self.explain["Imported"] = import_explanation.iloc[dataset.frac_indexes].reset_index(drop=True)
+        if import_explanation is not None:
+            self.explain["Imported"] = import_explanation.iloc[dataset.frac_indexes].reset_index(drop=True)
+        else:
+            self.explain["Imported"] = None
         self.explain["SHAP"] = None
         self.explain["LIME"] = None
 
