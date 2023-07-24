@@ -395,7 +395,7 @@ class GUI():
             FP_ratio = slider_param_PaCMAP_fp_ratio_EE.children[0].v_model
             out_loading2.layout.visibility = "visible"
             dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.__explanation, 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red_compute.compute(self.__explanation, 3, False, n_neighbors, MN_ratio, FP_ratio)]
+            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red_compute.compute(self.atk.explain[self.__explanation], 3, False, n_neighbors, MN_ratio, FP_ratio)]
             out_loading2.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
@@ -404,7 +404,7 @@ class GUI():
         def reinit_param_EE(*b):
             out_loading2.layout.visibility = "visible"
             dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.__explanation, 2), dim_red_compute.compute(self.__explanation, 3)]
+            self.dim_red["EE"][self.__explanation][self.__projectionEE] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.explain[self.__explanation], 3)]
             out_loading2.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionEV, self.__projectionEE)
 
@@ -564,7 +564,7 @@ class GUI():
         # the table that contains the backups
         self.__table_save = init_save(self.atk.saves)[0]
 
-        dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save = gui_elements.dialog_save(bouton_save, init_save(self.atk.saves)[1], self.__table_save, self.atk.saves)
+        dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save = gui_elements.dialog_save(bouton_save, init_save(self.atk.saves)[1], self.__table_save, self.atk)
 
         # save a backup
         def delete_save_fonction(*args):
@@ -1825,8 +1825,8 @@ class GUI():
                 self.selection.sub_model["name"], self.selection.sub_model["score"] = nom_model, score_model
                 # here we will force so that all the points of the new tile belong only to it: we will modify the existing tiles
                 self.atk.regions = conflict_handler(self.atk.regions, nouvelle_tuile)
-                self.atk.regions.append(Potato(self.atk, nouvelle_tuile))
-                self.atk.regions[-1].sub_model = self.selection.sub_model
+                self.selection.setIndexes(nouvelle_tuile)
+                self.atk.regions.append(self.selection)
             self.__color_regions=[0]*len(self.atk.dataset.X)
             for i in range(len(self.__color_regions)):
                 for j in range(len(self.atk.regions)):
@@ -1858,7 +1858,7 @@ class GUI():
                             i + 1,
                             len(self.atk.regions[i]),
                             np.round(len(self.atk.regions[i]) / len(self.atk.dataset.X) * 100, 2),
-                            self.atk.regions[i].sub_model["name"],
+                            self.atk.regions[i].sub_model["model"],
                             self.atk.regions[i].sub_model["score"][0],
                             self.atk.regions[i].sub_model["score"][1],
                             str(self.atk.regions[i].sub_model["score"][2]) + "%",

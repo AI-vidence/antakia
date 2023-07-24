@@ -18,6 +18,8 @@ from copy import deepcopy
 
 import antakia.compute as compute
 
+import os
+
 def add_tooltip(widget, text):
     # function that allows you to add a tooltip to a widget
     wid = v.Tooltip(
@@ -294,7 +296,7 @@ def create_menu_bar():
     return barre_menu, fig_size, bouton_save
 
 
-def dialog_save(bouton_save, texte, table_save, save_regions):
+def dialog_save(bouton_save, texte, table_save, atk):
     # view a selected backup
     visu_save = v.Btn(
         class_="ma-4",
@@ -425,6 +427,7 @@ def dialog_save(bouton_save, texte, table_save, save_regions):
     bouton_save.on_event("click", ouvre_save)
 
     def fonction_save_all(*args):
+        save_regions = atk.saves
         emplacement = partie_local_save.children[1].children[1].v_model
         fichier = partie_local_save.children[1].children[2].v_model
         if len(emplacement) == 0 or len(fichier) == 0:
@@ -438,11 +441,20 @@ def dialog_save(bouton_save, texte, table_save, save_regions):
         destination = destination.replace("//", "/")
         destination = destination.replace(" ", "_")
 
-        for i in range(len(save_regions)):
-            save_regions[i]["liste"] = list(save_regions[i]["liste"])
-            save_regions[i]["sub_models"] = save_regions[i][
-                "sub_models"
-            ].__class__.__name__
+        cwd = os.getcwd()
+
+        destination = cwd + "/" + destination
+
+        isFile = os.path.isfile(destination)
+
+        if (not isFile):
+            with open(destination, 'w') as fp:
+                pass
+
+        for save in save_regions:
+            for i in range(len(save["regions"])):
+                save["regions"][i] = save["regions"][i].to_json()
+
         with open(destination, "w") as fp:
             json.dump(save_regions, fp)
         out_save.color = "success"

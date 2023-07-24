@@ -1,5 +1,5 @@
 """
-CLass potato (selection)
+Class potato (selection) and functions to create a potato from a json file.
 """
 
 import pandas as pd
@@ -56,7 +56,7 @@ class Potato():
     REGION=3 # validated / to be stored in Regions
     JSON=4 # imported from JSON
 
-    def __init__(self,  atk, array:list = [], json: str = None) -> None:
+    def __init__(self,  atk, array:list = [], json_path: str = None) -> None:
         """
         Constructor of the class Potato.
 
@@ -66,7 +66,7 @@ class Potato():
             The AntakIA object linked to the potato.
         array : list
             The list of the indexes of the points in the dataset.
-        json : str
+        json_path : str
             The name of the json file containing the indexes of the points in the dataset.
         """
         import antakia
@@ -75,14 +75,14 @@ class Potato():
         self.atk = atk
         self.state = Potato.UNKNOWN
 
-        if json is not None and array != []:
+        if json_path is not None and array != []:
             raise ValueError("You can't provide a list and a json file")
         
-        if json is not None:
+        if json_path is not None:
             self.state = Potato.JSON
-            if json[-5:] != ".json":
-                json += ".json"
-            fileObject = open(json, "r")
+            if json_path[-5:] != ".json":
+                json_path += ".json"
+            fileObject = open(json_path, "r")
             jsonContent = fileObject.read()
             self.indexes = JSON.loads(jsonContent)
         else :
@@ -406,3 +406,36 @@ class Potato():
         df = eval(regle1)
         df = eval(regle2)
         return df
+    
+    def to_json(self):
+        """
+        Function that returns the potato in the form of a json file.
+
+        Returns
+        -------
+        json
+            The potato in the form of a json file.
+        """
+        return {"indexes": self.indexes, "state": self.state, "rules": self.rules, "score": self.score, "rules_exp": self.rules_exp, "score_exp": self.score_exp, "sub_model": self.sub_model, "success": self.success}
+    
+def potatoFromJson(atk, json:dict) -> Potato:
+    """
+    Function that loads a potato from a json file.
+
+    Parameters
+    ----------
+    atk : AntakIA object
+        The AntakIA object linked to the potato.
+    json : json
+        The json file containing the potato.
+    """
+    potato = Potato(atk, [])
+    potato.setIndexes(json["indexes"])
+    potato.state = json["state"]
+    potato.rules = json["rules"]
+    potato.score = json["score"]
+    potato.rules_exp = json["rules_exp"]
+    potato.score_exp = json["score_exp"]
+    potato.sub_model = json["sub_model"]
+    potato.success = json["success"]
+    return potato

@@ -4,6 +4,7 @@ import numpy as np
 from antakia.gui import GUI
 from antakia.dataset import Dataset
 
+import antakia.utils as utils
 from antakia.utils import fonction_auto_clustering
 
 import ipywidgets as widgets
@@ -36,7 +37,7 @@ class AntakIA():
     """
 
     # TODO : il faudrait un constructeur __init__(self, dataset) tout court non ?
-    def __init__(self, dataset: Dataset, import_explanation: pd.DataFrame = None):
+    def __init__(self, dataset: Dataset, import_explanation: pd.DataFrame = None, saves: dict = None, saves_path: str = None):
         """
         Constructor of the class AntakIA.
 
@@ -51,14 +52,20 @@ class AntakIA():
         self.dataset = dataset
         self.regions = []
         self.gui = None
-        self.saves = []
-
-        self.widget = None
 
         self.explain = dict()
-        self.explain["Imported"] = import_explanation.sample(frac=dataset.fraction, random_state=9).reset_index(drop=True)
+        self.explain["Imported"] = import_explanation.iloc[dataset.frac_indexes].reset_index(drop=True)
         self.explain["SHAP"] = None
         self.explain["LIME"] = None
+
+        if saves is not None:
+            self.saves = saves
+        elif saves_path is not None:
+            self.saves = utils.load_save(self, saves_path)
+        else:
+            self.saves = []
+
+        self.widget = None
 
         self.gui = GUI(self)
 
@@ -84,6 +91,12 @@ class AntakIA():
             The list of the regions computed. A region is a list of AntakIA objects, named `Potato`.
         """
         return self.regions
+    
+    def resetRegions(self):
+        """
+        Function that resets the list of the regions computed by the user.
+        """
+        self.regions = []
     
     def getSaves(self) -> list:
         """

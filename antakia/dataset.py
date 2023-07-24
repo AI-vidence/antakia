@@ -12,6 +12,8 @@ from antakia import gui_elements
 
 import time
 
+from copy import deepcopy
+
 class Dataset():
     """Dataset object.
     This object contains the all data, the model to explain, the explanations and the predictions.
@@ -78,6 +80,7 @@ class Dataset():
         self.sensible = [False]*len(self.X.columns)
 
         self.fraction = 1
+        self.frac_indexes = self.X.index
 
     def __str__(self):
         texte = ' '.join(("Dataset:\n",
@@ -115,12 +118,14 @@ class Dataset():
         0     1  2
         1     5  6
         """
-        self.X = self.X_all.sample(frac=p, random_state=9).reset_index(drop=True)
-        self.X_scaled = self.X_scaled.sample(frac=p, random_state=9).reset_index(drop=True)
-        self.y_pred = self.y_pred.sample(frac=p, random_state=9).reset_index(drop=True)
+        self.X = self.X_all.sample(frac=p, random_state=9)
+        self.frac_indexes = deepcopy(self.X.index)
+        self.X_scaled = self.X_scaled.iloc[self.frac_indexes].reset_index(drop=True)
+        self.y_pred = self.y_pred.iloc[self.frac_indexes].reset_index(drop=True)
         if self.y is not None:
-            self.y = self.y.sample(frac=p, random_state=9).reset_index(drop=True)
+            self.y = self.y.iloc[self.frac_indexes].reset_index(drop=True)
         self.fraction = p
+        self.X.reset_index(drop=True, inplace=True)
 
     def improve(self):
         """

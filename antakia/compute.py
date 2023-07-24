@@ -55,7 +55,7 @@ class LongTask(ABC):
         self.thread = threading.Thread(target=self.compute)
         self.thread.start()
 
-    def __generation_texte(self, i, tot, time_init, progress):
+    def generation_texte(self, i, tot, time_init, progress):
         progress = float(progress)
         # allows to generate the progress text of the progress bar
         time_now = round((time.time() - time_init) / progress * 100, 1)
@@ -100,7 +100,7 @@ class computationSHAP(LongTask):
             shap_values.iloc[i] = shap_value.values
             self.progress += 100 / len(self.X)
             self.progress_widget.v_model = self.progress
-            self.text_widget.v_model = self.__generation_texte(i, len(self.X), time_init, self.progress_widget.v_model)
+            self.text_widget.v_model = self.generation_texte(i, len(self.X), time_init, self.progress_widget.v_model)
         shap_values.columns = j
         self.value = shap_values
         self.done_widget.v_model = "success"
@@ -132,7 +132,7 @@ class computationLIME(LongTask):
                 l.extend(exp_map[ii][1] for jj in range(taille) if ii == exp_map[jj][0])
             LIME.iloc[j] = l
             self.progress_widget.v_model  += 100 / len(self.X)
-            self.text_widget.v_model = self.__generation_texte(j, len(self.X), time_init, self.progress_widget.v_model)
+            self.text_widget.v_model = self.generation_texte(j, len(self.X), time_init, self.progress_widget.v_model)
         j = list(self.X.columns)
         for i in range(len(j)):
             j[i] = j[i] + "_shap"
@@ -195,7 +195,7 @@ class computationPaCMAP(DimensionalityReduction):
     """
     PaCMAP computation class.
     """
-    def compute(self, X, n, default, *args):
+    def compute(self, X, n, default=True, *args):
         if default:
             reducer = pacmap.PaCMAP(n_components=n, random_state=9)
         else:

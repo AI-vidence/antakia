@@ -20,6 +20,7 @@ import json
 import ipyvuetify as v
 
 from antakia.potato import Potato
+import antakia.potato as potato
 
 # Private utils functions
 
@@ -206,7 +207,7 @@ def create_save(atk, liste, nom: str = "Default name"):
     return {"name": nom, "regions": l, "labels": liste}
 
 
-def load_save(local_path):
+def load_save(atk, local_path):
     """Return a save file from a json file.
 
     Function that allows to load a save file.
@@ -220,19 +221,22 @@ def load_save(local_path):
     Returns
     ----------
     data : list
-        A list of dictionaries, each dictionary being a save file. This list can directly be passed to the function antakia.interface so as to load the save file.
+        A list of dictionaries, each dictionary being a save file. This list can directly be passed to the AntakIA object so as to load the save file.
     
     Examples
     --------
     >>> import antakia
     >>> data = antakia.load_save("save.json")
     >>> data
-    [{'nom': 'save', 'liste': [[0, 1], [2, 3]], 'sub_models': [<antakia.models.Model object at 0x7f8b1c0b6d90>, <antakia.models.Model object at 0x7f8b1c0b6e50>]}]
+    [{'nom': 'Antoine's save', 'regions': [0, 1], [2, 3] 'labels': [0, 0, 1, 1]}]
     """
     with open(local_path) as json_file:
         data = json.load(json_file)
-    for dictio in data:
-        dictio["sub_models"] = eval(dictio["sub_models"] + "()")
+
+    for temp in data:
+        for i in range(len(temp["regions"])):
+            temp["regions"][i] = potato.potatoFromJson(atk, temp["regions"][i])
+
     return data
 
 
