@@ -4,7 +4,7 @@
   </br>
   <img src="antakia/assets/logo_antakia.png" alt="logo" width="300" height="auto" />
   <p>
-    La solution XAI qui parle à tout le monde
+    The XAI solution for your model!
   </p>
 
   <a href="https://ai-vidence.github.io/antakia/"><strong>Explore the docs »</strong></a>
