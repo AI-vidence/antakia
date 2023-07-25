@@ -232,6 +232,28 @@ class Potato():
         """
         return self.explain[explanation]
     
+    def getVSrules(self):
+        """
+        Function that returns the rules of the potato.
+
+        Returns
+        -------
+        list
+            The rules of the potato.
+        """
+        return self.rules
+    
+    def getESrules(self):
+        """
+        Function that returns the rules of the potato in the explanation space.
+
+        Returns
+        -------
+        list
+            The rules of the potato in the explanation space.
+        """
+        return self.rules_exp
+    
     def apply_rules(self):
         """
         Function that applies the rules to the dataset, in order to create a new selection.
@@ -307,7 +329,7 @@ class Potato():
     def __error_message(self, message:str):
         print("AntakIA ERROR : " + message)
 
-    def apply_skope(self, explanation, p:float = 0.7, r:float = 0.7):
+    def applySkope(self, explanation, p:float = 0.7, r:float = 0.7):
         """
         Function that applies the skope-rules algorithm to the dataset, in order to create a new selection.
         Must be connected to the AntakIA object (for the explanation space).

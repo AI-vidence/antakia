@@ -1253,7 +1253,7 @@ class GUI():
                 ]
             else:
                 # skope calculation for X
-                self.selection.apply_skope(self.__explanation, 0.2, 0.2)
+                self.selection.applySkope(self.__explanation, 0.2, 0.2)
                 # if no rule for one of the two, nothing is displayed
                 if self.selection.success == False:
                     texte_skopeEV.children[1].children = [
