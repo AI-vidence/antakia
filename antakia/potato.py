@@ -276,7 +276,7 @@ class Potato():
         """
         return self.score_exp
     
-    def apply_rules(self):
+    def applyRules(self):
         """
         Function that applies the rules to the dataset, in order to create a new selection.
 
@@ -287,7 +287,7 @@ class Potato():
         >>> atk = AntakIA(Dataset(X, model))
         >>> potato = Potato(indexes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], atk)
         >>> potato.rules = [[0, "<=", "col1", "<=", 9], [3, "<=", "col2", "<=", 8]]
-        >>> potato.apply_rules()
+        >>> potato.applyRules()
         >>> potato.indexes
         [3, 4] # only the two last points respect the rules !
 
@@ -400,14 +400,14 @@ class Potato():
         else :
             self.rules, self.score = self.__transform_rules(skope_rules_clf.rules_, self.dataset.X)
             self.rules_exp, self.score_exp = self.__transform_rules(skope_rules_clf_exp.rules_, self.atk.explain[explanation])
-            self.check_for_duplicates()
-            self.apply_rules()
+            self.checkForDuplicates()
+            self.applyRules()
             self.success = True
 
-    def check_for_duplicates(self):
+    def checkForDuplicates(self):
         """
         Function that checks if there are duplicates in the rules.
-
+        A duplicate is a rule that has the same feature as another rule, but with a different threshold.
         """
         features = [self.rules[i][2] for i in range(len(self.rules))]
         features_alone = list(set(features))
@@ -429,7 +429,7 @@ class Potato():
                             a+=1
                     self.rules.append([min_feature, "<=", feature, "<=", max_feature])
 
-    def respect_one_rule(self, index:int):
+    def respectOneRule(self, index:int):
         """
         Function that returns the points of the dataset that respect only one rule of the list of rules.
 
@@ -451,7 +451,7 @@ class Potato():
         df = eval(regle2)
         return df
     
-    def to_json(self):
+    def toJson(self):
         """
         Function that returns the potato in the form of a json file.
 

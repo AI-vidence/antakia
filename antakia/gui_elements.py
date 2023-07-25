@@ -453,7 +453,7 @@ def dialog_save(bouton_save, texte, table_save, atk):
 
         for save in save_regions:
             for i in range(len(save["regions"])):
-                save["regions"][i] = save["regions"][i].to_json()
+                save["regions"][i] = save["regions"][i].toJson()
 
         with open(destination, "w") as fp:
             json.dump(save_regions, fp)

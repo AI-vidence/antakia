@@ -1382,17 +1382,17 @@ class GUI():
 
                     with histogram1.batch_update():
                         histogram1.data[0].x = list(self.atk.dataset.X[columns_rules[0]])
-                        df_respect1 = self.selection.respect_one_rule(0)
+                        df_respect1 = self.selection.respectOneRule(0)
                         histogram1.data[1].x = list(df_respect1[columns_rules[0]])
                     if len(self.selection.rules) > 1:
                         with histogram2.batch_update():
                             histogram2.data[0].x = list(self.atk.dataset.X[columns_rules[1]])
-                            df_respect2 = self.selection.respect_one_rule(1)
+                            df_respect2 = self.selection.respectOneRule(1)
                             histogram2.data[1].x = list(df_respect2[columns_rules[1]])
                     if len(self.selection.rules) > 2:
                         with histogram3.batch_update():
                             histogram3.data[0].x = list(self.atk.dataset.X[columns_rules[2]])
-                            df_respect3 = self.selection.respect_one_rule(2)
+                            df_respect3 = self.selection.respectOneRule(2)
                             histogram3.data[1].x = list(df_respect3[columns_rules[2]])
 
                     modifier_tous_histograms(
