@@ -254,6 +254,28 @@ class Potato():
         """
         return self.rules_exp
     
+    def getVSscore(self):
+        """
+        Function that returns the score of the potato.
+
+        Returns
+        -------
+        tuple
+            The score of the potato.
+        """
+        return self.score
+    
+    def getESscore(self):
+        """
+        Function that returns the score of the potato in the explanation space.
+
+        Returns
+        -------
+        tuple
+            The score of the potato in the explanation space.
+        """
+        return self.score_exp
+    
     def apply_rules(self):
         """
         Function that applies the rules to the dataset, in order to create a new selection.
