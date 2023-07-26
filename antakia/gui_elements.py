@@ -885,6 +885,8 @@ def create_buttons_regions():
     return valider_une_region, supprimer_toutes_les_tuiles, selection
 
 def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size):
+    nouvelle_regle[0] = float(nouvelle_regle[0])
+    nouvelle_regle[4] = float(nouvelle_regle[4])
     new_valider_change = v.Btn(
         class_="ma-3",
         children=[

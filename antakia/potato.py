@@ -205,6 +205,42 @@ class Potato():
         self.state = Potato.LASSO
         self.success = None
 
+        self.explain = {"Imported": None, "SHAP": None, "LIME": None}
+        if self.atk.explain["Imported"] is not None:
+            self.explain["Imported"] = self.atk.explain["Imported"].iloc[self.indexes]
+        if self.atk.explain["SHAP"] is not None:
+            self.explain["SHAP"] = self.atk.explain["SHAP"].iloc[self.indexes]
+        if self.atk.explain["LIME"] is not None:
+            self.explain["LIME"] = self.atk.explain["LIME"].iloc[self.indexes]
+
+    def setJsonPath(self, json_path:str) -> None:
+        if json_path[-5:] != ".json":
+            json_path += ".json"
+        fileObject = open(json_path, "r")
+        jsonContent = fileObject.read()
+        self.indexes = JSON.loads(jsonContent)
+        self.data = self.dataset.X.iloc[self.indexes]
+        self.y = self.dataset.y.iloc[self.indexes]
+
+        self.y_train = []
+        for i in range(len(self.dataset.X)):
+            if i in self.indexes:
+                self.y_train.append(1)
+            else :
+                self.y_train.append(0)
+
+        self.state = Potato.JSON
+        self.success = None
+
+        self.explain = {"Imported": None, "SHAP": None, "LIME": None}
+        if self.atk.explain["Imported"] is not None:
+            self.explain["Imported"] = self.atk.explain["Imported"].iloc[self.indexes]
+        if self.atk.explain["SHAP"] is not None:
+            self.explain["SHAP"] = self.atk.explain["SHAP"].iloc[self.indexes]
+        if self.atk.explain["LIME"] is not None:
+            self.explain["LIME"] = self.atk.explain["LIME"].iloc[self.indexes]
+
+
     def getVSdata(self) -> pd.DataFrame:
         """
         Function that returns the data of the potato.
@@ -403,6 +439,7 @@ class Potato():
             self.checkForDuplicates()
             self.applyRules()
             self.success = True
+            self.state = Potato.SKR
 
     def checkForDuplicates(self):
         """
@@ -428,6 +465,52 @@ class Potato():
                             self.rules.pop(i-a)
                             a+=1
                     self.rules.append([min_feature, "<=", feature, "<=", max_feature])
+
+    def pretty_print(self, table, ch1="-", ch2="|", ch3="+"):
+        le_max = 0
+        for i in range(len(table)):
+            table[i][2] = table[i][2].replace("_", " ")
+            if len(table[i][2]) > le_max:
+                le_max = len(table[i][2])
+            for j in range(len(table[i])):
+                table[i][j] = str(table[i][j])
+        
+        for i in range(len(table)):
+            if len(table[i][2]) < le_max:
+                table[i][2] = " "*round((le_max - len(table[i][2]))/2 - 1) + table[i][2]
+        
+        if len(table) == 0:
+            return
+
+        max_lengths = [
+            max(column)
+            for column in zip(*[[len(cell) for cell in row] for row in table])
+        ]
+
+        for row in table:
+            print(ch3.join(["", *[ch1 * l for l in max_lengths], ""]))
+            print(
+                ch2.join(
+                    [
+                        "",
+                        *[
+                            ("{:<" + str(l) + "}").format(c)
+                            for l, c in zip(max_lengths, row)
+                        ],
+                        "",
+                    ]
+                )
+            )
+        print(ch3.join(["", *[ch1 * l for l in max_lengths], ""]))
+
+    def printRules(self):
+        """
+        Function that prints the rules of the potato.
+        """
+        if self.rules is None:
+            print("No rules")
+        else :
+            self.pretty_print(self.rules, ch3 = '-', ch2=" ")
 
     def respectOneRule(self, index:int):
         """
