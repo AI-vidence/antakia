@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "antakia-test"
-version = "0.2"
+name = "antakia"
+version = "0.1"
 authors = [
     { name = "Antoine EDY", email = "antoineedy@outlook.fr" },
     { name = "Laurent MICHEL", email = "laurent@ai-vidence.com" },

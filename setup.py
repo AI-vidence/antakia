@@ -12,10 +12,9 @@ for git in git_r:
     requirements.append(git)
 
 setuptools.setup(
-    name="antakia-test",
-    version="0.2",
-    author="Antoine EDY AI-vidence (c)",
-    author_email="antoineedy@outlook.fr",
+    name="antakia",
+    version="0.1",
+    author="AI-vidence (c)",
     description="XAI made simple",
     long_description=open('DESCRIPTION.rst').read(),
     classifiers=[
