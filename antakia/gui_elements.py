@@ -567,6 +567,25 @@ def create_card_skope():
 
     return texte_skope, texte_skopeEE, texte_skopeEV, une_carte_EV, une_carte_EE
 
+def create_class_selector(gui, column, min=1, max=-1, fig_size=700):
+    liste_features = list(set(gui.atk.dataset.X[column]))
+    retour = []
+    for i in range(len(liste_features)):
+        if liste_features[i] <= max and liste_features[i] >= min:
+            le_bool = True
+        else:
+            le_bool = False
+        widget = v.Checkbox(
+            class_="ma-4",
+            v_model=le_bool,
+            label=str(liste_features[i]).replace("_", " "),
+
+        )
+        retour.append(widget)
+    row = v.Row(class_ = "ml-6 ma-3", children=retour)
+    texte = v.Html(tag="h3", children=["Select the values of the feature " + column])
+    return v.Layout(class_= "d-flex flex-column align-center justify-center", style_="width: "+str(int(fig_size)-70)+"px; height: 303px", children=[v.Spacer(), texte, row])
+
 def create_slide_sub_models(gui):
     liste_mods = []
     for i in range(len(gui.sub_models)):
@@ -781,7 +800,7 @@ def accordion_skope(texte, dans_accordion):
     )
     return widget
 
-def generate_rule_card(chaine):
+def generate_rule_card(chaine, is_class=False):
     chaine_carac = str(chaine).split()
     taille = int(len(chaine_carac) / 5)
     l = []
@@ -803,7 +822,10 @@ def generate_rule_card(chaine):
             )
         )
         if i != taille - 1:
-            l.append(v.Divider())
+            if chaine_carac[5 * i + 2] == chaine_carac[5 * (i+1) + 2]:
+                l.append(v.Layout(class_="ma-n2 pa-0 d-flex flex-row justify-center align-center", children=[v.Html(class_="ma0 pa-0", tag="i", children=["or"])]))
+            else:
+                l.append(v.Divider())
     return l
 
 def create_selection_card():

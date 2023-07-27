@@ -42,8 +42,6 @@ from antakia import compute
 
 import antakia.gui_elements as gui_elements
 
-#TODO : il faut trouver un moyen pour faire maigrer ce module ! Découper par onglet : une fonction par onglet ?
-
 class GUI():
     """
     Gui object. This object contains all the data and variables needed to run the interface.
@@ -946,20 +944,148 @@ class GUI():
         b_delete_skope2 = gui_elements.button_delete_skope()
         b_delete_skope3 = gui_elements.button_delete_skope()
 
+        is_numeric_1 = v.Checkbox(v_model=True, label="is continuous ?")
+        is_numeric_2 = v.Checkbox(v_model=True, label="is continuous ?")
+        is_numeric_3 = v.Checkbox(v_model=True, label="is continuous ?")
+
+        right_side_1 = v.Col(children=[b_delete_skope1, is_numeric_1], class_="d-flex flex-column align-center justify-center")
+        right_side_2 = v.Col(children=[b_delete_skope2, is_numeric_2], class_="d-flex flex-column align-center justify-center")
+        right_side_3 = v.Col(children=[b_delete_skope3, is_numeric_3], class_="d-flex flex-column align-center justify-center")
+
+        self.__ens_class_1 = gui_elements.create_class_selector(self, self.atk.dataset.X.columns[0])
+        self.__ens_class_2 = gui_elements.create_class_selector(self, self.atk.dataset.X.columns[0])
+        self.__ens_class_3 = gui_elements.create_class_selector(self, self.atk.dataset.X.columns[0])
+
+        def change_numeric1(widget, event, data):
+            if widget.v_model == True and widget == right_side_1.children[1]:
+                dans_accordion1.children = [ens_slider_histo1] + list(dans_accordion1.children[1:])
+                count = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i-count][2] == self.selection.rules[0][2] and i-count != 0:
+                        self.selection.rules.pop(i-count)
+                        count += 1
+                self.selection.rules[0][0] = slider_skope1.v_model[0]
+                self.selection.rules[0][4] = slider_skope1.v_model[1]
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+                tout_modifier_graphique()
+            else:
+                dans_accordion1.children = [self.__ens_class_1] + list(dans_accordion1.children[1:])
+                l = []
+                for i in range(len(self.__ens_class_1.children[2].children)):
+                    if self.__ens_class_1.children[2].children[i].v_model:
+                        l.append(int(self.__ens_class_1.children[2].children[i].label))
+                if len(l) == 0:
+                    widget.v_model = True
+                    return
+                colonne = deepcopy(self.selection.rules[0][2])
+                count = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i-count][2] == colonne:
+                        self.selection.rules.pop(i-count)
+                        count += 1
+                croissant = 0
+                for ele in l:
+                    self.selection.rules.insert(0+croissant, [ele-0.5, '<=', colonne, '<=', ele+0.5])
+                    croissant += 1
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
+                tout_modifier_graphique()
+
+        def change_numeric2(widget, event, data):
+            features = [self.selection.rules[i][2] for i in range(len(self.selection.rules))]
+            the_set = []
+            for i in range(len(features)):
+                if features[i] not in the_set:
+                    the_set.append(features[i])
+            indice = features.index(the_set[1])
+            if widget.v_model and widget == right_side_2.children[1]:
+                dans_accordion2.children = [ens_slider_histo2] + list(dans_accordion2.children[1:])
+                count = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i-count][2] == self.selection.rules[indice][2] and i-count != indice:
+                        self.selection.rules.pop(i-count)
+                        count += 1
+                self.selection.rules[indice][0] = slider_skope2.v_model[0]
+                self.selection.rules[indice][4] = slider_skope2.v_model[1]
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+                tout_modifier_graphique()
+            else:
+                dans_accordion2.children = [self.__ens_class_2] + list(dans_accordion2.children[1:])
+                l = []
+                for i in range(len(self.__ens_class_2.children[2].children)):
+                    if self.__ens_class_2.children[2].children[i].v_model:
+                        l.append(int(self.__ens_class_2.children[2].children[i].label))
+                if len(l) == 0:
+                    widget.v_model = True
+                    return
+                colonne = deepcopy(self.selection.rules[indice][2])
+                count = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i-count][2] == colonne:
+                        self.selection.rules.pop(i-count)
+                        count += 1
+                croissant = 0
+                for ele in l:
+                    self.selection.rules.insert(indice+croissant, [ele-0.5, '<=', colonne, '<=', ele+0.5])
+                    croissant += 1
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
+                tout_modifier_graphique()
+
+        def change_numeric3(widget, event, data):
+            features = [self.selection.rules[i][2] for i in range(len(self.selection.rules))]
+            the_set = []
+            for i in range(len(features)):
+                if features[i] not in the_set:
+                    the_set.append(features[i])
+            indice = features.index(the_set[2])
+            if widget.v_model and widget == right_side_3.children[1]:
+                dans_accordion3.children = [ens_slider_histo3] + list(dans_accordion3.children[1:])
+                count = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i-count][2] == self.selection.rules[indice][2] and i-count != indice:
+                        self.selection.rules.pop(i-count)
+                        count += 1
+                self.selection.rules[indice][0] = slider_skope3.v_model[0]
+                self.selection.rules[indice][4] = slider_skope3.v_model[1]
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+                tout_modifier_graphique()
+            else:
+                dans_accordion3.children = [self.__ens_class_3] + list(dans_accordion3.children[1:])
+                l = []
+                for i in range(len(self.__ens_class_3.children[2].children)):
+                    if self.__ens_class_3.children[2].children[i].v_model:
+                        l.append(int(self.__ens_class_3.children[2].children[i].label))
+                if len(l) == 0:
+                    widget.v_model = True
+                    return
+                colonne = deepcopy(self.selection.rules[indice][2])
+                count = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i-count][2] == colonne:
+                        self.selection.rules.pop(i-count)
+                        count += 1
+                croissant = 0
+                for ele in l:
+                    self.selection.rules.insert(indice+croissant, [ele-0.5, '<=', colonne, '<=', ele+0.5])
+                    croissant += 1
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
+                tout_modifier_graphique()
+
+        right_side_1.children[1].on_event("change", change_numeric1)
+        right_side_2.children[1].on_event("change", change_numeric2)
+        right_side_3.children[1].on_event("change", change_numeric3)
+
         dans_accordion1 = widgets.HBox(
-            [ens_slider_histo1, total_essaim_1, b_delete_skope1],
+            [ens_slider_histo1, total_essaim_1, right_side_1],
             layout=Layout(align_items="center"),
         )
         dans_accordion2 = widgets.HBox(
-            [ens_slider_histo2, total_essaim_2, b_delete_skope2],
+            [ens_slider_histo2, total_essaim_2, right_side_2],
             layout=Layout(align_items="center"),
         )
         dans_accordion3 = widgets.HBox(
-            [ens_slider_histo3, total_essaim_3, b_delete_skope3],
+            [ens_slider_histo3, total_essaim_3, right_side_3],
             layout=Layout(align_items="center"),
         )
-
-        elements_final_accordion = [dans_accordion1, dans_accordion2, dans_accordion3]
 
         # we define several accordions in this way to be able to open several at the same time
         dans_accordion1_n = gui_elements.accordion_skope("X1", dans_accordion1)
@@ -974,6 +1100,7 @@ class GUI():
         # allows you to take the set of rules and modify the graph so that it responds to everything!
         def tout_modifier_graphique():
             self.selection.state = Potato.REFINED_SKR
+            """
             nouvelle_tuile = self.atk.dataset.X[
                 (self.atk.dataset.X[self.selection.rules[0][2]] >= self.selection.rules[0][0])
                 & (self.atk.dataset.X[self.selection.rules[0][2]] <= self.selection.rules[0][4])
@@ -984,6 +1111,8 @@ class GUI():
                     & (self.atk.dataset.X[self.selection.rules[i][2]] <= self.selection.rules[i][4])
                 ].index
                 nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
+            """
+            nouvelle_tuile = self.selection.applyRules(to_return=True)
             y_shape_skope = []
             y_color_skope = []
             y_opa_skope = []
@@ -1073,9 +1202,10 @@ class GUI():
                 une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 tout_modifier_graphique()
 
-        def on_value_change_skope2(*b):
-            #slider_text_comb2.children[0].v_model = slider_skope2.v_model[0]  
-            #slider_text_comb2.children[2].v_model = slider_skope2.v_model[1]  
+        def on_value_change_skope2(widget, event, data):
+            if widget.__class__.__name__ == "RangeSlider":
+                slider_text_comb2.children[0].v_model = slider_skope2.v_model[0]  
+                slider_text_comb2.children[2].v_model = slider_skope2.v_model[1]  
             new_list = [
                 g
                 for g in list(self.atk.dataset.X[self.selection.rules[1][2]].values)
@@ -1094,9 +1224,10 @@ class GUI():
                 une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 tout_modifier_graphique()
 
-        def on_value_change_skope3(*b):
-            #slider_text_comb3.children[0].v_model = slider_skope3.v_model[0]  
-            #slider_text_comb3.children[2].v_model = slider_skope3.v_model[1]  
+        def on_value_change_skope3(widget, event, data):
+            if widget.__class__.__name__ == "RangeSlider":
+                slider_text_comb3.children[0].v_model = slider_skope3.v_model[0]  
+                slider_text_comb3.children[2].v_model = slider_skope3.v_model[1]  
             new_list = [
                 g
                 for g in list(self.atk.dataset.X[self.selection.rules[2][2]].values)
@@ -1115,12 +1246,20 @@ class GUI():
                 une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
                 tout_modifier_graphique()
 
-        def liste_to_string_skope(liste):
+        def liste_to_string_skope(liste, is_class=False):
             chaine = ""
             for regle in liste:
                 for i in range(len(regle)):
                     if type(regle[i]) == float:
                         chaine += str(np.round(float(regle[i]), 2))
+                    elif regle[i] is None:
+                        chaine += "None"
+                    elif type(regle[i]) == list:
+                        chaine+="{"
+                        chaine += str(regle[i][0])
+                        for j in range(1, len(regle[i])):
+                            chaine += "," + str(regle[i][j])
+                        chaine+="}"
                     else:
                         chaine += str(regle[i])
                     chaine += " "
@@ -1278,6 +1417,11 @@ class GUI():
 
                     # there we find the values ​​of the skope to use them for the sliders
                     columns_rules = [self.selection.rules[i][2] for i in range(len(self.selection.rules))]
+                    new_columns_rules = []
+                    for i in range(len(columns_rules)):
+                        if columns_rules[i] not in new_columns_rules:
+                            new_columns_rules.append(columns_rules[i])
+                    columns_rules = new_columns_rules
 
                     self.__other_columns = [g for g in self.atk.dataset.X.columns if g not in columns_rules]
 
@@ -1296,14 +1440,14 @@ class GUI():
                     essaim1.data[0].marker = marker
 
                     all_histograms = [histogram1]
-                    if len(self.selection.rules) > 1:
+                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 1:
                         all_histograms = [histogram1, histogram2]
                         [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[1][2])
                         essaim2.data[0].y = deepcopy(new_y)
                         essaim2.data[0].x = self.atk.explain[self.__explanation][columns_rules[1] + "_shap"]
                         essaim2.data[0].marker = marker
 
-                    if len(self.selection.rules) > 2:
+                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 2:
                         all_histograms = [histogram1, histogram2, histogram3]
                         [new_y, marker] = compute.fonction_beeswarm_shap(self, self.__explanation, self.selection.rules[2][2])
                         essaim3.data[0].y = deepcopy(new_y)
@@ -1328,8 +1472,9 @@ class GUI():
                     accordion_skope.children = [
                         dans_accordion1_n,
                     ]
+
                     dans_accordion1_n.children[0].children[0].children = (
-                        "X1 (" + columns_rules[0] + ")"
+                        "X1 (" + columns_rules[0].replace("_", " ") + ")"
                     )
 
                     if len(columns_rules) > 1:
@@ -1338,7 +1483,7 @@ class GUI():
                             dans_accordion2_n,
                         ]
                         dans_accordion2_n.children[0].children[0].children = (
-                            "X2 (" + columns_rules[1] + ")"
+                            "X2 (" + columns_rules[1].replace("_", " ") + ")"
                         )
                     if len(columns_rules) > 2:
                         accordion_skope.children = [
@@ -1347,8 +1492,23 @@ class GUI():
                             dans_accordion3_n,
                         ]
                         dans_accordion3_n.children[0].children[0].children = (
-                            "X3 (" + columns_rules[2] + ")"
+                            "X3 (" + columns_rules[2].replace("_", " ") + ")"
                         )
+
+                    self.__ens_class_1 = gui_elements.create_class_selector(self, columns_rules[0], self.selection.rules[0][0], self.selection.rules[0][4], fig_size=fig_size.v_model)
+                    if len(columns_rules) > 1:
+                        self.__ens_class_2 = gui_elements.create_class_selector(self, columns_rules[1], self.selection.rules[1][0], self.selection.rules[1][4], fig_size=fig_size.v_model)
+                    if len(columns_rules) > 2:
+                        self.__ens_class_3 = gui_elements.create_class_selector(self, columns_rules[2], self.selection.rules[2][0], self.selection.rules[2][4], fig_size=fig_size.v_model)
+
+                    for ii in range(len(self.__ens_class_1.children[2].children)):
+                        self.__ens_class_1.children[2].children[ii].on_event("change", change_numeric1)
+
+                    for ii in range(len(self.__ens_class_2.children[2].children)):
+                        self.__ens_class_2.children[2].children[ii].on_event("change", change_numeric2)
+
+                    for ii in range(len(self.__ens_class_3.children[2].children)):
+                        self.__ens_class_3.children[2].children[ii].on_event("change", change_numeric3)
 
                     slider_skope1.min = -10e10
                     slider_skope1.max = 10e10
@@ -1384,12 +1544,12 @@ class GUI():
                         histogram1.data[0].x = list(self.atk.dataset.X[columns_rules[0]])
                         df_respect1 = self.selection.respectOneRule(0)
                         histogram1.data[1].x = list(df_respect1[columns_rules[0]])
-                    if len(self.selection.rules) > 1:
+                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 1:
                         with histogram2.batch_update():
                             histogram2.data[0].x = list(self.atk.dataset.X[columns_rules[1]])
                             df_respect2 = self.selection.respectOneRule(1)
                             histogram2.data[1].x = list(df_respect2[columns_rules[1]])
-                    if len(self.selection.rules) > 2:
+                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 2:
                         with histogram3.batch_update():
                             histogram3.data[0].x = list(self.atk.dataset.X[columns_rules[2]])
                             df_respect3 = self.selection.respectOneRule(2)
@@ -1802,6 +1962,8 @@ class GUI():
         def fonction_validation_une_tuile(*args):
             if len(args) == 0:
                 pass
+            elif self.selection in self.atk.regions:
+                print("AntakIA WARNING: this region is already in the set of regions")
             else:
                 self.selection.state = Potato.REGION
                 if self.__model_index == None:
@@ -1812,21 +1974,14 @@ class GUI():
                     score_model = self.__score_sub_models[self.__model_index]
                 if self.selection.rules == None :
                     return
-                nouvelle_tuile = self.atk.dataset.X[
-                    (self.atk.dataset.X[self.selection.rules[0][2]] >= self.selection.rules[0][0])
-                    & (self.atk.dataset.X[self.selection.rules[0][2]] <= self.selection.rules[0][4])
-                ].index
-                for i in range(1, len(self.selection.rules)):
-                    X_temp = self.atk.dataset.X[
-                        (self.atk.dataset.X[self.selection.rules[i][2]] >= self.selection.rules[i][0])
-                        & (self.atk.dataset.X[self.selection.rules[i][2]] <= self.selection.rules[i][4])
-                    ].index
-                    nouvelle_tuile = [g for g in nouvelle_tuile if g in X_temp]
+
+                self.selection.applyRules()
+                nouvelle_tuile = deepcopy(self.selection.getIndexes())
                 self.selection.sub_model["name"], self.selection.sub_model["score"] = nom_model, score_model
                 # here we will force so that all the points of the new tile belong only to it: we will modify the existing tiles
                 self.atk.regions = conflict_handler(self.atk.regions, nouvelle_tuile)
                 self.selection.setIndexes(nouvelle_tuile)
-                self.atk.regions.append(self.selection)
+                self.atk.newRegion(self.selection)
             self.__color_regions=[0]*len(self.atk.dataset.X)
             for i in range(len(self.__color_regions)):
                 for j in range(len(self.atk.regions)):
@@ -2143,7 +2298,6 @@ class GUI():
                     if self.selection.rules[i][2] == colonne_2:
                         ii = i
                         break
-                elements_final_accordion.pop(ii)
                 all_beeswarms_total.pop(ii)
                 all_histograms.pop(ii)
                 self.selection.rules.pop(ii)
@@ -2163,8 +2317,59 @@ class GUI():
 
             new_b_delete_skope.on_event("click", new_delete_skope)
 
+            is_numeric_new = v.Checkbox(v_model=True, label="is continuous ?")
+
+            right_side_new = v.Col(children=[new_b_delete_skope, is_numeric_new], class_="d-flex flex-column align-center justify-center")
+
+            ens_class_new = gui_elements.create_class_selector(self, self.selection.rules[-1][2], min=min(list(self.atk.dataset.X[new_slider_skope.label].values)), max=max(list(self.atk.dataset.X[new_slider_skope.label].values)), fig_size=fig_size.v_model)
+
+            def change_numeric_new(widget, event, data):
+                colonne_2 = new_slider_skope.label
+                indice = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i][2] == colonne_2:
+                        indice = i
+                        break
+                if widget.v_model == True and widget == right_side_new.children[1]:
+                    new_dans_accordion.children = [new_ens_slider_histo] + list(new_dans_accordion.children[1:])
+                    count = 0
+                    for i in range(len(self.selection.rules)):
+                        if self.selection.rules[i-count][2] == self.selection.rules[indice][2] and i-count != indice:
+                            self.selection.rules.pop(i-count)
+                            count += 1
+                    self.selection.rules[indice][0] = new_slider_skope.v_model[0]
+                    self.selection.rules[indice][4] = new_slider_skope.v_model[1]
+                    une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+                    tout_modifier_graphique()
+                else:
+                    new_dans_accordion.children = [ens_class_new] + list(new_dans_accordion.children[1:])
+                    l = []
+                    for i in range(len(ens_class_new.children[2].children)):
+                        if ens_class_new.children[2].children[i].v_model:
+                            l.append(int(ens_class_new.children[2].children[i].label))
+                    if len(l) == 0:
+                        widget.v_model = True
+                        return
+                    colonne = deepcopy(self.selection.rules[indice][2])
+                    count = 0
+                    for i in range(len(self.selection.rules)):
+                        if self.selection.rules[i-count][2] == colonne:
+                            self.selection.rules.pop(i-count)
+                            count += 1
+                    croissant = 0
+                    for ele in l:
+                        self.selection.rules.insert(indice+croissant, [ele-0.5, '<=', colonne, '<=', ele+0.5])
+                        croissant += 1
+                    une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
+                    tout_modifier_graphique()
+
+            right_side_new.children[1].on_event("change", change_numeric_new)
+
+            for ii in range(len(ens_class_new.children[2].children)):
+                ens_class_new.children[2].children[ii].on_event("change", change_numeric_new)
+
             new_dans_accordion = widgets.HBox(
-                [new_ens_slider_histo, new_essaim_tot, new_b_delete_skope],
+                [new_ens_slider_histo, new_essaim_tot, right_side_new],
                 layout=Layout(align_items="center"),
             )
 
@@ -2251,8 +2456,6 @@ class GUI():
                     tout_modifier_graphique()
 
             new_slider_skope.on_event("input", new_on_value_change_skope)
-
-            elements_final_accordion.append(new_dans_accordion)
 
         fonction_validation_une_tuile()
 

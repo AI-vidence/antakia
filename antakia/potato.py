@@ -312,7 +312,7 @@ class Potato():
         """
         return self.score_exp
     
-    def applyRules(self):
+    def applyRules(self, to_return:bool=False):
         """
         Function that applies the rules to the dataset, in order to create a new selection.
 
@@ -329,6 +329,7 @@ class Potato():
 
         """
         self.state = Potato.SKR
+        """
         rules = self.rules
         df = self.dataset.X
         for i in range(len(rules)):
@@ -338,6 +339,29 @@ class Potato():
             df = eval(regle2)
         self.data = df
         self.setIndexes(df.index)
+        """
+        solo_features = list(set([self.rules[i][2] for i in range(len(self.rules))]))
+        nombre_features_rules = []
+        for i in range(len(solo_features)):
+            nombre_features_rules.append([])
+        for i in range(len(self.rules)):
+            nombre_features_rules[solo_features.index(self.rules[i][2])].append(self.rules[i])
+
+        nouvelle_tuile = self.atk.dataset.X.index
+        for i in range(len(nombre_features_rules)):
+            nouvelle_tuile_temp = []
+            for j in range(len(nombre_features_rules[i])):
+                X_temp = self.atk.dataset.X[
+                    (self.atk.dataset.X[nombre_features_rules[i][j][2]] >= nombre_features_rules[i][j][0])
+                    & (self.atk.dataset.X[nombre_features_rules[i][j][2]] <= nombre_features_rules[i][j][4])
+                ].index
+                nouvelle_tuile_temp = list(nouvelle_tuile_temp) + list(X_temp)
+                nouvelle_tuile_temp = list(set(nouvelle_tuile_temp))
+            nouvelle_tuile = [g for g in nouvelle_tuile if g in nouvelle_tuile_temp]
+
+        if to_return:
+            return nouvelle_tuile
+        self.setIndexes(nouvelle_tuile)
 
     def setSubModel(self, model) -> None:
         """
@@ -465,6 +489,27 @@ class Potato():
                             self.rules.pop(i-a)
                             a+=1
                     self.rules.append([min_feature, "<=", feature, "<=", max_feature])
+
+        # same thing for the explanation space
+        features = [self.rules_exp[i][2] for i in range(len(self.rules_exp))]
+        features_alone = list(set(features))
+        if len(features) == len(features_alone):
+            return
+        else :
+            for feature in features:
+                if features.count(feature) > 1:
+                    a=0
+                    for i in range(len(self.rules_exp)):
+                        min_feature = -10e99
+                        max_feature = 10e99
+                        if self.rules_exp[i-a][2] == feature:
+                            if self.rules_exp[i-a][0] > min_feature:
+                                min_feature = self.rules_exp[i-a][0]
+                            if self.rules_exp[i-a][4] < max_feature:
+                                max_feature = self.rules_exp[i-a][4]
+                            self.rules_exp.pop(i-a)
+                            a+=1
+                    self.rules_exp.append([min_feature, "<=", feature, "<=", max_feature])
 
     def pretty_print(self, table, ch1="-", ch2="|", ch3="+"):
         le_max = 0
