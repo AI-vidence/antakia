@@ -36,6 +36,10 @@ class Dataset():
         The comments associated to each feature.
     sensible : list of bool
         The list of boolean indicating if the feature is sensible or not. If True, a warning will be displayed when the feature is used in the explanations. More to come in the future.
+    lat : str
+        The name of the latitude column.
+    long : str
+        The name of the longitude column.
     """
 
     def __init__(self, X:pd.DataFrame = None, csv:str = None, y:pd.Series = None, model = None):
@@ -82,6 +86,15 @@ class Dataset():
         self.fraction = 1
         self.frac_indexes = self.X.index
 
+        self.long, self.lat = None, None
+
+        for name in ['longitude', 'Longitude', 'Long', 'long']:
+            if name in self.X.columns:
+                self.long = name
+        for name in ['latitude', 'Latitude', 'Lat', 'lat']:
+            if name in self.X.columns:
+                self.lat = name
+
     def __str__(self):
         texte = ' '.join(("Dataset:\n",
                     "------------------\n",
@@ -126,6 +139,33 @@ class Dataset():
             self.y = self.y.iloc[self.frac_indexes].reset_index(drop=True)
         self.fraction = p
         self.X.reset_index(drop=True, inplace=True)
+
+    def setLongLat(self, long:str, lat:str):
+        """
+        Sets the longitude and latitude columns of the dataset.
+
+        Parameters
+        ---------
+        long : str
+            The name of the longitude column.
+        lat : str
+            The name of the latitude column.
+        """
+        self.long = long
+        self.lat = lat
+
+    def getLongLat(self):
+        """
+        Returns the longitude and latitude columns of the dataset.
+
+        Returns
+        -------
+        long : str
+            The name of the longitude column.
+        lat : str
+            The name of the latitude column.
+        """
+        return self.long, self.lat
 
     def improve(self):
         """

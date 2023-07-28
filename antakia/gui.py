@@ -367,7 +367,7 @@ class GUI():
         valider_params_proj_EE = v.Btn(
             children=[
                 v.Icon(left=True, children=["mdi-check"]),
-                "Valider",
+                "Validate",
             ]
         )
 
@@ -375,7 +375,7 @@ class GUI():
             class_="ml-4",
             children=[
                 v.Icon(left=True, children=["mdi-skip-backward"]),
-                "Réinitialiser",
+                "Reset",
             ],
         )
 
@@ -1147,6 +1147,8 @@ class GUI():
                         self.atk.dataset.X[self.selection.rules[i][2]].between(min, max)
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
+            if self.selection.indexes_from_map is not None:
+                new_list_tout = [g for g in new_list_tout if g in self.selection.indexes_from_map]
             for i in range(len(self.selection.rules)):
                 with all_histograms[i].batch_update():
                     all_histograms[i].data[2].x = self.atk.dataset.X[self.selection.rules[i][2]][new_list_tout]
@@ -1393,6 +1395,7 @@ class GUI():
             else:
                 # skope calculation for X
                 self.selection.applySkope(self.__explanation, 0.2, 0.2)
+                print(self.selection.rules)
                 # if no rule for one of the two, nothing is displayed
                 if self.selection.success == False:
                     texte_skopeEV.children[1].children = [
@@ -1509,6 +1512,11 @@ class GUI():
 
                     for ii in range(len(self.__ens_class_3.children[2].children)):
                         self.__ens_class_3.children[2].children[ii].on_event("change", change_numeric3)
+
+                    if self.atk.dataset.lat in columns_rules and self.atk.dataset.long in columns_rules:
+                        boutton_add_map.disabled = False
+                    else:
+                        boutton_add_map.disabled = True
 
                     slider_skope1.min = -10e10
                     slider_skope1.max = 10e10
@@ -2137,7 +2145,7 @@ class GUI():
         fig_size.on_event("input", fonction_fig_size)
 
         boutton_add_skope = v.Btn(
-            class_="ma-4 pa-1 mb-1",
+            class_="ma-4 pa-2 mb-1",
             children=[v.Icon(children=["mdi-plus"]), "Add a rule"],
         )
 
@@ -2145,9 +2153,49 @@ class GUI():
             class_="mr-3 mb-0",
             items=["/"],
             v_model="/",
+            style_="max-width : 15%",
         )
 
-        add_group = widgets.HBox([boutton_add_skope, widget_list_add_skope])
+        boutton_add_map = v.Btn(
+            class_="ma-4 pa-2 mb-1",
+            children=[v.Icon(class_="mr-4", children=["mdi-map"]), "Display the map"],
+            color="white",
+            disabled=True,
+        )
+
+        def fonction_display_map(widget, event, data):
+            if widget.color == "white":
+                part_map.class_= "d-flex justify-space-around ma-0 pa-0"
+                widget.color = "error"
+                widget.children =  [widget.children[0]] + ["Hide the map"]
+                self.__save_lat_rule = [self.selection.rules[i] for i in range(len(self.selection.rules)) if self.selection.rules[i][2] == self.atk.dataset.lat]
+                self.__save_long_rule = [self.selection.rules[i] for i in range(len(self.selection.rules)) if self.selection.rules[i][2] == self.atk.dataset.long]
+                count = 0
+                for i in range(len(self.selection.rules)):
+                    if self.selection.rules[i-count][2] == self.atk.dataset.lat or self.selection.rules[i-count][2] == self.atk.dataset.long:
+                        self.selection.rules.pop(i-count)
+                        count += 1
+                for i in range(len(accordion_skope.children)):
+                    if accordion_skope.children[i].children[0].children[0].children[0][4:-1] in [self.atk.dataset.lat, self.atk.dataset.long]:
+                        accordion_skope.children[i].disabled = True
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+                tout_modifier_graphique()
+            else:
+                self.selection.setIndexesFromMap(None)
+                widget.color = "white"
+                part_map.class_= "d-none ma-0 pa-0"
+                widget.children =  [widget.children[0]] + ["Display the map"]
+                self.selection.rules = self.selection.rules + self.__save_lat_rule + self.__save_long_rule
+                une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+                tout_modifier_graphique()
+                for i in range(len(accordion_skope.children)):
+                    accordion_skope.children[i].disabled = False
+            
+            
+
+        boutton_add_map.on_event("click", fonction_display_map)
+
+        add_group = v.Row(children=[boutton_add_skope, widget_list_add_skope, v.Spacer(), boutton_add_map])
 
         def fonction_add_skope(*b):
             nouvelle_regle = [0] * 5
@@ -2310,9 +2358,15 @@ class GUI():
                 accordion_skope.children = [
                     a for a in accordion_skope.children if a != new_dans_accordion_n
                 ]
-                for i in range(ii, len(accordion_skope.children)):
+                for i in range(ii, len([accordion_skope.children[a] for a in range(len(accordion_skope.children)) if accordion_skope.children[a].disabled == False])):
                     col = "X" + str(i + 1) + " (" + self.selection.rules[i][2] + ")"
                     accordion_skope.children[i].children[0].children[0].children = [col]
+
+                if widget_list_add_skope.v_model in [self.atk.dataset.lat, self.atk.dataset.long]:
+                    if self.atk.dataset.lat in [self.selection.rules[i][2] for i in range(len(self.selection.rules))] and self.atk.dataset.long in [self.selection.rules[i][2] for i in range(len(self.selection.rules))]:
+                        boutton_add_map.disabled = False
+                    else :
+                        boutton_add_map.disabled = True
                 tout_modifier_graphique()
 
             new_b_delete_skope.on_event("click", new_delete_skope)
@@ -2374,7 +2428,7 @@ class GUI():
             )
 
             new_dans_accordion_n = v.ExpansionPanels(
-                class_="ma-2 mt-0 mb-1",
+                class_="ma-2 mb-1",
                 children=[
                     v.ExpansionPanel(
                         children=[
@@ -2456,6 +2510,12 @@ class GUI():
                     tout_modifier_graphique()
 
             new_slider_skope.on_event("input", new_on_value_change_skope)
+
+            if new_slider_skope.label in [self.atk.dataset.lat, self.atk.dataset.long]:
+                if self.atk.dataset.lat in [self.selection.rules[i][2] for i in range(len(self.selection.rules))] and self.atk.dataset.long in [self.selection.rules[i][2] for i in range(len(self.selection.rules))]:
+                    boutton_add_map.disabled = False
+                else :
+                    boutton_add_map.disabled = True
 
         fonction_validation_une_tuile()
 
@@ -2761,6 +2821,74 @@ class GUI():
             couleur_radio.v_model = "Régions"
             fonction_changement_couleur(None)
 
+        #map plotly
+
+        map_select = go.FigureWidget(
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker1, customdata=marker1["color"], hovertemplate = '%{customdata:.3f}')
+        )
+
+        map_select.update_layout(dragmode="lasso")
+
+        
+
+        if self.atk.dataset.lat is not None and self.atk.dataset.long is not None:
+            df = self.atk.dataset.X
+            data=go.Scattergeo(
+                lon = df[self.atk.dataset.long],
+                lat = df[self.atk.dataset.lat],
+                mode = 'markers',
+                marker_color = self.atk.dataset.y,
+                )
+            map_select = go.FigureWidget(
+            data=data
+            )
+            lat_center = max(df[self.atk.dataset.lat]) - (max(df[self.atk.dataset.lat]) - min(df[self.atk.dataset.lat]))/2
+            long_center = max(df[self.atk.dataset.long]) - (max(df[self.atk.dataset.long]) - min(df[self.atk.dataset.long]))/2
+            map_select.update_layout(
+                margin={"r": 0, "t": 0, "l": 0, "b": 0},
+                #geo_scope="world",
+                height=300,
+                width=900,
+                geo=dict(
+                    center=dict(
+                        lat=lat_center,
+                        lon=long_center
+                    ),
+                    projection_scale=5,
+                    showland = True,
+                )
+            )
+            
+
+        map_texte_selection = v.Card(
+            style_="width: 30%",
+            class_="ma-5",
+            children=[
+                v.CardTitle(children=["Selection on the map"]),
+                v.CardText(
+                    children=[
+                        v.Html(
+                            tag="div",
+                            children=["No selection"],
+                        )
+                    ]
+                ),
+            ],
+        )
+
+        def change_texte_map(trace, points, selector):
+            map_texte_selection.children[1].children[0].children = ["Number of entries selected: " + str(len(points.point_inds))]
+            self.selection.setIndexesFromMap(points.point_inds)
+            une_carte_EV.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+            tout_modifier_graphique()
+
+        map_select.data[0].on_selection(change_texte_map)
+
+        part_map = v.Layout(
+            class_="d-none ma-0 pa-0",
+            children=[map_select, map_texte_selection]
+        )
+
         bouton_magique.on_event("click", fonction_bouton_magique)
 
         loading_clusters = v.ProgressLinear(
@@ -2789,7 +2917,7 @@ class GUI():
 
         loading_models.class_ = "d-none"
 
-        partie_skope = widgets.VBox([deux_b, accordion_skope, add_group])
+        partie_skope = v.Col(children=[deux_b, accordion_skope, add_group, part_map])
         partie_modele = widgets.VBox([loading_models, mods])
         partie_toutes_regions = widgets.VBox([selection, table_regions])
 

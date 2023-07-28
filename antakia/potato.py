@@ -114,6 +114,8 @@ class Potato():
             else :
                 self.y_train.append(0)
 
+        self.indexes_from_map = None
+
         self.explain = {"Imported": None, "SHAP": None, "LIME": None}
         if self.atk.explain["Imported"] is not None:
             self.explain["Imported"] = self.atk.explain["Imported"].iloc[self.indexes]
@@ -359,9 +361,23 @@ class Potato():
                 nouvelle_tuile_temp = list(set(nouvelle_tuile_temp))
             nouvelle_tuile = [g for g in nouvelle_tuile if g in nouvelle_tuile_temp]
 
+        if self.indexes_from_map is not None:
+            nouvelle_tuile = [g for g in nouvelle_tuile if g in self.indexes_from_map]
         if to_return:
             return nouvelle_tuile
         self.setIndexes(nouvelle_tuile)
+
+    def setIndexesFromMap(self, indexes:list) -> None:
+        """
+        Function that sets the indexes of the potato from a map.
+
+        Parameters
+        ----------
+        indexes : list
+            The new indexes of the potato.
+        """
+        self.indexes_from_map = indexes
+        self.applyRules()
 
     def setSubModel(self, model) -> None:
         """
