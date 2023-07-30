@@ -133,11 +133,11 @@ def _clustering_dyadique(X, SHAP, n_clusters, default):
 # Public utils functions
 
 
-def fonction_auto_clustering(X1, X2, n_clusters, default):
+def function_auto_clustering(X1, X2, n_clusters, default):
     """Return a clustering, generated a dyadic way.
 
     Function that allows to cluster the data in a dyadic way : the clusters are both in the X1 and X2 spaces.
-    The clustering is done by the function antakia._clustering_dyadique from the module fonction_auto (see fonction_auto.py).
+    The clustering is done by the function antakia._clustering_dyadique from the module function_auto (see function_auto.py).
 
     Parameters
     ---------
@@ -164,7 +164,7 @@ def fonction_auto_clustering(X1, X2, n_clusters, default):
     >>> import pandas as pd
     >>> X1 = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]])
     >>> X2 = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]])
-    >>> clusters, clusters_axis = antakia.fonction_auto_clustering(X1, X2, 2, False)
+    >>> clusters, clusters_axis = antakia.function_auto_clustering(X1, X2, 2, False)
     >>> clusters
     [[0, 1], [2, 3]]
     >>> clusters_axis
@@ -174,7 +174,7 @@ def fonction_auto_clustering(X1, X2, n_clusters, default):
     return _clustering_dyadique(X1, X2, n_clusters, default)
 
 
-def create_save(atk, liste, nom: str = "Default name"):
+def create_save(atk, liste, name: str = "Default name"):
     """Return a save file from a list of pre-defined regions.
 
     Function that allows to create a save file from a list of pre-defined regions.
@@ -184,7 +184,7 @@ def create_save(atk, liste, nom: str = "Default name"):
     ---------
     liste : list
         The list of pre-defined regions to save.
-    nom : str
+    name : str
         The name of the save file.
     Returns
     -------
@@ -196,7 +196,7 @@ def create_save(atk, liste, nom: str = "Default name"):
     >>> import antakia
     >>> my_save = antakia.create_save([0,1,1,0], "save")
     >>> my_save
-    {'nom': 'save', 'liste': [[0, 1], [2, 3]]}
+    {'name': 'save', 'liste': [[0, 1], [2, 3]]}
     """
     l = np.array([[] for _ in range(max(liste) + 1)]).tolist()
     for i in range(len(liste)):
@@ -204,7 +204,7 @@ def create_save(atk, liste, nom: str = "Default name"):
     l = [x for x in l if x != []]
     for i in range(len(l)):
         l[i] = Potato(atk, l[i])
-    return {"name": nom, "regions": l, "labels": liste}
+    return {"name": name, "regions": l, "labels": liste}
 
 
 def load_save(atk, local_path):
@@ -228,7 +228,7 @@ def load_save(atk, local_path):
     >>> import antakia
     >>> data = antakia.load_save("save.json")
     >>> data
-    [{'nom': 'Antoine's save', 'regions': [0, 1], [2, 3] 'labels': [0, 0, 1, 1]}]
+    [{'name': 'Antoine's save', 'regions': [0, 1], [2, 3] 'labels': [0, 0, 1, 1]}]
     """
     with open(local_path) as json_file:
         data = json.load(json_file)
@@ -295,7 +295,7 @@ def _add_tooltip(widget, text):
     widget.v_on = "tooltip.on"
     return wid
 
-def _fonction_models(X, y, sub_models):
+def _function_models(X, y, sub_models):
     # function that returns a list with the name/score/perf of the different models imported for a given X and y
     models_liste = []
     for i in range(len(sub_models)):

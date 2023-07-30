@@ -96,7 +96,7 @@ class Dataset():
                 self.lat = name
 
     def __str__(self):
-        texte = ' '.join(("Dataset:\n",
+        text = ' '.join(("Dataset:\n",
                     "------------------\n",
                     "      Number of observations:", str(self.X.shape[0]), "\n",
                     "      Number of variables:", str(self.X.shape[1]), "\n",
@@ -105,7 +105,7 @@ class Dataset():
                     "      Imported:", str(self.explain["Imported"] != None), "\n",
                     "      SHAP:", str(self.explain["SHAP"] != None), "\n",
                     "      LIME:", str(self.explain["LIME"] != None)))
-        return texte
+        return text
     
     def __len__(self):
         return self.X.shape[0]

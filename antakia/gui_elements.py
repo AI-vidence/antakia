@@ -47,7 +47,7 @@ def ProgressLinear():
         )
     return widget
 
-def TotalProgress(texte, element):
+def TotalProgress(text, element):
     widget = v.Row(
             style_="width:85%;",
             children=[
@@ -56,7 +56,7 @@ def TotalProgress(texte, element):
                         v.Html(
                             tag="h3",
                             class_="mt-2 text-right",
-                            children=[texte],
+                            children=[text],
                         )
                     ]
                 ),
@@ -296,7 +296,7 @@ def create_menu_bar():
     return barre_menu, fig_size, bouton_save
 
 
-def dialog_save(bouton_save, texte, table_save, atk):
+def dialog_save(bouton_save, text, table_save, atk):
     # view a selected backup
     visu_save = v.Btn(
         class_="ma-4",
@@ -384,7 +384,7 @@ def dialog_save(bouton_save, texte, table_save, atk):
     carte_save = v.Card(
         elevation=0,
         children=[
-            v.Html(tag="h3", children=[texte]),
+            v.Html(tag="h3", children=[text]),
             table_save,
             v.Row(
                 children=[
@@ -426,7 +426,7 @@ def dialog_save(bouton_save, texte, table_save, atk):
 
     bouton_save.on_event("click", ouvre_save)
 
-    def fonction_save_all(*args):
+    def function_save_all(*args):
         save_regions = atk.saves
         emplacement = partie_local_save.children[1].children[1].v_model
         fichier = partie_local_save.children[1].children[2].v_model
@@ -467,7 +467,7 @@ def dialog_save(bouton_save, texte, table_save, atk):
         out_save.v_model = False
         return
 
-    bouton_save_all.on_event("click", fonction_save_all)
+    bouton_save_all.on_event("click", function_save_all)
     
     return [dialogue_save, carte_save, delete_save, nom_sauvegarde, visu_save, new_save]
 
@@ -583,8 +583,8 @@ def create_class_selector(gui, column, min=1, max=-1, fig_size=700):
         )
         retour.append(widget)
     row = v.Row(class_ = "ml-6 ma-3", children=retour)
-    texte = v.Html(tag="h3", children=["Select the values of the feature " + column])
-    return v.Layout(class_= "d-flex flex-column align-center justify-center", style_="width: "+str(int(fig_size)-70)+"px; height: 303px", children=[v.Spacer(), texte, row])
+    text = v.Html(tag="h3", children=["Select the values of the feature " + column])
+    return v.Layout(class_= "d-flex flex-column align-center justify-center", style_="width: "+str(int(fig_size)-70)+"px; height: 303px", children=[v.Spacer(), text, row])
 
 def create_slide_sub_models(gui):
     liste_mods = []
@@ -785,14 +785,14 @@ def button_delete_skope():
     )
     return widget
 
-def accordion_skope(texte, dans_accordion):
+def accordion_skope(text, dans_accordion):
     widget = v.ExpansionPanels(
         class_="ma-2 mb-1",
         children=[
             v.ExpansionPanel(
                 disabled = True,
                 children=[
-                    v.ExpansionPanelHeader(children=[texte]),
+                    v.ExpansionPanelHeader(children=[text]),
                     v.ExpansionPanelContent(children=[dans_accordion]),
                 ]
             )
@@ -906,7 +906,7 @@ def create_buttons_regions():
     selection = widgets.VBox([en_deux_b])
     return valider_une_region, supprimer_toutes_les_tuiles, selection
 
-def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size):
+def create_new_feature_rule(gui, nouvelle_regle, column, nombre_bins, fig_size):
     nouvelle_regle[0] = float(nouvelle_regle[0])
     nouvelle_regle[4] = float(nouvelle_regle[4])
     new_valider_change = v.Btn(
@@ -929,7 +929,7 @@ def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size)
     new_histogram = go.FigureWidget(
         data=[
             go.Histogram(
-                x=gui.atk.dataset.X[colonne].values,
+                x=gui.atk.dataset.X[column].values,
                 bingroup=1,
                 nbinsx=nombre_bins,
                 marker_color="grey",
@@ -947,7 +947,7 @@ def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size)
 
     new_histogram.add_trace(
         go.Histogram(
-            x=gui.atk.dataset.X[colonne].values,
+            x=gui.atk.dataset.X[column].values,
             bingroup=1,
             nbinsx=nombre_bins,
             marker_color="LightSkyBlue",
@@ -956,7 +956,7 @@ def create_new_feature_rule(gui, nouvelle_regle, colonne, nombre_bins, fig_size)
     )
     new_histogram.add_trace(
         go.Histogram(
-            x=gui.atk.dataset.X[colonne].values,
+            x=gui.atk.dataset.X[column].values,
             bingroup=1,
             nbinsx=nombre_bins,
             marker_color="blue",

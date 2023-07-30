@@ -237,7 +237,7 @@ def initialize_dim_red_EE(EXP, default_projection):
     dim_red = DimensionalityReductionChooser(method=default_projection)
     return dim_red.compute(EXP, 2, True), dim_red.compute(EXP, 3, True)
 
-def fonction_score(y, y_chap):
+def function_score(y, y_chap):
     y = np.array(y)
     y_chap = np.array(y_chap)
     return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
@@ -252,7 +252,7 @@ def update_figures(gui, exp, projEV, projEE):
     with gui.fig2_3D.batch_update():
         gui.fig2_3D.data[0].x, gui.fig2_3D.data[0].y, gui.fig2_3D.data[0].z = gui.dim_red['EE'][exp][projEE][1][0], gui.dim_red['EE'][exp][projEE][1][1], gui.dim_red['EE'][exp][projEE][1][2]
 
-def fonction_beeswarm_shap(gui, exp, nom_colonne):
+def function_beeswarm_shap(gui, exp, nom_colonne):
     X = gui.atk.dataset.X
     Exp = gui.atk.explain[exp]
     y = gui.atk.dataset.y_pred

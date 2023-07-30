@@ -5,7 +5,7 @@ from antakia.gui import GUI
 from antakia.dataset import Dataset
 
 import antakia.utils as utils
-from antakia.utils import fonction_auto_clustering
+from antakia.utils import function_auto_clustering
 
 import ipywidgets as widgets
 
@@ -198,7 +198,7 @@ class AntakIA():
             raise ValueError("You must compute the explanations before computing the dyadic-clustering!")
         if min_clusters <2 or min_clusters > len(self.dataset.X):
             raise ValueError("The minimum number of clusters must be between 2 and the number of observations!")
-        clusters, clusters_axis = fonction_auto_clustering(self.dataset.X, self.explain[explanation], min_clusters, automatic)
+        clusters, clusters_axis = function_auto_clustering(self.dataset.X, self.explain[explanation], min_clusters, automatic)
         self.regions = []
         for i in range(len(clusters)):
             self.regions.append(Potato(self, clusters[i]))

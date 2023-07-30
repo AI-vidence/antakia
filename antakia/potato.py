@@ -125,13 +125,13 @@ class Potato():
             self.explain["LIME"] = self.atk.explain["LIME"].iloc[self.indexes]
 
     def __str__(self) -> str:
-        texte = ' '.join(("Potato:\n",
+        text = ' '.join(("Potato:\n",
                     "------------------\n",
                     "      State:", self.stateToSring(), "\n",
                     "      Number of points:", str(len(self.indexes)), "\n",
                     "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.dataset.X), 2))+"%", "\n",
                     "      Sub-model:", str(self.sub_model["model"].__class__.__name__))) 
-        return texte
+        return text
     
     def __len__(self) -> int:
         """
@@ -183,7 +183,7 @@ class Potato():
         """
         return self.indexes
     
-    # TODO : le nom de la méthode devrait être + explicite (cf. lasso)
+    # TODO : le name de la méthode devrait être + explicite (cf. lasso)
     def setIndexes(self, indexes:list) -> None:
         """
         Function that sets the indexes of the potato.

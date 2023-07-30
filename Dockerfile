@@ -11,7 +11,7 @@ RUN pip install git+https://github.com/scikit-learn-contrib/skope-rules.git
 
 COPY antakia.py antakia.py
 COPY california_housing.ipynb california_housing.ipynb
-COPY fonction_auto.py fonction_auto.py
+COPY function_auto.py function_auto.py
 
 RUN mkdir -p data && cd data && mkdir california_housing
 COPY data/california_housing/* data/california_housing/
