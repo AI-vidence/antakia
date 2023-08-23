@@ -74,7 +74,7 @@ class LongTask(ABC):
             + str(minute_passee)
             + "m"
             + str(seconde_passee)
-            + "s (temps estimé : "
+            + "s (estimated time : "
             + str(minute)
             + "min "
             + str(round(seconde))
@@ -229,11 +229,11 @@ def DimensionalityReductionChooser(method):
         return computationPaCMAP()
 
 
-def initialize_dim_red_EV(X, default_projection):
+def initialize_dim_red_VS(X, default_projection):
     dim_red = DimensionalityReductionChooser(method=default_projection)
     return dim_red.compute(X, 2, True), dim_red.compute(X, 3, True)
 
-def initialize_dim_red_EE(EXP, default_projection):
+def initialize_dim_red_ES(EXP, default_projection):
     dim_red = DimensionalityReductionChooser(method=default_projection)
     return dim_red.compute(EXP, 2, True), dim_red.compute(EXP, 3, True)
 
@@ -242,15 +242,15 @@ def function_score(y, y_chap):
     y_chap = np.array(y_chap)
     return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
 
-def update_figures(gui, exp, projEV, projEE):
+def update_figures(gui, exp, projVS, projES):
     with gui.fig1.batch_update():
-        gui.fig1.data[0].x, gui.fig1.data[0].y  = gui.dim_red['EV'][projEV][0][0], gui.dim_red['EV'][projEV][0][1]
+        gui.fig1.data[0].x, gui.fig1.data[0].y  = gui.dim_red['VS'][projVS][0][0], gui.dim_red['VS'][projVS][0][1]
     with gui.fig2.batch_update():
-        gui.fig2.data[0].x, gui.fig2.data[0].y = gui.dim_red['EE'][exp][projEE][0][0], gui.dim_red['EE'][exp][projEE][0][1]
+        gui.fig2.data[0].x, gui.fig2.data[0].y = gui.dim_red['ES'][exp][projES][0][0], gui.dim_red['ES'][exp][projES][0][1]
     with gui.fig1_3D.batch_update():
-        gui.fig1_3D.data[0].x, gui.fig1_3D.data[0].y, gui.fig1_3D.data[0].z = gui.dim_red['EV'][projEV][1][0], gui.dim_red['EV'][projEV][1][1], gui.dim_red['EV'][projEV][1][2]
+        gui.fig1_3D.data[0].x, gui.fig1_3D.data[0].y, gui.fig1_3D.data[0].z = gui.dim_red['VS'][projVS][1][0], gui.dim_red['VS'][projVS][1][1], gui.dim_red['VS'][projVS][1][2]
     with gui.fig2_3D.batch_update():
-        gui.fig2_3D.data[0].x, gui.fig2_3D.data[0].y, gui.fig2_3D.data[0].z = gui.dim_red['EE'][exp][projEE][1][0], gui.dim_red['EE'][exp][projEE][1][1], gui.dim_red['EE'][exp][projEE][1][2]
+        gui.fig2_3D.data[0].x, gui.fig2_3D.data[0].y, gui.fig2_3D.data[0].z = gui.dim_red['ES'][exp][projES][1][0], gui.dim_red['ES'][exp][projES][1][1], gui.dim_red['ES'][exp][projES][1][2]
 
 def function_beeswarm_shap(gui, exp, nom_colonne):
     X = gui.atk.dataset.X
