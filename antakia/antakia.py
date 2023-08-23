@@ -177,6 +177,10 @@ class AntakIA():
         if display:
             self.gui.display()
 
+
+# A Protéger !!
+
+
     def computeDyadicClustering(self, explanation:str = "Imported", min_clusters:int = 3, automatic:bool = True, sub_models:bool = False):
         """
         Function that computes the dyadic-clustering.

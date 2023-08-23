@@ -7,7 +7,7 @@ from antakia.dataset import *
 class TestAntakIA(unittest.TestCase):
 	X = pd.DataFrame([[1, 2, 3], [4, 5, 6], [7, 8, 9]], columns=["a", "b", "c"])
 	y = pd.Series([1, 2, 3])
-	model = lm.LinearRegression()
+	model = lm.LinearRegression().fit(X,y)
 	dataset = Dataset(X = X, model = model, y = y)
 	atk = AntakIA(dataset)
 	
