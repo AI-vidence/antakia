@@ -12,7 +12,7 @@ pip install antakia
 
 <!-- V-env -->
 ### :house: Local installation
-
+   
 Clone the repo and create a virtual environment!
 
 ```
