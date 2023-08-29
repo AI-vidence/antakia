@@ -4,11 +4,10 @@ import numpy as np
 from skrules import SkopeRules
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn import linear_model
-from sklearn import ensemble
+
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
+
 
 # GUI related imports
 import ipywidgets as widgets
@@ -32,65 +31,69 @@ warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
 warnings.filterwarnings("ignore")
 
 # Internal imports
-from antakia.utils import *
+from antakia.antakia import AntakIA
 from antakia.utils import _add_tooltip as add_tooltip
 from antakia.utils import _function_models as function_models
 from antakia.utils import _conflict_handler as conflict_handler
 from antakia.potato import Potato
-from antakia import compute
+from antakia.compute import DimensionalityReduction 
 import antakia.gui_elements as gui_elements
 
 
 class GUI():
     """
-    Gui object. This object contains all the data and variables needed to run the interface.
-    The interface is built using ipyvuetify and plotly. For more information, please see to the references.
+    GUI class.
 
-    Attributes
-    -------
-    atk : atk object
-        The atk object containing the data to explain.
-    selection : Potato object
-        The `Potato` object containing the current selection. For more information, please see the documentation of the class Potato.
+    A GUI instance contains all the data and variables needed to run the interface.
+    The interface is built using ipyvuetify and plotly.
+    It heavily relies on the IPyWidgets framework.
+
+    Instance Attributes
+    ---------------------
+    atk : AntakIA  object
+        Parent reference to access data, model, explanations etc.
+    currentProj : int
+        The current projection to display. It can be 0, 1 or 2. (see constants in DimensionalityReduction class)
+    selection : a Potato object
+        The `Potato` object containing the current selection.
+
+    __projectionVS : #TODO VS current projection ?
+    __projectionES : #TODO ES current projection ?
+    __explanation : #TODO clarify  
+    dim_red : Dimension for projection, can equal 2 or 3
+    __calculus : #TODO : calculus on going ?
+    __color_regions : the color of the regions created by the automatic dyadic clustering
+    __save_rules useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
+    __other_columns : to keep track of the columns that are not used in the rules !
+    __activate_histograms : to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
+    __model_index : to know which sub_model is selected by the user. 
+    __labels_automatic_clustering :  to keep track of the labels from the automatic-clustering, used for the colors !
+    __result_dyadic_clustering : to keep track  of the entire results from the dyadic-clustering
+    __score_sub_models : to keep track of the scores of the sub-models
+    __table_save : to manipulate the table of the saves
+
     """
-    def __init__(
-        self,
-        atk,
-        explanation: str = None,
-        projection: str = "PaCMAP",
-        sub_models: list = None,
-    ):
-        """Function that creates the interface.
+    
+    def __init__(self, atk : AntakIA, defaultProjection: int = DimensionalityReduction.PacMAP):
+        """
+        GUI Class constructor.
 
         Parameters
         ----------
         atk : AntakIA object
-            See the documentation of the class AntakIA.
-        explanation : str
-            The default explanation to display. It can be "Imported", "SHAP" or "LIME".
-        projection : str
-            The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
-        sub_models : list
-            The list of sub-models to choose from for each region created by the user. The sub-models must have a predict method.
+            Parent object
+        projection : int
+            The default projection to use. See constants in DimensionalityReduction class
         """
         if type(explanation) != str and type(explanation) != type(None):
             raise TypeError("explanation must be a string")
         
         self.atk = atk
-
-        if sub_models is None :
-            # default sub_models
-            # TODO : add sub_models for classifications (ex: German Credit)
-            sub_models = [
-            linear_model.LinearRegression(),
-            RandomForestRegressor(random_state=9),
-            ensemble.GradientBoostingRegressor(random_state=9),
-        ]
+        self.currentProj = defaultProjection
         
-        self.sub_models = sub_models
 
         # Publique :
-        self.selection = Potato(self.atk, [])
+        self.selection = Potato(self.atk, []) # Upon creation of the GUI there is no selection ?
 
         # Privé :
         if explanation is None :
@@ -161,7 +164,7 @@ class GUI():
         return self.display()
 
     def display(self):
-        """Function that displays the interface.
+        """Function that renders the interface
         """
 
         if self.sub_models != None and len(self.sub_models) > 9:

@@ -1,6 +1,13 @@
 """
-Class potato (selection) and functions to create a potato from a json file.
+    Class Potato (selection) and functions to create a Potato from a JSON file.
+
+    TODO : heady refactoring needed !
+    Maybe a Potato should be a double set of points in both VS and ES spaces ?
+    It should not need a reference to the AntakIA object
+
+
 """
+
 
 import pandas as pd
 import numpy as np
@@ -9,8 +16,6 @@ from skrules import SkopeRules
 import json as JSON
 from copy import deepcopy
 
-# from antakia.antakia import AntakIA
-from antakia.dataset import Dataset
 
 class Potato():
     """
@@ -19,7 +24,7 @@ class Potato():
 
     Attributes
     ----------
-    atk : AntakIA object
+    atk : AntakIA object 
         The AntakIA object linked to the potato.
     indexes : list
         The list of the indexes of the points in the dataset.
@@ -43,7 +48,7 @@ class Potato():
         True if the rules have been found, False otherwise.
     y_train : list
         The list of the target values of the dataset.
-    explain : dict
+    explanations : dict
         The dict containing the explanations of the selection. Is the following format : {"Imported": imported explanations, "SHAP": SHAP explanations, "LIME": LIME explanations}.
     state : int
         The state of the potato.
@@ -69,8 +74,8 @@ class Potato():
         json_path : str
             The name of the json file containing the indexes of the points in the dataset.
         """
-        import antakia
-        if not isinstance(atk, antakia.AntakIA):
+
+        if not isinstance(atk, AntakIA):
             raise ValueError("You must provide an AntakIA object")
         self.atk = atk
         self.state = Potato.UNKNOWN
@@ -116,13 +121,13 @@ class Potato():
 
         self.indexes_from_map = None
 
-        self.explain = {"Imported": None, "SHAP": None, "LIME": None}
-        if self.atk.explain["Imported"] is not None:
-            self.explain["Imported"] = self.atk.explain["Imported"].iloc[self.indexes]
-        if self.atk.explain["SHAP"] is not None:
-            self.explain["SHAP"] = self.atk.explain["SHAP"].iloc[self.indexes]
-        if self.atk.explain["LIME"] is not None:
-            self.explain["LIME"] = self.atk.explain["LIME"].iloc[self.indexes]
+        self.explanations = {"Imported": None, "SHAP": None, "LIME": None}
+        if self.atk.explanations["Imported"] is not None:
+            self.explanations["Imported"] = self.atk.explanations["Imported"].iloc[self.indexes]
+        if self.atk.explanations["SHAP"] is not None:
+            self.explanations["SHAP"] = self.atk.explanations["SHAP"].iloc[self.indexes]
+        if self.atk.explanations["LIME"] is not None:
+            self.explanations["LIME"] = self.atk.explanations["LIME"].iloc[self.indexes]
 
     def __str__(self) -> str:
         text = ' '.join(("Potato:\n",
@@ -153,7 +158,7 @@ class Potato():
         tuple
             The shape of the potato.
         """
-        return len(self.indexes)
+        return len(self.indexes) # TODO : we're supposed to return the shape of the data, not the number of points  
     
     def stateToSring(self)-> str :
         """
@@ -183,7 +188,7 @@ class Potato():
         """
         return self.indexes
     
-    # TODO : le name de la méthode devrait être + explicite (cf. lasso)
+    # TODO : this a lasso selection no ? Could we rename it acccordingly ?
     def setIndexes(self, indexes:list) -> None:
         """
         Function that sets the indexes of the potato.

@@ -19,7 +19,7 @@ import json
 
 import ipyvuetify as v
 
-from antakia.potato import Potato
+# from antakia.potato import Potato
 import antakia.potato as potato
 
 # Private utils functions
@@ -134,7 +134,8 @@ def _clustering_dyadique(X, SHAP, n_clusters, default):
 
 
 def function_auto_clustering(X1, X2, n_clusters, default):
-    """Return a clustering, generated a dyadic way.
+    '''
+    Return a clustering, generated a dyadic way.
 
     Function that allows to cluster the data in a dyadic way : the clusters are both in the X1 and X2 spaces.
     The clustering is done by the function antakia._clustering_dyadique from the module function_auto (see function_auto.py).
@@ -170,12 +171,14 @@ def function_auto_clustering(X1, X2, n_clusters, default):
     >>> clusters_axis
     [0, 0, 1, 1]
 
-    """
+    '''
+
     return _clustering_dyadique(X1, X2, n_clusters, default)
 
 
 def create_save(atk, liste, name: str = "Default name"):
-    """Return a save file from a list of pre-defined regions.
+    '''
+    Return a save file from a list of pre-defined regions.
 
     Function that allows to create a save file from a list of pre-defined regions.
     The save file is a json file that contains a list of dictionaries, usually generated in the interface (see antakia.interface).
@@ -197,7 +200,8 @@ def create_save(atk, liste, name: str = "Default name"):
     >>> my_save = antakia.create_save([0,1,1,0], "save")
     >>> my_save
     {'name': 'save', 'liste': [[0, 1], [2, 3]]}
-    """
+    '''
+
     l = np.array([[] for _ in range(max(liste) + 1)]).tolist()
     for i in range(len(liste)):
         l[liste[i]].append(i)
@@ -208,7 +212,8 @@ def create_save(atk, liste, name: str = "Default name"):
 
 
 def load_save(atk, local_path):
-    """Return a save file from a json file.
+    '''
+    Return a save file from a JSON file.
 
     Function that allows to load a save file.
     The save file is a json file that contains a list of dictionaries, usually generated in the interface (see antakia.gui).
@@ -229,7 +234,7 @@ def load_save(atk, local_path):
     >>> data = antakia.load_save("save.json")
     >>> data
     [{'name': 'Antoine's save', 'regions': [0, 1], [2, 3] 'labels': [0, 0, 1, 1]}]
-    """
+    '''
     with open(local_path) as json_file:
         data = json.load(json_file)
 
