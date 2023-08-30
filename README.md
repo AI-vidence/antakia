@@ -92,12 +92,18 @@ pip install -e .
 
 ### :whale: Installation with docker
 
-Be sure to have a Docker engine running on your computer.
+[! IMPORTANT] 
+Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
 
 ```
 docker build -t antakia .
 docker run -p 8888:8888 antakia
 ```
+
+Then click on the http://127.0.0.1:8888/lab?token=WHATEVER_YOUR_TOKEN_IS URL
+
+[!NOTE]
+If you stop `jupyterlab` you can relaunch it with `docker run -p 8888:8888 antakia`
 
 <!-- Usage -->
 

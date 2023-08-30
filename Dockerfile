@@ -2,22 +2,13 @@ FROM python:3.10
 
 RUN apt-get update && apt-get install -y python3 python3-pip git
 
-WORKDIR /jup
+COPY . /demo/
 
-COPY requirements.txt requirements.txt
+WORKDIR /demo
+
 RUN pip install -r requirements.txt
 RUN pip install git+https://github.com/scikit-learn-contrib/skope-rules.git
-
-
-COPY antakia.py antakia.py
-COPY california_housing.ipynb california_housing.ipynb
-COPY function_auto.py function_auto.py
-
-RUN mkdir -p data && cd data && mkdir california_housing
-COPY data/california_housing/* data/california_housing/
-
-RUN mkdir assets
-COPY assets/* assets/ 
+RUN pip install --editable .
 
 EXPOSE 8888
 
