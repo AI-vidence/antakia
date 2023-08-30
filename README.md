@@ -87,6 +87,7 @@ git clone https://github.com/AI-vidence/antakia.git
 cd antakia
 python3.10 -m venv .
 source bin/activate
+pip install -r requirements.txt
 pip install -e .
 ```
 
