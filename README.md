@@ -92,7 +92,7 @@ pip install -e .
 
 ### :whale: Installation with docker
 
-> [! IMPORTANT] 
+> [!IMPORTANT] 
 Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
 
 ```
