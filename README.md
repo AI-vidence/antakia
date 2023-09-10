@@ -90,6 +90,8 @@ source bin/activate
 pip install -e .
 ```
 
+You'll also need to install Git LFS to download our CSV files in /data. See https://git-lfs.com
+
 ### :whale: Installation with docker
 
 Be sure to have a Docker engine running on your computer.

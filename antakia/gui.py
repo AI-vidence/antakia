@@ -10,17 +10,18 @@ from sklearn.preprocessing import StandardScaler
 
 
 # GUI related imports
-import ipywidgets as widgets
-from ipywidgets import Layout
+# import ipywidgets as widgets
+from ipywidgets import widgets, Layout
 from IPython.display import display, clear_output, HTML
-import plotly.graph_objects as go
 import ipyvuetify as v
+import plotly.graph_objects as go
 import seaborn as sns
 
 # Others imports
 import time
 from copy import deepcopy
 from importlib.resources import files
+from typing import Tuple
 
 # Warnings imports
 import warnings
@@ -32,12 +33,12 @@ warnings.filterwarnings("ignore")
 
 # Internal imports
 from antakia.antakia import AntakIA
-from antakia.utils import _add_tooltip as add_tooltip
 from antakia.utils import _function_models as function_models
 from antakia.utils import _conflict_handler as conflict_handler
 from antakia.potato import Potato
-from antakia.compute import DimensionalityReduction 
-import antakia.gui_elements as gui_elements
+from antakia.compute import DimReducMethod, ExplainationMethod, SHAPExplaination, LIMExplaination, computeProjections
+from antakia.data import Dataset, ExplanationsDataset
+from antakia.gui_elements import addTooltip, createLinearProgressBar, createGlobalProgressBar, createMenuBar, colorChooser, SliderParam
 
 
 class GUI():
@@ -50,31 +51,39 @@ class GUI():
 
     Instance Attributes
     ---------------------
-    atk : AntakIA  object
+    __atk : AntakIA  object
         Parent reference to access data, model, explanations etc.
-    currentProj : int
-        The current projection to display. It can be 0, 1 or 2. (see constants in DimensionalityReduction class)
-    selection : a Potato object
+    __selection : a Potato object
         The `Potato` object containing the current selection.
+    __projectionVS : VS current projection as a Tuple (eg. TSNE, 2)
+    __projectionES : ES current projection as a Tuple (eg. UMAP, 3)
+    __explanationES : current explanation method
+    __explanationDataset : __atk's dataset's explanationdataset
+    __leftVSFigure2D : the left figure in the VS
+    __rightESFigure2D : the right figure in the ES
+    __leftVSFigure3D : the left figure in the VS
+    __rightESFigure3D : the right figure in the ES
 
-    __projectionVS : #TODO VS current projection ?
-    __projectionES : #TODO ES current projection ?
-    __explanation : #TODO clarify  
-    dim_red : Dimension for projection, can equal 2 or 3
-    __calculus : #TODO : calculus on going ?
-    __color_regions : the color of the regions created by the automatic dyadic clustering
+    __calculus : if True, we need to calculate the explanations (SHAP and LIME)
+    
     __save_rules useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
     __other_columns : to keep track of the columns that are not used in the rules !
+    
     __activate_histograms : to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
-    __model_index : to know which sub_model is selected by the user. 
-    __labels_automatic_clustering :  to keep track of the labels from the automatic-clustering, used for the colors !
+    
+    
     __result_dyadic_clustering : to keep track  of the entire results from the dyadic-clustering
+    __autoClusterRegionColors: the color of the regions created by the automatic dyadic clustering
+    __labels_automatic_clustering :  to keep track of the labels from the automatic-clustering, used for the colors !
+
+    __model_index : to know which sub_model is selected by the user. 
     __score_sub_models : to keep track of the scores of the sub-models
-    __table_save : to manipulate the table of the saves
+
+    __backupTable : to manipulate the table of the backups
 
     """
     
-    def __init__(self, atk : AntakIA, defaultProjection: int = DimensionalityReduction.PacMAP):
+    def __init__(self, atk : AntakIA, defaultProjection: Tuple = (DimReducMethod.PacMAP,DimReducMethod.DIM_TWO)):
         """
         GUI Class constructor.
 
@@ -85,50 +94,45 @@ class GUI():
         projection : int
             The default projection to use. See constants in DimensionalityReduction class
         """
-        if type(explanation) != str and type(explanation) != type(None):
-            raise TypeError("explanation must be a string")
         
-        self.atk = atk
-        self.currentProj = defaultProjection
+        self.__atk = atk
+        self.__selection = Potato(self.__atk, [], Potato.SELECTION) # Upon creation of the GUI there is no selection ?
+        self.__explanationDataset = atk.getDataset().getExplanations()
+
+        if self.__explanationDataset.isUserProvided(ExplainationMethod.SHAP) :
+            self.__explanationES = ExplainationMethod.SHAP
+        elif self.__explanationDataset.isUserProvided(ExplainationMethod.LIME) :
+            self.__explanationES = ExplainationMethod.LIME
+        elif self.__explanationDataset.isUserProvided(ExplainationMethod.OTHER) :
+            self.__explanationES = ExplainationMethod.OTHER
+        else : 
+            self.__explanationES = ExplainationMethod.NONE # That is we need to compute it
+
         
-
-        # Publique :
-        self.selection = Potato(self.atk, []) # Upon creation of the GUI there is no selection ?
-
-        # Privé :
-        if explanation is None :
-            if self.atk.explain["Imported"] is not None:
-                explanation = "Imported"
-            else :
-                explanation = "SHAP"
+        if  not DimReducMethod.isValidDimReducType(defaultProjection) :
+            raise ValueError("Invalid projection type")
         
-        self.__projectionVS = projection #string
-        self.__projectionES = projection #string
-        self.__explanation = explanation #string
+        self.__projectionVS = defaultProjection 
+        self.__projectionES = defaultProjection 
 
-        self.dim_red = {}
-        self.dim_red["VS"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
-        self.dim_red["ES"] = {}
-        self.dim_red["ES"]["Imported"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
-        self.dim_red["ES"]["SHAP"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
-        self.dim_red["ES"]["LIME"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}    
+        self.__leftVSFigure2D = None
+        self.__rightESFigure2D = None
+        self.__leftVSFigure3D = None
+        self.__rightESFigure3D = None
 
-        if self.__explanation == "SHAP" and type(self.atk.explain["SHAP"]) == type(None) :
-            self.__calculus = True
-        elif self.__explanation == "LIME" and type(self.atk.explain["LIME"]) == type(None) :
-            self.__calculus = True
-        else:
-            self.__calculus = False
-
-        self.__color_regions = [] # the color of the regions created by the automatic dyadic clustering
         self.__save_rules = None #useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
         self.__other_columns = None #to keep track of the columns that are not used in the rules !
         self.__activate_histograms = False #to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
-        self.__model_index = None #to know which sub_model is selected by the user. 
+
+
+        self.__autoClusterRegionColors = [] # the color of the regions created by the automatic dyadic clustering
         self.__labels_automatic_clustering = None #to keep track of the labels from the automatic-clustering, used for the colors !
         self.__result_dyadic_clustering = None #to keep track  of the entire results from the dyadic-clustering
+
         self.__score_sub_models = None #to keep track of the scores of the sub-models
-        self.__table_save = None #to manipulate the table of the saves
+        self.__model_index = None #to know which sub_model is selected by the user.
+
+        self.__backupTable = None #to manipulate the table of the saves
 
     def getSelection(self):
         """Function that returns the current selection.
@@ -138,27 +142,7 @@ class GUI():
         Potato object
             The current selection.
         """
-        return self.selection
-
-    def getSubModels(self):
-        """Function that returns the list of sub-models.
-
-        Returns
-        -------
-        list
-            The list of sub-models.
-        """
-        return self.sub_models
-    
-    def setSubModel(self, sub_models):
-        """Function that sets the list of sub-models.
-
-        Parameters
-        ----------
-        sub_models : list
-            The new list of sub-models.
-        """
-        self.sub_models = sub_models
+        return self.__selection
 
     def __repr__(self):
         return self.display()
@@ -166,218 +150,265 @@ class GUI():
     def display(self):
         """Function that renders the interface
         """
-
-        if self.sub_models != None and len(self.sub_models) > 9:
-            raise ValueError("You can enter up to 9 sub-models maximum ! (changes to come)")
         
-        # wait screen definition
-        data_path = files("antakia.assets").joinpath("logo_antakia.png")
+        # ============  SPLASH SCREEN ==================
 
-        logo_antakia = widgets.Image(
-            value=open(data_path, "rb").read(), layout=Layout(width="230px")
+        # AntalIA logo
+        logoPath = files("antakia.assets").joinpath("logo_antakia.png")
+        antakiaLogo = widgets.Image(
+            value=widgets.Image._load_file_value(logoPath), 
+            layout=Layout(width="230px")
         )
 
-        # waiting screen progress bars definition
-        progress_shap = gui_elements.ProgressLinear()
+        # Splash screen progress bars for explanations
+        explainComputationPB = gui_elements.createLinearProgressBar()
 
-        # VS dimension reduction progress bar
-        progress_red = gui_elements.ProgressLinear()
+        # Splash screen progress bars for ES explanations
+        projComputationPB = gui_elements.createLinearProgressBar()
 
-        # consolidation of progress bars and progress texts in a single HBox
-        prog_shap = gui_elements.TotalProgress("Computing of explanatory values", progress_shap)
-        prog_red = gui_elements.TotalProgress("Computing of dimensions reduction", progress_red)
+        # Consolidation of progress bars and progress texts in a single HBox
+        explainComputationGPB = gui_elements.createGlobalProgressBar("Computing of explanatory values", explainComputationPB)
+        projComputationGPB = gui_elements.createGlobalProgressBar("Computing of dimensions reduction", projComputationPB)
 
-        # definition of the splash screen which includes all the elements,
-        splash_screen = v.Layout(
+        # Definition of the splash screen which includes all the elements,
+        splashScreen = v.Layout(
             class_="d-flex flex-column align-center justify-center",
-            children=[logo_antakia, prog_shap, prog_red],
+            children=[antakiaLogo, explainComputationGPB, projComputationGPB],
         )
 
-        # we send the splash screen
-        display(splash_screen)
+        # We display the splash screen
+        display(splashScreen)
 
-        # if we import the explanatory values, the progress bar of this one is at 100
-        if not self.__calculus:
-            progress_shap.v_model = 100
-            prog_shap.children[2].children[
-                0
-            ].v_model = "Imported explanatory values"
+
+        # -------------- Explanation values ------------
+
+        # If we import the explanatory values, the progress bar of this one is at 100
+        if self.__explanationES != ExplainationMethod.NONE :
+            explainComputationPB.v_model = 100
+            explainComputationGPB.children[2].children[0].v_model = "Explanations values were provided"
         else :
-            if self.__explanation == "SHAP":
-                compute_SHAP = compute.computationSHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
-                widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
-                widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
-                self.atk.explain["SHAP"] = compute_SHAP.compute()
-            elif self.__explanation == "LIME":
-                compute_LIME = compute.computationLIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
-                widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
-                widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
-                self.atk.explain["LIME"] = compute_LIME.compute()
-
-        # definition of the default projection
-        # base, we take the PaCMAP projection
+            # We neeed to compute at least one explanation method - We use AntakIA's default
+            if AntakIA.DEFAULT_EXPLANATION_METHOD == ExplainationMethod.SHAP :
+                
+                explainer = SHAPExplaination(
+                        self.__atk.getDataset().getXValues(Dataset.CURRENT),
+                        self.__atk.getDataset().getXValues(Dataset.ALL),
+                        self.__atk.getModel())
+                
+                self.__explanationDataset.setValues(ExplainationMethod.SHAP, DimReducMethod.NONE, DimReducMethod.DIM_ALL, explainer.compute())
+                #TODO : who need to identiify the widget to update with pubsub
+            elif AntakIA.DEFAULT_EXPLANATION_METHOD == ExplainationMethod.LIME :
+                explainer = LIMExplaination(
+                    self.__atk.getDataset().getXValues(Dataset.CURRENT),
+                    self.__atk.getDataset().getXValues(Dataset.ALL),
+                    self.__atk.getModel())
+                self.__explanationDataset.setValues(ExplainationMethod.LIME, DimReducMethod.NONE, DimReducMethod.DIM_ALL, explainer.compute())
+                 #TODO : who need to identiify the widget to update with pubsub 
+            else :
+                raise ValueError("Invalid default explanation method")
+                    
+        # -------------- Projection values ------------
         
-        initial_choice_of_projection = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(self.__projectionVS) # string
+        projComputationGPB.children[2].children[0].v_model = "Values space... "
+        # We compute projection values for the VS with the default projection, both in 2D and 3D
+        # projValues is a Tuple with both 2D and 3D pd.DataFrame
+        projValues = computeProjections(self.__atk.getDataset().getXValues(Dataset.SCALED), self.__defaultProjTuple[0])
+        # We store this in our dataset
+        self.__atk.getDataset().setXProjValues(self.__projectionVS[0], DimReducMethod.DIM_TWO, projValues[0])
+        self.__atk.getDataset().setXProjValues(self.__projectionVS[0], DimReducMethod.DIM_THREE, projValues[1])
+        projComputationPB.v_model = +50 # We did half the job
 
-        prog_red.children[2].children[0].v_model = "Values space... "
-        self.dim_red["VS"][self.__projectionVS] = compute.initialize_dim_red_VS(self.atk.dataset.X_scaled, self.__projectionVS)
-        progress_red.v_model = +50
-        prog_red.children[2].children[0].v_model = "Values space... Explanatory space..."
-        self.dim_red["ES"][self.__explanation][self.__projectionES] = compute.initialize_dim_red_ES(self.atk.explain[self.__explanation], self.__projectionES)
-        progress_red.v_model = +50
+        projComputationGPB.children[2].children[0].v_model = "Values space... Explanatory space..."
+        # We compute projection values for the ES with the default projection, bonth in 2D and 3D
+        # proValues is a Tuple with both 2D and 3D pd.DataFrame
+        projValues = computeProjections(
+            self.__explanationDataset.getValues(
+                self.__explanationES,
+                self.__projectionES[0],
+                DimReducMethod.DIM_ALL),
+            self.__projectionES[0])
+        # We store this in our dataset               
+        self.__explanationDataset.setValues(self.__explanationES, self.__projectionES[0], DimReducMethod.DIM_TWO, projValues[0])
+        self.__explanationDataset.setValues(self.__explanationES, self.__projectionES[0], DimReducMethod.DIM_THREE, projValues[1])
+        projComputationPB.v_model = +50 # End of the job
 
-        # once all this is done, the splash screen is removed
-        splash_screen.class_ = "d-none"
 
-        loading_bar = v.ProgressCircular(
+        # We remove the Splahs screen
+        splashScreen.class_ = "d-none"
+
+        # =============== Dim reduction (projection) management ================
+
+        # Below two circular progess bar to tell when a projection is being computed
+        circlePB = v.ProgressCircular(
             indeterminate=True, color="blue", width="6", size="35", class_="mx-4 my-3"
         )
 
-        # loading when we compute the projections
-        out_loading1 = widgets.HBox([loading_bar])
-        out_loading2 = widgets.HBox([loading_bar])
-        out_loading1.layout.visibility = "hidden"
-        out_loading2.layout.visibility = "hidden"
+        computeIndicatorVS = widgets.HBox([circlePB])
+        computeIndicatorES = widgets.HBox([circlePB])
+        computeIndicatorVS.layout.visibility = "hidden"
+        computeIndicatorES.layout.visibility = "hidden"
 
-        # dropdown allowing to choose the projection in the value space
-        dropdown_for_VS = v.Select(
-            label="Projection in the VS:",
-            items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
+        # ---- VS side -----
+
+        # Dropdown allowing to choose the projection in the VS
+        dimReducVSDropdown = v.Select(
+            label="Projection in the VS:", # TODO : should be localized
+            items=DimReducMethod.getDimReducMhdsAsStrList(),
             style_="width: 150px",
         )
+        # We set it to the default projection
+        dimReducVSDropdown.v_model = dimReducVSDropdown.items[self.__projectionVS[0]]
 
-        dropdown_for_VS.v_model = dropdown_for_VS.items[initial_choice_of_projection]
+        # ---- PaCMAP -----
+        # TODO create a class for those triple siders ?
 
-        # dropdown allowing to choose the projection in the space of the explanations
-        dropdown_for_ES = v.Select(
-            label="Projection in the ES:",
-            items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
-            style_="width: 150px",
-        )
+        # Here the sliders of the parameters for PaCMAP projection in the VS
+        neighboursPaCMAPVSSlider = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :") # TODO : should be localized
+        mnRatioPaCMAPVSSlider = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
+        fpRatioPacMAPVSSlider = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
-        dropdown_for_ES.v_model = dropdown_for_ES.items[initial_choice_of_projection]
-
-        # here the sliders of the parameters for the VS!
-        slider_param_PaCMAP_neighbours_VS = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :")
-        slider_param_PaCMAP_mn_ratio_VS = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
-        slider_param_PaCMAP_fp_ratio_VS = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
-
-        def function_update_sliderVS(widget, event, data):
+        def updatePaCMAPVSSlider(widget, event, data):
             # function that updates the values ​​when there is a change of sliders in the parameters of PaCMAP for the VS
-            if widget.label == "Number of neighbors :":
-                slider_param_PaCMAP_neighbours_VS.children[1].children = [str(data)]
-            elif widget.label == "MN ratio :":
-                slider_param_PaCMAP_mn_ratio_VS.children[1].children = [str(data)]
-            elif widget.label == "FP ratio :":
-                slider_param_PaCMAP_fp_ratio_VS.children[1].children = [str(data)]
+            if widget.label == "Number of neighbors :":  # TODO : should be localized
+                neighboursPaCMAPVSSlider.children[1].children = [str(data)]
+            elif widget.label == "MN ratio :": # TODO : should be localized
+                mnRatioPaCMAPVSSlider.children[1].children = [str(data)]
+            elif widget.label == "FP ratio :": # TODO : should be localized
+                fpRatioPacMAPVSSlider.children[1].children = [str(data)]
 
-        slider_param_PaCMAP_neighbours_VS.children[0].on_event(
-            "input", function_update_sliderVS
+        neighboursPaCMAPVSSlider.children[0].on_event(
+            "input", updatePaCMAPVSSlider
         )
-        slider_param_PaCMAP_mn_ratio_VS.children[0].on_event(
-            "input", function_update_sliderVS
+        mnRatioPaCMAPVSSlider.children[0].on_event(
+            "input", updatePaCMAPVSSlider
         )
-        slider_param_PaCMAP_fp_ratio_VS.children[0].on_event(
-            "input", function_update_sliderVS
+        fpRatioPacMAPVSSlider.children[0].on_event(
+            "input", updatePaCMAPVSSlider
         )
 
-        # sliders parametres VS
-        all_sliders_VS = widgets.VBox(
+        allPaCMAPVSSliders = widgets.VBox(
             [
-                slider_param_PaCMAP_neighbours_VS,
-                slider_param_PaCMAP_mn_ratio_VS,
-                slider_param_PaCMAP_fp_ratio_VS,
+                neighboursPaCMAPVSSlider,
+                mnRatioPaCMAPVSSlider,
+                fpRatioPacMAPVSSlider,
             ],
             layout=Layout(width="100%"),
         )
 
-        validate_params_proj_VS = v.Btn(
+        validatePaCMAPParamsVSBtn = v.Btn(
             children=[
                 v.Icon(left=True, children=["mdi-check"]),
-                "Validate",
+                "Validate", # TODO : should be localized
             ]
         )
 
-        reset_params_proj_VS = v.Btn(
+        resetPaCMAPParamsVSBtn = v.Btn(
             class_="ml-4",
             children=[
                 v.Icon(left=True, children=["mdi-skip-backward"]),
-                "Reset",
+                "Reset", # TODO : should be localized
             ],
         )
 
-        two_buttons_params = widgets.HBox(
-            [validate_params_proj_VS, reset_params_proj_VS]
+        allPaCMAPParamVSBtn = widgets.HBox(
+            [validatePaCMAPParamsVSBtn, resetPaCMAPParamsVSBtn]
         )
-        params_proj_VS = widgets.VBox(
-            [all_sliders_VS, two_buttons_params], layout=Layout(width="100%")
+        paramsProjVSGroup = widgets.VBox(
+            [allPaCMAPVSSliders, allPaCMAPParamVSBtn], layout=Layout(width="100%")
         )
 
-        def change_parameters_VS(*b):
-            # function that updates the projections when changing the parameters of the projection
-            n_neighbors = slider_param_PaCMAP_neighbours_VS.children[0].v_model
-            MN_ratio = slider_param_PaCMAP_mn_ratio_VS.children[0].v_model
-            FP_ratio = slider_param_PaCMAP_fp_ratio_VS.children[0].v_model
-            out_loading1.layout.visibility = "visible"
-            dim_red = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red['VS']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red.compute(self.atk.dataset.X_scaled, 3, False, n_neighbors, MN_ratio, FP_ratio)]
-            out_loading1.layout.visibility = "hidden"
+        # Recompute VS PaCMAP projection whenever the user changes the parameters
+        def updatePaCMAPVS(*args):
+            
+            # We get the parameters from the sliders state
+            neighbors = neighboursPaCMAPVSSlider.children[0].v_model
+            MN_ratio = mnRatioPaCMAPVSSlider.children[0].v_model
+            FP_ratio = fpRatioPacMAPVSSlider.children[0].v_model
+
+            computeIndicatorVS.layout.visibility = "visible"
+
+            # We compute :
+            projValues = computeProjections(self.__atk.getDataset().getXValues(Dataset.SCALED), DimReducMethod.PaCMAP, neighbors = neighbors, MN_ratio = MN_ratio, FP_ratio =FP_ratio)
+            # We store this in our dataset
+            self.__atk.getDataset().setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
+            self.__atk.getDataset().setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
+
+            computeIndicatorVS.layout.visibility = "hidden"
+
             compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
 
-        validate_params_proj_VS.on_event("click", change_parameters_VS)
+        validatePaCMAPParamsVSBtn.on_event("click", updatePaCMAPVS)
 
-        def reset_param_VS(*b):
-            # reset projection settings
-            out_loading1.layout.visibility = "visible"
-            dim_red = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red['VS']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2), dim_red.compute(self.atk.dataset.X_scaled, 3)]
-            out_loading1.layout.visibility = "hidden"
+        def resetPaCMAPVS(*args):
+            computeIndicatorVS.layout.visibility = "visible"
+
+            # We compute :
+            projValues = computeProjections(self.__atk.getDataset().getXValues(Dataset.SCALED), DimReducMethod.PaCMAP)
+            # We store this in our dataset
+            self.__atk.getDataset().setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
+            self.__atk.getDataset().setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
+
+            computeIndicatorVS.layout.visible = "hidden"
+            
             compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
 
-        reset_params_proj_VS.on_event("click", reset_param_VS)
+        resetPaCMAPParamsVSBtn.on_event("click", resetPaCMAPVS)
 
-        # here the sliders of the parameters for the ES!
-        slider_param_PaCMAP_voisins_ES = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :")
-        slider_param_PaCMAP_mn_ratio_ES = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
-        slider_param_PaCMAP_fp_ratio_ES = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
+        # ----  ES side -----
 
-        def function_update_sliderES(widget, event, data):
-            if widget.label == "Number of neighbors :":
-                slider_param_PaCMAP_voisins_ES.children[1].children = [str(data)]
+        # TODO : my guess is that we should make one GUI class for all the stuff present in both spaces
+        # Dropdown allowing to choose the projection in the ES
+        dimReducESDropdown = v.Select(
+            label="Projection in the ES:",
+            items=DimReducMethod.getDimReducMhdsAsStrList(),
+            style_="width: 150px",
+        )
+        # We set it to the default projection
+        dimReducESDropdown.v_model = dimReducESDropdown.items[self.__projectionES[0]]
+
+
+        # Here the sliders of the parameters for PaCMAP projection in the ES
+        neighboursPaCMAPESSlider = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :") # TODO : should be localized
+        mnRatioPaCMAPESSlider = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
+        fpRatioPacMAPESSlider = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
+
+        def updatePaCMAPESSlider(widget, event, data):
+            if widget.label == "Number of neighbors :": # TODO : should be localized
+                neighboursPaCMAPESSlider.children[1].children = [str(data)]
             elif widget.label == "MN ratio :":
-                slider_param_PaCMAP_mn_ratio_ES.children[1].children = [str(data)]
+                mnRatioPaCMAPESSlider.children[1].children = [str(data)]
             elif widget.label == "FP ratio :":
-                slider_param_PaCMAP_fp_ratio_ES.children[1].children = [str(data)]
+                fpRatioPacMAPESSlider.children[1].children = [str(data)]
 
-        slider_param_PaCMAP_voisins_ES.children[0].on_event(
-            "input", function_update_sliderES
+        neighboursPaCMAPESSlider.children[0].on_event(
+            "input", updatePaCMAPESSlider
         )
-        slider_param_PaCMAP_mn_ratio_ES.children[0].on_event(
-            "input", function_update_sliderES
+        mnRatioPaCMAPESSlider.children[0].on_event(
+            "input", updatePaCMAPESSlider
         )
-        slider_param_PaCMAP_fp_ratio_ES.children[0].on_event(
-            "input", function_update_sliderES
+        fpRatioPacMAPESSlider.children[0].on_event(
+            "input", updatePaCMAPESSlider
         )
 
-        all_sliders_ES = widgets.VBox(
+        allPaCMAPESSliders = widgets.VBox(
             [
-                slider_param_PaCMAP_voisins_ES,
-                slider_param_PaCMAP_mn_ratio_ES,
-                slider_param_PaCMAP_fp_ratio_ES,
+                neighboursPaCMAPESSlider,
+                mnRatioPaCMAPESSlider,
+                fpRatioPacMAPESSlider,
             ],
             layout=Layout(
                 width="100%",
             ),
         )
 
-        validate_params_proj_ES = v.Btn(
+        validatePaCMAPParamsESBtn = v.Btn(
             children=[
                 v.Icon(left=True, children=["mdi-check"]),
                 "Validate",
             ]
         )
 
-        reset_params_proj_ES = v.Btn(
+        resetPaCMAPParamsESBtn = v.Btn(
             class_="ml-4",
             children=[
                 v.Icon(left=True, children=["mdi-skip-backward"]),
@@ -385,64 +416,86 @@ class GUI():
             ],
         )
 
-        two_buttons_params_ES = widgets.HBox(
-            [validate_params_proj_ES, reset_params_proj_ES]
+        allPaCMAPParamESBtn = widgets.HBox(
+            [validatePaCMAPParamsESBtn, resetPaCMAPParamsESBtn]
         )
-        params_proj_ES = widgets.VBox(
-            [all_sliders_ES, two_buttons_params_ES],
+        paramsProjESGroup = widgets.VBox(
+            [allPaCMAPESSliders, allPaCMAPParamESBtn],
             layout=Layout(width="100%", display="flex", align_items="center"),
         )
 
-        def change_params_ES(*b):
-            n_neighbors = slider_param_PaCMAP_voisins_ES.children[0].v_model
-            MN_ratio = slider_param_PaCMAP_mn_ratio_ES.children[0].v_model
-            FP_ratio = slider_param_PaCMAP_fp_ratio_ES.children[0].v_model
-            out_loading2.layout.visibility = "visible"
-            dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red["ES"][self.__explanation][self.__projectionES] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red_compute.compute(self.atk.explain[self.__explanation], 3, False, n_neighbors, MN_ratio, FP_ratio)]
-            out_loading2.layout.visibility = "hidden"
+        # Recompute ES PaCMAP projection whenever the user changes the parameters
+        def updatePaCMAPES(*updatePaCMAPES):
+
+            n_neighbors = neighboursPaCMAPESSlider.children[0].v_model
+            MN_ratio = mnRatioPaCMAPESSlider.children[0].v_model
+            FP_ratio = fpRatioPacMAPESSlider.children[0].v_model
+
+            computeIndicatorES.layout.visibility = "visible"
+
+            # We compute
+            projValues = computeProjections(self.__atk.getDataset().getXValues(Dataset.SCALED), DimReducMethod.PaCMAP, neighbors = neighbors, MN_ratio = MN_ratio, FP_ratio =FP_ratio)
+            # We store this in our dataset
+            self.__explanationDataset.setValues(self.__exxplanationES, DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
+            self.__explanationDataset.setValues(self.__exxplanationES, DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
+
+
+            atk.getDataset().setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
+            self.__atk.getDataset().setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
+
+
+            computeIndicatorES.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
 
-        validate_params_proj_ES.on_event("click", change_params_ES)
+        validatePaCMAPParamsESBtn.on_event("click", updatePaCMAPES)
 
-        def reset_param_ES(*b):
-            out_loading2.layout.visibility = "visible"
-            dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red["ES"][self.__explanation][self.__projectionES] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.explain[self.__explanation], 3)]
-            out_loading2.layout.visibility = "hidden"
+        def resetPaCMAPVS(*args):
+            computeIndicatorES.layout.visibility = "visible"
+
+             # We compute :
+            projValues = computeProjections(self.__atk.getDataset().getExplanations(Dataset.SCALED), DimReducMethod.PaCMAP)
+            # We store this in our dataset
+            self.__explanationDataset.setValues(self.__exxplanationES, DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
+            self.__explanationDataset.setValues(self.__exxplanationES, DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
+
+            computeIndicatorES.layout.visibility = "hidden"
+
             compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
 
-        reset_params_proj_ES.on_event("click", reset_param_ES)
+        reset_params_proj_ES.on_event("click", resetPaCMAPVS)
 
-        # allows you to choose the color of the points
+
+        # =============== Color management ================
+
+        # Allows you to choose the color of the points
         # y, y hat, residuals, current selection, regions, unselected points, automatic clustering
-        radio_buttons_for_color_choice = gui_elements.color_choice()
+        colorSelectionBtns = gui_elements.colorChooser()
 
-        def function_change_color(*args, opacity: bool = True):
-            # allows you to change the color of the points when you click on the buttons
+        def changeMarkersColor(*args, opacity: bool = True):
+            # Allows you to change the color of the points when you click on the buttons
             color = None
             scale = True
             to_modify = True
-            if radio_buttons_for_color_choice.v_model == "y":
+            if colorSelectionBtns.v_model == "y":
                 color = self.atk.dataset.y
-            elif radio_buttons_for_color_choice.v_model == "y^":
+            elif colorSelectionBtns.v_model == "y^":
                 color = self.atk.dataset.y_pred
-            elif radio_buttons_for_color_choice.v_model == "Selec actuelle":
+            elif colorSelectionBtns.v_model == "Selec actuelle":
                 scale = False
                 color = ["grey"] * len(self.atk.dataset.X)
                 for i in range(len(self.selection.indexes)):
                     color[self.selection.indexes[i]] = "blue"
-            elif radio_buttons_for_color_choice.v_model == "Résidus":
+            elif colorSelectionBtns.v_model == "Résidus":
                 color = self.atk.dataset.y - self.atk.dataset.y_pred
                 color = [abs(i) for i in color]
-            elif radio_buttons_for_color_choice.v_model == "Régions":
+            elif colorSelectionBtns.v_model == "Régions":
                 scale = False
                 color = [0] * len(self.atk.dataset.X)
                 for i in range(len(self.atk.dataset.X)):
                     for j in range(len(self.atk.regions)):
                         if i in self.atk.regions[j].indexes:
                             color[i] = j + 1
-            elif radio_buttons_for_color_choice.v_model == "Non selec":
+            elif colorSelectionBtns.v_model == "Non selec":
                 scale = False
                 color = ["red"] * len(self.atk.dataset.X)
                 if len(self.atk.regions) > 0:
@@ -450,7 +503,7 @@ class GUI():
                         for j in range(len(self.atk.regions)):
                             if i in self.atk.regions[j].indexes:
                                 color[i] = "grey"
-            elif radio_buttons_for_color_choice.v_model == "Clustering auto":
+            elif colorSelectionBtns.v_model == "Clustering auto":
                 color = self.__labels_automatic_clustering
                 to_modify = False
                 scale = False
@@ -503,10 +556,10 @@ class GUI():
                     self.fig2.data[0].marker.colorscale = "Viridis"
                     self.fig2_3D.data[0].marker.colorscale = "Viridis"
 
-        radio_buttons_for_color_choice.on_event("change", function_change_color)
+        colorSelectionBtns.on_event("change", changeMarkersColor)
 
-        # marker 1 is the marker of figure 1
-        marker1 = dict(
+        # Marker for VS
+        ourVSMarker = dict(
             color=self.atk.dataset.y,
             colorscale="Viridis",
             colorbar=dict(
@@ -515,35 +568,36 @@ class GUI():
             ),
         )
 
-        # marker 2 is the marker of figure 2 (without colorbar therefore)
-        marker2 = dict(color=self.atk.dataset.y, colorscale="Viridis")
+        # Marker for EZS
+        ourESMarker = dict(color=self.atk.dataset.y, colorscale="Viridis")
 
-        barre_menu, fig_size, bouton_save = gui_elements.create_menu_bar()
+        barMenu, FigureSize, saveBtn = gui_elements.createMenuBar()
 
-        # for the part on backups
-        init_len_saves = deepcopy(len(self.atk.saves))
+        # =============== Backup management ================
+        
+        initialNumBackups = deepcopy(len(self.__atk.__backups))
 
-        def init_save(save):
-            text_regions = "There is no backup"
-            if len(save) > 0:
-                text_regions = str(len(save)) + " save(s) found"
-            table_save = []
-            for i in range(len(save)):
+        def initBackup(bu):
+            regionText = "There is no backup"
+            if len(bu) > 0:
+                regionText = str(len(bu)) + " backup(s) found"
+            backupTable = []
+            for i in range(len(bu)):
                 new_or_not = "Imported"
-                if i > init_len_saves:
+                if i > initialNumBackups:
                     new_or_not = "Created"
-                table_save.append(
+                backupTable.append(
                     [
                         i + 1,
-                        save[i]["name"],
+                        bu[i]["name"],
                         new_or_not,
-                        len(save[i]["regions"]),
+                        len(bu[i]["regions"]),
                     ]
                 )
-            table_save = pd.DataFrame(
-                table_save,
+            backupTable = pd.DataFrame(
+                backupTable,
                 columns=[
-                    "Save #",
+                    "Backup #",
                     "Name",
                     "Origin",
                     "Number of regions",
@@ -551,49 +605,49 @@ class GUI():
             )
 
             columns = [
-                {"text": c, "sortable": True, "value": c} for c in table_save.columns
+                {"text": c, "sortable": True, "value": c} for c in backupTable.columns
             ]
 
-            table_save = v.DataTable(
+            backupTable = v.DataTable(
                 v_model=[],
                 show_select=True,
                 single_select=True,
                 headers=columns,
-                items=table_save.to_dict("records"),
-                item_value="Save #",
-                item_key="Save #",
+                items=backupTable.to_dict("records"),
+                item_value="Backup #",
+                item_key="Backup #",
             )
-            return [table_save, text_regions]
+            return [backupTable, regionText]
 
-        # the table that contains the backups
-        self.__table_save = init_save(self.atk.saves)[0]
+        # The table that contains the backups
+        self.__backupTable = initBackup(self.__atk.__backups)[0] # TODO : use a getter instead of __atk.__backups
 
-        # initialize the save menu !
-        dialogue_save, card_save, delete_save, name_save, visualize_chosen_save, new_save = gui_elements.dialog_save(bouton_save, init_save(self.atk.saves)[1], self.__table_save, self.atk)
+        # Initialize the interface for backups
+        backupDialogue, backupCard, deleteBackupBtn, backupName, showBackupBtn, newBackup = gui_elements.createBackupsGUI(saveBtn, initBackup(self.atk.saves)[1], self.__backupTable, self.atk)
 
-        # save a backup
-        def delete_save_function(*args):
-            if self.__table_save.v_model == []:
+        # Save a backup
+        def deleteBackup(*args):
+            if self.__backupTable.v_model == []:
                 return
-            self.__table_save = card_save.children[1]
-            index = self.__table_save.v_model[0]["Save #"] - 1
+            self.__backupTable = backupCard.children[1]
+            index = self.__backupTable.v_model[0]["Save #"] - 1
             self.atk.saves.pop(index)
-            self.__table_save, text = init_save(self.atk.saves)
-            card_save.children = [text, self.__table_save] + card_save.children[
+            self.__backupTable, text = initBackup(self.atk.saves)
+            backupCard.children = [text, self.__backupTable] + backupCard.children[
                 2:
             ]
 
-        delete_save.on_event("click", delete_save_function)
+        deleteBackupBtn.on_event("click", deleteBackup)
 
-        # to view a backup
-        def function_visu_save(*args):
-            self.__table_save = card_save.children[1]
-            if len(self.__table_save.v_model) == 0:
+        # View a backup
+        def showBackup(*args):
+            self.__backupTable = backupCard.children[1]
+            if len(self.__backupTable.v_model) == 0:
                 return
-            index = self.__table_save.v_model[0]["Save #"] - 1
+            index = self.__backupTable.v_model[0]["Save #"] - 1
             self.atk.regions = [element for element in self.atk.saves[index]["regions"]]
             color = deepcopy(self.atk.saves[index]["labels"])
-            self.__color_regions = deepcopy(color)
+            self.__autoClusterRegionColors = deepcopy(color)
             with self.fig1.batch_update():
                 self.fig1.data[0].marker.color = color
                 self.fig1.data[0].marker.opacity = 1
@@ -604,82 +658,86 @@ class GUI():
                 self.fig1_3D.data[0].marker.color = color
             with self.fig2_3D.batch_update():
                 self.fig2_3D.data[0].marker.color = color
-            radio_buttons_for_color_choice.v_model = "Régions"
+            colorSelectionBtns.v_model = "Régions"
             self.fig1.update_traces(marker=dict(showscale=False))
             self.fig2.update_traces(marker=dict(showscale=False))
             function_new_region()
 
-        visualize_chosen_save.on_event("click", function_visu_save)
+        showBackupBtn.on_event("click", showBackup)
 
-        # create a new savegame with the current regions
-        def function_new_save(*args):
-            if len(name_save.v_model) == 0 or len(name_save.v_model) > 25:
-                raise Exception("The name of the save must be between 1 and 25 characters !")
-            save1 = {"regions": self.atk.regions, "labels": self.__color_regions,"name": name_save.v_model}
-            save = {key: value[:] for key, value in save1.items()}
-            self.atk.saves.append(save)
-            self.__table_save, text_region = init_save(self.atk.saves)
-            card_save.children = [text_region, self.__table_save] + card_save.children[2:]
+        # Create a new backup with the current regions
+        def newBackup(*args):
+            if len(backupName.v_model) == 0 or len(backupName.v_model) > 25:
+                raise Exception("The name of the backup must be between 1 and 25 characters !")
+            # TODO : use a getter instead of __atk.__regions
+            backup1 = {"regions": self.__atk.__regions, "labels": self.__regionsColor,"name": backupName.v_model}
+            backup = {key: value[:] for key, value in backup1.items()}
+            self.__atk.__saves.append(backup)
+            self.__backupTable, text_region = initBackup(self.atk.saves)
+            backupCard.children = [text_region, self.__backupTable] + backupCard.children[2:]
             
 
-        new_save.on_event("click", function_new_save)
+        newBackup.on_event("click", newBackup)
 
-        # value space graph
-        self.fig1 = go.FigureWidget(
-            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker1, customdata=marker1["color"], hovertemplate = '%{customdata:.3f}')
+
+        # ======================  Figures ======================
+
+        # Value Space figure, on the left
+        self.__leftVSFigure = go.FigureWidget(
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=ourVSMarker, customdata=ourVSMarker["color"], hovertemplate = '%{customdata:.3f}')
         )
 
-        # to remove the plotly logo
-        self.fig1._config = self.fig1._config | {"displaylogo": False}
+        # To remove the Plotly logo
+        self.__leftVSFigure._config = self.__leftVSFigure._config | {"displaylogo": False}
 
-        # border size
+        # Border size
         M = 40
 
-        self.fig1.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
-        self.fig1.update_layout(dragmode="lasso")
+        self.__leftVSFigure.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(FigureSize.v_model))
+        self.__leftVSFigure.update_layout(dragmode="lasso")
 
-        # grapbique de l'espace des explications
-        self.fig2 = go.FigureWidget(
-            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker2, customdata=marker2["color"], hovertemplate = '%{customdata:.3f}')
+        # Explanation Space figure, on the right
+        self.__rightESFigure = go.FigureWidget(
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=ourESMarker, customdata=ourESMarker["color"], hovertemplate = '%{customdata:.3f}')
         )
 
-        self.fig2.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
-        self.fig2.update_layout(dragmode="lasso")
+        self.__rightESFigure.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(FigureSize.v_model))
+        self.__rightESFigure.update_layout(dragmode="lasso")
 
-        self.fig2._config = self.fig2._config | {"displaylogo": False}
+        self.__rightESFigure._config = self.__rightESFigure._config | {"displaylogo": False}
 
         # two checkboxes to choose the projection dimension of figures 1 and 2
-        dimension_projection = v.Switch(
+        our2D3DSwitch = v.Switch(
             class_="ml-3 mr-2",
             v_model=False,
             label="",
         )
 
-        dimension_projection_text = v.Row(
+        our2D3DSwitchWithGroup = v.Row(
             class_="ma-3",
             children=[
                 v.Icon(children=["mdi-numeric-2-box"]),
                 v.Icon(children=["mdi-alpha-d-box"]),
-                dimension_projection,
+                our2D3DSwitch,
                 v.Icon(children=["mdi-numeric-3-box"]),
                 v.Icon(children=["mdi-alpha-d-box"]),
             ],
         )
 
-        dimension_projection_text = add_tooltip(
-            dimension_projection_text, "Dimension of the projection"
+        our2D3DSwitchWithGroup = addTooltip(
+            our2D3DSwitchWithGroup, "Dimension of the projection" # TODO : should be localized
         )
 
         def function_dimension_projection(*args):
-            if dimension_projection.v_model:
-                fig_2D_ou_3D.children = [fig1_3D_and_text, fig2_3D_and_text]
+            if our2D3DSwitch.v_model:
+                currentView.children = [ourESView3D, ourESView3D]
             else:
-                fig_2D_ou_3D.children = [fig1_and_text, fig2_and_text]
+                currentView.children = [ourVSView2D, ourESView2D]
 
-        dimension_projection.on_event("change", function_dimension_projection)
+        our2D3DSwitch.on_event("change", function_dimension_projection)
 
-        # marker 3D is the marker of figure 1 in 3D
-        marker_3D = dict(
+        # Marker for VS  in 3D
+        ourVSMarker3D = dict(
             color=self.atk.dataset.y,
             colorscale="Viridis",
             colorbar=dict(
@@ -688,88 +746,118 @@ class GUI():
             size=3,
         )
 
-        # marker 3D_2 is the marker of figure 2 in 3D (without the colorbar therefore!)
-        marker_3D_2 = dict(color=self.atk.dataset.y, colorscale="Viridis", size=3)
+        # Marker for ES in 3D
+        ourESMarker3D = dict(color=self.atk.dataset.y, colorscale="Viridis", size=3)
 
-        self.fig1_3D = go.FigureWidget(
+        self.__leftVSFigure3D = go.FigureWidget(
             data=go.Scatter3d(
                 x=[1], y=[1], z=[1], mode="markers", marker=marker_3D,  customdata=marker_3D["color"], hovertemplate = '%{customdata:.3f}'
             )
         )
-        self.fig1_3D.update_layout(
+        self.__leftVSFigure3D.update_layout(
             margin=dict(l=M, r=M, t=0, b=M),
-            width=int(fig_size.v_model),
+            width=int(FigureSize.v_model),
             scene=dict(aspectmode="cube"),
             template="none",
         )
 
-        self.fig1_3D._config = self.fig1_3D._config | {"displaylogo": False}
+        self.__leftVSFigure3D._config = self.__leftVSFigure3D._config | {"displaylogo": False}
 
-        self.fig2_3D = go.FigureWidget(
+        self.__rightESFigure3D = go.FigureWidget(
             data=go.Scatter3d(
                 x=[1], y=[1], z=[1], mode="markers", marker=marker_3D_2, customdata=marker_3D_2["color"], hovertemplate = '%{customdata:.3f}'
             )
         )
-        self.fig2_3D.update_layout(
+        self.__rightESFigure3D.update_layout(
             margin=dict(l=M, r=M, t=0, b=M),
-            width=int(fig_size.v_model),
+            width=int(FigureSize.v_model),
             scene=dict(aspectmode="cube"),
             template="none",
         )
 
         self.fig2_3D._config = self.fig2_3D._config | {"displaylogo": False}
 
-        compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
+# --------------- update figues ---------------------
 
-        # text that indicate spaces for better understanding
-        textVS = widgets.HTML("<h3>Values Space<h3>")
-        textES = widgets.HTML("<h3>Explanatory Space<h3>")
+    def updateFigures(self):
 
-        # we display the figures and the text above!
-        fig1_and_text = gui_elements.figure_and_text(self.fig1, textVS)
-        fig2_and_text = gui_elements.figure_and_text(self.fig2, textES)
-        fig1_3D_and_text = gui_elements.figure_and_text(self.fig1_3D, textVS)
-        fig2_3D_and_text = gui_elements.figure_and_text(self.fig2_3D, textES)
+        projValues = computeProjections(self.__atk.getDataset().getXValues(Dataset.CURRENT), self.__projectionVS[0])
 
-        # HBox which allows you to choose between 2D and 3D figures by changing its children parameter!
-        fig_2D_ou_3D = widgets.HBox([fig1_and_text, fig2_and_text])
+        with self.__leftVSFigure2D.batch_update():
+            self.__leftVSFigure2D.data[0].x, self.__leftVSFigure2D.data[0].y  = projValues[0][0], projValues[0][1]
+        
+        with self.__leftVSFigure3D.batch_update():
+            self.__leftVSFigure3D.data[0].x, self.__leftVSFigure3D.data[0].y, self.__leftVSFigure3D.data[0].z = projValues[1][0], projValues[1][1], projValues[1][2]
+                
+        projValues = computeProjections(self.__explanationDataset().getValues(self.__projectionES[0]))
 
-        # allows to update graphs 1 & 2 according to the chosen projection
-        def update_scatter(*args):
-            self.__projectionVS = deepcopy(dropdown_for_VS.v_model)
-            self.__projectionES = deepcopy(dropdown_for_ES.v_model)
+        with self.__rightESFigure2D.batch_update():
+            self.__rightESFigure2D.data[0].x, self.__rightESFigure2D.data[0].y = projValues[0][0], projValues[0][1]
+        
+        with self.__rightESFigure3D.batch_update():
+            self.__rightESFigure3D.data[0].x, self.__rightESFigure3D.data[0].y, self.__rightESFigure3D.data[0].z = projValues[1][0], projValues[1][1], projValues[1][2]
 
-            if self.dim_red["VS"][dropdown_for_VS.v_model] is None:
-                out_loading1.layout.visibility = "visible"
-                dim_red_compute = compute.DimensionalityReductionChooser(method=dropdown_for_VS.v_model)
-                self.dim_red["VS"][dropdown_for_VS.v_model] = [dim_red_compute.compute(self.atk.dataset.X_scaled, 2), dim_red_compute.compute(self.atk.dataset.X_scaled, 3)]
-                out_loading1.layout.visibility = "hidden"
-            if self.dim_red["ES"][self.__explanation][dropdown_for_ES.v_model] is None:
-                out_loading2.layout.visibility = "visible"
-                dim_red_compute = compute.DimensionalityReductionChooser(method=dropdown_for_ES.v_model)
-                self.dim_red["ES"][self.__explanation][dropdown_for_ES.v_model] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.explain[self.__explanation], 3)]
-                out_loading2.layout.visibility = "hidden"
 
-            compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
+        # We define "Views" = the figures and the text above!
+        ourVSView2D = gui_elements.textOverFigure(self.__leftVSFigure2D, widgets.HTML("<h3>Values Space<h3>"))
+        ourESView2D = gui_elements.textOverFigure(self.__rightESFigure2D, widgets.HTML("<h3>Explanatory Space<h3>"))
+        ourVSView3D = gui_elements.textOverFigure(self.__leftVSFigure3D, widgets.HTML("<h3>Values Space<h3>"))
+        ourESView3D = gui_elements.textOverFigure(self.__rightESFigure3D, widgets.HTML("<h3>Explanatory Space<h3>"))
+
+        # Default view is 2D
+        currentView = widgets.HBox([ourVSView2D, ourESView2D])
+
+        # Update both figures according to the chosen projection
+        def updateScatterPlots(*args):
+            self.__projectionVS[0] = deepcopy(dimReducVSDropdown.v_model)
+            self.__projectionES[0] = deepcopy(dimReducESDropdown.v_model)
+
+            #TODO : to clarify : there's no mention of the dimension (2 or 3)
+
+            if self.__atk.getDataset().getValues(self.__projectionVS[0], self.__projectionVS[1]) is None:
+                # We don't have the projection computed. Let's compute it
+                computeIndicatorVS.layout.visibility = "visible"
+                projValues = commputeProjections(self.__atk.getDataset().getXValues(Dataset.SCALED), self.__projectionVS[0])            
+                self.__atk.getDataset().setXProjValues(self.__projectionVS[0], self.__projectionVS[1], projValues)
+                computeIndicatorVS.layout.visibility = "hidden"
+            
+
+            if self.__explainationDataset.getValues(self.__projectionES[0], self.__projectionES[1]) is None:
+                # We don't have the projection computed. Let's compute it
+                computeIndicatorES.layout.visibility = "visible"
+                projValues = commputeProjections(self.__explainationDataset.getXValues(Dataset.SCALED), self.__projectionES[0], __projectionES[1])
+
+                self.__explainationDataset.setValues(self.__projectionES[0], self.__projectionES[1], projValues)    
+                
+                computeIndicatorES.layout.visibility = "hidden"
+
+            updateFigures(self)
+
+
+            ########################################
+            ##
+            ## J'en suis là
+            ##
+            ########################################
 
             # for the parameters of the projection
-            if dropdown_for_VS.v_model == "PaCMAP":
+            if dimReducVSDropdown.v_model == "PaCMAP":
                 param_VS.v_slots[0]["children"].disabled = False
             else:
                 param_VS.v_slots[0]["children"].disabled = True
-            if dropdown_for_ES.v_model == "PaCMAP":
+            if dimReducESDropdown.v_model == "PaCMAP":
                 param_ES.v_slots[0]["children"].disabled = False
             else:
                 param_ES.v_slots[0]["children"].disabled = True
 
-            dropdown_for_VS.v_model = self.__projectionVS
-            dropdown_for_ES.v_model = self.__projectionES
+            dimReducVSDropdown.v_model = self.__projectionVS[0]
+            dimReducESDropdown.v_model = self.__projectionES[0]
 
         # we observe the changes in the values ​​of the dropdowns to change the method of reduction
-        dropdown_for_VS.on_event("change", update_scatter)
-        dropdown_for_ES.on_event("change", update_scatter)
+        dimReducVSDropdown.on_event("change", updateScatterPlots)
+        dimReducESDropdown.on_event("change", updateScatterPlots)
 
-        self.__color_regions = [0] * len(self.atk.dataset.X)
+        self.__regionsColor = [0] * len(self.atk.dataset.X)
 
         # definition of the table that will show the different results of the regions, with a stat of info about them
         table_regions = widgets.Output()
@@ -847,7 +935,7 @@ class GUI():
         # we define the number of bars of the histogram
         number_of_bins_histograms = 50
         # we define the histograms
-        [histogram1, histogram2, histogram3] = gui_elements.create_histograms(number_of_bins_histograms, fig_size.v_model)
+        [histogram1, histogram2, histogram3] = gui_elements.create_histograms(number_of_bins_histograms, FigureSize.v_model)
 
         histogram1 = deepcopy(histogram1)
         histogram2 = deepcopy(histogram2)
@@ -855,7 +943,7 @@ class GUI():
         all_histograms = [histogram1, histogram2, histogram3]
 
         # definitions of the different color choices for the swarm
-        [total_beeswarm_1, total_beeswarm_2, total_beeswarm_3] = gui_elements.create_beeswarms(self, self.__explanation, fig_size.v_model)
+        [total_beeswarm_1, total_beeswarm_2, total_beeswarm_3] = gui_elements.create_beeswarms(self, self.__explanation, FigureSize.v_model)
 
         choice_color_beeswarm1 = total_beeswarm_1.children[0]
         choice_color_beeswarm2 = total_beeswarm_2.children[0]
@@ -1461,8 +1549,8 @@ class GUI():
                             y_shape_skope.append("cross")
                             y_color_skope.append("grey")
                             y_opa_skope.append(0.5)
-                    radio_buttons_for_color_choice.v_model = "Selec actuelle"
-                    function_change_color(None)
+                    colorSelectionBtns.v_model = "Selec actuelle"
+                    changeMarkersColor(None)
 
                     accordion_skope.children = [
                         in_accordion1_n,
@@ -1490,11 +1578,11 @@ class GUI():
                             "X3 (" + columns_rules[2].replace("_", " ") + ")"
                         )
 
-                    self.__all_widgets_class_1 = gui_elements.create_class_selector(self, columns_rules[0], self.selection.rules[0][0], self.selection.rules[0][4], fig_size=fig_size.v_model)
+                    self.__all_widgets_class_1 = gui_elements.create_class_selector(self, columns_rules[0], self.selection.rules[0][0], self.selection.rules[0][4], fig_size=FigureSize.v_model)
                     if len(columns_rules) > 1:
-                        self.__all_widgets_class_2 = gui_elements.create_class_selector(self, columns_rules[1], self.selection.rules[1][0], self.selection.rules[1][4], fig_size=fig_size.v_model)
+                        self.__all_widgets_class_2 = gui_elements.create_class_selector(self, columns_rules[1], self.selection.rules[1][0], self.selection.rules[1][4], fig_size=FigureSize.v_model)
                     if len(columns_rules) > 2:
-                        self.__all_widgets_class_3 = gui_elements.create_class_selector(self, columns_rules[2], self.selection.rules[2][0], self.selection.rules[2][4], fig_size=fig_size.v_model)
+                        self.__all_widgets_class_3 = gui_elements.create_class_selector(self, columns_rules[2], self.selection.rules[2][0], self.selection.rules[2][4], fig_size=FigureSize.v_model)
 
                     for ii in range(len(self.__all_widgets_class_1.children[2].children)):
                         self.__all_widgets_class_1.children[2].children[ii].on_event("change", change_continuous1)
@@ -1589,7 +1677,7 @@ class GUI():
 
             self.__save_rules = deepcopy(self.selection.rules)
 
-            function_change_color(None)
+            changeMarkersColor(None)
 
         def reset_skope(*b):
             self.selection.rules = self.__save_rules
@@ -1794,7 +1882,7 @@ class GUI():
                 results_clusters
             ]
 
-            radio_buttons_for_color_choice.v_model = "Clustering auto"
+            colorSelectionBtns.v_model = "Clustering auto"
 
             part_for_selection.children[-1].children[0].children[0].on_event(
                 "change", function_choice_cluster
@@ -1809,8 +1897,8 @@ class GUI():
             index = part_for_selection.children[-1].children[0].children[0].v_model
             liste = [i for i, d in enumerate(labels) if d == float(index)]
             function_lasso_selection(None, None, None, liste)
-            radio_buttons_for_color_choice.v_model = "Clustering auto"
-            function_change_color(opacity=False)
+            colorSelectionBtns.v_model = "Clustering auto"
+            changeMarkersColor(opacity=False)
 
         find_clusters.on_event("click", function_clusters)
 
@@ -1984,11 +2072,11 @@ class GUI():
                 self.atk.regions = conflict_handler(self.atk.regions, new_tuile)
                 self.selection.setIndexes(new_tuile)
                 self.atk.newRegion(self.selection)
-            self.__color_regions=[0]*len(self.atk.dataset.X)
-            for i in range(len(self.__color_regions)):
+            self.__regionsColor=[0]*len(self.atk.dataset.X)
+            for i in range(len(self.__regionsColor)):
                 for j in range(len(self.atk.regions)):
                     if i in self.atk.regions[j].indexes:
-                        self.__color_regions[i] = j+1
+                        self.__regionsColor[i] = j+1
                         break
 
             toute_somme = 0
@@ -2106,8 +2194,8 @@ class GUI():
                         self.atk.regions.pop(index - a)
                         function_new_region()
                         a += 1
-                    radio_buttons_for_color_choice.v_model = "Régions"
-                    function_change_color()
+                    colorSelectionBtns.v_model = "Régions"
+                    changeMarkersColor()
 
                 supprimer_toutes_les_tuiles.on_event(
                     "click", function_suppression_tuiles
@@ -2123,20 +2211,20 @@ class GUI():
 
         def function_fig_size(*args):
             with self.fig1.batch_update():
-                self.fig1.layout.width = int(fig_size.v_model)
+                self.fig1.layout.width = int(FigureSize.v_model)
             with self.fig2.batch_update():
-                self.fig2.layout.width = int(fig_size.v_model)
+                self.fig2.layout.width = int(FigureSize.v_model)
             with self.fig1_3D.batch_update():
-                self.fig1_3D.layout.width = int(fig_size.v_model)
+                self.fig1_3D.layout.width = int(FigureSize.v_model)
             with self.fig2_3D.batch_update():
-                self.fig2_3D.layout.width = int(fig_size.v_model)
+                self.fig2_3D.layout.width = int(FigureSize.v_model)
             for i in range(len(all_histograms)):
                 with all_histograms[i].batch_update():
-                    all_histograms[i].layout.width = 0.9 * int(fig_size.v_model)
+                    all_histograms[i].layout.width = 0.9 * int(FigureSize.v_model)
                 with all_beeswarms[i].batch_update():
-                    all_beeswarms[i].layout.width = 0.9 * int(fig_size.v_model)
+                    all_beeswarms[i].layout.width = 0.9 * int(FigureSize.v_model)
 
-        fig_size.on_event("input", function_fig_size)
+        FigureSize.on_event("input", function_fig_size)
 
         button_add_skope = v.Btn(
             class_="ma-4 pa-2 mb-1",
@@ -2207,7 +2295,7 @@ class GUI():
             self.selection.rules.append(new_rule)
             one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
 
-            new_validate_change, new_slider_skope, new_histogram = gui_elements.create_new_feature_rule(self, new_rule, column, number_of_bins_histograms, fig_size.v_model)
+            new_validate_change, new_slider_skope, new_histogram = gui_elements.create_new_feature_rule(self, new_rule, column, number_of_bins_histograms, FigureSize.v_model)
 
             all_histograms.append(new_histogram)
 
@@ -2274,7 +2362,7 @@ class GUI():
             new_beeswarm.update_layout(
                 margin=dict(l=0, r=0, t=0, b=0),
                 height=200,
-                width=0.9 * int(fig_size.v_model),
+                width=0.9 * int(FigureSize.v_model),
             )
             new_beeswarm.update_yaxes(visible=False, showticklabels=False)
             [new_y, marker] = compute.function_beeswarm_shap(self, self.__explanation, column)
@@ -2371,7 +2459,7 @@ class GUI():
 
             right_side_new = v.Col(children=[new_b_delete_skope, is_continuous_new], class_="d-flex flex-column align-center justify-center")
 
-            all_widgets_class_new = gui_elements.create_class_selector(self, self.selection.rules[-1][2], min=min(list(self.atk.dataset.X[new_slider_skope.label].values)), max=max(list(self.atk.dataset.X[new_slider_skope.label].values)), fig_size=fig_size.v_model)
+            all_widgets_class_new = gui_elements.create_class_selector(self, self.selection.rules[-1][2], min=min(list(self.atk.dataset.X[new_slider_skope.label].values)), max=max(list(self.atk.dataset.X[new_slider_skope.label].values)), fig_size=FigureSize.v_model)
 
             def change_continuous_new(widget, event, data):
                 column_2 = new_slider_skope.label
@@ -2517,21 +2605,21 @@ class GUI():
 
         button_add_skope.on_event("click", function_add_skope)
 
-        param_VS = gui_elements.create_settings_card(params_proj_VS, "Settings of the projection in the Values Space")
-        param_ES = gui_elements.create_settings_card(params_proj_ES, "Settings of the projection in the Explanatory Space")
+        param_VS = gui_elements.create_settings_card(paramsProjVSGroup, "Settings of the projection in the Values Space")
+        param_ES = gui_elements.create_settings_card(paramsProjESGroup, "Settings of the projection in the Explanatory Space")
 
         projVS_and_load = widgets.HBox(
             [
-                dropdown_for_VS,
+                dimReducVSDropdown,
                 v.Layout(children=[param_VS]),
-                out_loading1,
+                computeIndicatorVS,
             ]
         )
         projES_and_load = widgets.HBox(
             [
-                dropdown_for_ES,
+                dimReducESDropdown,
                 v.Layout(children=[param_ES]),
-                out_loading2,
+                computeIndicatorES,
             ]
         )
 
@@ -2579,10 +2667,10 @@ class GUI():
             self.__explanation = data
             exp_val = self.atk.explain[data]
             if self.dim_red['ES'][self.__explanation][self.__projectionES] == None:
-                out_loading2.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReductionChooser(method=dropdown_for_ES.v_model)
+                computeIndicatorES.layout.visibility = "visible"
+                dim_red = compute.DimensionalityReductionChooser(method=dimReducESDropdown.v_model)
                 self.dim_red['ES'][self.__explanation][self.__projectionES] = [dim_red.compute(exp_val, 2), dim_red.compute(exp_val, 3)]
-                out_loading2.layout.visibility = "hidden"
+                computeIndicatorES.layout.visibility = "hidden"
             compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
 
         choose_explanation.on_event("change", function_choose_explanation)
@@ -2689,7 +2777,7 @@ class GUI():
                             ),
                             "Color of the points",
                         ),
-                        radio_buttons_for_color_choice,
+                        colorSelectionBtns,
                         bouton_reset_opa,
                         choose_explanation,
                         choose_computing,
@@ -2704,7 +2792,7 @@ class GUI():
                 justify_content="space-around",
             ),
         )
-        figures = widgets.VBox([fig_2D_ou_3D], layout=Layout(width="100%"))
+        figures = widgets.VBox([currentView], layout=Layout(width="100%"))
 
         check_beeswarm = v.Checkbox(
             v_model=True,
@@ -2813,8 +2901,8 @@ class GUI():
                     if demo:
                         stages.children[0].v_model = 0
                     time.sleep(tempo)
-            radio_buttons_for_color_choice.v_model = "Régions"
-            function_change_color(None)
+            colorSelectionBtns.v_model = "Régions"
+            changeMarkersColor(None)
 
         #map plotly
         map_select = go.FigureWidget(
@@ -2951,8 +3039,8 @@ class GUI():
 
         part_for_data = widgets.VBox(
             [
-                barre_menu,
-                dialogue_save,
+                barMenu,
+                backupDialogue,
                 top_of_the_UI_all_buttons,
                 figures,
                 stages,
@@ -2963,6 +3051,8 @@ class GUI():
 
         display(part_for_data)
         #return part_for_data
+
+    # --------------- FIN update figues ---------------------
 
     def results(self, number: int = None, item: str = None):
         L_f = []

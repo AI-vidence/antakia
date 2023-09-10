@@ -2,7 +2,7 @@
 GUI elements for AntakIA
 """
 
-import ipywidgets as widgets
+
 from ipywidgets import Layout
 import ipyvuetify as v
 
@@ -20,9 +20,9 @@ import antakia.compute as compute
 
 import os
 
-def add_tooltip(widget, text):
+def add_tooltip(widget, text) -> v.VuetifyWidget:
     # function that allows you to add a tooltip to a widget
-    wid = v.Tooltip(
+    widget = v.Tooltip(
         bottom=True,
         v_slots=[
             {
@@ -34,9 +34,9 @@ def add_tooltip(widget, text):
         children=[text],
     )
     widget.v_on = "tooltip.on"
-    return wid
+    return widget
 
-def ProgressLinear():
+def createLinearProgressBar() -> v.VuetifyWidget :
     widget = v.ProgressLinear(
             style_="width: 80%",
             class_="py-0 mx-5",
@@ -47,7 +47,7 @@ def ProgressLinear():
         )
     return widget
 
-def TotalProgress(text, element):
+def createGlobalProgressBar(text, element) -> v.VuetifyWidget :
     widget = v.Row(
             style_="width:85%;",
             children=[
@@ -75,8 +75,8 @@ def TotalProgress(text, element):
         )
     return widget
 
-def prog_other(titre):
-    progress_other = v.ProgressLinear(
+def createOtherPB(titre) -> v.VuetifyWidget :
+    pb = v.ProgressLinear(
         style_="width: 80%",
         v_model=0,
         color="primary",
@@ -91,7 +91,7 @@ def prog_other(titre):
                     class_="mb-3",
                     children=["Compute " + titre + " values"],
             ),
-            progress_other,
+            pb,
             v.TextField(
                 class_="w-100",
                 style_="width: 100%",
@@ -121,7 +121,7 @@ def SliderParam(v_model, min, max, step, label):
         )
     return widget
 
-def color_choice():
+def colorChooser():
     couleur_radio = v.BtnToggle(
         color="blue",
         mandatory=True,
@@ -200,7 +200,7 @@ def color_choice():
     ]
     return couleur_radio
 
-def create_menu_bar():
+def createMenuBar():
     """
     Create the menu bar"""
     fig_size = v.Slider(
@@ -296,7 +296,7 @@ def create_menu_bar():
     return barre_menu, fig_size, bouton_save
 
 
-def dialog_save(bouton_save, text, table_save, atk):
+def createBackupsGUI(bouton_save, text, table_save, atk):
     # view a selected backup
     visu_save = v.Btn(
         class_="ma-4",
@@ -1129,3 +1129,21 @@ def create_slide_dataset(name, i, type, taille, commentaire, sensible, infos):
     if sensible:
         slide.children[0].color = "red lighten-5"
     return slide
+
+
+
+    def addTooltip(widget, text):
+    # function that allows you to add a tooltip to a widget
+    wid = v.Tooltip(
+        bottom=True,
+        v_slots=[
+            {
+                "name": "activator",
+                "variable": "tooltip",
+                "children": widget,
+            }
+        ],
+        children=[text],
+    )
+    widget.v_on = "tooltip.on"
+    return wid

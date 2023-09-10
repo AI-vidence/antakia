@@ -284,21 +284,6 @@ def fromRules(df, rules_list):
         df = eval(regle2)
     return df
 
-def _add_tooltip(widget, text):
-    # function that allows you to add a tooltip to a widget
-    wid = v.Tooltip(
-        bottom=True,
-        v_slots=[
-            {
-                "name": "activator",
-                "variable": "tooltip",
-                "children": widget,
-            }
-        ],
-        children=[text],
-    )
-    widget.v_on = "tooltip.on"
-    return wid
 
 def _function_models(X, y, sub_models):
     # function that returns a list with the name/score/perf of the different models imported for a given X and y

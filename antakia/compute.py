@@ -3,7 +3,8 @@ import numpy as np
 import threading
 import time
 from abc import ABC, abstractmethod
-import ipyvuetify as v
+from pubsub import pub
+from typing import Tuple
 
 # Imports for the dimensionality reduction
 from sklearn.manifold import TSNE
@@ -16,70 +17,83 @@ import lime
 import lime.lime_tabular
 import shap
 
+from antakia.model import Model
+
 class LongTask(ABC):
     '''
     Abstract class to compute long tasks, often in a separate thread.
 
     Attributes
     ----------
-    X : pandas dataframe
+    __longTaskType : Tuple[int,int]
+        For instance,can be (LongTask.EXPLAINATION, ExplainationMethod.SHAP)
+        or (LongTask.DIMENSIONALITY_REDUCTION, DimensionalityReduction.PCA)
+    __X : pandas dataframe
         The dataframe containing the data to explain.
-    X_all : pandas dataframe
+    __X_all : pandas dataframe
         The dataframe containing the entire dataset, in order for the explanations to be computed.
-    model : model object
+    __model : Model object as defined in antakia/model.py
         The "black-box" model to explain.
+    __progress : int
+        The progress of the long task, between 0 and 100.
     '''
-    def __init__(self, X, X_all, model):
-        self.X = X
-        self.X_all = X_all
-        self.model = model
 
-        self.progress = 0
-        self.progress_widget = v.Textarea(v_model=0)
-        self.text_widget = v.Textarea(v_model=None)
-        self.done_widget = v.Textarea(v_model=True)
-        self.value = None
-        self.thread = None
+    # Class attributes : LongTask types
+    EXPLAINATION = 1
+    DIMENSIONALITY_REDUCTION = 2
+
+    def __init__(self, longTaskType : Tuple[int,int], X  : pd.DataFrame, X_all : pd.DataFrame, model : Model = None) :
+        self.__longTaskType = longTaskType
+        if not LongTask.isValidLongTaskType(longTaskType) :
+            return ValueError("The long task type is not valid!")
+        self.__X = X
+        self.__X_all = X_all
+        if longTaskType[0] == LongTask.EXPLAINATION and model is None :
+            raise ValueError("You must provide a model to compute the explaination!")
+        self.__model = model
+        self.__progress = 0
+
+    @staticmethod
+    def isValidLongTaskType(type: Tuple[int,int]) -> bool:
+        """
+        Returns True if the type is a valid LongTask type.
+        """
+        if type[0] == LongTask.EXPLAINATION and ExplainationMethod.isValidExplanationType(type[1]) :
+            return True
+        elif type[0] == LongTask.DIMENSIONALITY_REDUCTION and DimReducMethod.isValidDimReducType(type[1]) :
+            return True
+        else : return False
+
+    def getTopic(self) -> str:
+        """Returns a string describing the long task type.
+        We concatenate the two integers of the tuple with a slash.
+
+        Returns:
+            str: "{longTaskType{0]}/{longTaskType[1]}"
+        """
+        return str(self.__longTaskType[0]) + "/" + str(self.__longTaskType[1])
+    
+    def getLongTaskType(self) -> Tuple[int,int]:
+        return self.__longTaskType
     
     @abstractmethod
-    def compute(self):
+    def compute(self) -> pd.DataFrame:
         """
-        Method to compute the long task.
+        Method to compute the long task and update listener with the progress.
         """
         pass
 
-    def compute_in_thread(self):
+    def sendProgress(self) :
         """
-        Method to compute the long task in a separate thread.
-        """
-        self.thread = threading.Thread(target=self.compute)
-        self.thread.start()
+        Method to send the progress of the long task.
 
-    def generation_texte(self, i, tot, time_init, progress):
-        progress = float(progress)
-        # allows to generate the progress text of the progress bar
-        time_now = round((time.time() - time_init) / progress * 100, 1)
-        minute = int(time_now / 60)
-        seconde = time_now - minute * 60
-        minute_passee = int((time.time() - time_init) / 60)
-        seconde_passee = int((time.time() - time_init) - minute_passee * 60)
-        return (
-            str(round(progress, 1))
-            + "%"
-            + " ["
-            + str(i + 1)
-            + "/"
-            + str(tot)
-            + "] - "
-            + str(minute_passee)
-            + "m"
-            + str(seconde_passee)
-            + "s (estimated time : "
-            + str(minute)
-            + "min "
-            + str(round(seconde))
-            + "s)"
-        )
+        Parameters
+        ----------
+        progress : int
+            An integer between 0 and 100.
+        """
+        pub.sendMessage(self.getTopic(), progress=self.__progress)
+
 
 
 # ===========================================================
@@ -92,256 +106,288 @@ class ExplainationMethod(LongTask):
     """
 
     # Class attributes : ExplainationMethod types
+    NONE=-1
     SHAP = 0
     LIME = 1
     OTHER = 2 
 
-    @abstractmethod
-    def compute(self) -> pd.DataFrame :
-        pass
-    
-    @abstractmethod
-    def getType(self) -> int :
-        """
-        Returns the type of the explained values
-        """
-        pass
 
+    @staticmethod
+    def isValidExplanationType(type:int) -> bool:
+        """
+        Returns True if the type is a valid explanation type.
+        """
+        return type == ExplainationMethod.SHAP or type == ExplainationMethod.LIME or type == ExplainationMethod.OTHER
 
 class SHAPExplaination(ExplainationMethod):
     """
     SHAP computation class.
     """
+
+    def __init__(self, X:pd.DataFrame, X_all:pd.DataFrame, model:Model):
+        super().__init__((LongTask.EXPLAINATION, ExplainationMethod.SHAP), X, X_all, model)
+
     def compute(self) -> pd.DataFrame :
-        self.progress = 0
-        self.done_widget.v_model = "primary"
-        self.text_widget.v_model = None
         time_init = time.time()
-        explainer = shap.Explainer(self.model.predict, self.X_all)
-        valuesSHAP = pd.DataFrame().reindex_like(self.X)
-        j = list(self.X.columns)
-        for i in range(len(j)):
-            j[i] = j[i] + "_shap"
-        for i in range(len(self.X)):
-            shap_value = explainer(self.X[i : i + 1], max_evals=1400)
+        explainer = shap.Explainer(self.__model.predict, self.__X_all) # TODO : why is it X_all ?
+
+        valuesSHAP = pd.DataFrame().reindex_like(self.__X)
+
+        colNames = list(self.__X.columns)
+        for i in range(len(colNames)):
+            colNames[i] = colNames[i] + "_shap"
+
+        for i in range(len(self.__X)):
+            shap_value = explainer(self.__X[i : i + 1], max_evals=1400) #TOTDO : why 1400 ?
             valuesSHAP.iloc[i] = shap_value.values
-            self.progress += 100 / len(self.X)
-            self.progress_widget.v_model = self.progress
-            self.text_widget.v_model = self.generation_texte(i, len(self.X), time_init, self.progress_widget.v_model)
-        valuesSHAP.columns = j
-        self.value = valuesSHAP
-        self.done_widget.v_model = "success"
+            self.__progress += 100 / len(self.__X)
+            self.sendProgress()
+
+        valuesSHAP.columns = colNames
         return valuesSHAP
     
-    def getType(self) -> int:
-        return SHAP
+    @staticmethod
+    def getExplanationType() -> int:
+        return ExplainationMethod.SHAP
 
 class LIMExplaination(ExplainationMethod):
     """
     LIME computation class.
     """
     
+    def __init__(self, X:pd.DataFrame, X_all:pd.DataFrame, model:Model):
+        super().__init__((LongTask.EXPLAINATION, ExplainationMethod.LIME), X, X_all, model)
+
     def compute(self) -> pd.DataFrame :
-        self.done_widget.v_model = "primary"
-        self.progress_widget.v_model = 0
-        self.text_widget.v_model = None
         time_init = time.time()
-        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.X_all), feature_names=self.X.columns, class_names=['price'], verbose=False, mode='regression')
-        N = len(self.X)
-        valuesLIME = pd.DataFrame(np.zeros((N, self.X.shape[-1])))
-        l = []
+
+        # TODO : It seems we defined class_name in order to workl with California housing dataset. We should find a way to generalize this.
+        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.__X_all), feature_names=self.__X.columns, class_names=['price'], verbose=False, mode='regression')
+
+        N = len(self.__X.shape)
+        valuesLIME = pd.DataFrame(np.zeros((N, self.__X.shape[-1])))
+        
         for j in range(N):
             l = []
             exp = explainer.explain_instance(
-                self.X.values[j], self.model.predict
+                self.__X.values[j], self.__model.predict
             )
             l = []
-            taille = self.X.shape[-1]
+            taille = self.__X.shape[-1]
             for ii in range(taille):
                 exp_map = exp.as_map()[0]
                 l.extend(exp_map[ii][1] for jj in range(taille) if ii == exp_map[jj][0])
-            valuesLIME.iloc[j] = l
-            self.progress_widget.v_model  += 100 / len(self.X)
-            self.text_widget.v_model = self.generation_texte(j, len(self.X), time_init, self.progress_widget.v_model)
-        j = list(self.X.columns)
-        for i in range(len(j)):
-            j[i] = j[i] + "_shap"
+            
+            valuesLIME.iloc[j] = pd.Series(l)
+            self.__progress += 100 / len(self.__X)
+            self.sendProgress()
+        j = list(self.__X.columns)
+        for i in range(len(j)): 
+            j[i] = j[i] + "_lime"
         valuesLIME.columns = j
-        self.value = valuesLIME
-        self.done_widget.v_model = "success"
         return valuesLIME
 
-    def getType(self) -> int:
-        return LIME
+    @staticmethod
+    def getExplanationType() -> int:
+        return ExplainationMethod.LIME
 
 # ===========================================================
-#                   Projections
+#             Projections / Dim Reductions
 # ===========================================================
 
-class DimensionalityReduction(LongTask):
+class DimReducMethod(LongTask):
     """
     Class that allows to reduce the dimensionality of the data.
+
+    Attributes
+    ----------
+    __dimension : int
+        Dimension reduction methods require a dimension parameter
+        We store it in the abstract class
+
+
     """
 
+    NONE = 0
     PCA = 1
     TSNE = 2
     UMAP = 3
-    PacMAP = 4
+    PaCMAP = 4
 
     DIM_ALL = -1
     DIM_TWO = 2
     DIM_THREE = 3
 
-    def __init__(self):
-        """
-        Constructor of the class DimensionalityReduction.
-        """
-        pass
+    """
+    Constructor for the DimensionalityReductionMethod class.
 
-    @abstractmethod
-    def compute(self):
-        pass
+    Parameters
+    ----------
+    longTaskType : Tuple[int,int]
+        need by LongType consturctor
+    X, X_all : pd.DataFrame
+        idem
+    dimension : int
+        Dimension reduction methods require a dimension parameter
+        We store it in the abstract class
+    
+    """
 
-    @abstractmethod
-    def getType(self) -> dict :
+    def __init__(self, longTaskType : Tuple[int,int], X  : pd.DataFrame, X_all : pd.DataFrame, dimension : int) :
+        self.__dimension = dimension
+        super().__init__(longTaskType, X, X_all)
+
+    @staticmethod
+    def getDimReducMehtodAsStr(type : int) -> str :
+        if type == DimReducMethod.PCA :
+            return "PCA"
+        elif type == DimReducMethod.TSNE :
+            return "t-SNE"
+        elif type == DimReducMethod.UMAP :
+            return "UMAP"
+        elif type == DimReducMethod.PacMAP :
+            return "PaCMAP"
+        else :
+            return None
+
+    @staticmethod
+    def getDimReducMhdsAsStrList() -> list :
+        list = []
+        for i in range(5):
+            item = DimReducMethod.getDimReducMehtodAsStr(i)
+            if item is not None :
+                list.append(item)    
+        return list
+
+
+    @staticmethod
+    def isValidDimReducType(type:int) -> bool:
         """
-        Returns the type and the dimension in a dict
-        'type' and 'dim' are the keys
+        Returns True if the type is a valid dimensionality reduction type.
         """
-        pass        
+        return type == DimReducMethod.PCA or type == DimReducMethod.TSNE or type == DimReducMethod.UMAP or type == DimReducMethod.PacMAP
+
+    
         
-class PCADimReduc(DimensionalityReduction):
+class PCADimReduc(DimReducMethod):
     """
     PCA computation class.
     """
+    def __init__(self, X:pd.DataFrame, X_all:pd.DataFrame, dimension : int = 2):
+        super().__init__((LongTask.DIMENSIONALITY_REDUCTION, DimReducMethod.PCA), X, X_all, dimension=dimension)
 
-    def __init__(self):
-        """
-        Constructor of the class PCADimReduc.
-        """
-        pass        
-
-    def compute(self, X, n, default=True):
-
-        self.dim = n
-        # definition of the method PCA, used for the EE and the EV
-        if default:
-            pca = PCA(n_components=n)
-        pca.fit(X)
-        X_pca = pca.transform(X)
+    def compute(self) -> pd.DataFrame:
+        __progress = 0
+        pca = PCA(n_components=super().__dimension)
+        pca.fit(super().__X)
+        X_pca = pca.transform(super().__X)
         X_pca = pd.DataFrame(X_pca)
+        # TODO : we need to iterated over the dataset in order to sendProgress messages to the GUI
+        __progress = 100
+        self.sendProgress()
         return X_pca
 
-    def getType(self) -> dict:
-        if n != 2 and n != 3:
-            return {'type': DimensionalityReduction.PCA, 'dim': -1}
-        else:
-            return {'type': DimensionalityReduction.PCA, 'dim': n}
     
-class TSNEDimReduc(DimensionalityReduction):
+class TSNEDimReduc(DimReducMethod):
     """
     T-SNE computation class.
     """
-    def compute(self, X, n, default=True):
-        self.dim = n # definition of the method TSNE, used for the EE and the EV
-        if default:
-            tsne = TSNE(n_components=n)
-        X_tsne = tsne.fit_transform(X)
-        X_tsne = pd.DataFrame(X_tsne)
-        return X_tsne
 
-    def getType(self) -> dict:
-        if n != 2 and n != 3:
-            return {'type': DimensionalityReduction.TSNE, 'dim': -1}
-        else:
-            return {'type': DimensionalityReduction.TSNE, 'dim': n}
+    def __init__(self, X:pd.DataFrame, X_all:pd.DataFrame, dimension : int = 2):
+        super().__init__((LongTask.DIMENSIONALITY_REDUCTION, DimReducMethod.TSNE), X, X_all, dimension=dimension)
     
-class UMAPDimReduc(DimensionalityReduction):
+    def compute(self) -> pd.DataFrame:
+        __progress = 0
+        tsne = TSNE(n_components=super().__dimension)
+        X_tsne = tsne.fit_transform(super().__X)
+        X_tsne = pd.DataFrame(X_tsne)
+        __progress = 100
+        self.sendProgress()
+        return X_tsne
+    
+class UMAPDimReduc(DimReducMethod):
     """
     UMAP computation class.
     """
-    def compute(self, X, n, default=True):
-        self.n = n
-        if default:
-            reducer = umap.UMAP(n_components=n)
-        embedding = reducer.fit_transform(X)
+    def __init__(self, X:pd.DataFrame, X_all:pd.DataFrame, dimension : int = 2):
+        super().__init__((LongTask.DIMENSIONALITY_REDUCTION, DimReducMethod.UMAP), X, X_all, dimension=dimension)
+
+    def compute(self) -> pd.DataFrame:
+        __progress = 0
+        reducer = umap.UMAP(n_components=super().__dimension)
+        embedding = reducer.fit_transform(super().__X)
         embedding = pd.DataFrame(embedding)
+        __progress = 100
+        self.sendProgress()
         return embedding
 
-    def getType(self) -> dict:
-        if n != 2 and n != 3:
-            return {'type': DimensionalityReduction.UMAP, 'dim': -1}
-        else:
-            return {'type': DimensionalityReduction.UMAP,'dim': n}
-
-class PaCMAPDimReduc(DimensionalityReduction):
+class PaCMAPDimReduc(DimReducMethod):
     """
     PaCMAP computation class.
     """
-    def compute(self, X, n, default=True, *args):
-        if default:
-            reducer = pacmap.PaCMAP(n_components=n, random_state=9)
-        else:
-            reducer = pacmap.PaCMAP(
-                n_components=n,
+
+
+    def __init__(self, X:pd.DataFrame, X_all:pd.DataFrame, dimension : int = 2, **kwargs):
+        super().__init__((LongTask.DIMENSIONALITY_REDUCTION, DimReducMethod.PacMAP), X, X_all, dimension=dimension)
+        self.__paramDict = dict()
+        # TODO : below, can I call setParam() while in the constructor ?
+        if "neighbours" in kwargs:
+                self.__paramDict.update({"neighbours": kwargs["neighbours"]})
+        if "MNratio" in kwargs :
+                self.__paramDict.update({"MN_ratio": kwargs["MN_ratio"]})
+        if "FP_ratio" in kwargs :
+                self.__paramDict.update({"FP_ratio": kwargs["FP_ratio"]})
+
+
+    
+    def compute(self, *args):
+        reducer = pacmap.PaCMAP(
+                n_components=super().__dimension,
                 n_neighbors=args[0],
                 MN_ratio=args[1],
                 FP_ratio=args[2],
                 random_state=9,
             )
-        embedding = reducer.fit_transform(X, init="pca")
+        embedding = reducer.fit_transform(super().__X, init="pca")
         embedding = pd.DataFrame(embedding)
         return embedding
-    
-    def getType(self) -> dict:
-        if n != 2 and n != 3:
-            return {'type': DimensionalityReduction.PaCMAP, 'dim': -1}
-        else:
-            return {'type': DimensionalityReduction.PaCMAP, 'dim': n}
 
 
-# TOOD : this method doesn't seem to be very useful / DimensionalityReduction.type could be used no ?
-def dimensionalityReductionChooser(method:int):
+# ===========================================================
+
+def computeProjections(X, dimReducMethod:int, **kwargs) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Function that allows to choose the dimensionality reduction method.
-
-    Parameters
-    ----------
-    method : int
-        The method to use.
+    Computes projected values for VS or ES in 2 and 3D given a dimensionality reduction method.
+    Returns a Tuple with values for 2D and 3D projections.
     """
-    if method == DimensionalityReduction.PCA:
-        return computationPCA()
-    elif method == DimensionalityReduction.TSNE :
-        return computationTSNE()
-    elif method == DimensionalityReduction.UMAP :
-        return computationUMAP()
-    elif method == DimensionalityReduction.PaCMAP:
-        return computationPaCMAP()
 
+    #TODO why do we need X-all here ?
+    if dimReducMethod == DimReducMethod.PCA:
+        return (PCADimReduc(X, None, DimReducMethod.DIM_TWO).compute(),
+            PCADimReduc(X, None, DimReducMethod.DIM_THREE).compute())
+    elif dimReducMethod == DimReducMethod.TSNE:
+        return (TSNEDimReduc(X, None, DimReducMethod.DIM_TWO).compute(),
+            TSNEDimReduc(X, None, DimReducMethod.DIM_THREE).compute())
+    elif dimReducMethod == DimReducMethod.UMAP:
+        return (UMAPDimReduc(X, None, DimReducMethod.DIM_TWO).compute(),
+            UMAPDimReduc(X, None, DimReducMethod.DIM_THREE).compute())
+    elif dimReducMethod == DimReducMethod.PacMAP:
+        if kwargs is None:
+            return (PaCMAPDimReduc(X, None, DimReducMethod.DIM_TWO).compute(),
+                PaCMAPDimReduc(X, None, DimReducMethod.DIM_THREE).compute())
+        else : 
+            return (PaCMAPDimReduc(X, None, DimReducMethod.DIM_TWO, kwargs).compute(),
+                PaCMAPDimReduc(X, None, DimReducMethod.DIM_THREE,kwargs).compute())
+    else :
+        raise ValueError("This default projection is not valid!")
+        
 
-def initialize_dim_red_VS(X, default_projection:int):
-    dim_red = dimensionalityReductionChooser(method=default_projection)
-    return dim_red.compute(X, 2, True), dim_red.compute(X, 3, True)
-
-def initialize_dim_red_ES(EXP, default_projection):
-    dim_red = dimensionalityReductionChooser(method=default_projection)
-    return dim_red.compute(EXP, 2, True), dim_red.compute(EXP, 3, True)
+        
 
 def function_score(y, y_chap):
     y = np.array(y)
     y_chap = np.array(y_chap)
     return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
-
-def update_figures(gui, exp, projVS, projES):
-    with gui.fig1.batch_update():
-        gui.fig1.data[0].x, gui.fig1.data[0].y  = gui.dim_red['VS'][projVS][0][0], gui.dim_red['VS'][projVS][0][1]
-    with gui.fig2.batch_update():
-        gui.fig2.data[0].x, gui.fig2.data[0].y = gui.dim_red['ES'][exp][projES][0][0], gui.dim_red['ES'][exp][projES][0][1]
-    with gui.fig1_3D.batch_update():
-        gui.fig1_3D.data[0].x, gui.fig1_3D.data[0].y, gui.fig1_3D.data[0].z = gui.dim_red['VS'][projVS][1][0], gui.dim_red['VS'][projVS][1][1], gui.dim_red['VS'][projVS][1][2]
-    with gui.fig2_3D.batch_update():
-        gui.fig2_3D.data[0].x, gui.fig2_3D.data[0].y, gui.fig2_3D.data[0].z = gui.dim_red['ES'][exp][projES][1][0], gui.dim_red['ES'][exp][projES][1][1], gui.dim_red['ES'][exp][projES][1][2]
 
 def function_beeswarm_shap(gui, exp, nom_colonne):
     X = gui.atk.dataset.X

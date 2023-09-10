@@ -7,8 +7,9 @@ from sklearn import ensemble
 
 from antakia.gui import GUI
 from antakia.data import Dataset
-from antakia.compute import DimensionalityReduction
+from antakia.compute import DimensionalityReduction, ExplainationMethod
 from antakia.potato import Potato
+from antakia.model import Model
 
 
 import ipywidgets as widgets
@@ -23,49 +24,56 @@ class AntakIA():
 
     Instance attributes
     -------------------
-    dataset : Dataset 
-        The Dataset object containing data and the ML model to explain
-    gui : an instance of the GUI class
+    __dataset : Dataset 
+        The Dataset object containing data and explained values
+    __model :Model
+            the model to explain
+    __gui : an instance of the GUI class
         In charge of the user interface
-    regions : List
+    __regions : List
         The list of the regions defined by the user. Regions are of type Potato.
-    saves: dict
+    __backups: dict
         A list of saved regions # TODO to be explained. Rather unclear for me for now
-    saves_path: str
+    __backups_path: str
         #TODO : to be understand
-    sub_models: list
+    __sub_models: list
         #TODO : to be understand
-    widget : IPyWidget TODO : why ???
     """
 
+    # Class constants 
+    # TODO : we could use a config file ?
+    DEFAULT_EXPLANATION_METHOD = ExplainationMethod.SHAP
 
-    def __init__(self, dataset: Dataset, saves: dict = None, saves_path: str = None):
+
+
+    def __init__(self, dataset: Dataset, model : Model, backups: dict = None, backups_path: str = None):
         '''
         Constructor of the class AntakIA.
 
         Parameters
         ----------
         dataset : Dataset object
-        saves: dict TODO : expliquer 
-        saves_path: str TODO : expliquer
+        backups: dict TODO : expliquer 
+        backups_path: str TODO : expliquer
         '''
 
-        self.dataset = dataset
-        self.regions = [] #empty list of Potatoes
-        self.gui = None
+        self.__dataset = dataset
+        self.__model = model
+        self.__regions = [] #empty list of Potatoes
+        self.__gui = None
+        self.__backups_path = backups_path
 
         # TODO : understand ths saves thing
         if saves is not None:
-            self.saves = saves 
-        elif saves_path is not None:
-            self.saves = utils.load_save(self, saves_path)
+            self.__backups = backups 
+        elif backups_path is not None:
+            self.__backups = utils.load_save(self, backups_path)
         else:
-            self.saves = []
+            self.__saves = []
 
-        self.sub_models =  [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
+        self.__sub_models =  [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
 
-        # TODO : this should be in the GUI !!
-        self.widget = None 
+
 
 
     def startGUI(self, defaultProjection: int = DimensionalityReduction.PacMAP, display = True):
@@ -152,7 +160,9 @@ class AntakIA():
         """
         self.regions.append(potato)
 
-
+    def getModel(self) -> Model :
+        return self.__model
+    
 
 # A Protéger !!
 

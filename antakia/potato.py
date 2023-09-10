@@ -1,10 +1,5 @@
 """
-    Class Potato (selection) and functions to create a Potato from a JSON file.
-
-    TODO : heady refactoring needed !
-    Maybe a Potato should be a double set of points in both VS and ES spaces ?
-    It should not need a reference to the AntakIA object
-
+    Class Potato
 
 """
 
@@ -24,44 +19,48 @@ class Potato():
 
     Attributes
     ----------
-    atk : AntakIA object 
-        The AntakIA object linked to the potato.
-    indexes : list
-        The list of the indexes of the points in the dataset.
-    dataset : Dataset object
-        The Dataset object containing the data of the selection.
-    data : pandas dataframe
-        The dataframe containing the data of the selection.
-    y : list
+    __atk : AntakIA object 
+        The AntakIA object linked to this Potato.
+    __indexes : list
+        The list of the indexes of the points in __atk's dataset.
+    __dataset : Dataset object
+        A reference to the dataset of __atk.
+    __explanations : dict
+        A reference to __atk's Dataset's explanationDataset
+    __data : pandas dataframe
+        The dataframe containing a copy of the data of the selection.
+    __y : list
         The list of the target values of the selection.
-    sub_model : model object
+    __sub_model : model object
         The surrogate-model of the selection. Could be None.
-    rules : list
+    __rules : list
         The list of the rules that defines the selection.
-    score : tuple
+    __score : tuple
         The score of the surrogate-model. Is the following format : (precision, recall, extract of the tree).
-    rules_exp : list
+    __rules_exp : list
         The list of the rules that defines the selection in the explanation space.
-    score_exp : tuple
+    __score_exp : tuple
         The score of the surrogate-model in the explanation space. Is the following format : (precision, recall, extract of the tree).
-    success : bool
+    __success : bool
         True if the rules have been found, False otherwise.
-    y_train : list
+    __y_train : list
         The list of the target values of the dataset.
-    explanations : dict
-        The dict containing the explanations of the selection. Is the following format : {"Imported": imported explanations, "SHAP": SHAP explanations, "LIME": LIME explanations}.
-    state : int
-        The state of the potato.
+    
+    __type : int
+        The type of the potato.
 
     """
+
+    # Class constants
     UNKNOWN=-1
     LASSO=0 # Manually defined
-    SKR=1 # Defined with Skope Rules
-    REFINED_SKR=2 # Rules have been manually refined by the user
-    REGION=3 # validated / to be stored in Regions
-    JSON=4 # imported from JSON
+    SELECTION=1
+    SKR=2 # Defined with Skope Rules
+    REFINED_SKR=3 # Rules have been manually refined by the user
+    REGION=4 # validated / to be stored in Regions
+    JSON=5 # imported from JSON
 
-    def __init__(self,  atk, array:list = [], json_path: str = None) -> None:
+    def __init__(self,  atk, indexes:list, type:int = UNKNOWN, json_path: str = None) -> None:
         """
         Constructor of the class Potato.
 
@@ -69,8 +68,10 @@ class Potato():
         ----------
         atk : AntakIA object
             The AntakIA object linked to the potato.
-        array : list
+        indexes : list
             The list of the indexes of the points in the dataset.
+        type : int
+            May be UNKNOWN, LASSO, SKR, REFINED_SKR, REGION or JSON.
         json_path : str
             The name of the json file containing the indexes of the points in the dataset.
         """

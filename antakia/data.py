@@ -11,10 +11,10 @@ from sklearn.preprocessing import StandardScaler
 from antakia.compute import ExplainationMethod, DimensionalityReduction
 from antakia import gui_elements # TODO : why ?
 
-
 import time
 
 from copy import deepcopy
+
 
 class Dataset():
     """
@@ -22,32 +22,48 @@ class Dataset():
     
     Instance attributes
     ------------------
-    X  : pandas.Dataframe
+    __X  : pandas.Dataframe
         The dataframe to be used by AntakIA
-    Xall: pandas.Dataframe
+    __X_proj : dict :
+        - key DimensionalityReduction.PCA : a dict with :
+            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D PCA-projected X values
+            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D PCA-projected X values
+        - key DimensionalityReduction.TSNE : a dict with :
+            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D TSNE-projected X values
+            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D TSNE-projected X values
+        - key DimensionalityReduction.UMAP : a dict with :
+            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D UMAP-projected X values
+            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D UMAP-projected X values
+        -  key DimensionalityReduction.PacMAP : a dict with :
+            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D PacMAP-projected X values
+            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D PacMAP-projected X values
+    __X_all: pandas.Dataframe
         The entire dataframe. X may be smaller than Xall if the frac method has been used.
-    X_scaled : pandas.Dataframe
+    __X_scaled : pandas.Dataframe
         The dataframe with normalized (scaled) values.
-    Xproj : dict
-        The dictionnary containing Dataframes with the projected values of the dataset
-        #TODO Understand how this dict works
-    model : ????
+    __model : Model
         The "black-box" ML model to explain.
-    y_pred : pandas.Series
+    __y_pred : pandas.Series
         The Serie containing the predictions of the model. Computed at construction time.
-    explanations : ExplanationDataset
+    __explanations : ExplanationDataset
         See the class ExplanationDataset below
-    comments : List of str
+    __comments : List of str
         The comments associated to each variable in X
-    sensible : List of bool
+    __sensible : List of bool
         If True, a warning will be displayed when the feature is used in the explanations. More to come in the future.
-    lat : str
+    __lat : str
         The name of the latitude column if it exists.
         #TODO use a specific object for lat/long ?
-    long : str
+    __long : str
         The name of the longitude column if it exists.
         #TODO idem
     """
+
+    # CLass attributes for X values
+    CURRENT = 1
+    ALL = 2
+    SCALED = 3
+
 
     def __init__(self, X:pd.DataFrame = None, csv:str = None, y:pd.Series = None, model = None, user_explanations:pd.DataFrame = None, user_explanationa_type:int = None):
         """
@@ -75,44 +91,43 @@ class Dataset():
         if X is not None and csv is not None :
             raise ValueError("You must provide either a dataframe or a CSV file, not both")
         if X is not None :
-            self.X = X
+            self.__X = X
         else :
-            self.X = pd.read_csv(csv)
+            self.__X = pd.read_csv(csv)
 
-        self.explanations = None
+        self.__X_proj = {} # Empty dict
+        self.__explanations = None
 
         # We remove spaces in the column names
-        X.columns = [X.columns[i].replace(" ", "_") for i in range(len(X.columns))]
-        X = X.reset_index(drop=True)
+        self.__X.columns = [self.__X.columns[i].replace(" ", "_") for i in range(len(self.__X.columns))]
+        self. __X = self.__X.reset_index(drop=True)
 
-        self.X_all = X
-        self.model = model
-        self.y = y
-        self.X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
-        self.X_scaled.columns = X.columns
+        self.__X_all = X
+        self.__model = model
+        self.__y = y
+        self.__X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
+        self.__X_scaled.columns = X.columns
 
         # We compute the predictions of the model
-        self.y_pred = pd.Series(self.model.predict(self.X))
+        self.__y_pred = pd.Series(self.model.predict(self.X))
 
-        self.verbose = None # TODO shoulb be setttable through **kwargs ?
-        self.widget = None # TODO what is this ?
 
-        self.comments = [""]*len(self.X.columns) 
-        self.sensible = [False]*len(self.X.columns)
+        self.__comments = [""]*len(self.X.columns) 
+        self.__sensible = [False]*len(self.X.columns)
 
-        self.fraction = 1 # TODO : what is this ?
-        self.frac_indexes = self.X.index #
+        self.__fraction = 1 # TODO : what is this ?
+        self.__frac_indexes = self.X.index #
 
         # TODO : should be handled with a GeoData object ?
-        self.long, self.lat = None, None # TODO : shoudl only  be used if needed
+        self.__long, self.__lat = None, None # TODO : shoudl only  be used if needed
 
         for name in ['longitude', 'Longitude', 'Long', 'long']:
             if name in self.X.columns:
-                self.long = name
+                self.__long = name
 
         for name in ['latitude', 'Latitude', 'Lat', 'lat']:
             if name in self.X.columns:
-                self.lat = name
+                self.__lat = name
 
         if user_explanations is not None:
             if user_explanationa_type is None:
@@ -131,10 +146,72 @@ class Dataset():
     
     # TODO : is it useful ?
     def __len__(self):
-        return self.X.shape[0]
+        return self.__X.shape[0]
+    
+
+    def getXValues(self, flavour : int = CURRENT) -> pd.DataFrame:
+        """
+        Access X values for the dataset as a DataFrame.
+
+        Parameters
+        ----------
+        flavour : int
+            The flavour of the X values to return. Must be Dataset.CURRENT, Dataset.ALL or Dataset.SCALED.
+
+        Returns
+        -------
+        pd.DataFrame :
+            The X values for the given flavour
+        """    
+        if flavour == Dataset.CURRENT :
+            return self.__X
+        elif flavour == Dataset.ALL :
+            return self.__X_all
+        elif flavour == Dataset.SCALED :
+            return self.__X_scaled
+        else :
+            raise ValueError("Bad flavour value")
+        
+    def getXProjValues(self, dimensionalityReductionType:int, dimension:int = DimensionalityReduction.DIM_TWO) -> pd.DataFrame:
+        """Returns de projected X values using a dimensionality reduction method and target dimension (2 or 3)
+
+        Args:
+            dimensionalityReductionType (int): _description_
+            dimension (int, optional): _description_. Defaults to DimensionalityReduction.DIM_TWO.
+
+        Returns:
+            pd.DataFrame: the projected X values. May be None 
+        """
+        if not DimensionalityReduction.isValidDimReducType(dimensionalityReductionType) :
+                raise ValueError("Bad dimensionality reduction type")
+        
+        if not DimensionalityReduction.isValidDimension(dimension) :
+                raise ValueError("Bad dimension number")
+
+        return self.__X_proj[dimensionalityReductionType][dimension]
+    
+
+    def setXProjValues(self, dimensionalityReductionType:int, dimension:int = DimensionalityReduction.DIM_TWO, values: pd.DataFrame) :
+        """Set X_proj alues for this dimensionality reduction and  dimension."""
+
+        #TOTO we may want to check values.shape and raise value error if it does not match
+        if not DimensionalityReduction.isValidDimReducType(dimensionalityReductionType) :
+                raise ValueError("Bad dimensionality reduction type")
+        if not DimensionalityReduction.isValidDimension(dimension) :
+                raise ValueError("Bad dimension number")
+        
+        self.__X_proj[dimensionalityReductionType][dimension] = values
+        #  TODO We could log this assignment
+
+    
+    def getExplanations(self) -> ExplanationsDataset :
+        """
+        Returns the explanations of the dataset.
+        """
+        return self.__explanations
 
 
-    def getShape()-> tuple:
+    def getShape(self)-> tuple:
         """ Returns the shape of the used dataset"""
         return self.X.shape
     
@@ -356,12 +433,12 @@ class ExplanationsDataset():
             Returns None if not computed yet.
         """
         if explainationMethodType==ExplainationMethod.SHAP :
-            if dimension == DimensionalityReduction.DIM_ALL :
+            if dimension == DimensionalityReduction.DIM_ALL or dimension is None:
                 if ExplanationsDataset.COMPUTED in self.shapValues :
-                    return self.shapValues[ExplanationsDataset.COMPUTED] # We return computed values first
+                    return self.shapValues[ExplanationsDataset.COMPUTED][] # We return computed values first
                 else :
                     if ExplanationsDataset.IMPORTED in self.shapValues : 
-                        return self.shapValues[ExplanationsDataset.IMPORTED] # we return user-provided values if no cimputed values
+                        return self.shapValues[ExplanationsDataset.IMPORTED] # we return user-provided values if no computed values
                     else :
                         return None      
             else :
@@ -406,8 +483,47 @@ class ExplanationsDataset():
                             raise ValueError(dimension, " is not a proper dimension")
             else :
                  raise ValueError("Bad explanantion method type")
+    
+    def setValues(self, explainationMethodType:int, dimensionalityReductionType:int, dimension:int = DimensionalityReduction.DIM_TWO, values: pd.DataFrame) :
+        """Set values for this ExplanationsDataset, given an explanation method, a dimensionality reduction and a dimension.
+        Indeed, the values in explainations has been CUMPUTED by Antakia. It can't be IMPORTED.
+
+        Args:
+            explainationMethodType : int
+                SHAP, LIME or OTHER (see ExplainationMethod class in compute.py)
+            dimensionalityReductionType : int
+                Type of dimensuion reduction
+            dimension (int, optional): _description_. Defaults to 2.
+            values : pd.DataFrame
+                The values to set.
+        """
+        if not DimensionalityReduction.isValidDimReducType(dimensionalityReductionType) :
+                raise ValueError("Bad dimensionality reduction type")
         
-    def userProvidedData(self, explainationMethodType:int) -> bool:
+        if not DimensionalityReduction.isValidDimension(dimension) :
+                raise ValueError("Bad dimension number")
+
+        if explainationMethodType==ExplainationMethod.SHAP :
+            if dimension == DimensionalityReduction.DIM_ALL : # We want to compute all SHAP values
+                self.shapValues[ExplanationsDataset.COMPUTED] = values
+                 # TODO this value assignmeent should be logged
+            elif dimension == DimensionalityReduction.DIM_TWO : 
+                self.shapValues[dimensionalityReductionType][DimensionalityReduction.DIM_TWO] = values
+            elif dimension == DimensionalityReduction.DIM_THREE : 
+                self.shapValues[dimensionalityReductionType][DimensionalityReduction.DIM_THREE] = values
+        else :
+            if explainationMethodType==ExplainationMethod.LIME :
+            if dimension == DimensionalityReduction.DIM_ALL : # We want to compute all LIME values
+                self.limeValues[ExplanationsDataset.COMPUTED] = values
+                 # TODO this value assignmeent should be logged
+            elif dimension == DimensionalityReduction.DIM_TWO : 
+                self.limeValues[dimensionalityReductionType][DimensionalityReduction.DIM_TWO] = values
+            elif dimension == DimensionalityReduction.DIM_THREE : 
+                self.limeValues[dimensionalityReductionType][DimensionalityReduction.DIM_THREE] = values
+            else :
+                 raise ValueError("Bad explanantion method type")
+
+    def isUserProvided(self, explainationMethodType:int) -> bool:
         """
         Returns True if the user provided explanations values, False otherwise.
         """
@@ -418,7 +534,7 @@ class ExplanationsDataset():
             return self.limeValues[ExplanationsDataset.IMPORTED] is not None
         
 
-    def antakIAComputedData(self, explainationMethodType:int) -> bool:
+    def isComputedHere(self, explainationMethodType:int) -> bool:
         """
         Returns True if AntakIA computed explanations values, False otherwise.
         """
@@ -434,10 +550,10 @@ class ExplanationsDataset():
         text = "Explanation object :\n"
         text += "------------------\n"
         shap = False
-        if self.userProvidedData(ExplainationMethod.SHAP) :
+        if self.isUserProvided(ExplainationMethod.SHAP) :
             text += "- SHAP values imported : YES\n"
             shap = True
-        if self.antakIAComputedData(ExplainationMethod.SHAP) :
+        if self.isComputedHere(ExplainationMethod.SHAP) :
             text += "- SHAP values computed : YES\n"
             shap = True
         if shap :
@@ -459,10 +575,10 @@ class ExplanationsDataset():
                 text += "   - Projection PacMAP 3D : YES\n"   
 
         lime = False
-        if self.userProvidedData(ExplainationMethod.LIME) :
+        if self.isUserProvided(ExplainationMethod.LIME) :
             text += "- LIME values imported : YES\n"
             lime = True
-        if self.antakIAComputedData(ExplainationMethod.LIME) :
+        if self.isComputedHere(ExplainationMethod.LIME) :
             text += "- LIME values computed : YES\n"
             lime = True
         if lime :
