@@ -5,26 +5,34 @@ Utils module for the antakia package.
 import numpy as np
 import pandas as pd
 import sklearn
-
 import sklearn.cluster
+
 from copy import deepcopy
 
 import mvlearn
 
 from skrules import SkopeRules
-
 import sklearn.cluster
 
 import json
+import textwrap
 
+from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
 
 # from antakia.potato import Potato
 import antakia.potato as potato
 
-# Private utils functions
+def wrapRepr(widget : Widget, size : int = 200) -> str:
+    text = widget.__repr__()
+    if widget.layout is None :
+        text += " Layout is None !"
+    else :
+        text += " Visibility : "+ widget.layout.visibility
+    s_wrap_list = textwrap.wrap(text, size)
+    return  '\n'.join(s_wrap_list)
 
-def _conflict_handler(ens_potatoes, liste):
+def overlapHandler(ens_potatoes, liste):
     # function that allows you to manage conflicts in the list of regions.
     # indeed, as soon as a region is added to the list of regions, the points it contains are removed from the other regions
     gliste = [x.indexes for x in ens_potatoes]
@@ -38,14 +46,14 @@ def _conflict_handler(ens_potatoes, liste):
         ens_potatoes[i].setIndexes(gliste[i])
     return ens_potatoes
 
-def _create_list_invert(liste, taille):
-    l = [[] for _ in range(taille)]
-    for i in range(len(liste)):
-        l[liste[i]].append(i)
-    return l
+def _inverrtList(aList : list, size : int) -> list:
+    newList = [[] for _ in range(size)]
+    for i in range(len(aList)):
+        newList[aList[i]].append(i)
+    return newList
 
 
-def _reset_list(l):
+def _restList(l):
     l = list(l)
     for i in range(max(l) + 1):
         if l.count(i) == 0:
@@ -91,7 +99,7 @@ def _find_best_k(X, indices, recall_min, precision_min):
     return 2 if ind_f == 1 else ind_f
 
 
-def _clustering_dyadique(X, SHAP, n_clusters, default):
+def proposeAutoDyadicClustering (X, SHAP, n_clusters, default):
     m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
     l = m_kmeans.fit_predict([X, SHAP])
     nombre_clusters = 0
@@ -126,54 +134,11 @@ def _clustering_dyadique(X, SHAP, n_clusters, default):
                 l[indices] = labels
             else :
                 nombre_clusters +=1
-        l = _reset_list(l)
+        l = _restList(l)
     l = list(np.array(l) - min(l))
-    return _create_list_invert(l, max(l) + 1), l
-
-# Public utils functions
+    return _inverrtList(l, max(l) + 1), l
 
 
-def function_auto_clustering(X1, X2, n_clusters, default):
-    '''
-    Return a clustering, generated a dyadic way.
-
-    Function that allows to cluster the data in a dyadic way : the clusters are both in the X1 and X2 spaces.
-    The clustering is done by the function antakia._clustering_dyadique from the module function_auto (see function_auto.py).
-
-    Parameters
-    ---------
-    X1 : pandas dataframe
-        The dataframe containing the first data to cluster.
-    X2 : pandas dataframe
-        The dataframe containing the second data to cluster.
-    n_clusters : int
-        The number of clusters to create.
-    default : bool
-        If False, the clustering will be done with a fixed number of cluster (n_clusters). If True, the clustering will be done with a variable number of clusters.
-        The algorithm will then try to find the best number of clusters to use.
-
-    Returns
-    -------
-    clusters : list
-        A list of lists, each list being a cluster. Each cluster is a list of indices of the data in the dataframe X.
-    clusters_axis : list
-        A list of size len(X), each element being the axis of the cluster the corresponding data belongs to.
-
-    Examples
-    --------
-    >>> import antakia
-    >>> import pandas as pd
-    >>> X1 = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]])
-    >>> X2 = pd.DataFrame([[1, 2], [3, 4], [5, 6], [7, 8]])
-    >>> clusters, clusters_axis = antakia.function_auto_clustering(X1, X2, 2, False)
-    >>> clusters
-    [[0, 1], [2, 3]]
-    >>> clusters_axis
-    [0, 0, 1, 1]
-
-    '''
-
-    return _clustering_dyadique(X1, X2, n_clusters, default)
 
 
 def create_save(atk, liste, name: str = "Default name"):
@@ -211,7 +176,7 @@ def create_save(atk, liste, name: str = "Default name"):
     return {"name": name, "regions": l, "labels": liste}
 
 
-def load_save(atk, local_path):
+def loadBackup(atk, local_path):
     '''
     Return a save file from a JSON file.
 

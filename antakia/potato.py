@@ -2,7 +2,7 @@
     Class Potato
 
 """
-
+import typing
 
 import pandas as pd
 import numpy as np
@@ -11,6 +11,7 @@ from skrules import SkopeRules
 import json as JSON
 from copy import deepcopy
 
+from antakia.data import *
 
 class Potato():
     """
@@ -19,36 +20,26 @@ class Potato():
 
     Attributes
     ----------
-    __atk : AntakIA object 
-        The AntakIA object linked to this Potato.
-    __indexes : list
+    _indexes : list
         The list of the indexes of the points in __atk's dataset.
-    __dataset : Dataset object
+    _dataset : Dataset object
         A reference to the dataset of __atk.
-    __explanations : dict
-        A reference to __atk's Dataset's explanationDataset
-    __data : pandas dataframe
-        The dataframe containing a copy of the data of the selection.
-    __y : list
-        The list of the target values of the selection.
-    __sub_model : model object
-        The surrogate-model of the selection. Could be None.
-    __rules : list
-        The list of the rules that defines the selection.
-    __score : tuple
+    _explanations : ExplanationsDataset
+    _sub_model : a dict
+        The surrogate-model ("model" key) of the selection. Could be None. And its score ("score" key).
+    _theVSScore : tuple
         The score of the surrogate-model. Is the following format : (precision, recall, extract of the tree).
-    __rules_exp : list
-        The list of the rules that defines the selection in the explanation space.
-    __score_exp : tuple
+    _theESScore : tuple
         The score of the surrogate-model in the explanation space. Is the following format : (precision, recall, extract of the tree).
-    __success : bool
+    _theVSRules : list
+        The list of the rules that defines the selection.
+    _theESRules : list
+        The list of the rules that defines the selection in the explanation space.
+    _success : bool
         True if the rules have been found, False otherwise.
-    __y_train : list
-        The list of the target values of the dataset.
-    
-    __type : int
+    _type : int
         The type of the potato.
-
+    _mapIndexes : ??
     """
 
     # Class constants
@@ -60,14 +51,15 @@ class Potato():
     REGION=4 # validated / to be stored in Regions
     JSON=5 # imported from JSON
 
-    def __init__(self,  atk, indexes:list, type:int = UNKNOWN, json_path: str = None) -> None:
+    def __init__(self,  ds : Dataset, xds : ExplanationsDataset, currentExplanationMethod : int, indexes:list, type:int, json_path: str = None) -> None:
         """
         Constructor of the class Potato.
 
         Parameters
         ----------
-        atk : AntakIA object
-            The AntakIA object linked to the potato.
+        ds : a Dataset object
+        xds : an ExplanationsDataset object
+        currentExplanationMethod : the explanation currently used by the caller
         indexes : list
             The list of the indexes of the points in the dataset.
         type : int
@@ -76,67 +68,54 @@ class Potato():
             The name of the json file containing the indexes of the points in the dataset.
         """
 
-        if not isinstance(atk, AntakIA):
-            raise ValueError("You must provide an AntakIA object")
-        self.atk = atk
-        self.state = Potato.UNKNOWN
+        self._dataset = ds
+        self._explanations = xds
+        if not ExplainationMethod.isValidExplanationType(currentExplanationMethod):
+            raise ValueError(currentExplanationMethod, " is, not a valid explanation method")
+        self._explanationMethod : currentExplanationMethod # could be ExplainationMethod.SHAP or LIME for ex
+        self._type = type
 
-        if json_path is not None and array != []:
+        if json_path is not None and indexes != []:
             raise ValueError("You can't provide a list and a json file")
         
         if json_path is not None:
-            self.state = Potato.JSON
+            self._type = Potato.JSON
             if json_path[-5:] != ".json":
                 json_path += ".json"
             fileObject = open(json_path, "r")
             jsonContent = fileObject.read()
-            self.indexes = JSON.loads(jsonContent)
+            self._indexes = JSON.loads(jsonContent)
         else :
-            self.indexes = array
+            self._indexes = indexes
 
-        self.dataset = atk.dataset
-        if self.dataset.X is not None:
-            self.data = self.dataset.X.iloc[self.indexes]
-        else :
-            self.data = None
-        if self.dataset.y is not None:
-            self.y = self.dataset.y.iloc[self.indexes]
-        else :
-            self.y = None
-        self.sub_model = {"model": None, "score": None}
-
-        self.rules = None
-        self.score = None
-
-        self.rules_exp = None
-        self.score_exp = None
-
-        self.success = None
-
-        self.y_train = []
-        for i in range(len(self.dataset.X)):
-            if i in self.indexes:
-                self.y_train.append(1)
+        # We compute the Y mask list from the indexes
+        self._yMaskList = []
+        for i in range(len(self._ds.getXValues())):
+            if i in self._indexes:
+                self._yMaskList.append(1)
             else :
-                self.y_train.append(0)
+                self._yMaskList.append(0)
 
-        self.indexes_from_map = None
+        self._sub_model = {"model": None, "score": None} # model is a Model object, score an int ?
 
-        self.explanations = {"Imported": None, "SHAP": None, "LIME": None}
-        if self.atk.explanations["Imported"] is not None:
-            self.explanations["Imported"] = self.atk.explanations["Imported"].iloc[self.indexes]
-        if self.atk.explanations["SHAP"] is not None:
-            self.explanations["SHAP"] = self.atk.explanations["SHAP"].iloc[self.indexes]
-        if self.atk.explanations["LIME"] is not None:
-            self.explanations["LIME"] = self.atk.explanations["LIME"].iloc[self.indexes]
+
+        self._theVSRules : list = []
+        self._theVSScores : Tuple (int, int, int) # ?, recall and precision
+
+        self._theESRules : list = []
+        self._theESScores : Tuple (int, int, int) # ?,recall and precision
+
+        self._rulesIdentified : list = []
+        self._mapIndexes : int = 0
+
 
     def __str__(self) -> str:
         text = ' '.join(("Potato:\n",
                     "------------------\n",
-                    "      State:", self.stateToSring(), "\n",
-                    "      Number of points:", str(len(self.indexes)), "\n",
-                    "      Percentage of the dataset:", str(round(100*len(self.indexes)/len(self.dataset.X), 2))+"%", "\n",
-                    "      Sub-model:", str(self.sub_model["model"].__class__.__name__))) 
+                    "      Type:", self.typeToString(), "\n",
+                    "      Number of points:", str(len(self._indexes)), "\n",
+                    "      Percentage of the dataset:", str(round(100*len(self._indexes)/len(self._dataset.getXValues()), 2))+"%", "\n",
+                    "      Sub-model:", str(self._sub_model["model"].__class__.__name__))) 
         return text
     
     def __len__(self) -> int:
@@ -148,8 +127,53 @@ class Potato():
         int
             The length of the potato.
         """
-        return len(self.indexes)
+        return len(self._indexes)
+
+    def getVSValuesX(self, flavour : int = Dataset.ALL) -> list:
+        """
+        Returns the VS records of the Potato
+
+        Returns
+        -------
+        list
+            The VS records of the Potato
+        """
+        if flavour is not  None and not Dataset.isValidXFlavour(flavour) :
+            raise ValueError("You must provide a valid flavour")
+        return self._dataset.getXValues(self._indexes)
     
+    def getVSValuesY(self, flavour : int = Dataset.TARGET) -> list:
+        """
+        Returns the VS records of the Potato
+
+        Returns
+        -------
+        list
+            The VS records of the Potato
+        """
+        if flavor is not None and not Dataset.isValidYFlavour(flavour) :
+            raise ValueError("You must provide a valid flavour")
+        return self._dataset.getYValues(self._indexes, flavour)
+
+    def getESvalues(self) -> list :
+        """
+        Returns the ES records of the Potato
+
+        Returns
+        -------
+        list
+            The ES records of the Potato
+        """
+        
+        return self._explanations.getXValues(self._indexes)
+    
+    def getMapIndexes(self):
+        return self._mapIndexes
+
+    def setMapIndexes(self, mapIndexes):
+        self._mapIndexes = mapIndexes
+
+
     def size(self) -> int:
         """
         Function that returns the shape of the potato.
@@ -159,24 +183,79 @@ class Potato():
         tuple
             The shape of the potato.
         """
-        return len(self.indexes) # TODO : we're supposed to return the shape of the data, not the number of points  
+        return len(self._indexes) # TODO : we're supposed to return the shape of the data, not the number of points  
     
-    def stateToSring(self)-> str :
+    @staticmethod
+    def isValidType(type:int) -> bool:
         """
-        Returns the state of the potato
+        Function that checks if the type is valid.
+
+        Parameters
+        ----------
+        type : int
+            The type to check.
 
         Returns
         -------
-        str
-            The name of the state
+        bool
+            True if the type is valid, False otherwise.
         """
-        if self.state == Potato.UNKNOWN : return "unknown"
-        elif self.state == Potato.LASSO : return "lasso"
-        elif self.state == Potato.SKR : return "skope ruled"
-        elif self.state == Potato.REFINED_SKR : return "refined skope rules"
-        elif self.state == Potato.REGION : return "region"
-        elif self.state == Potato.JSON : return "json importation"
-        else : raise ValueError("unknown state for a potato")
+        return type in [Potato.UNKNOWN, Potato.LASSO, Potato.SELECTION, Potato.SKR, Potato.REFINED_SKR, Potato.REGION, Potato.JSON] 
+
+
+    def ruleListToStr(self, valueSpaceRules : bool = True) -> str:
+        """ Transcribes the rules of the potato into a string
+            valueSpaceRules : if True, the rules are in the value space, else they are in the explanation space
+        """
+        string = ""
+        theList = self._theVSRules if valueSpaceRules else self._theESRules
+        for rule in theList:
+            for i in range(len(rule)):
+                if type(rule[i]) == float:
+                    string += str(np.round(float(rule[i]), 2))
+                elif rule[i] is None:
+                    string += "None"
+                elif type(rule[i]) == list:
+                    string+="{"
+                    string += str(rule[i][0])
+                    for j in range(1, len(rule[i])):
+                        string += "," + str(rule[i][j])
+                    string+="}"
+                else:
+                    string += str(rule[i])
+                string += " "
+        return string
+
+    def setType(self, type : int) :
+        """
+        Function that sets the type of the potato.
+
+        Parameters
+        ----------
+        type : int
+            The new type of the potato.
+        """
+        if not Potato.isValidType(type):
+            raise ValueError("You must provide a valid Potato type")
+        self._type = type
+
+    def getType(self) -> int :
+        """
+        Function that returns the type of the potato.
+
+        Returns
+        -------
+        int
+            The type of the potato.
+        """
+        return self._type
+
+    def getYMaskList(self) -> list:
+        return self._yMaskList
+
+    def setYLMaskList(self, yMaskList : list) -> None:
+        self._yMaskList = yMaskList
+
 
     def getIndexes(self) -> list:
         """
@@ -187,10 +266,10 @@ class Potato():
         list
             The indexes of the potato.
         """
-        return self.indexes
+        return self._indexes
     
-    # TODO : this a lasso selection no ? Could we rename it acccordingly ?
-    def setIndexes(self, indexes:list) -> None:
+    
+    def setNewIndexes(self, indexes:list) -> None :
         """
         Function that sets the indexes of the potato.
 
@@ -199,84 +278,21 @@ class Potato():
         indexes : list
             The new indexes of the potato.
         """
-        self.indexes = indexes
-        self.data = self.dataset.X.iloc[self.indexes]
-        self.y = self.dataset.y.iloc[self.indexes]
+        self._indexes = indexes
+        self._rulesIdentified = False
 
-        self.y_train = []
-        for i in range(len(self.dataset.X)):
-            if i in self.indexes:
-                self.y_train.append(1)
-            else :
-                self.y_train.append(0)
 
-        self.state = Potato.LASSO
-        self.success = None
-
-        self.explain = {"Imported": None, "SHAP": None, "LIME": None}
-        if self.atk.explain["Imported"] is not None:
-            self.explain["Imported"] = self.atk.explain["Imported"].iloc[self.indexes]
-        if self.atk.explain["SHAP"] is not None:
-            self.explain["SHAP"] = self.atk.explain["SHAP"].iloc[self.indexes]
-        if self.atk.explain["LIME"] is not None:
-            self.explain["LIME"] = self.atk.explain["LIME"].iloc[self.indexes]
-
-    def setJsonPath(self, json_path:str) -> None:
+    def setIndexesWithJSON(self, json_path:str) -> None:
         if json_path[-5:] != ".json":
             json_path += ".json"
         fileObject = open(json_path, "r")
         jsonContent = fileObject.read()
-        self.indexes = JSON.loads(jsonContent)
-        self.data = self.dataset.X.iloc[self.indexes]
-        self.y = self.dataset.y.iloc[self.indexes]
+        self._indexes = JSON.loads(jsonContent)
 
-        self.y_train = []
-        for i in range(len(self.dataset.X)):
-            if i in self.indexes:
-                self.y_train.append(1)
-            else :
-                self.y_train.append(0)
+        self._type = Potato.JSON
+        self.rulesIdentified = None
 
-        self.state = Potato.JSON
-        self.success = None
-
-        self.explain = {"Imported": None, "SHAP": None, "LIME": None}
-        if self.atk.explain["Imported"] is not None:
-            self.explain["Imported"] = self.atk.explain["Imported"].iloc[self.indexes]
-        if self.atk.explain["SHAP"] is not None:
-            self.explain["SHAP"] = self.atk.explain["SHAP"].iloc[self.indexes]
-        if self.atk.explain["LIME"] is not None:
-            self.explain["LIME"] = self.atk.explain["LIME"].iloc[self.indexes]
-
-
-    def getVSdata(self) -> pd.DataFrame:
-        """
-        Function that returns the data of the potato.
-
-        Returns
-        -------
-        pandas dataframe
-            The data of the potato.
-        """
-        return self.data
-    
-    def getESdata(self, explanation="Imported") -> list:
-        """
-        Function that returns the data of the potato in the explanation space.
-
-        Parameters
-        ----------
-        explanation : str
-            The name of the explanation space.
-
-        Returns
-        -------
-        pandas dataframe
-            The data of the potato in the explanation space.
-        """
-        return self.explain[explanation]
-    
-    def getVSrules(self):
+    def getVSRules(self):
         """
         Function that returns the rules of the potato.
 
@@ -285,9 +301,21 @@ class Potato():
         list
             The rules of the potato.
         """
-        return self.rules
+        return self._theVSRules
     
-    def getESrules(self):
+
+    def setVSRules(self, newRules : list):
+        """
+        Function that sets the rules of the potato.
+
+        Parameters
+        ----------
+        newRules : list
+            The new rules of the potato.
+        """
+        self._theVSRules = newRules 
+
+    def getESRsules(self):
         """
         Function that returns the rules of the potato in the explanation space.
 
@@ -296,9 +324,9 @@ class Potato():
         list
             The rules of the potato in the explanation space.
         """
-        return self.rules_exp
+        return self._theESRules
     
-    def getVSscore(self):
+    def getVSScore(self):
         """
         Function that returns the score of the potato.
 
@@ -307,9 +335,9 @@ class Potato():
         tuple
             The score of the potato.
         """
-        return self.score
+        return self._theVSScores
     
-    def getESscore(self):
+    def getESScore(self):
         """
         Function that returns the score of the potato in the explanation space.
 
@@ -318,100 +346,55 @@ class Potato():
         tuple
             The score of the potato in the explanation space.
         """
-        return self.score_exp
+        return self._theESScores
     
-    def applyRules(self, to_return:bool=False):
+    def hasARulesDefined(self) -> bool:
         """
-        Function that applies the rules to the dataset, in order to create a new selection.
+        Function that checks if the potato has rules defined.
 
-        Examples
-        --------
-        >>> from antakia import AntakIA, Dataset, Potato
-        >>> X = pd.DataFrame([[1, 2, 3], [4, 5, 6], [7, 8, 9]], columns = ["col1", "col2", "col3"], index = [1, 3, 4])
-        >>> atk = AntakIA(Dataset(X, model))
-        >>> potato = Potato(indexes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], atk)
-        >>> potato.rules = [[0, "<=", "col1", "<=", 9], [3, "<=", "col2", "<=", 8]]
-        >>> potato.applyRules()
-        >>> potato.indexes
-        [3, 4] # only the two last points respect the rules !
-
+        Returns
+        -------
+        bool
+            True if the potato has rules defined, False otherwise.
         """
-        self.state = Potato.SKR
-        """
-        rules = self.rules
-        df = self.dataset.X
-        for i in range(len(rules)):
-            regle1 = "df.loc[" + str(rules[i][0]) + rules[i][1] + "df['" + rules[i][2] + "']]"
-            regle2 = "df.loc[" + "df['" + rules[i][2] + "']" + rules[i][3] + str(rules[i][4]) + "]"
-            df = eval(regle1)
-            df = eval(regle2)
-        self.data = df
-        self.setIndexes(df.index)
-        """
-        solo_features = list(set([self.rules[i][2] for i in range(len(self.rules))]))
-        nombre_features_rules = []
-        for i in range(len(solo_features)):
-            nombre_features_rules.append([])
-        for i in range(len(self.rules)):
-            nombre_features_rules[solo_features.index(self.rules[i][2])].append(self.rules[i])
+        return self._rulesIdentified
 
-        nouvelle_tuile = self.atk.dataset.X.index
-        for i in range(len(nombre_features_rules)):
-            nouvelle_tuile_temp = []
-            for j in range(len(nombre_features_rules[i])):
-                X_temp = self.atk.dataset.X[
-                    (self.atk.dataset.X[nombre_features_rules[i][j][2]] >= nombre_features_rules[i][j][0])
-                    & (self.atk.dataset.X[nombre_features_rules[i][j][2]] <= nombre_features_rules[i][j][4])
-                ].index
-                nouvelle_tuile_temp = list(nouvelle_tuile_temp) + list(X_temp)
-                nouvelle_tuile_temp = list(set(nouvelle_tuile_temp))
-            nouvelle_tuile = [g for g in nouvelle_tuile if g in nouvelle_tuile_temp]
-
-        if self.indexes_from_map is not None:
-            nouvelle_tuile = [g for g in nouvelle_tuile if g in self.indexes_from_map]
-        if to_return:
-            return nouvelle_tuile
-        self.setIndexes(nouvelle_tuile)
-
-    def setIndexesFromMap(self, indexes:list) -> None:
+    def setAndApplySubModel(self, model : Model, score : float) :
         """
-        Function that sets the indexes of the potato from a map.
-
-        Parameters
-        ----------
-        indexes : list
-            The new indexes of the potato.
-        """
-        self.indexes_from_map = indexes
-        self.applyRules()
-
-    def setSubModel(self, model) -> None:
-        """
-        Function that sets the sub-model of the potato.
+        Function that sets the sub-model of the potato and apply it to the potato.
 
         Parameters
         ----------
         model : model object
             The new sub-model of the potato.
+        score : float
+            if not None, will be set otherwise will be computed
         """
-        self.sub_model["model"] = model
-        model.fit(self.data, self.y)
-        self.sub_model["score"] = model.score(self.data, self.y)
+        self._sub_model["model"] = model
+        model.fit(self.getVSValuesX(), self.getVSValuesY())
+        if score is None:
+            self._sub_model["score"] = model.score(self.getVSValuesX(), self.getVSValuesY())
+        else :
+            self._sub_model["score"] = score
 
     def getSubModel(self):
         """
-        Function that returns the sub-model of the potato.
+        Function that returns the sub-model of the potato : a dict "model" and "score".
 
         Returns
         -------
         dict
             The sub-model of the potato. Is the following format : {"model": model object, "score": score of the model}.
         """
-        return self.sub_model
+        return self._sub_model
     
-    def __transform_rules(self, rules, df):
-        rules = rules[0]
-        score = (round(rules[1][0], 3), round(rules[1][1], 3), rules[1][2])
+    @staticmethod
+    def _cleanSKRRules(self, rules, df):
+        """ Transforms a raw rules list from Skope Ryles into a pretty list
+        and returns the score of the rules.
+        """
+        rules = rules[0] # Only the 1st list is relevant
+        scoreTuple = (round(rules[1][0], 3), round(rules[1][1], 3), rules[1][2])
         rules = rules[0]
         rules = rules.split(" and ")
         rules_list = []
@@ -428,32 +411,43 @@ class Potato():
                 l[0] = round(float(rules[i][-1]), 3)
                 l[4] = round(float(max(df[l[2]])),3)
             rules_list.append(l)
-        return rules_list, score
+        return rules_list, scoreTuple
     
-    def __error_message(self, message:str):
-        print("AntakIA ERROR : " + message)
 
-    def applySkope(self, explanation, p:float = 0.7, r:float = 0.7):
+
+    def applySkopeRules(self, p:float = 0.7, r:float = 0.7): #317
         """
-        Function that applies the skope-rules algorithm to the dataset, in order to create a new selection.
-        Must be connected to the AntakIA object (for the explanation space).
+        Computes the Skope-rules algorithm for the Potato, in both VS and ES spaces.
 
         Parameters
         ----------
-        explanation : str
-            The name of the explanation to use.
-        p : float = 0.7
-            The minimum precision of the rules.
-        r : float = 0.7
-            The minimum recall of the rules.
+        p : float
+            The minimum precision of the rules, defaults to 0.7
+        r : float 
+            The minimum recall of the rules, defaults to 0.7
         """
-        if self.atk.explain[explanation] is None:
-            raise ValueError("You must provide a valid explanation space")
-        y_train = np.zeros(len(self.dataset.X))
-        y_train[self.indexes] = 1
+        
+        # We reintialize our Y mask list
+        self._yMaskList = np.zeros(self._dataset.__len__())
+        # We set it to 1 whenever the index is in the potato
+        self._yMaskList[self._indexes] = 1
 
-        skope_rules_clf = SkopeRules(
-            feature_names=self.dataset.X.columns,
+        # We fit the classifier on the whole Dataset
+        ourVSSkopeRulesClassifier = SkopeRules(
+            feature_names=self._dataset.getXValues().columns,
+            random_state=42,
+            n_estimators=5,
+            recall_min=r, # the only value we set
+            precision_min=p, # the only value we set
+            max_depth_duplication=0,
+            max_samples=1.0,
+            max_depth=3,
+        )
+        ourVSSkopeRulesClassifier.fit(self._dataset.getXValues(), self._yMaskList)
+
+        # Idem for ES space : we fit the classifier on the whole ExplainaitionsDataset
+        ourESSkopeRulesClassifier = SkopeRules(
+            feature_names=self._explanations.getValues(self._explanationMethod).columns,
             random_state=42,
             n_estimators=5,
             recall_min=r,
@@ -462,37 +456,60 @@ class Potato():
             max_samples=1.0,
             max_depth=3,
         )
-        skope_rules_clf.fit(self.dataset.X, y_train)
+        ourESSkopeRulesClassifier.fit(self._explanations.getValues(self._explanationMethod), self._yMaskList)
 
-        skope_rules_clf_exp = SkopeRules(
-            feature_names=self.atk.explain[explanation].columns,
-            random_state=42,
-            n_estimators=5,
-            recall_min=r,
-            precision_min=p,
-            max_depth_duplication=0,
-            max_samples=1.0,
-            max_depth=3,
-        )
-        skope_rules_clf_exp.fit(self.atk.explain[explanation], y_train)
-        if skope_rules_clf.rules_ == [] or skope_rules_clf_exp.rules_ == []:
-            self.rules, self.score_skope, self.rules_exp, self.score_skope_exp = None, None, None, None
-            self.success = False
-            self.__error_message("No rules found for this precision and recall")
+        if ourVSSkopeRulesClassifier.rules_ == [] or ourESSkopeRulesClassifier.rules_ == []:
+            self._theVSRules, self._theESRules = [], []
+            self._theVSScores, self._theESScores = 0, 0
+            self._rulesIdentified = False
+
         else :
-            self.rules, self.score = self.__transform_rules(skope_rules_clf.rules_, self.dataset.X)
-            self.rules_exp, self.score_exp = self.__transform_rules(skope_rules_clf_exp.rules_, self.atk.explain[explanation])
-            self.checkForDuplicates()
-            self.applyRules()
-            self.success = True
-            self.state = Potato.SKR
 
-    def checkForDuplicates(self):
+            self._theVSRules, self._theVSScores = Potato._cleanSKRRules(ourVSSkopeRulesClassifier.rules_, self._dataset.getXValues())
+            self._theESRules, self._theESScores = Potato._cleanSKRRules(ourESSkopeRulesClassifier.rules_, self._explanations.getValues(self._explanationMethod))
+            self.updateRulesForIntervals()
+            self.setIndexesWithRules()
+            self._rulesIdentified = True
+            self._type = Potato.SKR
+
+
+    # Previous name = applyRules
+    def setIndexesWithRules(self) -> list :
+
+        # TODO : it seems we're dealing with VS rules ?
+        solo_features = list(set([self._theVSRules[i][2] for i in range(len(self._theVSRules))]))
+        nombre_features_rules = []
+        for i in range(len(solo_features)):
+            nombre_features_rules.append([])
+        for i in range(len(self._theVSRules)):
+            nombre_features_rules[solo_features.index(self._theVSRules[i][2])].append(self._theVSRules[i])
+
+        newIndexes = self._indexes
+        for i in range(len(nombre_features_rules)):
+            newIndexesTemp = []
+            for j in range(len(nombre_features_rules[i])):
+                X_temp = self.atk.dataset.X[
+                    (self.atk.dataset.X[nombre_features_rules[i][j][2]] >= nombre_features_rules[i][j][0])
+                    & (self.atk.dataset.X[nombre_features_rules[i][j][2]] <= nombre_features_rules[i][j][4])
+                ].index
+                newIndexesTemp = list(newIndexesTemp) + list(X_temp)
+                newIndexesTemp = list(set(newIndexesTemp))
+            newIndexes = [g for g in newIndexes if g in newIndexesTemp]
+
+        # TODO : I don't understand this map thing
+        if self._mapIndexes is not None:
+            newIndexes = [g for g in newIndexes if g in self._mapIndexes]
+
+        self.setNewIndexes(newIndexes)
+        return newIndexes
+
+
+    def updateRulesForIntervals(self):
         """
         Function that checks if there are duplicates in the rules.
         A duplicate is a rule that has the same feature as another rule, but with a different threshold.
         """
-        features = [self.rules[i][2] for i in range(len(self.rules))]
+        features = [self._theVSRules[i][2] for i in range(len(self.rules))]
         features_alone = list(set(features))
         if len(features) == len(features_alone):
             return
@@ -500,20 +517,20 @@ class Potato():
             for feature in features:
                 if features.count(feature) > 1:
                     a=0
-                    for i in range(len(self.rules)):
+                    for i in range(len(self._theVSRules)):
                         min_feature = -10e99
                         max_feature = 10e99
-                        if self.rules[i-a][2] == feature:
-                            if self.rules[i-a][0] > min_feature:
+                        if self._theVSRules[i-a][2] == feature:
+                            if self._theVSRules[i-a][0] > min_feature:
                                 min_feature = self.rules[i-a][0]
-                            if self.rules[i-a][4] < max_feature:
-                                max_feature = self.rules[i-a][4]
-                            self.rules.pop(i-a)
+                            if self._theVSRules[i-a][4] < max_feature:
+                                max_feature = self._theVSRules[i-a][4]
+                            self._theVSRules.pop(i-a)
                             a+=1
-                    self.rules.append([min_feature, "<=", feature, "<=", max_feature])
+                    self._theVSRules.append([min_feature, "<=", feature, "<=", max_feature])
 
-        # same thing for the explanation space
-        features = [self.rules_exp[i][2] for i in range(len(self.rules_exp))]
+        # Same for ES
+        features = [self._theESRules[i][2] for i in range(len(self._theESRules))]
         features_alone = list(set(features))
         if len(features) == len(features_alone):
             return
@@ -521,19 +538,19 @@ class Potato():
             for feature in features:
                 if features.count(feature) > 1:
                     a=0
-                    for i in range(len(self.rules_exp)):
+                    for i in range(len(self._theESRules)):
                         min_feature = -10e99
                         max_feature = 10e99
-                        if self.rules_exp[i-a][2] == feature:
-                            if self.rules_exp[i-a][0] > min_feature:
-                                min_feature = self.rules_exp[i-a][0]
-                            if self.rules_exp[i-a][4] < max_feature:
-                                max_feature = self.rules_exp[i-a][4]
-                            self.rules_exp.pop(i-a)
+                        if self._theESRules[i-a][2] == feature:
+                            if self._theESRules[i-a][0] > min_feature:
+                                min_feature = self._theESRules[i-a][0]
+                            if self._theESRules[i-a][4] < max_feature:
+                                max_feature = self._theESRules[i-a][4]
+                            self._theESRules.pop(i-a)
                             a+=1
-                    self.rules_exp.append([min_feature, "<=", feature, "<=", max_feature])
+                    self._theESRules.append([min_feature, "<=", feature, "<=", max_feature])
 
-    def pretty_print(self, table, ch1="-", ch2="|", ch3="+"):
+    def prettyPrint(self, table, ch1="-", ch2="|", ch3="+"):
         le_max = 0
         for i in range(len(table)):
             table[i][2] = table[i][2].replace("_", " ")
@@ -573,11 +590,12 @@ class Potato():
     def printRules(self):
         """
         Function that prints the rules of the potato.
+        Note that we use VS Rules only
         """
-        if self.rules is None:
+        if self._theVSRules is None:
             print("No rules")
         else :
-            self.pretty_print(self.rules, ch3 = '-', ch2=" ")
+            self.prettyPrint(self.rules, ch3 = '-', ch2=" ")
 
     def respectOneRule(self, index:int):
         """
@@ -593,15 +611,15 @@ class Potato():
         pandas dataframe
             The dataframe containing the points of the dataset that respect only one rule of the list of rules.
         """
-        rules = self.rules
-        df = deepcopy(self.dataset.X)
-        regle1 = "df.loc[" + str(rules[index][0]) + rules[index][1] + "df['" + rules[index][2] + "']]"
-        regle2 = "df.loc[" + "df['" + rules[index][2] + "']" + rules[index][3] + str(rules[index][4]) + "]"
-        df = eval(regle1)
-        df = eval(regle2)
+        rules = self._theVSRules
+        df = deepcopy(self._dataset.getXValues())
+        rule1 = "df.loc[" + str(rules[index][0]) + rules[index][1] + "df['" + rules[index][2] + "']]"
+        rule2 = "df.loc[" + "df['" + rules[index][2] + "']" + rules[index][3] + str(rules[index][4]) + "]"
+        df = eval(rule1)
+        df = eval(rule2)
         return df
     
-    def toJson(self):
+    def toJSON(self):
         """
         Function that returns the potato in the form of a json file.
 
@@ -610,7 +628,7 @@ class Potato():
         json
             The potato in the form of a json file.
         """
-        return {"indexes": self.indexes, "state": self.state, "rules": self.rules, "score": self.score, "rules_exp": self.rules_exp, "score_exp": self.score_exp, "sub_model": self.sub_model, "success": self.success}
+        return {"indexes": self._indexes, "type": self._type, "VSrules": self._theVSRules, "VSScore": self._theVSScores, "ESrules": self._theESRules, "ESScore": self._theESScores, "sub_model": self.__sub_models, "success": self._rulesIdentified}
     
 def potatoFromJson(atk, json:dict) -> Potato:
     """
@@ -624,7 +642,7 @@ def potatoFromJson(atk, json:dict) -> Potato:
         The json file containing the potato.
     """
     potato = Potato(atk, [])
-    potato.setIndexes(json["indexes"])
+    potato.setNewIndexes(json["indexes"])
     potato.state = json["state"]
     potato.rules = json["rules"]
     potato.score = json["score"]

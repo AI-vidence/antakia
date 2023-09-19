@@ -5,16 +5,23 @@ from sklearn import linear_model
 from sklearn import ensemble
 
 
-from antakia.gui import GUI
-from antakia.data import Dataset
-from antakia.compute import DimensionalityReduction, ExplainationMethod
+from antakia.data import Dataset, ExplanationsDataset, ExplanationMethod, Model, DimReducMethod
 from antakia.potato import Potato
-from antakia.model import Model
-
+from antakia.gui import GUI
 
 import ipywidgets as widgets
 from IPython.display import display
 import ipyvuetify as v
+
+import logging
+from log_utils import OutputWidgetHandler
+logger = logging.getLogger(__name__)
+handler = OutputWidgetHandler()
+handler.setFormatter(logging.Formatter('antakia.py [%(levelname)s] %(message)s'))
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
+handler.clear_logs()
+handler.show_logs()
 
 class AntakIA():
     """
@@ -25,9 +32,11 @@ class AntakIA():
     Instance attributes
     -------------------
     __dataset : Dataset 
-        The Dataset object containing data and explained values
-    __model :Model
-            the model to explain
+        The Datase t object containing data and projected data
+    __explainDataset : ExplanationsDataset
+        The ExplanationsDataset object containing explained values and projected explained values
+    __model : Model
+        the model to explain
     __gui : an instance of the GUI class
         In charge of the user interface
     __regions : List
@@ -35,48 +44,47 @@ class AntakIA():
     __backups: dict
         A list of saved regions # TODO to be explained. Rather unclear for me for now
     __backups_path: str
-        #TODO : to be understand
     __sub_models: list
-        #TODO : to be understand
+
     """
 
-    # Class constants 
-    # TODO : we could use a config file ?
-    DEFAULT_EXPLANATION_METHOD = ExplainationMethod.SHAP
 
-
-
-    def __init__(self, dataset: Dataset, model : Model, backups: dict = None, backups_path: str = None):
+    def __init__(self, dataset: Dataset, model : Model, explainDataset : ExplanationsDataset = None, backups: dict = None, backups_path: str = None):
         '''
         Constructor of the class AntakIA.
 
         Parameters
         ----------
         dataset : Dataset object
-        backups: dict TODO : expliquer 
+        model : Model object
+        explainDataset : ExplanationsDataset object, defauly to None (no computation yet)
+        backups: dict of backups
         backups_path: str TODO : expliquer
         '''
 
         self.__dataset = dataset
         self.__model = model
+        self. __explainDataset = explainDataset # Defaults to None
         self.__regions = [] #empty list of Potatoes
         self.__gui = None
         self.__backups_path = backups_path
 
         # TODO : understand ths saves thing
-        if saves is not None:
+        if backups is not None:
             self.__backups = backups 
         elif backups_path is not None:
-            self.__backups = utils.load_save(self, backups_path)
+            self.__backups = utils.loadBackup(self, backups_path)
         else:
-            self.__saves = []
+            self.__backups = []
+
+        # TODO : compute Y_pred here
 
         self.__sub_models =  [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
 
 
 
 
-    def startGUI(self, defaultProjection: int = DimensionalityReduction.PacMAP, display = True):
+    def startGUI(self, defaultProjection: int = DimReducMethod.PaCMAP) -> GUI :
         """
         Function that instantiates the GUI and calls its display() function.
         For more information, please see the documentation of the class GUI.
@@ -90,10 +98,11 @@ class AntakIA():
         display : bool
             If True, the interface is displayed. Else, You can access the interface with the attribute gui of the class.
         """
-        self.gui = GUI(self, defaultProjection) 
+        self.__gui = GUI(self.__dataset, self.__model, self.__explainDataset)
 
-        if display:
-            self.gui.display()
+        logger.debug("Just created GUI")
+
+        return self.__gui
 
 # ========= Getters  ===========
 
@@ -106,7 +115,7 @@ class AntakIA():
         GUI object
             The GUI object.
         """
-        return self.gui
+        return self.__gui
 
     def getRegions(self) -> list:
         """
@@ -117,15 +126,15 @@ class AntakIA():
         list
             The list of the regions computed. A region is a list of AntakIA objects, named `Potato`.
         """
-        return self.regions
+        return self.__regions
     
     def resetRegions(self):
         """
         Function that resets the list of the regions computed by the user.
         """
-        self.regions = []
+        self.__regions = []
     
-    def getSaves(self) -> list:
+    def getBackups(self) -> list:
         """
         Function that returns the list of the saves.
 
@@ -134,21 +143,31 @@ class AntakIA():
         list
             The list of the saves. A save is a list of regions.
         """
-        return self.saves
+        return self.__backups
 
     
     def getDataset(self) -> Dataset:
         """
-        Function that returns the Dataset object containing the data, the ML medel to explain
-        and the explanatory values.
+        Returns the Dataset object containing the data and their projected values.
 
         Returns
         -------
         Dataset object
             The Dataset object.
         """
-        return self.dataset
+        return self.__dataset
     
+    def getExplainationDataset(self) -> ExplanationsDataset:
+        """
+        Returns the ExplanationsDataset object containing the explained data and their projected values.
+
+        Returns
+        -------
+        ExplanationDataset object
+            The ExplanationsDataset object.
+        """
+        return self.__explainDataset
+
     def newRegion(self, potato: Potato):
         """
         Function that adds a region to the list of regions.
@@ -162,7 +181,8 @@ class AntakIA():
 
     def getModel(self) -> Model :
         return self.__model
-    
 
-# A Protéger !!
+    def getSubModels(self) -> list:
+        return self.__sub_models 
+
 
