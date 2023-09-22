@@ -4,30 +4,27 @@ GUI Factory for AntakIA components
 
 
 from ipywidgets import widgets, Layout
-
 import ipyvuetify as v
+import plotly.graph_objects as go
+
 
 import pandas as pd
 import numpy as np
-import webbrowser
-import time
-from importlib.resources import files
-import json
-import plotly.graph_objects as go
-
-from copy import deepcopy
-
-from antakia.data import *
 
 import os
-
+import time
 import logging
-from log_utils import OutputWidgetHandler
+from logging import getLogger
+from importlib.resources import files
+import json
+from copy import deepcopy
+
+from antakia.data import Dataset, ExplanationsDataset
+from antakia.utils import confLogger
+
+
 logger = logging.getLogger(__name__)
-handler = OutputWidgetHandler()
-handler.setFormatter(logging.Formatter('guiFactory.py [%(levelname)s] %(message)s'))
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
 
@@ -90,7 +87,7 @@ def createRow(text, element) -> v.VuetifyWidget :
         )
     return widget
 
-def createOtherPB(titre) -> v.VuetifyWidget :
+def createProgressLinearColumn(methodName) -> v.VuetifyWidget :
     pb = v.ProgressLinear(
         style_="width: 80%",
         v_model=0,
@@ -104,7 +101,7 @@ def createOtherPB(titre) -> v.VuetifyWidget :
                 v.Html(
                     tag="h3",
                     class_="mb-3",
-                    children=["Compute " + titre + " values"],
+                    children=["Compute " + methodName + " values"],
             ),
             pb,
             v.TextField(
@@ -117,7 +114,7 @@ def createOtherPB(titre) -> v.VuetifyWidget :
                 children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"],
                 class_="ma-2 ml-6 pa-3",
                 elevation="3",
-                v_model=titre,
+                v_model=methodName,
                 color="primary",
             ),
         ],
@@ -136,8 +133,8 @@ def SliderParam(v_model, min, max, step, label):
         )
     return widget
 
-def colorChooser():
-    color_radio = v.BtnToggle(
+def createColorChoiceBtnToggle():
+    colorChoiceBtnToggle = v.BtnToggle(
         color="blue",
         mandatory=True,
         v_model="Y",
@@ -183,37 +180,37 @@ def colorChooser():
     )
 
     # added all tooltips!
-    color_radio.children[0].children = [
-        wrap_in_a_tooltip(color_radio.children[0].children[0], "Real values")
+    colorChoiceBtnToggle.children[0].children = [
+        wrap_in_a_tooltip(colorChoiceBtnToggle.children[0].children[0], "Real values")
     ]
-    color_radio.children[1].children = [
-        wrap_in_a_tooltip(color_radio.children[1].children[0], "Predicted values")
+    colorChoiceBtnToggle.children[1].children = [
+        wrap_in_a_tooltip(colorChoiceBtnToggle.children[1].children[0], "Predicted values")
     ]
-    color_radio.children[2].children = [
-        wrap_in_a_tooltip(color_radio.children[2].children[0], "Residuals")
+    colorChoiceBtnToggle.children[2].children = [
+        wrap_in_a_tooltip(colorChoiceBtnToggle.children[2].children[0], "Residuals")
     ]
-    color_radio.children[3].children = [
+    colorChoiceBtnToggle.children[3].children = [
         wrap_in_a_tooltip(
-            color_radio.children[3].children[0],
+            colorChoiceBtnToggle.children[3].children[0],
             "Selected points",
         )
     ]
-    color_radio.children[4].children = [
-        wrap_in_a_tooltip(color_radio.children[4].children[0], "Region created")
+    colorChoiceBtnToggle.children[4].children = [
+        wrap_in_a_tooltip(colorChoiceBtnToggle.children[4].children[0], "Region created")
     ]
-    color_radio.children[5].children = [
+    colorChoiceBtnToggle.children[5].children = [
         wrap_in_a_tooltip(
-            color_radio.children[5].children[0],
+            colorChoiceBtnToggle.children[5].children[0],
             "Points that belong to no region",
         )
     ]
-    color_radio.children[6].children = [
+    colorChoiceBtnToggle.children[6].children = [
         wrap_in_a_tooltip(
-            color_radio.children[6].children[0],
+            colorChoiceBtnToggle.children[6].children[0],
             "Automatic dyadic-clustering result",
         )
     ]
-    return color_radio
+    return colorChoiceBtnToggle
 
 def createMenuBar():
     """
@@ -224,7 +221,7 @@ def createMenuBar():
         v_model=700,
         min=200,
         max=1200,
-        label="Size of the figures (in pixels)",
+        label="With of both scattered plots (in pixels)",
     )
 
     figureSizeSliderIntText = widgets.IntText(
@@ -383,7 +380,7 @@ def createBackupsGUI(backupBtn : v.Btn ,ourbackups : list, initialNumBackups : i
         #     self._leftVSFigure3D.data[0].marker.color = color
         # with self._rightESFigure3D.batch_update():
         #     self._rightESFigure3D.data[0].marker.color = color
-        # colorSelectionBtns.v_model = "Regions"
+        # colorChoiceBtnToggle.v_model = "Regions"
         # self._leftVSFigure.update_traces(marker=dict(showscale=False))
         # self._rightESFigure.update_traces(marker=dict(showscale=False))
         # newRegionValidated()
@@ -674,24 +671,25 @@ def createSkopeCard():
 
 # ------
 
-def createFeatureSelector(ds : Dataset, colName, min=1, max=-1, fig_size=700):
-    featureList = list(set(ds.getXValues(Dataset.CURRENT)[colName]))
-    returnList = []
-    for i in range(len(featureList)):
-        if featureList[i] <= max and featureList[i] >= min:
-            le_bool = True
-        else:
-            le_bool = False
-        widget = v.Checkbox(
-            class_="ma-4",
-            v_model=le_bool,
-            label=str(featureList[i]).replace("_", " "),
+# def createFeatureSelector(ds : Dataset, colName, min=1, max=-1, fig_size=700):
+#     # TODO understand what this does
+#     featureList = list(set(ds.getXValues(Dataset.CURRENT)[colName]))
+#     returnList = []
+#     for i in range(len(featureList)):
+#         if featureList[i] <= max and featureList[i] >= min:
+#             le_bool = True
+#         else:
+#             le_bool = False
+#         widget = v.Checkbox(
+#             class_="ma-4",
+#             v_model=le_bool,
+#             label=str(featureList[i]).replace("_", " "),
 
-        )
-        returnList.append(widget)
-    row = v.Row(class_ = "ml-6 ma-3", children=returnList)
-    text = v.Html(tag="h3", children=["Select the values of the feature " + colName])
-    return v.Layout(class_= "d-flex flex-column align-center justify-center", style_="width: "+str(int(fig_size)-70)+"px; height: 303px", children=[v.Spacer(), text, row])
+#         )
+#         returnList.append(widget)
+#     row = v.Row(class_ = "ml-6 ma-3", children=returnList)
+#     text = v.Html(tag="h3", children=["Select the values of the feature " + colName])
+#     return v.Layout(class_= "d-flex flex-column align-center justify-center", style_="width: "+str(int(fig_size)-70)+"px; height: 303px", children=[v.Spacer(), text, row])
 
 def createSubModelsSlides(models: list):
     sModelsSlide = []
@@ -828,7 +826,7 @@ def createBeeswarms(expDS : ExplanationsDataset, explainMethod : int, figureSize
     )
 
     # TODO : we should use the Explanation method stored in GUI.__explanationES
-    expValues = expDS.getValues(explainMethod),DimReducMethod.NONE, DimReducMethod.DIM_ALL
+    expValues = expDS.getValues(explainMethod), None, None
     expValuesHistogram = [0] * len(expValues)
 
     beeswarm1 = go.FigureWidget(
@@ -1206,7 +1204,7 @@ def createSettingsMenu(children, text):
     ]
     return settingsMenu
 
-def time_computing(new_prog_SHAP, new_prog_LIME):
+def computeExplanationsCard(ourSHAPProgLinearColumn, ourLIMEProgLinearColumn):
     widget = v.Card(
         class_="m-0 p-0",
         elevation="0",
@@ -1215,8 +1213,8 @@ def time_computing(new_prog_SHAP, new_prog_LIME):
                 class_="w-100",
                 v_model="tabs",
                 children=[
-                    v.Tab(value="one", children=["SHAP"]),
-                    v.Tab(value="two", children=["LIME"]),
+                    v.Tab(value="one", children=["SHAP (computed)"]),
+                    v.Tab(value="two", children=["LIME (computed)"]),
                 ],
             ),
             v.CardText(
@@ -1226,8 +1224,8 @@ def time_computing(new_prog_SHAP, new_prog_LIME):
                         class_="w-100",
                         v_model="tabs",
                         children=[
-                            v.WindowItem(value=0, children=[new_prog_SHAP]),
-                            v.WindowItem(value=1, children=[new_prog_LIME]),
+                            v.WindowItem(value=0, children=[ourSHAPProgLinearColumn]),
+                            v.WindowItem(value=1, children=[ourLIMEProgLinearColumn]),
                         ],
                     )
                 ],

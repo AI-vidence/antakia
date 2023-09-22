@@ -9,19 +9,15 @@ from IPython.display import display
 from sklearn.preprocessing import StandardScaler
 
 from abc import ABC, abstractmethod
-from typing import Tuple
 import time
 from copy import deepcopy
-from pubsub import pub
-
-
 import logging
-from log_utils import OutputWidgetHandler
+from logging import getLogger
+
+from antakia.utils import confLogger, ThreadedEventChannel, compChannel
+
 logger = logging.getLogger(__name__)
-handler = OutputWidgetHandler()
-handler.setFormatter(logging.Formatter('data.py [%(levelname)s] %(message)s'))
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
 
@@ -45,44 +41,48 @@ class LongTask(ABC):
     _longTaskType : int
         Can be LongTask.EXPLAINATION or LongTask.DIMENSIONALITY_REDUCTION   
     _X : dataframe
-    _X_all : dataframe
     _progress : int
         The progress of the long task, between 0 and 100.
     '''
 
     # Class attributes : LongTask types
-    EXPLAINATION = 1
+    EXPLANATION = 1
     DIMENSIONALITY_REDUCTION = 2
 
-    def __init__(self, longTaskType : int, X : pd.DataFrame, X_all: pd.DataFrame = None) :
+    def __init__(self, longTaskType : int, X : pd.DataFrame) :
         if not LongTask.isValidLongTaskType(longTaskType) :
             raise ValueError(longTaskType, " is a bad long task type")
         if X is None :
                 raise ValueError("You must provide a dataframe for a LongTask")
         self._longTaskType = longTaskType
         self._X = X
-        self._X_all = X_all
         self._progress = 0
 
+        # We initialize compChannel :
+        compChannel = ThreadedEventChannel()
 
     def getX(self) -> pd.DataFrame :
         return self._X
-
-    def getX_all(self) -> pd.DataFrame :
-        return self._X_all
     
     def getProgress(self) -> int:
+        logger.debug(f"LongTask.getProgress : returning {self._progress}")
         return self._progress
 
-    def setProgress(self, prog:int) :
-        self._progress = prog
+    def setProgress(self, progress : int) :
+        """
+        Method to send the progress of the long task.
 
-    @staticmethod
-    def isValidLongTaskType(type: int) -> bool:
+        Parameters
+        ----------
+        progress : int
+            An integer between 0 and 100.
         """
-        Returns True if the type is a valid LongTask type.
-        """
-        return type == LongTask.EXPLAINATION or type == LongTask.DIMENSIONALITY_REDUCTION
+        self._progress
+
+        if compChannel is None :
+            compChannel = ThreadedEventChannel()
+        compChannel.publish(self.getTopic(), progress=self._progress)
+        logger.debug(f"LongTask.setProgress :  progress = {self._progress} on topic {self.getTopic()}") 
 
     @abstractmethod
     def getTopic(self) -> str:
@@ -93,6 +93,19 @@ class LongTask(ABC):
             str: a Topic for pubsub
         """
         pass
+
+    def __call__(self) : 
+        logger.debug(f"LongTask.__call__ : I'm going to upadte the subscriber")
+        self.setProgress(self._progress)
+
+    @staticmethod
+    def isValidLongTaskType(type: int) -> bool:
+        """
+        Returns True if the type is a valid LongTask type.
+        """
+        return type == LongTask.EXPLANATION or type == LongTask.DIMENSIONALITY_REDUCTION
+
+
     
     def getLongTaskType(self) -> int:
         return self._longTaskType
@@ -104,18 +117,6 @@ class LongTask(ABC):
         """
         pass
 
-    def sendProgress(self) :
-        """
-        Method to send the progress of the long task.
-
-        Parameters
-        ----------
-        progress : int
-            An integer between 0 and 100.
-        """
-        pub.sendMessage(self.getTopic(), progress=self._progress)
-
-
 class ExplanationMethod(LongTask):
     """
     Abstract class (see Long Task) to compute explaination values for the Explanation Space (ES)
@@ -126,20 +127,28 @@ class ExplanationMethod(LongTask):
     """
 
     # Class attributes types
-    NONE=-1
     SHAP = 0
     LIME = 1
-    OTHER = 2 
 
-    # TODO : we could use a config file ?
-    DEFAULT_EXPLANATION_METHOD = SHAP
-
-    def __init__(self, explainationType : int, X  : pd.DataFrame, X_all : pd.DataFrame, model : Model = None, userComputedValuesForProjection : bool = True) :
+    def __init__(self, explainationType : int, X  : pd.DataFrame, model : Model = None, userComputedValuesForProjection : bool = True) :
         # TODO : do wee need X_all ?
-        super().__init__(LongTask.EXPLAINATION,  X, X_all)
+        super().__init__(LongTask.EXPLANATION,  X)
         self._model = model
         self._explainationType = explainationType
-        
+    
+    # Overloading the setProgress
+    def setProgress(self, progress : int) :
+        """
+        Method to send the progress of the long task.
+
+        Parameters
+        ----------
+        progress : int
+            An integer between 0 and 100.
+        """
+        self._progress = progress
+        compChannel.publish(self.getTopic(), progress=self._progress)
+
     def getModel(self) -> Model:
         return self._model
 
@@ -148,7 +157,7 @@ class ExplanationMethod(LongTask):
         """
         Returns True if the type is a valid explanation type.
         """
-        return type == ExplanationMethod.SHAP or type == ExplanationMethod.LIME or type == ExplanationMethod.OTHER
+        return type == ExplanationMethod.SHAP or type == ExplanationMethod.LIME
 
     def getTopic(self) -> str:
         """Required by pubssub.
@@ -157,8 +166,7 @@ class ExplanationMethod(LongTask):
         Returns:
             str: a Topic for pubsub
         """
-        return str(LongTask.EXPLAINATION) + "/" + str(self._explainationType)
-
+        return ExplanationMethod.getExplanationMethodAsStr(self._explainationType)
 
     @staticmethod
     def getExplanationMethodsAsList() -> list :
@@ -170,10 +178,6 @@ class ExplanationMethod(LongTask):
             return "SHAP"
         elif type == ExplanationMethod.LIME :
             return "LIME"
-        elif type == ExplanationMethod.OTHER :
-            return "OTHER"
-        elif type == ExplanationMethod.NONE :
-            return "NONE"
         else :
             raise ValueError(type," is a bad explaination type")
 
@@ -188,38 +192,63 @@ class DimReducMethod(LongTask):
     _dimension : int
         Dimension reduction methods require a dimension parameter
         We store it in the abstract class
-    _X_all : pd.DataFrame
     """
+    # Class attributes types
 
-    NONE = 0
+    VS = 0
+    ES = 1 # Shoud not be allowed
+    ES_SHAP = 3
+    ES_LIME = 4
+
     PCA = 1
     TSNE = 2
     UMAP = 3
     PaCMAP = 4
 
-    DIM_ALL = -1
     DIM_TWO = 2
     DIM_THREE = 3
 
-    def __init__(self, dimReducType : int , dimension : int, X : pd.DataFrame, X_all : pd.DataFrame) :
+    def __init__(self, baseSpace : int, dimReducType : int , dimension : int, X : pd.DataFrame) :
         """
         Constructor for the DimReducMethod class.
 
         Parameters
         ----------
-        longTaskType : int
-            need by LongType consturctor
-        X, X_all : pd.DataFrame
-            idem
+        baseSpace : int
+            Can be : VS, ES.SHAP or ES.LIME
+            We store it here (not in implementation class)
+        dimeReducType : int
+            Dimension reduction methods among DimReducMethod.PCA, DimReducMethod.TSNE, DimReducMethod.UMAP or DimReducMethod.PaCMAP
+            We store it here (not in implementation class)
         dimension : int
-            Dimension reduction methods require a dimension parameter
-            We store it in the abstract class
-        
+            Target dimension. Can be DIM_TWO or DIM_THREE
+            We store it here (not in implementation class)
+        X : pd.DataFrame
+            Stored in LongTask instance  
     """
+        assert baseSpace is not DimReducMethod.ES
+        logger.debug(f"DimReducMethod.__init__ baseSpace received = {baseSpace}")
+        self._baseSpace = baseSpace
+        logger.debug(f"DimReducMethod.__init__ new I've stored self._baseSpace = {self._baseSpace}")
         self._dimReducType = dimReducType
         self._dimension = dimension
 
-        LongTask.__init__(self, LongTask.DIMENSIONALITY_REDUCTION, X, X_all)
+        LongTask.__init__(self, LongTask.DIMENSIONALITY_REDUCTION, X)
+
+
+    def getBaseSpace(self) -> int:
+        logger.debug(f"DimReducMethod.getBaseSpace : self.__baseSpace = {self._baseSpace}")
+        return self._baseSpace
+
+    
+    @staticmethod
+    def getESBaseSpace(explainMethod : int) -> int :
+        if explainMethod == ExplanationMethod.SHAP :
+            return DimReducMethod.ES_SHAP
+        elif explainMethod == ExplanationMethod.LIME :
+            return DimReducMethod.ES_LIME
+        else :
+            raise ValueError(explainMethod, " is a bad explaination method")    
 
     def getDimReducType(self) -> int:
         return self._dimReducType
@@ -227,17 +256,6 @@ class DimReducMethod(LongTask):
     def getDimension(self) -> int:
         return self._dimension
 
-    @staticmethod
-    def getDimensionAsStr(dim) -> str:
-        if dim == DimReducMethod.DIM_ALL :
-            return "ALL"
-        elif dim == DimReducMethod.DIM_TWO :
-            return "2D"
-        elif dim == DimReducMethod.DIM_THREE :
-            return "3D"
-        else :
-            return None
-    
     def getTopic(self) -> str:
         """Required by pubssub.
         Identifier for the long task being computed.
@@ -245,10 +263,22 @@ class DimReducMethod(LongTask):
         Returns:
             str: a Topic for pubsub
         """
-        return str(LongTask.DIMENSIONALITY_REDUCTION) + "/" + str(self._dimReducType)+ "/" + str(self._dimension)
+        # Should look like "VS/PCA/2D" or "ES.SHAP/t-SNE/3D"
+        return DimReducMethod.getBaseSpaceAsStr(self.getBaseSpace()) + "/" + DimReducMethod.getDimReducMethodAsStr(self.getDimReducType()) + "/" + DimReducMethod.getDimensionAsStr(self.getDimension())
 
     @staticmethod
-    def getDimReducMehtodAsStr(type : int) -> str :
+    def getBaseSpaceAsStr(baseSpace : int) -> str:
+        if baseSpace == DimReducMethod.VS :
+            return "VS"
+        elif baseSpace == DimReducMethod.ES_SHAP :
+            return "ES_SHAP"
+        elif baseSpace == DimReducMethod.ES_LIME :
+            return "ES_LIME"
+        else :
+            raise ValueError(baseSpace, " is a bad base space")
+
+    @staticmethod
+    def getDimReducMethodAsStr(type : int) -> str :
         if type == DimReducMethod.PCA :
             return "PCA"
         elif type == DimReducMethod.TSNE :
@@ -257,35 +287,56 @@ class DimReducMethod(LongTask):
             return "UMAP"
         elif type == DimReducMethod.PaCMAP :
             return "PaCMAP"
-        else :
+        elif type is None :
             return None
+        else :
+            raise ValueError(type, " is an invalid dimensionality reduction method")
 
     @staticmethod
-    def getDimReducMhdsAsList() -> list :
+    def getDimReducMethodAsInt(type : str) -> int :
+        if type == "PCA" :
+            return DimReducMethod.PCA
+        elif type == "t-SNE" :
+            return DimReducMethod.TSNE
+        elif type == "UMAP" :
+            return DimReducMethod.UMAP
+        elif type == "PaCMAP" :
+            return DimReducMethod.PaCMAP
+        elif type is None :
+            return None
+        else :
+            raise ValueError(type, " is an invalid dimensionality reduction method")
+
+    @staticmethod
+    def getDimReducMethodsAsList() -> list :
         return [DimReducMethod.PCA, DimReducMethod.TSNE, DimReducMethod.UMAP, DimReducMethod.PaCMAP]
 
     @staticmethod
-    def getDimReducMhdsAsStrList() -> list :
-        list = []
-        for i in range(5):
-            item = DimReducMethod.getDimReducMehtodAsStr(i)
-            if item is not None :
-                list.append(item)    
-        return list
+    def getDimReducMethodsAsStrList() -> list :
+        return ["PCA", "t-SNE", "UMAP", "PaCMAP"]
 
+    @staticmethod
+    def getDimensionAsStr(dim) -> str:
+        if dim == DimReducMethod.DIM_TWO :
+            return "2D"
+        elif dim == DimReducMethod.DIM_THREE :
+            return "3D"
+        else :
+            raise ValueError(dim, " is a bad dimension")
+    
     @staticmethod
     def isValidDimReducType(type:int) -> bool:
         """
         Returns True if the type is a valid dimensionality reduction type.
         """
-        return type == DimReducMethod.PCA or type == DimReducMethod.TSNE or type == DimReducMethod.UMAP or type == DimReducMethod.PaCMAP or type == DimReducMethod.NONE
+        return type == DimReducMethod.PCA or type == DimReducMethod.TSNE or type == DimReducMethod.UMAP or type == DimReducMethod.PaCMAP
 
     @staticmethod
     def isValidDimNumber(type:int) -> bool:
         """
         Returns True if the type is a valid dimension number.
         """
-        return type == DimReducMethod.DIM_ALL or type == DimReducMethod.DIM_TWO or type == DimReducMethod.DIM_THREE
+        return  type == DimReducMethod.DIM_TWO or type == DimReducMethod.DIM_THREE
 
 
 # ================================================
@@ -424,10 +475,13 @@ class Dataset():
             The X values for the given flavour
         """    
         if flavour == Dataset.CURRENT :
+            logger.debug(f"Dataset.getXValues returns CURRENT flavour : {self._X.shape[0]} observations with {self._X.shape[1]} features each")
             return self._X
         elif flavour == Dataset.ALL :
+            logger.debug(f"Dataset.getXValues returns ALL flavour : {self._X_all.shape[0]} observations with {self._X_all.shape[1]} features each")
             return self._X_all
         elif flavour == Dataset.SCALED :
+            logger.debug(f"Dataset.getXValues returns SCALED flavour : {self._X_scaled.shape[0]} observations with {self._X_scaled.shape[1]} features each")
             return self._X_scaled
         else :
             raise ValueError("Bad flavour value")
@@ -457,10 +511,17 @@ class Dataset():
         """
         if not DimReducMethod.isValidDimReducType(dimReducMethodType) :
                 raise ValueError("Bad dimensionality reduction type")
-        
         if not DimReducMethod.isValidDimNumber(dimension) :
                 raise ValueError("Bad dimension number")
 
+        if dimReducMethodType not in self._X_proj :
+            logger.debug(f"Dataset.getXProjValues : {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} not in our dict; None is returned")
+            return None
+        if dimension not in self._X_proj[dimReducMethodType] :
+            logger.debug(f"Dataset.getXProjValues : diomension {dimension} not in our dict; None is returned")
+
+            return None
+        logger.debug(f"Dataset.getXProjValues returns {len(self._X_proj[dimReducMethodType][dimension])} observations projected with {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} in {dimension} dimensions")
         return self._X_proj[dimReducMethodType][dimension]
     
 
@@ -474,9 +535,12 @@ class Dataset():
                 raise ValueError("Bad dimension number")
         
         if dimReducMethodType not in self._X_proj :
+            logger.debug(f"Dataset.setXProjValues : we had nothing for {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} so we create a new dict")
             self._X_proj[dimReducMethodType] = {} # We create a new dict for this dimReducMethodType
         if dimension not in self._X_proj[dimReducMethodType] :
+            logger.debug(f"Dataset.setXProjValues : we had a dict for {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} but not in {dimension} dimensions")
             self._X_proj[dimReducMethodType][dimension] = {} # We create a new dict for this dimension
+            logger.debug(f"Dataset.setXProjValues : ok I set {len(values)} values in our {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} x {dimension} dict")
         self._X_proj[dimReducMethodType][dimension] = values
         #  TODO We could log this assignment
 
@@ -486,11 +550,37 @@ class Dataset():
         Returns the y values of the dataset as a Series, depending on the flavour.
         """
         if flavour == Dataset.TARGET :
+            logger.debug(f"Dataset.getYValues : we return TARGET flavour, 1 column with {len(self._y)} values")
             return self._y
         elif flavour == Dataset.PREDICTED :
+            if self._y_pred is None :
+                logger.debug("Dataset.getYValues called for PREDICTED y values but I don't have them. Returning None")
+            else :
+                logger.debug(f"Dataset.getYValues : we return PREDICTED flavour, 1 column with {len(self._y_pred)} values")
             return self._y_pred
         else :
             raise ValueError("Bad flavour value for Y")
+
+    def setYValues(self, y :pd.Series, flavour : int = TARGET) :
+        """
+        Sets the y values of the dataset as a Series, depending on the flavour.
+        """
+        if type(y) is int :
+                raise ValueError(f"Dataset.setYValues you must provide a Pandas Series, not an int)")  
+        if y is None :
+            logger.debug(f"Dataset.setYValues : y Series is None !")
+        else :
+            if len(y) == 0 :
+                logger.debug(f"Dataset.setYValues : y Series has no values !")
+            else :
+                if flavour == Dataset.TARGET :
+                    logger.debug(f"Dataset.setYValues : setting {len(y)} Y values as TARGET ")
+                    self._y = y
+                elif flavour == Dataset.PREDICTED :
+                    logger.debug(f"Dataset.setYValues : setting {len(y)} Y values as PREDICTED ")
+                    self._y_pred = y
+                else :
+                    raise ValueError("Bad flavour value for Y")
 
 
     def getShape(self):
@@ -542,80 +632,6 @@ class Dataset():
             The name of the longitude column.
         """
         return (self._lat, self._long)
-
-    # def improve(self):
-    #     """
-    #     Improves the dataset. 
-
-    #     # TODO : shoudl be in the gui module
-
-    #     Displays a widget to modify the dataset. For each feature, you can change its name, its type, its comment and if it is sensible or not.
-
-    #     You also have the access to the general informations of the dataset.
-    #     """
-    #     general_infos = v.Row(class_="ma-2", children=[
-    #         v.Icon(children=["mdi-database"], size="30px"),
-    #         v.Html(tag="h3", class_="mb-3 mt-3 ml-4", children=[
-    #             str(self.X.shape[0]) + " observations, " + str(self.X.shape[1]) + " features"
-    #             ])])
-    #     liste_slides = []
-    #     for i in range(self.X.shape[1]):
-    #         infos = [min(self.X.iloc[:,i]), max(self.X.iloc[:,i]), np.mean(self.X.iloc[:,i]), np.std(self.X.iloc[:,i])]
-    #         infos = [round(infos[j], 3) for j in range(len(infos))]
-    #         liste_slides.append(guiFactory.create_slide_dataset(self.X.columns[i], i+1, self.X.dtypes[i], len(self.X.columns), self.comments[i], self.sensible[i], infos))
-
-    #     slidegroup = v.SlideGroup(
-    #         v_model=None,
-    #         class_="ma-3 pa-3",
-    #         elevation=4,
-    #         center_active=True,
-    #         show_arrows=True,
-    #         children=liste_slides,
-    #     )
-
-    #     def changement_sensible(widget, event, data):
-    #         i = int(widget.class_)-1
-    #         if widget.v_model :
-    #             liste_slides[i].children[0].color = "red lighten-5"
-    #             self.sensible[i] = True
-    #         else:
-    #             liste_slides[i].children[0].color = "white"
-    #             self.sensible[i] = False
-
-    #     def changement_names(widget, event, data):
-    #         i = widget.value-1
-    #         self.X = self.X.rename(columns={self.X.columns[i]: widget.v_model})
-
-    #     def changement_type(widget, event, data):
-    #         i = widget.value-1
-    #         widget2 = liste_slides[i].children[0].children[-1].children[1].children[0]
-    #         try :
-    #             self.X = self.X.astype({self.X.columns[i]: widget2.v_model})
-    #         except:
-    #             print("The type of the column " + self.X.columns[i] + " cannot be changed to " + widget2.v_model)
-    #             widget.color = "error"
-    #             time.sleep(2)
-    #             widget.color = ""
-    #         else:
-    #             widget.color = "success"
-    #             time.sleep(2)
-    #             widget.color = ""
-
-    #     def changement_comment(widget, event, data):
-    #         i = widget.value-1
-    #         self.comments[i] = widget.v_model
-
-    #     for i in range(len(liste_slides)):
-    #         liste_slides[i].children[0].children[-1].children[2].on_event("change", changement_sensible)
-    #         liste_slides[i].children[0].children[-1].children[3].on_event("change", changement_comment)
-    #         liste_slides[i].children[0].children[0].children[0].on_event("change", changement_names)
-    #         liste_slides[i].children[0].children[-1].children[1].children[-1].on_event("click", changement_type)
-
-    #     widget = v.Col(children=[
-    #         general_infos,
-    #         slidegroup,
-    #     ])
-    #     display(widget)
 
 # =============================================================================
 
@@ -694,7 +710,8 @@ class ExplanationsDataset():
         else :
             raise ValueError("explanationType must be ExplainedValues.SHAP or ExplainedValues.LIME")
 
-    def getValues(self, explainationMethodType:int, dimReducMethodType:int=DimReducMethod.NONE, dimension:int = DimReducMethod.DIM_ALL, onlyImported : bool = False) -> pd.DataFrame:
+
+    def getValues(self, explainationMethodType:int, dimReducMethodType:int=None, dimension:int = None, onlyImported : bool = False) -> pd.DataFrame:
         """
         Returns the explanations values of the ExplanationsDataset.
 
@@ -705,7 +722,7 @@ class ExplanationsDataset():
         DimReducMethodType : int
             Must be DimReducMethod.PCA, DimReducMethod.TSNE, DimReducMethod.UMAP or DimReducMethod.PaCMAP. Can be none if we want the whole dataframe.
         dimension : int 
-            The dimension of the projection (2 or 3). Can be None or DIM_ALL
+            The dimension of the projection (2 or 3). Can be None
 
         Returns
         -------
@@ -714,39 +731,42 @@ class ExplanationsDataset():
             Returns None if not computed yet.
         """
 
-        if not DimReducMethod.isValidDimReducType(dimReducMethodType) :
+        if dimReducMethodType is not None and not DimReducMethod.isValidDimReducType(dimReducMethodType) :
             raise ValueError(dimReducMethodType," is a bad dimensionality reduction type")
-        if not DimReducMethod.isValidDimNumber(dimension) :
+        if dimension is not None and not DimReducMethod.isValidDimNumber(dimension) :
             raise ValueError(dimension, " is a bad dimension number")
         
 
         if explainationMethodType==ExplanationMethod.SHAP :
-            if (dimension == DimReducMethod.DIM_ALL or dimension is None) or dimReducMethodType is None :
-                # Our caller is not interested in SHAP projected values
+            if dimension is None or dimReducMethodType is None :
                 if ExplanationsDataset.COMPUTED in self._shapValues and not onlyImported :
-                    return self._shapValues[ExplanationsDataset.COMPUTED] # We return computed values first
+                    df = self._shapValues[ExplanationsDataset.COMPUTED]
+                    return df # We return computed values first
                 elif ExplanationsDataset.IMPORTED in self._shapValues : 
-                    return self._shapValues[ExplanationsDataset.IMPORTED] # we return user-provided values if no computed values
+                    df = self._shapValues[ExplanationsDataset.IMPORTED]
+                    return df # we return user-provided values if no computed values
                 else :
                     return None  # We have not SHAP (computed or imported) values yet for all dimensions
-            else : # Our caller wants SHAP projected values
+            else : 
                 if dimReducMethodType not in self._shapValues :
                     return None # No SHAP projection computed yet for this DimReducMethodType (2 or 3D)
-                else : # We do have projected values for SHAP explainations. Let's see if we have the right dimension
+                else : 
                     if dimension == DimReducMethod.DIM_TWO :
                         if DimReducMethod.DIM_TWO in self._shapValues[dimReducMethodType] and self._shapValues[dimReducMethodType][DimReducMethod.DIM_TWO] is not None :
-                            return self._shapValues[dimReducMethodType][DimReducMethod.DIM_TWO]
+                            df = self._shapValues[dimReducMethodType][DimReducMethod.DIM_TWO]
+                            return df
                         else :
                             # No 2D projection computed yet for these SHAP values, and this DimReducMethodType
                             return None
                     else : # So dimension == DimReducMethod.DIM_THREE
                         if DimReducMethod.DIM_THREE in self._shapValues[dimReducMethodType] and self._shapValues[dimReducMethodType][DimReducMethod.DIM_THREE] is not None :
-                            return self._shapValues[dimReducMethodType][DimReducMethod.DIM_THREE]
+                            df = self._shapValues[dimReducMethodType][DimReducMethod.DIM_THREE]
+                            return df
                         else :
                             # No 3D projection computed yet for these SHAP values, and this DimReducMethodType
                             return None
         else : # So our caller wants LIME values
-             if (dimension == DimReducMethod.DIM_ALL or dimension is None) or dimReducMethodType is None :
+            if dimension is None or dimReducMethodType is None :
                 # Our caller is not interested in LIME projected values
                 if ExplanationsDataset.COMPUTED in self._limeValues and not onlyImported:
                     return self._limeValues[ExplanationsDataset.COMPUTED] # We return computed values first
@@ -775,31 +795,31 @@ class ExplanationsDataset():
                             return None
 
 
-    def setValues(self, explainationMethodType:int, values: pd.DataFrame, dimReducMethodType:int=DimReducMethod.NONE, dimension:int=DimReducMethod.DIM_ALL) :
+    def setValues(self, explainationMethodType:int, values: pd.DataFrame, dimReducMethodType:int=None, dimension:int=None) :
         """Set values for this ExplanationsDataset, given an explanation method, a dimensionality reduction and a dimension.
-        Indeed, the values in explainations has been CUMPUTED by Antakia. It can't be IMPORTED.
+        Indeed, the values in explainations has been COMPUTED by Antakia. It can't be IMPORTED.
 
         Args:
             explainationMethodType : int
-                SHAP, LIME or NONE (see ExplanationMethod class in compute.py)
+                SHAP or LIME (see ExplanationMethod class in compute.py)
             values : pd.DataFrame
                 The values to set.
             dimReducMethodTypev : int
                 Type of dimensuion reduction. Can be None if values are not projected.
-            dimension (int, optional): dimension of projection. Can be None or DIM_ALL if values are not projected.
+            dimension (int, optional): dimension of projection. Can be None if values are not projected.
         """
 
-        if not DimReducMethod.isValidDimReducType(dimReducMethodType) :
+        if dimReducMethodType is not None and not DimReducMethod.isValidDimReducType(dimReducMethodType) :
                 raise ValueError(dimReducMethodType," is a bad dimensionality reduction type")
         
-        if not DimReducMethod.isValidDimNumber(dimension) :
+        if dimension is not None and not DimReducMethod.isValidDimNumber(dimension) :
                 raise ValueError(dimension, " is a bad dimension number")
 
         if explainationMethodType==ExplanationMethod.SHAP :
-            if (dimension == DimReducMethod.DIM_ALL or dimension is None) or dimReducMethodType is None: 
+            if dimension is None or dimReducMethodType is None: 
                 # Our caller wants to set SHAP values without any projection
                 if ExplanationsDataset.COMPUTED not in self._shapValues :
-                    self._shapValues[ExplanationsDataset.COMPUTED] = values
+                    self._shapValues[ExplanationsDataset.COMPUTED] = {}
                 self._shapValues[ExplanationsDataset.COMPUTED] = values
             # Our caller want to set projected SHAP values
             else :
@@ -809,8 +829,9 @@ class ExplanationsDataset():
                 if dimension not in self._shapValues[dimReducMethodType] :
                     self._shapValues[dimReducMethodType][dimension] = {}              
                 self._shapValues[dimReducMethodType][dimension] = values
+
         elif explainationMethodType==ExplanationMethod.LIME :
-            if (dimension == DimReducMethod.DIM_ALL or dimension is None) or dimReducMethodType is None: 
+            if dimension is None or dimReducMethodType is None: 
                 # Our caller wants to set LIME values without any projection
                 if ExplanationsDataset.COMPUTED not in self._limeValues :
                     self._limeValues[ExplanationsDataset.COMPUTED] = values
@@ -839,7 +860,7 @@ class ExplanationsDataset():
 
             if ExplanationsDataset.IMPORTED in self._shapValues and self._shapValues[ExplanationsDataset.IMPORTED] is not None :
                 imported = True
-            if ExplanationsDataset.COMPUTED in self._shapValues and self._shapValues[ExplanationsDataset.IMCOMPUTEDPORTED] is not None :
+            if ExplanationsDataset.COMPUTED in self._shapValues and self._shapValues[ExplanationsDataset.COMPUTED] is not None :
                 computed = True
             
             returnValue = None
@@ -860,7 +881,7 @@ class ExplanationsDataset():
 
             if ExplanationsDataset.IMPORTED in self._limeValues and self._limeValues[ExplanationsDataset.IMPORTED] is not None :
                 imported = True
-            if ExplanationsDataset.COMPUTED in self._limeValues and self._limeValues[ExplanationsDataset.IMCOMPUTEDPORTED] is not None :
+            if ExplanationsDataset.COMPUTED in self._limeValues and self._limeValues[ExplanationsDataset.COMPUTED] is not None :
                 computed = True
             
             returnValue = None
@@ -874,7 +895,7 @@ class ExplanationsDataset():
             else :
                 returnValue = None
 
-            return (True, returnValue)
+            return (imported, returnValue)
         else :
             return (False, None)
 
@@ -888,12 +909,10 @@ class ExplanationsDataset():
         
         if not DimReducMethod.isValidDimReducType(dimReducMethodType) : 
             raise ValueError(dimReducMethodType," is a bad dimensionality reduction type")
-        
-        text += "OK , je regarde la proj " + DimReducMethod.getDimReducMehtodAsStr(dimReducMethodType) + "\n"
 
         if dimReducMethodType in explainDict and explainDict[dimReducMethodType] is not None :
-                text +=  ExplanationMethod.getExplanationMethodAsStr(explainationMethodType) +" values dict has " + DimReducMethod.getDimReducMehtodAsStr(dimReducMethodType) + " projected values :\n"
-                if DimReducMethod.DIM_TWO in explainDict[DimReducMethod.PCA] and explainDict[DimReducMethod.PCA][DimReducMethod.DIM_TWO] is not None :
+                text +=  ExplanationMethod.getExplanationMethodAsStr(explainationMethodType) +" values dict has " + DimReducMethod.getDimReducMethodAsStr(dimReducMethodType) + " projected values :\n"
+                if DimReducMethod.DIM_TWO in explainDict[dimReducMethodType] and explainDict[dimReducMethodType][DimReducMethod.DIM_TWO] is not None :
                     text += "    2D :"  + str(explainDict[dimReducMethodType][DimReducMethod.DIM_TWO].shape[0]) + " observations, " + str(self._shapValues[dimReducMethodType][DimReducMethod.DIM_TWO].shape[1]) + " features\n"
                 if DimReducMethod.DIM_THREE in explainDict[dimReducMethodType] and explainDict[dimReducMethodType][DimReducMethod.DIM_THREE] is not None :
                     text += "    3D :"  + str(explainDict[dimReducMethodType][DimReducMethod.DIM_THREE].shape[0]) + " observations, " + str(explainDict[dimReducMethodType][DimReducMethod.DIM_THREE].shape[1]) + " features\n" 
@@ -920,21 +939,15 @@ class ExplanationsDataset():
                 text += ExplanationMethod.getExplanationMethodAsStr(explainationMethodType) + " values dict has computed values :\n"
                 text += "    "  + str(explainDict[ExplanationsDataset.COMPUTED].shape[0]) + " observations, " +  + str(explainDict[ExplanationsDataset.COMPUTED].shape[1]) + " features\n"
         
-        for projType in DimReducMethod.getDimReducMhdsAsList() :
+        for projType in DimReducMethod.getDimReducMethodsAsList() :
             text +=  self._descProjHelper(text, explainationMethodType, projType)
 
         return text
 
-    def __str__(self) -> str:  
+    def __repr__(self) -> str:  
         text = "ExplanationDataset object :\n"
         text += "---------------------------\n"
         
-        list = ExplanationMethod.getExplanationMethodsAsList()
-        text += list
         for explainType in ExplanationMethod.getExplanationMethodsAsList() :
-            text += "J'appelle _descExplainHelper pour "+ ExplanationMethod.getExplanationMethodAsStr(explainType) + "\n"
             text += self._descExplainHelper(text, explainType)
-
-        text += "Fin desc\n"
-
         return text

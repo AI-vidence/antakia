@@ -11,7 +11,7 @@ from skrules import SkopeRules
 import json as JSON
 from copy import deepcopy
 
-from antakia.data import *
+from antakia.data import DimReducMethod, ExplanationMethod, Model, Dataset, ExplanationsDataset
 
 class Potato():
     """
@@ -70,9 +70,9 @@ class Potato():
 
         self._dataset = ds
         self._explanations = xds
-        if not ExplainationMethod.isValidExplanationType(currentExplanationMethod):
+        if not ExplanationMethod.isValidExplanationType(currentExplanationMethod):
             raise ValueError(currentExplanationMethod, " is, not a valid explanation method")
-        self._explanationMethod : currentExplanationMethod # could be ExplainationMethod.SHAP or LIME for ex
+        self._explanationMethod : currentExplanationMethod # could be ExplanationMethod.SHAP or LIME for ex
         self._type = type
 
         if json_path is not None and indexes != []:
@@ -90,7 +90,7 @@ class Potato():
 
         # We compute the Y mask list from the indexes
         self._yMaskList = []
-        for i in range(len(self._ds.getXValues())):
+        for i in range(len(self._dataset.getXValues())):
             if i in self._indexes:
                 self._yMaskList.append(1)
             else :
@@ -651,3 +651,37 @@ def potatoFromJson(atk, json:dict) -> Potato:
     potato.sub_model = json["sub_model"]
     potato.success = json["success"]
     return potato
+
+
+def loadBackup(local_path):
+    '''
+    Return a backup file from a JSON file.
+
+    Function that allows to load a save file.
+    The save file is a json file that contains a list of dictionaries, usually generated in the interface (see antakia.gui).
+
+    Parameters
+    ----------
+    local_path :str
+        The path to the save file. If None, the function will return a message saying that no save file was loaded.
+
+    Returns
+    ----------
+    dataList : list
+        A list of dictionaries, each dictionary being a save file. This list can directly be passed to the AntakIA object so as to load the save file.
+    
+    Examples
+    --------
+    >>> import antakia
+    >>> dataList = antakia.load_save("save.json")
+    >>> dataList
+    [{'name': 'Antoine's save', 'regions': [0, 1], [2, 3] 'labels': [0, 0, 1, 1]}]
+    '''
+    with open(local_path) as json_file:
+        dataList = json.load(json_file)
+
+    for temp in dataList:
+        for i in range(len(temp["regions"])):
+            temp["regions"][i] = Potato.potatoFromJson(atk, temp["regions"][i])
+
+    return dataList

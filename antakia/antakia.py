@@ -1,5 +1,6 @@
 import pandas as pd
-# import numpy as np
+
+
 from sklearn.ensemble import RandomForestRegressor
 from sklearn import linear_model
 from sklearn import ensemble
@@ -8,18 +9,13 @@ from sklearn import ensemble
 from antakia.data import Dataset, ExplanationsDataset, ExplanationMethod, Model, DimReducMethod
 from antakia.potato import Potato
 from antakia.gui import GUI
-
-import ipywidgets as widgets
-from IPython.display import display
-import ipyvuetify as v
+from antakia.utils import confLogger
 
 import logging
-from log_utils import OutputWidgetHandler
+from logging import getLogger
+
 logger = logging.getLogger(__name__)
-handler = OutputWidgetHandler()
-handler.setFormatter(logging.Formatter('antakia.py [%(levelname)s] %(message)s'))
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
 
@@ -62,26 +58,24 @@ class AntakIA():
         backups_path: str TODO : expliquer
         '''
 
-        self.__dataset = dataset
-        self.__model = model
-        self. __explainDataset = explainDataset # Defaults to None
-        self.__regions = [] #empty list of Potatoes
-        self.__gui = None
-        self.__backups_path = backups_path
+        self._dataset = dataset
+        self._model = model
+        self._explainDataset = explainDataset # Defaults to None (no computation yet)
+        self._regions = [] #empty list of Potatoes
+        self._gui = None
+        self._backups_path = backups_path
 
         # TODO : understand ths saves thing
         if backups is not None:
-            self.__backups = backups 
+            self._backups = backups 
         elif backups_path is not None:
-            self.__backups = utils.loadBackup(self, backups_path)
+            self._backups = utils.loadBackup(self, backups_path)
         else:
-            self.__backups = []
+            self._backups = []
 
         # TODO : compute Y_pred here
 
-        self.__sub_models =  [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
-
-
+        self._sub_models =  [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
 
 
     def startGUI(self, defaultProjection: int = DimReducMethod.PaCMAP) -> GUI :
@@ -98,11 +92,10 @@ class AntakIA():
         display : bool
             If True, the interface is displayed. Else, You can access the interface with the attribute gui of the class.
         """
-        self.__gui = GUI(self.__dataset, self.__model, self.__explainDataset)
+        self._gui = GUI(self._dataset, self._model, self._explainDataset)
 
-        logger.debug("Just created GUI")
 
-        return self.__gui
+        return self._gui
 
 # ========= Getters  ===========
 
@@ -115,7 +108,7 @@ class AntakIA():
         GUI object
             The GUI object.
         """
-        return self.__gui
+        return self._gui
 
     def getRegions(self) -> list:
         """
@@ -126,13 +119,13 @@ class AntakIA():
         list
             The list of the regions computed. A region is a list of AntakIA objects, named `Potato`.
         """
-        return self.__regions
+        return self._regions
     
     def resetRegions(self):
         """
         Function that resets the list of the regions computed by the user.
         """
-        self.__regions = []
+        self._regions = []
     
     def getBackups(self) -> list:
         """
@@ -143,7 +136,7 @@ class AntakIA():
         list
             The list of the saves. A save is a list of regions.
         """
-        return self.__backups
+        return self._backups
 
     
     def getDataset(self) -> Dataset:
@@ -155,7 +148,7 @@ class AntakIA():
         Dataset object
             The Dataset object.
         """
-        return self.__dataset
+        return self._dataset
     
     def getExplainationDataset(self) -> ExplanationsDataset:
         """
@@ -166,7 +159,7 @@ class AntakIA():
         ExplanationDataset object
             The ExplanationsDataset object.
         """
-        return self.__explainDataset
+        return self._explainDataset
 
     def newRegion(self, potato: Potato):
         """
@@ -180,9 +173,9 @@ class AntakIA():
         self.regions.append(potato)
 
     def getModel(self) -> Model :
-        return self.__model
+        return self._model
 
     def getSubModels(self) -> list:
-        return self.__sub_models 
+        return self._sub_models 
 
 

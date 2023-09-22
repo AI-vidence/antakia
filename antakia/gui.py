@@ -26,7 +26,8 @@ import time
 from copy import deepcopy
 from importlib.resources import files
 from typing import Tuple
-from ctypes import c_int, addressof # for debug
+import logging
+from logging import getLogger
 
 # Warnings imports
 import warnings
@@ -39,23 +40,17 @@ warnings.filterwarnings("ignore")
 # Internal imports
 
 from antakia import guiFactory
-from antakia.utils import proposeAutoDyadicClustering, _function_models as function_models
-from antakia.utils import overlapHandler, wrapRepr
+from antakia.utils import ThreadedEventChannel, confLogger, proposeAutoDyadicClustering, _function_models as function_models
+from antakia.utils import compChannel, overlapHandler, wrapRepr
 from antakia.potato import *
-from antakia.compute import DimReducMethod, ExplanationMethod, SHAPExplanation, LIMExplanation, computeProjection, compute2D3DProjections, updateFigures, createBeeswarm
+from antakia.compute import DimReducMethod, ExplanationMethod, SHAPExplanation, LIMExplanation, computeProjection, updateFigures, createBeeswarm
 from antakia.data import Dataset, ExplanationsDataset, Model
 
-
-
-import logging
-from log_utils import OutputWidgetHandler
 logger = logging.getLogger(__name__)
-handler = OutputWidgetHandler()
-handler.setFormatter(logging.Formatter('gui.py [%(levelname)s] %(message)s'))
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
+
 
 class GUI():
     """
@@ -72,10 +67,10 @@ class GUI():
     _model : Model object
     _selection : a Potato object
         The `Potato` object containing the current selection.
-    _projectionVS : VS current projection as a Tuple (eg. TSNE, 2)
-    _projectionES : ES current projection as a Tuple (eg. UMAP, 3)
-    _explanationES : a Tuple (int, int)
-        current explanation method : (eg. SHAP, IMPORTED)
+    _projectionVS : VS current projection as a list, eg. [TSNE, 2]
+    _projectionES : ES current projection as a list, eg. [UMAP, 3]
+    _explanationES : a list [int, int]
+        current explanation method : eg. [SHAP, IMPORTED]
     _leftVSFigure : Widget, the left figure in the VS
     _rightESFigure : Widget, the right figure in the ES
 
@@ -118,17 +113,24 @@ class GUI():
         self._ds = ds
         self._xds = xds
         self._model = model
-   
+        if model is None :
+            raise ValueError("AntakIA requires a valid model")
+        if self._ds.getYValues(Dataset.TARGET) is None :
+            raise ValueError("The provided Dataset doesn't contain any Y values")
+        if self._ds.getYValues(Dataset.PREDICTED) is None :
+            self._ds.setYValues(self._model.predict(self._ds.getXValues(Dataset.CURRENT)), Dataset.PREDICTED)
+
+
         if  self._xds is None :
-            self._explanationES = (ExplanationMethod.NONE, None) # That is we need to compute it
+            self._explanationES[0] = None # That is we need to compute it
         else :
             tempESTuple = self._xds.isExplanationAvailable(ExplanationMethod.SHAP)
             if tempESTuple[0] :
-                self._explanationES = (ExplanationMethod.SHAP, tempESTuple[1])
+                self._explanationES = [ExplanationMethod.SHAP, tempESTuple[1]]
             else :
                 tempESTuple = self._xds.isExplanationAvailable(ExplanationMethod.LIME)
                 if tempESTuple[0] :
-                    self._explanationES = (ExplanationMethod.LIME, tempESTuple[1])
+                    self._explanationES = [ExplanationMethod.LIME, tempESTuple[1]]
                 else :
                     raise ValueError("The provided ExplanationsDataset doesn't contain any valid explanation method")
         
@@ -140,8 +142,8 @@ class GUI():
         if not DimReducMethod.isValidDimNumber(dimension) :
             raise ValueError(dimension, " is an invalid dimension")   
         
-        self._projectionVS = (defaultProjection, dimension) 
-        self._projectionES = (defaultProjection, dimension)  
+        self._projectionVS = [defaultProjection, dimension]
+        self._projectionES = [defaultProjection, dimension]
 
         self._leftVSFigure  : Widget = None
         self._rightESFigure  : Widget = None
@@ -172,8 +174,7 @@ class GUI():
 
         self._backups = []
 
-        self._out = widgets.Output(layout={'border': '1px solid black'}) # Ipwidgets output widget
-        logger.debug(f"_out created : {id(self._out)}")
+        self._out = widgets.Output() # Ipwidgets output widget
 
     def getSelection(self):
         """Function that returns the current selection.
@@ -192,7 +193,6 @@ class GUI():
     def showGUI(self):
         """Function that renders the interface
         """
-        logger.debug(f"entering showGUI, with GUI : {id(self)}")
         display(self._out)
 
         # ============  SPLASH SCREEN ==================
@@ -210,8 +210,8 @@ class GUI():
         projComputationProgLinear = guiFactory.createProgLinear()
 
         # Consolidation of progress bars and progress texts in a single HBox
-        explainComputationRow = guiFactory.createRow("Computing of explanatory values", explainComputationProgLinear)
-        projComputationRow = guiFactory.createRow("Computing of dimensions reduction", projComputationProgLinear)
+        explainComputationRow = guiFactory.createRow("Computation of explanation values", explainComputationProgLinear)
+        projComputationRow = guiFactory.createRow("Computation of dimension reduction values", projComputationProgLinear)
 
         # Definition of the splash screen which includes all the elements,
         splashScreenLayout = v.Layout(
@@ -220,16 +220,16 @@ class GUI():
         )
 
         # We display the splash screen
-        # with self._out:
-        #     display(splashScreenLayout)
+        with self._out:
+            display(splashScreenLayout)
 
         # If we import the explanations values, the progress bar of this one is at 100
-        if self._explanationES[0] is not None and self._explanationES[0] != ExplanationMethod.NONE :
+        if self._explanationES[0] is not None :
             explainComputationProgLinear.v_model = 100
-            explainComputationRow.children[2].children[0].v_model = "Explanations values were provided"
         else :
-            # We neeed to compute at least one explanation method - We use AntakIA's default
+            # We neeed to compute at least one explanation method - We use AntakIA's GUI's default
             if self._explanationES[0] == ExplanationMethod.SHAP :
+                logger.debug("showGUI : no explanations values -> we compute the default, SHAP")
                 explain = SHAPExplanation(
                         self._ds.getXValues(Dataset.CURRENT),
                         self._ds.getXValues(Dataset.ALL),
@@ -239,6 +239,7 @@ class GUI():
 
                 #TODO : who need to identiify the widget to update with pubsub
             elif self._explanationES[0] == ExplanationMethod.LIME :
+                logger.debug("showGUI : no explanations values -> we compute the default, LIME")
                 explain = LIMExplaination(
                     self._ds.getXValues(Dataset.CURRENT),
                     self._ds.getXValues(Dataset.ALL),
@@ -246,37 +247,36 @@ class GUI():
                 self._xds = ExplanationsDataset(explain.compute(), ExplanationMethod.LIME)
             else :
                 raise ValueError("Invalid default explanation method")
-
-    #EdyRef line number : 213
-        
-        explainComputationRow.children[2].children[0].v_model = "Values space... "
-        # We compute projection values for the VS with the default projection, both in 2D and 3D
-        # projValues is a Tuple with both 2D and 3D pd.DataFrame
-        projValues = compute2D3DProjections(self._ds.getXValues(Dataset.SCALED), self._projectionVS[0])
-        # We store this in our dataset
-        self._ds.setXProjValues(self._projectionVS[0], DimReducMethod.DIM_TWO, projValues[0])
-        self._ds.setXProjValues(self._projectionVS[0], DimReducMethod.DIM_THREE, projValues[1])
+  
+        # We compute projection values for the VS with the current projection in the current dimensions
+        explainComputationRow.children[2].children[0].v_model = "Values space ... "
+        projComputationRow.children[2].children[0].v_model = "Default dimension reduction : " + DimReducMethod.getDimReducMethodAsStr(self._projectionVS[0]) + " in " + DimReducMethod.getDimensionAsStr(self._projectionVS[1]) + " ..."
+        projValues = self._ds.getXProjValues(self._projectionVS[0], self._projectionVS[1])
+        if projValues is None :
+            projValues = computeProjection(DimReducMethod.VS, self._ds.getXValues(Dataset.CURRENT), self._projectionVS[0], self._projectionVS[1])
+            # We store the result in our Dataset
+            self._ds.setXProjValues(self._projectionVS[0], self._projectionVS[1], projValues)
         projComputationProgLinear.v_model = +50 # We did half the job
-
-        explainComputationRow.children[2].children[0].v_model = "Values space... Explanations space..."
-        # We compute projection values for the ES with the default projection, bonth in 2D and 3D
-        # proValues is a Tuple with both 2D and 3D pd.DataFrame
-
-        projValues = compute2D3DProjections(self._xds.getValues(self._explanationES[0]), self._projectionES[0])
-
-        # We store this in our dataset               
-        self._xds.setValues(self._explanationES[0], projValues[0], self._projectionES[0], DimReducMethod.DIM_TWO)
-        self._xds.setValues(self._explanationES[0], projValues[1], self._projectionES[0], DimReducMethod.DIM_THREE)
+        
+        # Same for ES :
+        explainComputationRow.children[2].children[0].v_model = "Values space ... Explanations space ..."
+        # We compute projection values for the ES with the current projection in the current dimensions
+        projValues = self._xds.getValues(self._projectionES[0], self._projectionES[1])
+        if projValues is None :
+            # Calling _xds.getValues(self._explanationES[0]) with proj and dim = None, we get full dataset
+            projValues = computeProjection(DimReducMethod.getESBaseSpace(self._explanationES[0]), self._xds.getValues(self._explanationES[0]), self._projectionES[0], self._projectionES[1])
+            # We store ther result in our ExplanationDataset
+            self._xds.setValues(self._explanationES[0], projValues, self._projectionES[0], self._projectionES[1])
         projComputationProgLinear.v_model = +50 # End of the job
 
         # We remove the Splahs screen
-        # self._out.clear_output(wait=True)
-        # del(splashScreenLayout)
+        self._out.clear_output(wait=True)
+        del(splashScreenLayout)
 
         # ============  MAIN SCREEN ==================
 
         # Below two circular progess bars to tell when a projection is being computed
-        ourProgCircular = v.ProgressCircular( #229
+        ourProgCircular = v.ProgressCircular(
             indeterminate=True, color="blue", width="6", size="35", class_="mx-4 my-3"
         )
 
@@ -288,17 +288,17 @@ class GUI():
         # Dropdown allowing to choose the projection in the VS
         dimReducVSSelect = v.Select( 
             label="Projection in the VS:",
-            items=DimReducMethod.getDimReducMhdsAsStrList(),
+            items=DimReducMethod.getDimReducMethodsAsStrList(),
             style_="width: 150px",
         )
         # We set it to the default projection
         # Mind the -1 because the dropdown starts at 1
-        dimReducVSSelect.v_model = dimReducVSSelect.items[self._projectionVS[0]-1] #246
+        dimReducVSSelect.v_model = dimReducVSSelect.items[self._projectionVS[0]-1]
 
         # Dropdown allowing to choose the projection in the ES
         dimReducESSelect = v.Select(
             label="Projection in the ES:",
-            items=DimReducMethod.getDimReducMhdsAsStrList(),
+            items=DimReducMethod.getDimReducMethodsAsStrList(),
             style_="width: 150px",
         )
         # We set it to the default projection
@@ -310,7 +310,7 @@ class GUI():
         mnRatioPaCMAPVSSliderLayout = guiFactory.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
         fpRatioPacMAPVSSliderLayout = guiFactory.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
-        def updatePaCMAPVSSlider(widget, event, data): #52
+        def updatePaCMAPVSSlider(widget, event, data):
             # function that updates the values ​​when there is a change of sliders in the parameters of PaCMAP for the VS
             if widget.label == "Number of neighbors :": 
                 neighboursPaCMAPVSSliderLayout.children[1].children = [str(data)]
@@ -329,7 +329,7 @@ class GUI():
             "input", updatePaCMAPVSSlider
         )
 
-        allPaCMAPVSSlidersVBox = widgets.VBox( # 282
+        allPaCMAPVSSlidersVBox = widgets.VBox( 
             [
                 neighboursPaCMAPVSSliderLayout,
                 mnRatioPaCMAPVSSliderLayout,
@@ -341,18 +341,18 @@ class GUI():
         validatePaCMAPParamsVSBtn = v.Btn(
             children=[
                 v.Icon(left=True, children=["mdi-check"]),
-                "Validate", # TODO : should be localized
+                "Validate",
             ]
         )
 
-        resetPaCMAPParamsVSBtn = v.Btn( #298
+        resetPaCMAPParamsVSBtn = v.Btn(
             class_="ml-4",
             children=[
                 v.Icon(left=True, children=["mdi-skip-backward"]),
-                "Reset", # TODO : should be localized
+                "Reset",
             ],
         )
-        allPaCMAPActionsVSHBox = widgets.HBox( #306
+        allPaCMAPActionsVSHBox = widgets.HBox(
             [validatePaCMAPParamsVSBtn, resetPaCMAPParamsVSBtn]
         )
         paCMAPVSParamsBox = widgets.VBox(
@@ -361,7 +361,7 @@ class GUI():
 
 
         # Recompute VS PaCMAP projection whenever the user changes the parameters
-        def updatePaCMAPVS(*args): #313
+        def updatePaCMAPVS(*args):
             # We get the parameters from the sliders state
             neighbors = neighboursPaCMAPVSSliderLayout.children[0].v_model
             mn_ratio = mnRatioPaCMAPVSSliderLayout.children[0].v_model
@@ -369,40 +369,35 @@ class GUI():
 
             busyVSHBox.layout.visibility = "visible"
 
-            # We compute :
-            projValues = compute2D3DProjections(self._ds.getXValues(Dataset.SCALED), DimReducMethod.PaCMAP, neighbors = neighbors, MN_ratio = mn_ratio, FP_ratio =fp_ratio)
-            # We store this in our dataset
-            self._ds.setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
-            self._ds.setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
-
+            projValues = self._ds.getXProjValues(DimReducMethod.PaCMAP, self._projectionVS[1])
+            if projValues is None :
+                projValues = computeProjection(DimReducMethod.VS, self._ds.getXValues(Dataset.CURRENT), DimReducMethod.PaCMAP, self._projectionVS[1], neighbors = neighbors, MN_ratio = mn_ratio, FP_ratio =fp_ratio)            
+                # We store the result in our Dataset
+                self._ds.setXProjValues(DimReducMethod.PaCMAP, self._projectionVS[1], projValues)
+        
             busyVSHBox.layout.visibility = "hidden"
 
-            updateFigures(self._ds, self._xds, self._explanationES[0], self._projectionVS, self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D)
+            updateFigures(self._ds, self._xds, self._explanationES[0], (DimReducMethod.PaCMAP,self._projectionVS[1]), self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D)
 
         validatePaCMAPParamsVSBtn.on_event("click", updatePaCMAPVS())
 
         def resetPaCMAPVS(*args):
-            #EdyRef function name = reset_param_VS : line 326
             busyVSHBox.layout.visibility = "visible"
 
-            # We compute :
-            projValues = compute2D3DProjections(self._ds.getXValues(Dataset.SCALED), DimReducMethod.PaCMAP)
-            # We store this in our dataset
-            self._ds.setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
-            self._ds.setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
+            logger.debug("resetPaCMAPVS : What I am suppose to do ?")
 
             busyVSHBox.layout.visible = "hidden"
             
-            updateFigures(self, self._explanationES[0], self._projectionVS, self._projectionES)
+            updateFigures(self._ds, self._xds, self._explanationES[0], (DimReducMethod.PaCMAP,self._projectionVS[1]), self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D)
 
-        resetPaCMAPParamsVSBtn.on_event("click", resetPaCMAPVS) #334
+        resetPaCMAPParamsVSBtn.on_event("click", resetPaCMAPVS)
 
         # Here the sliders of the parameters for PaCMAP projection in the ES
         neighboursPaCMAPESSliderLayout = guiFactory.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :") # TODO : should be localized
         mnRatioPaCMAPESSliderLayout = guiFactory.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
         fpRatioPacMAPESSliderLayout = guiFactory.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
-        def updatePaCMAPESSlider(widget, event, data): #341
+        def updatePaCMAPESSlider(widget, event, data):
             if widget.label == "Number of neighbors :": # TODO : should be localized
                 neighboursPaCMAPESSliderLayout.children[1].children = [str(data)]
             elif widget.label == "MN ratio :":
@@ -431,7 +426,7 @@ class GUI():
             ),
         )
 
-        validatePaCMAPParamsESBtn = v.Btn( #370
+        validatePaCMAPParamsESBtn = v.Btn(
             children=[
                 v.Icon(left=True, children=["mdi-check"]),
                 "Validate",
@@ -455,7 +450,7 @@ class GUI():
         )
 
         # Recompute ES PaCMAP projection whenever the user changes the parameters
-        def updatePaCMAPES(*updatePaCMAPES): #393
+        def updatePaCMAPES(*updatePaCMAPES):
 
             n_neighbors = neighboursPaCMAPESSliderLayout.children[0].v_model
             MN_ratio = mnRatioPaCMAPESSliderLayout.children[0].v_model
@@ -463,23 +458,19 @@ class GUI():
 
             busyESHBox.layout.visibility = "visible"
 
-            # We compute
-            projValues = compute2D3DProjections(self._ds.getXValues(Dataset.SCALED), DimReducMethod.PaCMAP, neighbors = neighbors, MN_ratio = MN_ratio, FP_ratio =FP_ratio)
-            # We store this in our dataset
-            self._xds.setValues(self.__exxplanationES, DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
-            self._xds.setValues(self.__exxplanationES, DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
+            projValues = self._xds.getValues(DimReducMethod.PaCMAP, self._projectionES[1])
+            if projValues is None :
+                projValues = computeProjection(DimReducMethod.getESBaseSpace(self._explanationES[0]), self._xds.getValues(self._explanationES[0]), self._projectionES[0], self._projectionES[1]) 
+                # We store ther result in our ExplanationDataset
+                self._xds.setValues(self._explanationES[0], projValues, self._projectionES[0], self._projectionES[1])
 
+            busyVSHBox.layout.visibility = "hidden"
 
-            atk.getDataset().setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_TWO, projValues[0])
-            self._ds.setXProjValues(DimReducMethod.PaCMAP, DimReducMethod.DIM_THREE, projValues[1])
-
-
-            busyESHBox.layout.visibility = "hidden"
-            updateFigures(self_ds, self._xds, self._explanationES[0], self._leftVSFigure, self._leftVSFigure3D, self._projectionES, _rightESFigure,_rightESFigure3D)
+            updateFigures(self._ds, self._xds, self._explanationES[0], DimReducMethod.PaCMAP, self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D)
 
         validatePaCMAPParamsESBtn.on_event("click", updatePaCMAPES)
 
-        def resetPaCMAPVS(*args): #404
+        def resetPaCMAPVS(*args):
             busyESHBox.layout.visibility = "visible"
 
              # We compute :
@@ -490,14 +481,14 @@ class GUI():
 
             busyESHBox.layout.visibility = "hidden"
 
-            updateFigures(self, self._explanationES[0], self._projectionVS, self._projectionES)
+            updateFigures(self, self._explanationES[0], self._projectionVS, self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D)
 
-        resetPaCMAPParamsESBtn.on_event("click", resetPaCMAPVS) # 412
+        resetPaCMAPParamsESBtn.on_event("click", resetPaCMAPVS)
 
         # Allows to choose the color of the dots
-        colorChoiceBtnToggle = guiFactory.colorChoiceBtnToggle()
+        colorChoiceBtnToggle = guiFactory.createColorChoiceBtnToggle()
 
-        def changeColor(*args, opacity: bool = True): #418
+        def changeColor(*args, opacity: bool = True):
             # Allows you to change the color of the dots when you click on the buttons
             color = None
             scale = True
@@ -584,10 +575,10 @@ class GUI():
                     self._rightESFigure.data[0].marker.colorscale = "Viridis"
                     self._rightESFigure3D.data[0].marker.colorscale = "Viridis"
 
-        colorChoiceBtnToggle.on_event("change", changeColor) # line 503
+        colorChoiceBtnToggle.on_event("change", changeColor) 
     
         # ---- 2D markers----- 
-        ourVSMarkerDict = dict( #506
+        ourVSMarkerDict = dict( 
             color=self._ds.getYValues(Dataset.CURRENT),
             colorscale="Viridis",
             colorbar=dict(
@@ -599,7 +590,7 @@ class GUI():
         ourESMarkerDict = dict(color=self._ds.getYValues(Dataset.CURRENT), colorscale="Viridis")
 
         # ---- Menu Bar ----
-        menuAppBar, figureSizeSlider, backupBtn = guiFactory.createMenuBar() #518
+        menuAppBar, figureSizeSlider, backupBtn = guiFactory.createMenuBar()
 
         # ---- backups-----
 
@@ -613,7 +604,7 @@ class GUI():
 
     # ----- 2S Figures -----
         # VS 2D Figure
-        self._leftVSFigure = go.FigureWidget( #625
+        self._leftVSFigure = go.FigureWidget(
             data=go.Scatter(x=[1], y=[1], mode="markers", marker=ourVSMarkerDict, customdata=ourVSMarkerDict["color"], hovertemplate = '%{customdata:.3f}')
         )
 
@@ -633,18 +624,17 @@ class GUI():
         )
         self._rightESFigure.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model))
         self._rightESFigure.update_layout(dragmode="lasso")
-        self._rightESFigure._config = self._rightESFigure._config | {"displaylogo": False} #646
+        self._rightESFigure._config = self._rightESFigure._config | {"displaylogo": False}
 
 
         # ---- 2D and 3D -----
 
         # to choose the projection dimension of figures 1 and 2
-        dimSwitch = v.Switch( #649
+        dimSwitch = v.Switch(
             class_="ml-3 mr-2",
             v_model=False,
             label="",
         )
-        logger.debug(f"dimSwitch created : {id(dimSwitch)}")
 
         dimSwitchRow = v.Row(
             class_="ma-3",
@@ -662,25 +652,46 @@ class GUI():
         )
 
         def switchDimension(*args):
-            logger.debug(f"i enter the switchDimension function")
             if dimSwitch.v_model:
+                self._projectionVS[1] = DimReducMethod.DIM_THREE
+                self._projectionES[1] = DimReducMethod.DIM_THREE
                 figuresHBox.children = [_leftVSFigure3DVBox, _rightESFigure3DVBox]
             else:
+                self._projectionVS[1] = DimReducMethod.DIM_TWO
+                self._projectionES[1] = DimReducMethod.DIM_TWO
                 figuresHBox.children = [_leftVSFigureVBox, _rightESFigureVBox]
 
-        dimSwitch.on_event("change", switchDimension) # 676
+            # If needed, we compute the projection values for the VS in the new dimension
+            projValues = self._ds.getXProjValues(self._projectionVS[0], self._projectionVS[1])
+            if projValues is None :
+                busyVSHBox.layout.visibility = "visible"
+                projValues  = computeProjection(DimReducMethod.VS, self._ds.getXValues(Dataset.CURRENT), self._projectionVS[0], self._projectionVS[1])
+                self._ds.setXProjValues(self._projectionVS[0], self._projectionVS[1], projValues)    
+            busyVSHBox.layout.visibility = "hidden"
+    
+            # If needed, we compute the projection values for the ES in the new dimension
+            projValues = self._xds.getValues(self._explanationES[0], self._projectionES[0], self._projectionES[1])
+            if projValues is None :
+                busyESHBox.layout.visibility = "visible"
+                projValues = computeProjection(DimReducMethod.getESBaseSpace(self._explanationES[0]), self._xds.getValues(self._explanationES[0]), self._projectionES[0], self._projectionES[1])
+                self._xds.setValues(self._explanationES[0], projValues, self._projectionES[0], self._projectionES[1])
+            busyESHBox.layout.visibility = "hidden"
 
+            updateFigures(self._ds, self._xds, self._explanationES[0], self._projectionVS, self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D)
+
+
+        dimSwitch.on_event("change", switchDimension) 
 
         # ---- 3D markers -----
 
-        ourVS3DMarkerDict = dict(color=self._ds.getYValues(Dataset.CURRENT), colorscale="Viridis", colorbar=dict(thickness=20,), size=3,) #679
+        ourVS3DMarkerDict = dict(color=self._ds.getYValues(Dataset.CURRENT), colorscale="Viridis", colorbar=dict(thickness=20,), size=3,)
         ourES3DMarkerDict = dict(color=self._ds.getYValues(Dataset.CURRENT), colorscale="Viridis", size=3)
 
         # ---- 3D figures -----
 
         self._leftVSFigure3D = go.FigureWidget(data=go.Scatter3d(x=[1], y=[1], z=[1], mode = "markers", marker=ourVS3DMarkerDict, customdata=ourVS3DMarkerDict["color"], hovertemplate = '%{customdata:.3f}')) #691
-        self._leftVSFigure3D.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model), scene=dict(aspectmode="cube"), template="none",) # 696
-        self._leftVSFigure3D._config = self._leftVSFigure3D._config | {"displaylogo": False} #702
+        self._leftVSFigure3D.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model), scene=dict(aspectmode="cube"), template="none",) 
+        self._leftVSFigure3D._config = self._leftVSFigure3D._config | {"displaylogo": False}
 
         self._rightESFigure3D = go.FigureWidget(data=go.Scatter3d(x=[1], y=[1], z=[1], mode="markers", marker=ourES3DMarkerDict, customdata=ourES3DMarkerDict["color"], hovertemplate = '%{customdata:.3f}'))
         self._rightESFigure3D.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model), scene=dict(aspectmode="cube"), template="none",)
@@ -695,20 +706,20 @@ class GUI():
         _rightESFigure3DVBox = guiFactory.createVBox(self._rightESFigure3D, widgets.HTML("<h3>Explanations Space 3D<h3>"))
 
         # Default view is 2D
-        figuresHBox = widgets.HBox([_leftVSFigureVBox, _rightESFigureVBox]) # 732
+        figuresHBox = widgets.HBox([_leftVSFigureVBox, _rightESFigureVBox])
 
         # Update both figures according to the chosen projection
-        def updateFiguresProjections(*args): #735
-            self._projectionVS[0] = deepcopy(dimReducVSSelect.v_model)
-            self._projectionES[0] = deepcopy(dimReducESSelect.v_model)
+        def updateFiguresProjections(*args):
+            self._projectionVS[0] = DimReducMethod.getDimReducMethodAsInt(dimReducVSSelect.v_model)
+            self._projectionES[0] = DimReducMethod.getDimReducMethodAsInt(dimReducESSelect.v_model)
 
             # We update VS
-            if self._ds.getValues(self._projectionVS[0], self._projectionVS[1]) is None:
+            if self._ds.getXProjValues(self._projectionVS[0], self._projectionVS[1]) is None:
                 # We don't have the projection computed. Let's compute it
                 busyVSHBox.layout.visibility = "visible"
                 # We compute both dimensions
                 # TODO : try not recompute a dimensions that is already computed
-                projValues = compute2D3DProjections(self.__ds.getXValues(Dataset.SCALED), self._projectionVS[0])            
+                projValues = compute2D3DProjections(self._ds.getXValues(Dataset.SCALED), self._projectionVS[0])            
                 self._ds.setXProjValues(self._projectionVS[0], DimReducMethod.DIM_TWO, projValues[0])
                 self._ds.setXProjValues(self._projectionVS[0], DimReducMethod.DIM_TWO, projValues[1])
                 busyVSHBox.layout.visibility = "hidden"
@@ -717,12 +728,12 @@ class GUI():
             if self._xds.getValues(self._projectionES[0], self._projectionES[1]) is None:
                 # We don't have the projection computed. Let's compute it
                 busyESHBox.layout.visibility = "visible"
-                projValues = compute2D3DProjections(self._xds.getValues(self._explanationES[0]), self._projectionES[0], self._projectionES[1])
+                projValues = compute2D3DProjections(self._xds.getValues(self._explanationES[0]), self._projectionES[0])
                 self._xds.setValues(self._explanationES[0], projValues[0], self._projectionVS[0], DimReducMethod.DIM_TWO)
                 self._xds.setValues(self._explanationES[0], projValues[1], self._projectionVS[0], DimReducMethod.DIM_THREE)
                 busyESHBox.layout.visibility = "hidden"
 
-            updateFigures(self._ds, self._xds, self._projectionVS, self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D) #750
+            updateFigures(self._ds, self._xds, self._explanationES[0], self._projectionVS, self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D) #750
 
             # If PaCMAP projection has been chosen, we allow the user to change the parameters
             if dimReducVSSelect.v_model == "PaCMAP":
@@ -730,16 +741,13 @@ class GUI():
             else:
                 dimReducVSSettingsMenu.v_slots[0]["children"].disabled = True
             if dimReducESSelect.v_model == "PaCMAP":
-                projParamsES.v_slots[0]["children"].disabled = False
+                dimReducESSettingsMenu.v_slots[0]["children"].disabled = False
             else:
-                projParamsES.v_slots[0]["children"].disabled = True
-
-            dimReducVSSelect.v_model = self._projectionVS[0]
-            dimReducESSelect.v_model = self._projectionES[0] #763
+                dimReducESSettingsMenu.v_slots[0]["children"].disabled = True
 
         # We listen to the Select events
         dimReducVSSelect.on_event("change", updateFiguresProjections)
-        dimReducESSelect.on_event("change", updateFiguresProjections) #767
+        dimReducESSelect.on_event("change", updateFiguresProjections)
 
         # ----- Regions -------
         # self._regionColor = [0] * self._ds.__len__()
@@ -747,16 +755,16 @@ class GUI():
         # self._regionsTable = widgets.Output()
 
         # ----- selection info card -------
-        initialText, startInitialText, selectionText, selectionCard, validateSkopeBtn, reinitSkopeBtn = guiFactory.createSelectionInfoCard() # 774
+        initialText, startInitialText, selectionText, selectionCard, validateSkopeBtn, reinitSkopeBtn = guiFactory.createSelectionInfoCard() 
 
         # ----- Skope info card -------
         theVSSkopeText, theVSSkopeText, theESSkopeText, ourVSSkopeCard, ourESCard = guiFactory.createSkopeCard() #777
 
         # ----- sub-models slides -------
         # Texts that will contain the information on the sub_models
-        subModelslides = guiFactory.createSubModelsSlides(self.__sub_models) #780
+        subModelslides = guiFactory.createSubModelsSlides(self.__sub_models)
 
-        def selectSubModel(widget, event, data, args: bool = True): #782
+        def selectSubModel(widget, event, data, args: bool = True):
             if args == True:
                 for i in range(len(subModelslides.children)):
                     subModelslides.children[i].children[0].color = "white"
@@ -766,14 +774,14 @@ class GUI():
                     self.modelIndex = i
 
         for i in range(len(subModelslides.children)):
-            subModelslides.children[i].children[0].on_event("click", selectSubModel) #792
+            subModelslides.children[i].children[0].on_event("click", selectSubModel)
 
         # ----- region UI -------
-        validateRegionBtn, deleteAllRegionsBtn, RegionsBtnsView = guiFactory.createRegionsBtns() #794
+        validateRegionBtn, deleteAllRegionsBtn, RegionsBtnsView = guiFactory.createRegionsBtns()
 
         # --------- Skope sliders  ----------
         # we define the sliders used to modify the histogram resulting from the skope
-        skopeSlider1, realTimeUpdateCheck1, skopeSliderGroup1 = guiFactory.createSkopeSlider() #797
+        skopeSlider1, realTimeUpdateCheck1, skopeSliderGroup1 = guiFactory.createSkopeSlider()
         skopeSlider2, realTimeUpdateCheck2, skopeSliderGroup2 = guiFactory.createSkopeSlider()
         skopeSlider3, realTimeUpdateCheck3, skopeSliderGroup3 = guiFactory.createSkopeSlider()
 
@@ -800,33 +808,35 @@ class GUI():
         realTimeUpdateCheck3.on_event("change", updateValidationBtns3) #821
 
         # Validate buttons definition changes
-        validateSkopeChangeBtn1 = guiFactory.createValidateChangeBtn() #835
+        validateSkopeChangeBtn1 = guiFactory.createValidateChangeBtn()
         validateSkopeChangeBtn2 = guiFactory.createValidateChangeBtn()
         validateSkopeChangeBtn3 = guiFactory.createValidateChangeBtn()
 
         # We wrap the validation button and the checkbox which allows you to view in real time
-        validateSkopeChangeBtnAndCheck1 = widgets.HBox([validateSkopeChangeBtn1, realTimeUpdateCheck1]) #840
+        validateSkopeChangeBtnAndCheck1 = widgets.HBox([validateSkopeChangeBtn1, realTimeUpdateCheck1])
         validateSkopeChangeBtnAndCheck2 = widgets.HBox([validateSkopeChangeBtn2, realTimeUpdateCheck2])
         validateSkopeChangeBtnAndCheck3 = widgets.HBox([validateSkopeChangeBtn3, realTimeUpdateCheck3])
         
         # We define the histograms
-        [histogram1, histogram2, histogram3] = guiFactory.createHistograms(self._histogramBinNum, figureSizeSlider.v_model) #847
+        [histogram1, histogram2, histogram3] = guiFactory.createHistograms(self._histogramBinNum, figureSizeSlider.v_model)
 
         histogram1 = deepcopy(histogram1)
         histogram2 = deepcopy(histogram2)
         histogram3 = deepcopy(histogram3)
         # TODO : so wee have 3 histograms to populate
-        allHistograms = [histogram1, histogram2, histogram3] #852
+        allHistograms = [histogram1, histogram2, histogram3] 
+
+        ###################
 
         # ------ Beeswarms -----
 
         # Definitions of the different color choices for the swarm
         # TODO :strange to allways rely on this figureSizeSlider to define the size 
-        [beeswarmGrp1, beeswarmGrp2, beeswarmGrp3] = guiFactory.createBeeswarms(self._xds, self._explanationES[0], figureSizeSlider.v_model) #854
-        # TODO : so wee have 3 beeswarm to populate
+        [beeswarmGrp1, beeswarmGrp2, beeswarmGrp3] = guiFactory.createBeeswarms(self._xds, self._explanationES[0], figureSizeSlider.v_model) 
+    
 
         # TODO : strange to group beeswars to furter ungroup them
-        beeswarm1ColorChoice = beeswarmGrp1.children[0] #857
+        beeswarm1ColorChoice = beeswarmGrp1.children[0]
         beeswarm2ColorChoice = beeswarmGrp2.children[0]
         beeswarm3ColorChoice = beeswarmGrp3.children[0]
 
@@ -851,7 +861,7 @@ class GUI():
             "change", changeBeeswarm1Color
         )
 
-        def changeBeeswarm2Color(*args): #881
+        def changeBeeswarm2Color(*args):
             if choice_color_beeswarm2.children[1].v_model == False:
                 marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[1][2])[1]
                 beeswarm2.data[0].marker = marker
@@ -881,18 +891,18 @@ class GUI():
             "change", changeBeeswarm3Color
         )
 
-        allBeeSwarms = [beeswarmGrp1, beeswarmGrp2, beeswarmGrp3] #913
+        allBeeSwarms = [beeswarmGrp1, beeswarmGrp2, beeswarmGrp3]
 
         allBeeSwarms = [beeswarm1, beeswarm2, beeswarm3]
 
-        allBeeSwarmsColorChosers = [ #915
+        allBeeSwarmsColorChosers = [
             beeswarm1ColorChoice,
             beeswarm2ColorChoice,
             beeswarm3ColorChoice,
         ]
 
         # Set of elements that contain histograms and sliders
-        histo1Ctrl = widgets.VBox([skopeSliderGroup1, histogram1, validateSkopeChangeBtnAndCheck1]) #920
+        histo1Ctrl = widgets.VBox([skopeSliderGroup1, histogram1, validateSkopeChangeBtnAndCheck1])
         histo2Ctrl = widgets.VBox([skopeSliderGroup2, histogram2, validateSkopeChangeBtnAndCheck2])
         histo3Ctrl = widgets.VBox([skopeSliderGroup3, histogram3, validateSkopeChangeBtnAndCheck3])
 
@@ -912,9 +922,9 @@ class GUI():
         rightSide3 = v.Col(children=[deleteSkopeBtn3, isContinuousChck3], class_="d-flex flex-column align-center justify-center")
 
         # TODO : understand what it is
-        self._featureClass1 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
-        self._featureClass2 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
-        self._featureClass1 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
+        # self._featureClass1 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
+        # self._featureClass2 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
+        # self._featureClass1 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
 
         # Udpates when isContinuous checkbox changes
         def updateOnContinuousChanges1(widget, event, data): #945
@@ -1034,7 +1044,7 @@ class GUI():
                 updateAllGraphs()
 
         # Handling of the "isContinuous" checkbox change event
-        rightSide1.children[1].on_event("change", updateOnContinuousChanges1) #1060
+        rightSide1.children[1].on_event("change", updateOnContinuousChanges1)
         rightSide2.children[1].on_event("change", updateOnContinuousChanges2)
         rightSide3.children[1].on_event("change", updateOnContinuousChanges3)
 
@@ -1052,7 +1062,7 @@ class GUI():
         )
 
         # We define several accordions to be able to open several at the same time
-        accordionGrp1 = guiFactory.skopeAccordion("X1", accordion1) #1078
+        accordionGrp1 = guiFactory.skopeAccordion("X1", accordion1)
         accordionGrp2 = guiFactory.skopeAccordion("X2", accordion2)
         accordionGrp3 = guiFactory.skopeAccordion("X3", accordion3)
 
@@ -1062,7 +1072,7 @@ class GUI():
         )
 
         # Update graphs to match the rules
-        def updateAllGraphs(): #1088
+        def updateAllGraphs():
             self._selection.setType(Potato.REFINED_SKR)
             newSet = self._selection.setIndexesWithSKR(True)
             y_shape_skope = []
@@ -1087,7 +1097,7 @@ class GUI():
                 self._rightESFigure3D.data[0].marker.color = y_color_skope
 
         # Allows to modify all the histograms according to the rules
-        def updateAllHistograms(value_min, value_max, index): #1125
+        def updateAllHistograms(value_min, value_max, index):
             totalList = self._ds.getXValues().index[
                 self._ds.getXValues()[self._selection.getVSRules()[index][2]].between(value_min, value_max)
             ].tolist()
@@ -1128,7 +1138,7 @@ class GUI():
                         allBeeSwarms[i].data[0].marker.color = y_color
 
         # when the value of a slider is modified, the histograms and graphs are modified
-        def updateOnSkopeRule1Change(widget, event, data): #1165
+        def updateOnSkopeRule1Change(widget, event, data):
             if widget.__class__.__name__ == "RangeSlider":
                 skopeSliderGroup1.children[0].v_model = skopeSlider1.v_model[0]
                 skopeSliderGroup1.children[2].v_model = skopeSlider1.v_model[1]
@@ -1177,7 +1187,7 @@ class GUI():
                 ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
                 updateAllGraphs()
 
-        def updateOnSkopeRule3Change(widget, event, data): #1216
+        def updateOnSkopeRule3Change(widget, event, data):
             if widget.__class__.__name__ == "RangeSlider":
                 skopeSliderGroup3.children[0].v_model = skopeSlider3.v_model[0]  
                 skopeSliderGroup3.children[2].v_model = skopeSlider3.v_model[1]  
@@ -1201,7 +1211,7 @@ class GUI():
 
 
         # cwhen the user validates the updates he makes on a rule
-        def onSkopeSlider1Change(*change): #1258
+        def onSkopeSlider1Change(*change):
             a = deepcopy(float(skopeSlider1.v_model[0]))
             b = deepcopy(float(skopeSlider1.v_model[1]))
             self._selection.getVSRules()[0][0] = a
@@ -1224,11 +1234,11 @@ class GUI():
             updateAllGraphs()
             updateSubModelsScores(None)
 
-        validateSkopeChangeBtn1.on_event("click", onSkopeSlider1Change) #1281
+        validateSkopeChangeBtn1.on_event("click", onSkopeSlider1Change)
         validateSkopeChangeBtn2.on_event("click", onSkopeSlider2Change)
         validateSkopeChangeBtn3.on_event("click", onSkopeSlider3Change)
 
-        def updateSubModelsScores(temp): #1298
+        def updateSubModelsScores(temp): 
             #TODO we should implement DATASET.length() 
             boolList = [True] * len(self._ds.getXValues())
             for i in range(len(self._ds.getXValues())):
@@ -1307,7 +1317,7 @@ class GUI():
                 subModelslides.children[i].children[0].children[1].children = _scoreToStr(i)
 
         # Called when the user clicks on the "add" button and computes the rules
-        def updateSkopeRules(*sender): #1367
+        def updateSkopeRules(*sender):
             loadingModelsProgLinear.class_ = "d-flex"
 
             self._activate_histograms = True
@@ -1341,7 +1351,7 @@ class GUI():
                 # Otherwise we display the rules
                 else:
                     # We start with VS space
-                    theVSSkopeText.children[0].children[3].children = [ #1399
+                    theVSSkopeText.children[0].children[3].children = [ 
                         "p = "
                         + str(self._selection.getVSScore()[0])
                         + "%"
@@ -1362,7 +1372,7 @@ class GUI():
 
                     other_columns = [g for g in self._ds.getXValues().columns if g not in columns_rules]
 
-                    addAnotherFeatureWgt.explanationsMenuDict = other_columns #1420
+                    addAnotherFeatureWgt.explanationsMenuDict = other_columns 
                     addAnotherFeatureWgt.v_model = other_columns[0]
 
                     # self._selection.getVSRules() = self._selection.getVSRules()
@@ -1371,7 +1381,7 @@ class GUI():
                         self._selection.ruleListToStr()
                     )
 
-                    [new_y, marker] = createBeeswarm(self._ds, self._xds, self._explanationES[0], self._selection.getVSRules()[0][2])  #1420
+                    [new_y, marker] = createBeeswarm(self._ds, self._xds, self._explanationES[0], self._selection.getVSRules()[0][2]) 
                     beeswarm1.data[0].y = deepcopy(new_y)
                     beeswarm1.data[0].x = self._xds.getValues(self._explanationES[0])[columns_rules[0]]
                     beeswarm1.data[0].marker = marker
@@ -1403,7 +1413,7 @@ class GUI():
                             y_shape_skope.append("cross")
                             y_color_skope.append("grey")
                             y_opa_skope.append(0.5)
-                    colorSelectionBtns.v_model = "Current selection"
+                    colorChoiceBtnToggle.v_model = "Current selection"
                     changeMarkersColor(None)
 
                     skopeAccordion.children = [
@@ -1533,7 +1543,7 @@ class GUI():
 
             changeMarkersColor(None)
 
-        def reinitSkopeRules(*b): #1591
+        def reinitSkopeRules(*b):
             self._selection.setVSRules(self._save_rules)
             updateSkopeRules(None)
             updateSubModelsScores(None)
@@ -1567,7 +1577,7 @@ class GUI():
             ],
         )
 
-        findClusterBtn = v.Btn( #1623
+        findClusterBtn = v.Btn(
             class_="ma-1 mt-2 mb-0",
             elevation="2",
             children=[v.Icon(children=["mdi-magnify"]), "Find clusters"],
@@ -1589,14 +1599,14 @@ class GUI():
             children=["Number of clusters " + str(clustersSlider.v_model)],
         )
 
-        def clusterSliderGrp(*b): #1645
+        def clusterSliderGrp(*b): 
             clustersSliderTxt.children = [
                 "Number of clusters " + str(clustersSlider.v_model)
             ]
 
         clustersSlider.on_event("input", clusterSliderGrp)
 
-        clustersNumberCheck = v.Checkbox( #1652
+        clustersNumberCheck = v.Checkbox( 
             v_model=True, label="Optimal number of clusters :", class_="ma-3"
         )
 
@@ -1605,7 +1615,7 @@ class GUI():
 
         clustersNumberCheck.on_event("change", clustersNumberCheckChange)
 
-        clusterGrp = v.Layout( #1661
+        clusterGrp = v.Layout( 
             class_="d-flex flex-row",
             children=[
                 findClusterBtn,
@@ -1642,7 +1652,7 @@ class GUI():
         )
 
         # Allows you to make dyadic clustering
-        def dynamicClustering(*b): #1698
+        def dynamicClustering(*b):
             loadingClustersProgLinear.class_ = "d-flex"
             if clustersNumberCheck.v_model:
                 result = proposeAutoDyadicClustering(self._ds.getXValues(Dataset.SCALED), self._xds.getValues(self._explanationES[0]), 3, True)
@@ -1737,7 +1747,7 @@ class GUI():
                 clusterResults
             ]
 
-            colorSelectionBtns.v_model = "Clustering auto"
+            colorChoiceBtnToggle.v_model = "Clustering auto"
 
             tabOneSelectionColumn.children[-1].children[0].children[0].on_event(
                 "change", selectedClusterChange
@@ -1752,7 +1762,7 @@ class GUI():
             index = tabOneSelectionColumn.children[-1].children[0].children[0].v_model
             liste = [i for i, d in enumerate(labels) if d == float(index)]
             lassoSelection(None, None, None, liste)
-            colorSelectionBtns.v_model = "Clustering auto"
+            colorChoiceBtnToggle.v_model = "Clustering auto"
             changeMarkersColor(opacity=False)
 
         findClusterBtn.on_event("click", dynamicClustering)
@@ -1906,9 +1916,8 @@ class GUI():
             ])]
             # End lasso
 
-
         # Called when validating a tile to add it to the set of Regions
-        def newRegionValidated(*args): #1961
+        def newRegionValidated(*args):
             if len(args) == 0:
                 pass
             elif self._selection in self._regions:
@@ -2055,7 +2064,7 @@ class GUI():
             #             self._regions.pop(index - a)
             #             newRegionValidated()
             #             a += 1
-            #         colorSelectionBtns.v_model = "Regions"
+            #         colorChoiceBtnToggle.v_model = "Regions"
             #         changeMarkersColor()
 
             #     deleteAllRegionsBtn.on_event(
@@ -2064,7 +2073,7 @@ class GUI():
 
             #     display(allTables)
 
-        validateRegionBtn.on_event("click", newRegionValidated) #2115
+        validateRegionBtn.on_event("click", newRegionValidated)
         validateSkopeBtn.on_event("click", updateSkopeRules)
 
         self._leftVSFigure.data[0].on_selection(lassoSelection)
@@ -2106,7 +2115,7 @@ class GUI():
             disabled=True,
         )
 
-        def displayMap(widget, event, data): #2157
+        def displayMap(widget, event, data):
             if widget.color == "white":
                 mapPartLayout.class_= "d-flex justify-space-around ma-0 pa-0"
                 widget.color = "error"
@@ -2133,16 +2142,12 @@ class GUI():
                 updateAllGraphs()
                 for i in range(len(skopeAccordion.children)):
                     skopeAccordion.children[i].disabled = False
-            
-            
-
-        addMapBtn.on_event("click", displayMap) #2187
 
         addButtonsGrp = v.Row(children=[addSkopeBtn, addAnotherFeatureWgt, v.Spacer(), addMapBtn])
 
         # function called when we add a feature to the rules. We instanciate the exact same things than from the previous features
         # (beeswarms, histograms, etc...)
-        def addSkopeRule(*b): #2193
+        def addSkopeRule(*b): 
             new_rule = [0] * 5
             column = addAnotherFeatureWgt.v_model
             if self._otherColumns == None:
@@ -2176,13 +2181,13 @@ class GUI():
                 updateAllGraphs()
                 updateSubModelsScores(None)
 
-            newValidateChange.on_event("click", newFunctionChangeValidate) #2226
+            newValidateChange.on_event("click", newFunctionChangeValidate) 
 
-            newRealTimeGraphCheck = v.Checkbox( #2228
+            newRealTimeGraphCheck = v.Checkbox(
                 v_model=False, label="Real-time updates on the graphs", class_="ma-3"
             )
 
-            newTextAndSliderGrp = v.Layout( #2232
+            newTextAndSliderGrp = v.Layout(
                 children=[
                     v.TextField(
                         style_="max-width:100px",
@@ -2202,7 +2207,7 @@ class GUI():
                 ],
             )
 
-            def validateNewUpdate(*args):  #2252
+            def validateNewUpdate(*args): 
                 if newRealTimeGraphCheck.v_model:
                     newValidateChange.disabled = True
                 else:
@@ -2232,7 +2237,7 @@ class GUI():
             new_beeswarm.data[0].x = self._xds.getValues(self._explanationES[0])[column_shap]
             new_beeswarm.data[0].marker = marker
 
-            newBeeswarmColorChosen = v.Row( #2282
+            newBeeswarmColorChosen = v.Row( 
                 class_="pt-3 mt-0 ml-4",
                 children=[
                     "Value of Xi",
@@ -2245,7 +2250,7 @@ class GUI():
                 ],
             )
 
-            def noBeeswarmColorChosen(*args): #2295
+            def noBeeswarmColorChosen(*args):
                 if newBeeswarmColorChosen.children[1].v_model == False:
                     marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[len(self._selection.getVSRules()) - 1][2])[1]
                     new_beeswarm.data[0].marker = marker
@@ -2257,6 +2262,7 @@ class GUI():
                         0,
                     )
                     new_beeswarm.update_traces(marker=dict(showscale=False))
+
 
             newBeeswarmColorChosen.children[1].on_event(
                 "change", noBeeswarmColorChosen
@@ -2285,7 +2291,7 @@ class GUI():
                 children=[v.Icon(children=["mdi-delete"])],
             )
 
-            def deleteNewSkopex(*b): #2335
+            def deleteNewSkopex(*b): 
                 column_2 = newSkopeSlider.label
                 ii = 0
                 for i in range(len(self._selection.getVSRules())):
@@ -2323,7 +2329,7 @@ class GUI():
 
             newFeatureGrp = guiFactory.create_class_selector(self, self._selection.getVSRules()[-1][2], min=min(list(self._ds.getXValues()[newSkopeSlider.label].values)), max=max(list(self._ds.getXValues()[newSkopeSlider.label].values)), fig_size=figureSizeSlider.v_model) #2371
 
-            def newContinuousChange(widget, event, data): #2373
+            def newContinuousChange(widget, event, data): 
                 column_2 = newSkopeSlider.label
                 index = 0
                 for i in range(len(self._selection.getVSRules())):
@@ -2385,7 +2391,7 @@ class GUI():
                 ],
             )
 
-            skopeAccordion.children = [*skopeAccordion.children, newFeatureAccordion_n] #2435
+            skopeAccordion.children = [*skopeAccordion.children, newFeatureAccordion_n]
             name_colcol = "X" + str(len(skopeAccordion.children)) + " (" + column + ")"
             skopeAccordion.children[-1].children[0].children[0].children = name_colcol
 
@@ -2465,7 +2471,7 @@ class GUI():
 
         #End addSkopeRule
 
-        newRegionValidated() #2513
+        newRegionValidated() 
 
         addSkopeBtn.on_event("click", addSkopeRule)
 
@@ -2479,7 +2485,7 @@ class GUI():
                 busyVSHBox,
             ]
         )
-        dimReducESHBox = widgets.HBox( #2527
+        dimReducESHBox = widgets.HBox( 
             [
                 dimReducESSelect,
                 v.Layout(children=[dimReducESSettingsMenu]),
@@ -2515,48 +2521,19 @@ class GUI():
                 {'text': "LIME (imported)", 'disabled': True},
                 {'text': "LIME (computed)", 'disabled': True},
                 ]
-        
-        for item in explanationsMenuDict:
-            match item['text'] :
-                case "SHAP (computed)" :
-                    tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.SHAP)
-                    if tempTuple[0] and (tempTuple[1] == ExplanationsDataset.COMPUTED or tempTuple[1] == ExplanationsDataset.BOTH) :
-                        item['disabled'] = False
-                    else :
-                        item['disabled'] = True
-                case "SHAP (imported)" :
-                    tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.SHAP)
-                    if tempTuple[0] and (tempTuple[1] == ExplanationsDataset.IMPORTED or tempTuple[1] == ExplanationsDataset.BOTH) :
-                        item['disabled'] = False
-                        item_default = item['text']
-                    else :
-                        item['disabled'] = True
-                
-                case "LIME (computed)" :
-                    tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.LIME)
-                    if tempTuple[0] and (tempTuple[1] == ExplanationsDataset.COMPUTED or tempTuple[1] == ExplanationsDataset.BOTH) :
-                        item['disabled'] = False
-                    else :
-                        item['disabled'] = True
-                
-                case "LIME (imported)" :
-                    tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.LIME)
-                    if tempTuple[0] and (tempTuple[1] == ExplanationsDataset.IMPORTED or tempTuple[1] == ExplanationsDataset.BOTH) :
-                        item['disabled'] = False
-                        item_default = item['text']
-                    else :
-                        item['disabled'] = True
+
+        self.updateExplanationSelect(explanationsMenuDict)
 
         explanationSelect = v.Select(
             label="Explanation method",
             items=explanationsMenuDict,
-            v_model=item_default,
+            # v_model=item_default,
             class_="ma-2 mt-1 ml-6",
             style_="width: 150px",
             disabled = False,
         )
 
-        def changeExplanationMethod(widget, event, data): #2575
+        def changeExplanationMethod(widget, event, data):
             # Normally data can only be 1 (SHAP computed) or 3 (LIME computed)
             # TODO : we need to clarify if SHAP imported can be projected, and then SHAP computed is selected : what haapens to projected values ?
             match data :
@@ -2572,6 +2549,7 @@ class GUI():
                 case 3 : #"LIME (imported)"
                     newExplanationMethod = ExplanationMethod.LIME
                     computeOrigin = ExplanationsDataset.IMPORTED
+            logger.debug(f"changeExplanationMethod : new ExplanationMethod is {newExplanationMethod} and computeOrigin is {computeOrigin} ")
 
             self._explanationES[0] = (newExplanationMethod, computeOrigin)
 
@@ -2595,65 +2573,70 @@ class GUI():
             updateFigures(self._ds, self._xds, self._projectionVS, self._leftVSFigure, self._leftVSFigure3D, self._projectionES, self._rightESFigure, self._rightESFigure3D)
     
 
-        explanationSelect.on_event("change", changeExplanationMethod) #2585
-        
-        newSHAPProgresssBar = guiFactory.createOtherPB("SHAP")
-        newLIMEProgresssBar = guiFactory.createOtherPB("LIME")
+        explanationSelect.on_event("change", changeExplanationMethod)
 
-        if self._explanationES[0] == ExplanationMethod.SHAP:
-            newSHAPProgresssBar.children[1].v_model = 100
-            newSHAPProgresssBar.children[2].v_model = "Computations already done !"
-            newSHAPProgresssBar.children[-1].disabled = True
-        elif _explanationES[0] == ExplanationMethod.LIME:
-            newLIMEProgresssBar.children[1].v_model = 100
-            newLIMEProgresssBar.children[2].v_model = "Computations already done !"
-            newLIMEProgresssBar.children[-1].disabled = True
+        ourSHAPProgLinearColumn = guiFactory.createProgressLinearColumn("SHAP")
+        ourLIMEProgLinearColumn = guiFactory.createProgressLinearColumn("LIME")
 
+        tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.SHAP)
 
-        # TODO : change this function name
-        def explanationComputation(widget, event, data): #2600
-            temmpExplainMethod = 0
-            freshlyComputedValues = None
+        if tempTuple[0] and tempTuple[1] == ExplanationsDataset.COMPUTED:
+            ourSHAPProgLinearColumn.children[1].v_model = 100
+            ourSHAPProgLinearColumn.children[2].v_model = "Computations already done !"
+            ourSHAPProgLinearColumn.children[-1].disabled = True
+        else :
+            ourSHAPProgLinearColumn.children[1].v_model = 0
+            ourSHAPProgLinearColumn.children[2].v_model = "No computation available"
+            ourSHAPProgLinearColumn.children[-1].disabled = False
+
+        tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.LIME)
+
+        if tempTuple[0] and tempTuple[1] == ExplanationsDataset.COMPUTED:
+            ourLIMEProgLinearColumn.children[1].v_model = 100
+            ourLIMEProgLinearColumn.children[2].v_model = "Computations already done !"
+            ourLIMEProgLinearColumn.children[-1].disabled = True
+        else :
+            ourLIMEProgLinearColumn.children[1].v_model = 0
+            ourLIMEProgLinearColumn.children[2].v_model = "No computation available"
+            ourLIMEProgLinearColumn.children[-1].disabled = False
+
+        def explanationComputationRequested(widget, event, data): 
+
             if widget.v_model == "SHAP":
-                temmpExplainMethod = ExplanationMethod.SHAP
-                explaination = SHAPExplanationv(self._ds.getXValues(), self._ds.getXValues(Dataset.ALL), self._ds.getModel())
-                freshlyComputedValues = explaination.compute()
-                # TODO : we need to connect updates with the progress bar newSHAPProgresssBar
+                tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.SHAP)
+                if not tempTuple[0] or (tempTuple[0] and tempTuple[1] == ExplanationsDataset.IMPORTED) :
+                    explanation = SHAPExplanation(self._ds.getXValues(), self._model)
+                    self._xds.setValues(ExplanationMethod.SHAP, explanation.compute())
 
             if widget.v_model == "LIME":
-                temmpExplainMethod = ExplanationMethod.LIME
-                explaination = LIMEExplainationv(self._ds.getXValues(), self._ds.getXValues(Dataset.ALL), self._ds.getModel())
-                freshlyComputedValues = explaination.compute()
-                # TODO : we need to connect updates with the progress bar newLIMEProgresssBar
+                tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.LIME)
+                if not tempTuple[0] or (tempTuple[0] and tempTuple[1] == ExplanationsDataset.IMPORTED) :
+                    explanation = LIMEExplainationv(self._ds.getXValues(), self._model)
+                    self._xds.setValues(ExplanationMethod.LIME, explanation.compute())  
 
-            self._xds.setValues(temmpExplainMethod, freshlyComputedValues)
-            
-        
-        def shapComputationFinished(*args): #2616
-            explanationsMenuDict = explanationSelect.explanationsMenuDict.copy()
-            for item in explanationsMenuDict:
-                if item['text'] == "SHAP (computed)":
-                    item['disabled'] = False
-            explanationSelect.explanationsMenuDict = explanationsMenuDict.copy() + [{'text': "Update", 'disabled': False}]
-            explanationSelect.explanationsMenuDict = explanationSelect.explanationsMenuDict[:-1]
 
-        def limeComputationFinished(*args):
-            explanationsMenuDict = explanationSelect.explanationsMenuDict.copy()
-            for item in explanationsMenuDict:
-                if item['text'] == "LIME (computed)":
-                    item['disabled'] = False
-            explanationSelect.explanationsMenuDict = explanationsMenuDict.copy() + [{'text': "Update", 'disabled': False}]
-            explanationSelect.explanationsMenuDict = explanationSelect.explanationsMenuDict[:-1]
+        def explanationComputationListener( p:int, topic :str = pub.AUTO_TOPIC) :
+            logger.debug(f"explanationComputationListener called for {ExExplanationMethod.getExplanationMethodAsStr(explainationMethodType)}with {p}")
+            ourSHAPProgLinearColumn.children[1].v_model = p
+            if p == 100 :
+                self.updateExplanationSelect(explanationSelect.items)
+                ourSHAPProgLinearColumn.children[2].v_model = "Computations already done !"
+            logger.debug(f"explanationSelect should be updated")
 
-        newSHAPProgresssBar.children[-1].observe(shapComputationFinished, "color")
-        newLIMEProgresssBar.children[-1].observe(limeComputationFinished, "color")
 
-        newSHAPProgresssBar.children[-1].on_event("click", explanationComputation) #2634
-        newLIMEProgresssBar.children[-1].on_event("click", explanationComputation)
+        # We create a "channel" to listen for computations
+        compChannel = ThreadedEventChannel()
+        compChannel.subscribe("SHAP", explanationComputationListener)
 
-        time_computing = guiFactory.time_computing(newSHAPProgresssBar, newLIMEProgresssBar)
+        # We subscribe to ExplanationMethod messages for topics "SHAP" and "LIME"
+    
 
-        computeMenu = v.Menu( #2646
+        ourSHAPProgLinearColumn.children[-1].on_event("click", explanationComputationRequested) 
+        ourLIMEProgLinearColumn.children[-1].on_event("click", explanationComputationRequested)
+
+        computeExplanationsCard = guiFactory.computeExplanationsCard(ourSHAPProgLinearColumn, ourLIMEProgLinearColumn)
+
+        computeMenu = v.Menu( 
             v_slots=[
                 {
                     "name": "activator",
@@ -2672,7 +2655,7 @@ class GUI():
                 v.Card(
                     class_="pa-4",
                     rounded=True,
-                    children=[time_computing],
+                    children=[computeExplanationsCard],
                     min_width="500",
                 )
             ],
@@ -2682,7 +2665,7 @@ class GUI():
         )
 
 
-        topButtonsHBox = widgets.HBox( #2675
+        topButtonsHBox = widgets.HBox(
             [
                 dimSwitchRow,
                 v.Layout(
@@ -2784,7 +2767,7 @@ class GUI():
                     index = i
             return index
 
-        def magicClustering(*args): #2775
+        def magicClustering(*args):
             demo = magicGUI.children[2].v_model
             if demo == False:
                 antakiaMethodCard.children[0].v_model = 3
@@ -2822,11 +2805,11 @@ class GUI():
                     if demo:
                         antakiaMethodCard.children[0].v_model = 0
                     time.sleep(tempo)
-            colorSelectionBtns.v_model = "Regions"
+            colorChoiceBtnToggle.v_model = "Regions"
             changeMarkersColor(None)
 
         #map plotly
-        mapWIdget = go.FigureWidget( #2817
+        mapWIdget = go.FigureWidget( 
             data=go.Scatter(x=[1], y=[1], mode="markers", marker=ourVSMarkerDict, customdata=ourVSMarkerDict["color"], hovertemplate = '%{customdata:.3f}')
         )
 
@@ -2877,7 +2860,7 @@ class GUI():
             ],
         )
 
-        def changeMapText(trace, points, selector): #2868
+        def changeMapText(trace, points, selector):
             mapSelectionTxt.children[1].children[0].children = ["Number of entries selected: " + str(len(points.point_inds))]
             self._selection._mapIndexes = points.point_inds
             ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
@@ -2892,7 +2875,7 @@ class GUI():
 
         bouton_magic.on_event("click", magicClustering)
 
-        loadingClustersProgLinear = v.ProgressLinear( #2883
+        loadingClustersProgLinear = v.ProgressLinear(
             indeterminate=True, class_="ma-3", style_="width : 100%"
         )
 
@@ -2908,7 +2891,7 @@ class GUI():
             ]
         )
 
-        loadingModelsProgLinear = v.ProgressLinear( #2899
+        loadingModelsProgLinear = v.ProgressLinear( 
             indeterminate=True,
             class_="my-0 mx-15",
             style_="width: 100%;",
@@ -2922,7 +2905,6 @@ class GUI():
         tabThreeSubstitutionVBox = widgets.VBox([loadingModelsProgLinear, subModelslides])
         # allRegionUI = widgets.VBox([self._selection, self._regionsTable])
         tabFourRegionListVBox = widgets.VBox([loadingModelsProgLinear, subModelslides]) # Just want to go further
-
 
         antakiaMethodCard = v.Card(
             class_="w-100 pa-3 ma-3",
@@ -2974,7 +2956,7 @@ class GUI():
         )
         with self._out:
             display(ourGUIVBox)    
-            
+
 
     def results(self, number: int = None, item: str = None):
         L_f = []
@@ -3019,3 +3001,28 @@ class GUI():
             return L_f
         else:
                 return L_f[number][item]
+
+
+    def updateExplanationSelect(self, itemsDict : dict) :
+        """ Update the explanationMenduDict widget and only enable items that are available
+        """
+        for i in range(4) :
+            itemsDict[i]['disabled'] = True
+
+        tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.SHAP)
+        if tempTuple[0]: # SHAP available
+            if tempTuple[1] == ExplanationsDataset.IMPORTED :
+                logger.debug("updateExpSelect : we have imported SHAP")
+                itemsDict[0]['disabled'] = False
+            if tempTuple[1] == ExplanationsDataset.COMPUTED :
+                logger.debug("updateExpSelect : we have computed SHAP")
+                itemsDict[1]['disabled'] = False
+        
+        tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.LIME)    
+        if tempTuple[0]: # LIME available
+            if tempTuple[1] == ExplanationsDataset.IMPORTED :
+                logger.debug("updateExpSelect : we have imported LIME")
+                itemsDict[2]['disabled'] = False
+            if tempTuple[1] == ExplanationsDataset.COMPUTED :
+                logger.debug("updateExpSelect : we have computed LIME")
+                itemsDict[3]['disabled'] = False

@@ -31,6 +31,11 @@
             * resetOpacityBtn
             * explanationSelect
             * computeMenu
+                * computeExplanationsCard
+                    * Tab SHAP
+                        * ourSHAPProgLinearColumn
+                    * Tab LIME
+                        * ourLIMEProgLinearColumn
         * Layout / Layout
             * dimReducVSHBox
                 * dimReducVSSelect

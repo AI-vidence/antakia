@@ -16,12 +16,100 @@ import sklearn.cluster
 
 import json
 import textwrap
+import logging
+from logging import Logger, Handler
 
+import ipywidgets as widgets
 from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
 
-# from antakia.potato import Potato
-import antakia.potato as potato
+compChannel = None
+
+# Inspired by https://dev.to/mandrewcito/lazy-pub-sub-python-implementation-3fi8
+class EventChannel(object):
+    def __init__(self):
+        self.subscribers = {}
+
+    def unsubscribe(self, event, callback):
+        if event is not None or event != ""\
+                and event in self.subscribers.keys():
+            self.subscribers[event] = list(
+                filter(
+                    lambda x: x is not callback,
+                    self.subscribers[event]
+                )
+            )
+
+    def subscribe(self, event, callback):
+        if not callable(callback):
+            raise ValueError("callback must be callable")
+
+        if event is None or event == "":
+            raise ValueError("Event cant be empty")
+
+        if event not in self.subscribers.keys():
+            self.subscribers[event] = [callback]
+        else:
+            self.subscribers[event].append(callback)
+
+    def publish(self, event, args):
+        if event in self.subscribers.keys():
+            for callback in self.subscribers[event]:
+                callback(args)
+
+class ThreadedEventChannel(EventChannel):
+    def __init__(self, blocking=True):
+        self.blocking = blocking
+        super(ThreadedEventChannel, self).__init__()
+
+    def publish(self, event, *args, **kwargs):
+        threads = []
+        if event in self.subscribers.keys():
+            for callback in self.subscribers[event]:
+                threads.append(threading.Thread(
+                  target=callback,
+                  args=args,
+                  kwargs=kwargs
+                ))
+            for th in threads:
+                th.start()
+
+            if self.blocking:
+                for th in threads:
+                    th.join()
+
+class OutputWidgetHandler(logging.Handler):
+    """Custom logging handler sending logs to an output widget"""
+
+    def __init__(self, *args, **kwargs):
+        super(OutputWidgetHandler, self).__init__(*args, **kwargs)
+        layout = {"width": "100%", "height": "160px", "border": "1px solid black", "overflow_y" : "auto"}
+        self.out = widgets.Output(layout=layout)
+
+    def emit(self, record):
+        """Overload of logging.Handler method"""
+        formatted_record = self.format(record)
+        new_output = {
+            "name": "stdout",
+            "output_type": "stream",
+            "text": formatted_record + "\n",
+        }
+        self.out.outputs = (new_output,) + self.out.outputs
+
+    def show_logs(self):
+        """Show the logs"""
+        display(self.out)
+
+    def clear_logs(self):
+        """Clear the current logs"""
+        self.out.clear_output()
+
+def confLogger(logger : Logger) -> Handler:
+    handler = OutputWidgetHandler()
+    handler.setFormatter(logging.Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+    return handler
 
 def wrapRepr(widget : Widget, size : int = 200) -> str:
     text = widget.__repr__()
@@ -139,8 +227,6 @@ def proposeAutoDyadicClustering (X, SHAP, n_clusters, default):
     return _inverrtList(l, max(l) + 1), l
 
 
-
-
 def create_save(atk, liste, name: str = "Default name"):
     '''
     Return a save file from a list of pre-defined regions.
@@ -174,40 +260,6 @@ def create_save(atk, liste, name: str = "Default name"):
     for i in range(len(l)):
         l[i] = Potato(atk, l[i])
     return {"name": name, "regions": l, "labels": liste}
-
-
-def loadBackup(atk, local_path):
-    '''
-    Return a save file from a JSON file.
-
-    Function that allows to load a save file.
-    The save file is a json file that contains a list of dictionaries, usually generated in the interface (see antakia.gui).
-
-    Parameters
-    ----------
-    local_path :str
-        The path to the save file. If None, the function will return a message saying that no save file was loaded.
-
-    Returns
-    ----------
-    data : list
-        A list of dictionaries, each dictionary being a save file. This list can directly be passed to the AntakIA object so as to load the save file.
-    
-    Examples
-    --------
-    >>> import antakia
-    >>> data = antakia.load_save("save.json")
-    >>> data
-    [{'name': 'Antoine's save', 'regions': [0, 1], [2, 3] 'labels': [0, 0, 1, 1]}]
-    '''
-    with open(local_path) as json_file:
-        data = json.load(json_file)
-
-    for temp in data:
-        for i in range(len(temp["regions"])):
-            temp["regions"][i] = potato.potatoFromJson(atk, temp["regions"][i])
-
-    return data
 
 
 def fromRules(df, rules_list):
