@@ -11,7 +11,7 @@ from skrules import SkopeRules
 import json as JSON
 from copy import deepcopy
 
-from antakia.data import DimReducMethod, ExplanationMethod, Model, Dataset, ExplanationsDataset
+from antakia.data import DimReducMethod, ExplanationMethod, Model, Dataset, ExplanationDataset
 
 class Potato():
     """
@@ -24,7 +24,7 @@ class Potato():
         The list of the indexes of the points in __atk's dataset.
     _dataset : Dataset object
         A reference to the dataset of __atk.
-    _explanations : ExplanationsDataset
+    _explanations : ExplanationDataset
     _sub_model : a dict
         The surrogate-model ("model" key) of the selection. Could be None. And its score ("score" key).
     _theVSScore : tuple
@@ -51,14 +51,14 @@ class Potato():
     REGION=4 # validated / to be stored in Regions
     JSON=5 # imported from JSON
 
-    def __init__(self,  ds : Dataset, xds : ExplanationsDataset, currentExplanationMethod : int, indexes:list, type:int, json_path: str = None) -> None:
+    def __init__(self,  ds : Dataset, xds : ExplanationDataset, currentExplanationMethod : int, indexes:list, type:int, json_path: str = None) -> None:
         """
         Constructor of the class Potato.
 
         Parameters
         ----------
         ds : a Dataset object
-        xds : an ExplanationsDataset object
+        xds : an ExplanationDataset object
         currentExplanationMethod : the explanation currently used by the caller
         indexes : list
             The list of the indexes of the points in the dataset.
@@ -90,7 +90,7 @@ class Potato():
 
         # We compute the Y mask list from the indexes
         self._yMaskList = []
-        for i in range(len(self._dataset.getXValues())):
+        for i in range(len(self._dataset.getFullValues(Dataset.REGULAR))):
             if i in self._indexes:
                 self._yMaskList.append(1)
             else :
@@ -114,7 +114,7 @@ class Potato():
                     "------------------\n",
                     "      Type:", self.typeToString(), "\n",
                     "      Number of points:", str(len(self._indexes)), "\n",
-                    "      Percentage of the dataset:", str(round(100*len(self._indexes)/len(self._dataset.getXValues()), 2))+"%", "\n",
+                    "      Percentage of the dataset:", str(round(100*len(self._indexes)/len(self._dataset.getFullValues(Dataset.REGULAR)), 2))+"%", "\n",
                     "      Sub-model:", str(self._sub_model["model"].__class__.__name__))) 
         return text
     
@@ -129,7 +129,7 @@ class Potato():
         """
         return len(self._indexes)
 
-    def getVSValuesX(self, flavour : int = Dataset.ALL) -> list:
+    def getVSValuesX(self, flavour : int = Dataset.REGULAR) -> list:
         """
         Returns the VS records of the Potato
 
@@ -140,7 +140,7 @@ class Potato():
         """
         if flavour is not  None and not Dataset.isValidXFlavour(flavour) :
             raise ValueError("You must provide a valid flavour")
-        return self._dataset.getXValues(self._indexes)
+        return self._dataset.getFullValues(Dataset.REGULAR)[self._indexes]
     
     def getVSValuesY(self, flavour : int = Dataset.TARGET) -> list:
         """
@@ -165,7 +165,7 @@ class Potato():
             The ES records of the Potato
         """
         
-        return self._explanations.getXValues(self._indexes)
+        return self._explanations.getFullValues(Dataset.REGULAR)[self._indexes]
     
     def getMapIndexes(self):
         return self._mapIndexes
@@ -434,7 +434,7 @@ class Potato():
 
         # We fit the classifier on the whole Dataset
         ourVSSkopeRulesClassifier = SkopeRules(
-            feature_names=self._dataset.getXValues().columns,
+            feature_names=self._dataset.getFullValues(Dataset.REGULAR).columns,
             random_state=42,
             n_estimators=5,
             recall_min=r, # the only value we set
@@ -443,11 +443,11 @@ class Potato():
             max_samples=1.0,
             max_depth=3,
         )
-        ourVSSkopeRulesClassifier.fit(self._dataset.getXValues(), self._yMaskList)
+        ourVSSkopeRulesClassifier.fit(self._dataset.getFullValues(Dataset.REGULAR)()[self._yMaskList])
 
         # Idem for ES space : we fit the classifier on the whole ExplainaitionsDataset
         ourESSkopeRulesClassifier = SkopeRules(
-            feature_names=self._explanations.getValues(self._explanationMethod).columns,
+            feature_names=self._explanations.getFullValues(self._explanationMethod).columns,
             random_state=42,
             n_estimators=5,
             recall_min=r,
@@ -456,7 +456,7 @@ class Potato():
             max_samples=1.0,
             max_depth=3,
         )
-        ourESSkopeRulesClassifier.fit(self._explanations.getValues(self._explanationMethod), self._yMaskList)
+        ourESSkopeRulesClassifier.fit(self._explanations.getFullValues(self._explanationMethod), self._yMaskList)
 
         if ourVSSkopeRulesClassifier.rules_ == [] or ourESSkopeRulesClassifier.rules_ == []:
             self._theVSRules, self._theESRules = [], []
@@ -465,8 +465,8 @@ class Potato():
 
         else :
 
-            self._theVSRules, self._theVSScores = Potato._cleanSKRRules(ourVSSkopeRulesClassifier.rules_, self._dataset.getXValues())
-            self._theESRules, self._theESScores = Potato._cleanSKRRules(ourESSkopeRulesClassifier.rules_, self._explanations.getValues(self._explanationMethod))
+            self._theVSRules, self._theVSScores = Potato._cleanSKRRules(ourVSSkopeRulesClassifier.rules_, self._dataset.getFullValues(Dataset.REGULAR))
+            self._theESRules, self._theESScores = Potato._cleanSKRRules(ourESSkopeRulesClassifier.rules_, self._explanations.getFullValues(self._explanationMethod))
             self.updateRulesForIntervals()
             self.setIndexesWithRules()
             self._rulesIdentified = True
@@ -612,7 +612,7 @@ class Potato():
             The dataframe containing the points of the dataset that respect only one rule of the list of rules.
         """
         rules = self._theVSRules
-        df = deepcopy(self._dataset.getXValues())
+        df = deepcopy(self._dataset.getFullValues(Dataset.REGULAR))
         rule1 = "df.loc[" + str(rules[index][0]) + rules[index][1] + "df['" + rules[index][2] + "']]"
         rule2 = "df.loc[" + "df['" + rules[index][2] + "']" + rules[index][3] + str(rules[index][4]) + "]"
         df = eval(rule1)

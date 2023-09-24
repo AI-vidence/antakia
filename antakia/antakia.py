@@ -6,7 +6,7 @@ from sklearn import linear_model
 from sklearn import ensemble
 
 
-from antakia.data import Dataset, ExplanationsDataset, ExplanationMethod, Model, DimReducMethod
+from antakia.data import Dataset, ExplanationDataset, ExplanationMethod, Model, DimReducMethod
 from antakia.potato import Potato
 from antakia.gui import GUI
 from antakia.utils import confLogger
@@ -29,8 +29,8 @@ class AntakIA():
     -------------------
     __dataset : Dataset 
         The Datase t object containing data and projected data
-    __explainDataset : ExplanationsDataset
-        The ExplanationsDataset object containing explained values and projected explained values
+    __explainDataset : ExplanationDataset
+        The ExplanationDataset object containing explained values and projected explained values
     __model : Model
         the model to explain
     __gui : an instance of the GUI class
@@ -45,7 +45,7 @@ class AntakIA():
     """
 
 
-    def __init__(self, dataset: Dataset, model : Model, explainDataset : ExplanationsDataset = None, backups: dict = None, backups_path: str = None):
+    def __init__(self, dataset: Dataset, model : Model, explainDataset : ExplanationDataset = None, backups: dict = None, backups_path: str = None):
         '''
         Constructor of the class AntakIA.
 
@@ -53,7 +53,7 @@ class AntakIA():
         ----------
         dataset : Dataset object
         model : Model object
-        explainDataset : ExplanationsDataset object, defauly to None (no computation yet)
+        explainDataset : ExplanationDataset object, defauly to None (no computation yet)
         backups: dict of backups
         backups_path: str TODO : expliquer
         '''
@@ -150,14 +150,14 @@ class AntakIA():
         """
         return self._dataset
     
-    def getExplainationDataset(self) -> ExplanationsDataset:
+    def getExplainationDataset(self) -> ExplanationDataset:
         """
-        Returns the ExplanationsDataset object containing the explained data and their projected values.
+        Returns the ExplanationDataset object containing the explained data and their projected values.
 
         Returns
         -------
         ExplanationDataset object
-            The ExplanationsDataset object.
+            The ExplanationDataset object.
         """
         return self._explainDataset
 

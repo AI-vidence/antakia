@@ -20,8 +20,8 @@ from logging import getLogger
 
 from ipywidgets.widgets.widget import Widget
 
-from antakia.data import Dataset, ExplanationsDataset, LongTask, ExplanationMethod, DimReducMethod, Model
-from antakia.utils import confLogger
+from antakia.data import Dataset, ExplanationDataset, LongTask, ExplanationMethod, DimReducMethod, Model
+from antakia.utils import confLogger, simpleType
 
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
@@ -42,16 +42,15 @@ class SHAPExplanation(ExplanationMethod):
         super().__init__(ExplanationMethod.SHAP, X, model)
 
     def compute(self) -> pd.DataFrame :
+        logger.debug(f"SHAPExplanation.compute : starting ...")
         time_init = time.time()
     
         # explainer = shap.Explainer(self.getModel().predict)
         explainer = shap.Explainer(self.getModel().predict, self.getX())
         # valuesSHAP = pd.DataFrame().reindex_like(self.getX())
         self.setProgress(0)
-        logger.debug(f"SHAPExplanation.compute : set progress = 0")
         valuesSHAP = explainer(self.getX())
         self.setProgress(100)
-        logger.debug(f"SHAPExplanation.compute : set progress = 100")
 
         # colNames = list(self.getX().columns)
         # for i in range(len(colNames)):
@@ -67,7 +66,9 @@ class SHAPExplanation(ExplanationMethod):
         #     self.setProgress(p)
 
         # valuesSHAP.columns = colNames
-        return valuesSHAP
+        df = pd.DataFrame.from_records(valuesSHAP.values)
+        logger.debug(f"SHAPExplanation.compute : returns a {type(df)} with {df.shape}")
+        return df
     
     @staticmethod
     def getExplanationType() -> int:
@@ -82,6 +83,7 @@ class LIMExplanation(ExplanationMethod):
         super().__init__(ExplanationMethod.LIME, X, model)
 
     def compute(self) -> pd.DataFrame :
+        logger.debug(f"LIMEExplanation.compute : starting ...")
         time_init = time.time()
 
         # TODO : It seems we defined class_name in order to work with California housing dataset. We should find a way to generalize this.
@@ -108,11 +110,24 @@ class LIMExplanation(ExplanationMethod):
         for i in range(len(j)): 
             j[i] = j[i] + "_lime"
         valuesLIME.columns = j
+        logger.debug(f"LIMExplanation.compute : returns a {type(valuesLIME)} with {valuesLIME.shape}")
         return valuesLIME
 
     @staticmethod
     def getExplanationType() -> int:
         return ExplanationMethod.LIME
+# --------------------------------------------------------------------------
+
+def computeExplanations(X:pd.DataFrame, model : Model, explainationType:int) -> pd.DataFrame:
+    """ Generaic method to compute explanations, SHAP or LIME
+    """
+    if explainationType == ExplanationMethod.SHAP :
+        return SHAPExplanation(X, model).compute()
+    elif explainationType == ExplanationMethod.LIME :
+        return LIMExplanation(X, model).compute()
+    else :
+        raise ValueError(f"This explanation type {explainationType} is not valid!")
+
 
 # ===========================================================
 #         Projections / Dim Reductions implementations
@@ -134,6 +149,7 @@ class PCADimReduc(DimReducMethod):
         X_pca = pd.DataFrame(X_pca)
         # TODO : we need to iterated over the dataset in order to setProgress messages to the GUI
         self.setProgress(100)
+        logger.debug(f"PCADimReduc.compute : returns a {simpleType(X_pca)}")
         return X_pca
 
     
@@ -151,6 +167,7 @@ class TSNEDimReduc(DimReducMethod):
         X_tsne = tsne.fit_transform(self.getX())
         X_tsne = pd.DataFrame(X_tsne)
         self.setProgress(100)
+        logger.debug(f"TSNEDimReduc.compute : returns a {simpleType(X_tsne)}")
         return X_tsne
     
 class UMAPDimReduc(DimReducMethod):
@@ -166,6 +183,7 @@ class UMAPDimReduc(DimReducMethod):
         embedding = reducer.fit_transform(self.getX())
         embedding = pd.DataFrame(embedding)
         self.setProgress(100)
+        logger.debug(f"UMAPDimReduc.compute : returns a {simpleType(embedding)}")
         return embedding
 
 class PaCMAPDimReduc(DimReducMethod):
@@ -175,24 +193,21 @@ class PaCMAPDimReduc(DimReducMethod):
     __paramDict : dict, 
         Paramters for the PaCMAP algorithm
         Keys : "neighbours", "MN_ratio", "FP_ratio"
-
-
     """
 
     def __init__(self, baseSpace : int, X:pd.DataFrame, dimension : int = 2, **kwargs):
         self._paramDict = dict()
         if kwargs is not None :
             if "neighbours" in kwargs:
-                    _paramDict.update({"neighbours": kwargs["neighbours"]})
+                    self._paramDict.update({"neighbours": kwargs["neighbours"]})
             if "MN_ratio" in kwargs :
-                    _paramDict.update({"MN_ratio": kwargs["MN_ratio"]})
+                    self._paramDict.update({"MN_ratio": kwargs["MN_ratio"]})
             if "FP_ratio" in kwargs :
-                    _paramDict.update({"FP_ratio": kwargs["FP_ratio"]})
+                    self._paramDict.update({"FP_ratio": kwargs["FP_ratio"]})
         DimReducMethod.__init__(self, baseSpace, DimReducMethod.PaCMAP, dimension, X)
 
-
     
-    def compute(self, *args):
+    def compute(self, *args) -> pd.DataFrame :
         # compute fonction allows to define parmameters for the PaCMAP algorithm
         self.setProgress(0)
         if len(args) == 3 :
@@ -211,11 +226,15 @@ class PaCMAPDimReduc(DimReducMethod):
                     n_components=self.getDimension(),  
                     random_state=9,
                 )
+
         embedding = reducer.fit_transform(self.getX(), init="pca")
         embedding = pd.DataFrame(embedding)
         self.setProgress(100)
+        logger.debug(f"PaCMAPDimReduc.compute : returns a {simpleType(embedding)} with params={self._paramDict}")
         return embedding
 
+
+# --------------------------------------------------------------------------
 
 def computeProjection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dimension : int, **kwargs) -> pd.DataFrame:
     
@@ -231,14 +250,16 @@ def computeProjection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dimen
     elif dimReducMethod == DimReducMethod.UMAP :
         projValues =  UMAPDimReduc(baseSpace, X, dimension).compute()
     elif dimReducMethod == DimReducMethod.PaCMAP :
-        logger.debug(f"PaCMAPDimReduc.compute : baseSpace = {baseSpace}")
         if kwargs is None or len(kwargs) == 0 :
             projValues =  PaCMAPDimReduc(baseSpace, X, dimension).compute()
         else : 
+            logger.debug(f"computeProjection: PaCMAPDimReduc with kwargs {kwargs}")
             projValues =  PaCMAPDimReduc(baseSpace, X, dimension, **kwargs).compute()
     else :
         raise ValueError(f"This projection type {dimReducMethod} is not valid!")
 
+    # logger.debug(f"computeProjection: returns a {type(projValues)} with {projValues.shape} ({dimension}D) in {DimReducMethod.getBaseSpaceAsStr(baseSpace)} baseSpace")
+    
     return projValues
        
         
@@ -249,7 +270,7 @@ def function_score(y, y_chap):
     return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
 
 @staticmethod
-def createBeeswarm(ds : Dataset, xds : ExplanationsDataset, explainationMth : int, variableIndex : int) -> Tuple: #255
+def createBeeswarm(ds : Dataset, xds : ExplanationDataset, explainationMth : int, variableIndex : int) -> Tuple: #255
     X = ds.getXValues(Dataset.CURRENT)
     y = ds.getYValues(Dataset.PREDICTED)
     XP = xds.getValues(explainationMth)
@@ -298,37 +319,3 @@ def createBeeswarm(ds : Dataset, xds : ExplanationsDataset, explainationMth : in
         colorbar=dict(thickness=20, title=nom_colonne),
     )
     return [expValuesHistogram, explainMarker]
-
-
-# --------------- update figues (we're still in display method---------------------
-
-def updateFigures(ds : Dataset, xds : ExplanationsDataset, explanationMethod : int, projectionVS : tuple, leftVSFigure :Widget, leftVSFigure3D : Widget, projectionES : tuple, rightESFigure : Widget, rightESFigure3D : Widget) :
-
-
-    # We update if needed on the left / VS
-    projVSValues = ds.getXProjValues(projectionVS[0], projectionVS[1])
-
-    if projVSValues is None :
-        projVSValues = computeProjection(ds.getXValues(Dataset.CURRENT), projectionVS[0], projectionVS[1])
-
-
-   # We update if needed on the right / ES
-    projESValues = xds.getValues(explanationMethod, projectionES[0], projectionES[1])
-    if projESValues is None :
-        projESValues = computeProjection(ds.getXValues(Dataset.CURRENT), projectionVS[0], projectionES[1])
-   
-
-    # We now update the figures :
-    if projectionVS[1]==DimReducMethod.DIM_TWO and leftVSFigure is not None :
-        with leftVSFigure.batch_update():
-            leftVSFigure.data[0].x, leftVSFigure.data[0].y  = projVSValues[0], projVSValues[1]
-    elif projectionVS[1]==DimReducMethod.DIM_THREE and leftVSFigure3D is not None :
-            with leftVSFigure3D.batch_update():
-                leftVSFigure3D.data[0].x, leftVSFigure3D.data[0].y, leftVSFigure3D.data[0].z = projVSValues[0], projVSValues[1], projVSValues[2]
-
-    if projectionES[1]==DimReducMethod.DIM_TWO and rightESFigure is not None :
-        with rightESFigure.batch_update():
-            rightESFigure.data[0].x, rightESFigure.data[0].y = projESValues[0], projESValues[1]
-    elif projectionES[1]==DimReducMethod.DIM_THREE and rightESFigure3D is not None :
-            with rightESFigure3D.batch_update():
-                rightESFigure3D.data[0].x, rightESFigure3D.data[0].y, rightESFigure3D.data[0].z = projESValues[0], projESValues[1], projESValues[2]

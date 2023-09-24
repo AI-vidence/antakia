@@ -19,7 +19,7 @@ from importlib.resources import files
 import json
 from copy import deepcopy
 
-from antakia.data import Dataset, ExplanationsDataset
+from antakia.data import Dataset, ExplanationDataset
 from antakia.utils import confLogger
 
 
@@ -809,7 +809,7 @@ def createHistograms(nombre_bins, fig_size):
     histogram3 = deepcopy(histogram2)
     return [histogram1, histogram2, histogram3]
 
-def createBeeswarms(expDS : ExplanationsDataset, explainMethod : int, figureSize : int):
+def createBeeswarms(expDS : ExplanationDataset, explainMethod : int, figureSize : int):
     # TODO : understand this "color choice"
     # TODO : I guess this method creates 3 identical beeswarms with different colors
     bs1ColorChoice = v.Row(
@@ -826,7 +826,7 @@ def createBeeswarms(expDS : ExplanationsDataset, explainMethod : int, figureSize
     )
 
     # TODO : we should use the Explanation method stored in GUI.__explanationES
-    expValues = expDS.getValues(explainMethod), None, None
+    expValues = expDS.getFullValues(explainMethod)
     expValuesHistogram = [0] * len(expValues)
 
     beeswarm1 = go.FigureWidget(

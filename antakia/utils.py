@@ -23,60 +23,11 @@ import ipywidgets as widgets
 from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
 
-compChannel = None
 
-# Inspired by https://dev.to/mandrewcito/lazy-pub-sub-python-implementation-3fi8
-class EventChannel(object):
-    def __init__(self):
-        self.subscribers = {}
-
-    def unsubscribe(self, event, callback):
-        if event is not None or event != ""\
-                and event in self.subscribers.keys():
-            self.subscribers[event] = list(
-                filter(
-                    lambda x: x is not callback,
-                    self.subscribers[event]
-                )
-            )
-
-    def subscribe(self, event, callback):
-        if not callable(callback):
-            raise ValueError("callback must be callable")
-
-        if event is None or event == "":
-            raise ValueError("Event cant be empty")
-
-        if event not in self.subscribers.keys():
-            self.subscribers[event] = [callback]
-        else:
-            self.subscribers[event].append(callback)
-
-    def publish(self, event, args):
-        if event in self.subscribers.keys():
-            for callback in self.subscribers[event]:
-                callback(args)
-
-class ThreadedEventChannel(EventChannel):
-    def __init__(self, blocking=True):
-        self.blocking = blocking
-        super(ThreadedEventChannel, self).__init__()
-
-    def publish(self, event, *args, **kwargs):
-        threads = []
-        if event in self.subscribers.keys():
-            for callback in self.subscribers[event]:
-                threads.append(threading.Thread(
-                  target=callback,
-                  args=args,
-                  kwargs=kwargs
-                ))
-            for th in threads:
-                th.start()
-
-            if self.blocking:
-                for th in threads:
-                    th.join()
+def simpleType(o) -> str:
+    if isinstance(o, pd.DataFrame) : return "Dataframe " + str(o.shape)
+    elif isinstance(o, pd.Series) :  return "Series " + str(o.shape)
+    else : return type(o)
 
 class OutputWidgetHandler(logging.Handler):
     """Custom logging handler sending logs to an output widget"""
