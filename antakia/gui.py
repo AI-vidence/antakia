@@ -4,24 +4,30 @@ import numpy as np
 from skrules import SkopeRules
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
-from sklearn import linear_model
-from sklearn import ensemble
+
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
+
 from sklearn.ensemble import RandomForestRegressor
+from sklearn import linear_model
+from sklearn import ensemble
 
 # GUI related imports
-import ipywidgets as widgets
-from ipywidgets import Layout
+# import ipywidgets as widgets
+from ipywidgets import widgets, Layout
+from ipywidgets.widgets.widget import Widget
 from IPython.display import display, clear_output, HTML
-import plotly.graph_objects as go
 import ipyvuetify as v
+import plotly.graph_objects as go
 import seaborn as sns
 
 # Others imports
 import time
 from copy import deepcopy
 from importlib.resources import files
+from typing import Tuple
+import logging
+from logging import getLogger
 
 # Warnings imports
 import warnings
@@ -32,100 +38,278 @@ warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
 warnings.filterwarnings("ignore")
 
 # Internal imports
-from antakia.utils import *
-from antakia.utils import _add_tooltip as add_tooltip
-from antakia.utils import _function_models as function_models
-from antakia.utils import _conflict_handler as conflict_handler
-from antakia.potato import Potato
-from antakia import compute
-import antakia.gui_elements as gui_elements
+
+from antakia import guiFactory
+from antakia.utils import confLogger, proposeAutoDyadicClustering, _function_models as function_models
+from antakia.utils import overlapHandler, wrapRepr, simpleType
+from antakia.potato import *
+from antakia.compute import DimReducMethod, ExplanationMethod, SHAPExplanation, LIMExplanation, computeProjection,  createBeeswarm, computeExplanations
+from antakia.data import Dataset, ExplanationDataset, Model, ExplanationMethod
+
+logger = logging.getLogger(__name__)
+handler = confLogger(logger)
+handler.clear_logs()
+handler.show_logs()
 
 
 class GUI():
     """
-    Gui object. This object contains all the data and variables needed to run the interface.
-    The interface is built using ipyvuetify and plotly. For more information, please see to the references.
+    GUI class.
 
-    Attributes
-    -------
-    atk : atk object
-        The atk object containing the data to explain.
-    selection : Potato object
-        The `Potato` object containing the current selection. For more information, please see the documentation of the class Potato.
+    A GUI instance contains all the data and variables needed to run the interface.
+    The interface is built using ipyvuetify and plotly.
+    It heavily relies on the IPyWidgets framework.
+
+    Instance Attributes
+    ---------------------
+    _ds : Dataset object
+    _xds = ExplanationDataset object
+    _model : Model object
+    _selection : a Potato object
+        The `Potato` object containing the current selection.
+    _projectionVS : VS current projection as a list, eg. [TSNE, 2]
+    _projectionES : ES current projection as a list, eg. [UMAP, 3]
+    _explanationES : a list [int, int]
+        current explanation method : eg. [SHAP, IMPORTED]
+    _leftVSFigure : Widget, the left figure in the VS
+    _rightESFigure : Widget, the right figure in the ES
+
+    _regionColor : # TODO : understand
+    _regionsTable : # TODO : understand
+    _regions : list of Potato objects
+    
+    _save_rules useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
+    _otherColumns : to keep track of the columns that are not used in the rules !
+    
+    _activate_histograms : to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
+    
+    
+    __dyadicClusteringResult : to keep track  of the entire results from the dyadic-clustering
+    _autoClusterRegionColors: the color of the Regions created by the automatic dyadic clustering
+    _dyadicClusteringLabels :  to keep track of the labels from the automatic-clustering, used for the colors !
+
+    modelIndex : to know which sub_model is selected by the user. 
+    _subModelsScores : to keep track of the scores of the sub-models
+
+    _backups : A list of backups
+
+    UI section !!
+    _out
+    _explanationSelect : a Select widget
+
     """
-    def __init__(
-        self,
-        atk,
-        explanation: str = None,
-        projection: str = "PaCMAP",
-        sub_models: list = None,
-    ):
-        """Function that creates the interface.
+
+    # Class attributes
+    VS = 0
+    ES = 1
+
+    def __init__(self, ds: Dataset, model : Model, xds:ExplanationDataset = None, defaultProjection: int = DimReducMethod.PaCMAP, dimension : int = DimReducMethod.DIM_TWO):
+        """
+        GUI Class constructor.
 
         Parameters
         ----------
-        atk : AntakIA object
-            See the documentation of the class AntakIA.
-        explanation : str
-            The default explanation to display. It can be "Imported", "SHAP" or "LIME".
-        projection : str
-            The default projection to display. It can be "PaCMAP", "PCA", "t-SNE" or "UMAP".
-        sub_models : list
-            The list of sub-models to choose from for each region created by the user. The sub-models must have a predict method.
+        ds : Dataset object
+        xds : 
+        projection : int
+            The default projection to use. See constants in DimReducMethod class
+        dimension : int
         """
-        if type(explanation) != str and type(explanation) != type(None):
-            raise TypeError("explanation must be a string")
         
-        self.atk = atk
+        self._ds = ds
+        self._xds = xds
+        self._model = model
+        if model is None :
+            raise ValueError("AntakIA requires a valid model")
+        if self._ds.getYValues(Dataset.TARGET) is None :
+            raise ValueError("The provided Dataset doesn't contain any Y values")
+        if self._ds.getYValues(Dataset.PREDICTED) is None :
+            self._ds.setYValues(self._model.predict(self._ds.getFullValues()), Dataset.PREDICTED)
 
-        if sub_models is None :
-            # default sub_models
-            # TODO : add sub_models for classifications (ex: German Credit)
-            sub_models = [
-            linear_model.LinearRegression(),
-            RandomForestRegressor(random_state=9),
-            ensemble.GradientBoostingRegressor(random_state=9),
-        ]
-        
-        self.sub_models = sub_models
 
-        # Publique :
-        self.selection = Potato(self.atk, [])
-
-        # Privé :
-        if explanation is None :
-            if self.atk.explain["Imported"] is not None:
-                explanation = "Imported"
+        if  self._xds is None :
+            self._explanationES[0], self._explanationES[1] = None # That is we need to compute it
+        else :
+            if self._xds.isExplanationAvailable(ExplanationMethod.SHAP, ExplanationDataset.IMPORTED) :
+                self._explanationES = [ExplanationMethod.SHAP, ExplanationDataset.IMPORTED]
+            elif self._xds.isExplanationAvailable(ExplanationMethod.LIME, ExplanationDataset.IMPORTED) :
+                self._explanationES = [ExplanationMethod.LIME, ExplanationDataset.IMPORTED]
             else :
-                explanation = "SHAP"
+                logger.debugg("__init__ : empty explanation dataset")
         
-        self.__projectionVS = projection #string
-        self.__projectionES = projection #string
-        self.__explanation = explanation #string
+        self._selection = None
 
-        self.dim_red = {}
-        self.dim_red["VS"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
-        self.dim_red["ES"] = {}
-        self.dim_red["ES"]["Imported"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
-        self.dim_red["ES"]["SHAP"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}
-        self.dim_red["ES"]["LIME"] = {"PCA": None, "t-SNE": None, "UMAP": None, "PaCMAP": None}    
+        if  not DimReducMethod.isValidDimReducType(defaultProjection) :
+            raise ValueError(defaultProjection, " is an invalid projection type")
+        
+        if not DimReducMethod.isValidDimNumber(dimension) :
+            raise ValueError(dimension, " is an invalid dimension")   
+        
+        self._projectionVS = [defaultProjection, dimension]
+        self._projectionES = [defaultProjection, dimension]
 
-        if self.__explanation == "SHAP" and type(self.atk.explain["SHAP"]) == type(None) :
-            self.__calculus = True
-        elif self.__explanation == "LIME" and type(self.atk.explain["LIME"]) == type(None) :
-            self.__calculus = True
-        else:
-            self.__calculus = False
+        self._leftVSFigure  : Widget = None
+        self._rightESFigure  : Widget = None
+        self._leftVSFigure3D : Widget= None
+        self._rightESFigure3D  : Widget = None
 
-        self.__color_regions = [] # the color of the regions created by the automatic dyadic clustering
-        self.__save_rules = None #useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
-        self.__other_columns = None #to keep track of the columns that are not used in the rules !
-        self.__activate_histograms = False #to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
-        self.__model_index = None #to know which sub_model is selected by the user. 
-        self.__labels_automatic_clustering = None #to keep track of the labels from the automatic-clustering, used for the colors !
-        self.__result_dyadic_clustering = None #to keep track  of the entire results from the dyadic-clustering
-        self.__score_sub_models = None #to keep track of the scores of the sub-models
-        self.__table_save = None #to manipulate the table of the saves
+        self._regionColor = None # a lislt of what ?
+        self._regionsTable = None
+        self._regions = [] # a list of Potato objects
+
+        # TODO : understand the following
+        self._featureClass1 = None
+        self._featureClass2 = None
+        self._featureClass3 = None
+
+        self._save_rules = None #useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
+        self._otherColumns = None #to keep track of the columns that are not used in the rules !
+        self._activate_histograms = False #to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
+        self._histogramBinNum = 50
+
+        self._autoClusterRegionColors = [] # the color of the Regions created by the automatic dyadic clustering
+        self._dyadicClusteringLabels = None #to keep track of the labels from the automatic-clustering, used for the colors !
+        self.__dyadicClusteringResult = None #to keep track  of the entire results from the dyadic-clustering
+
+        self.__sub_models =  [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
+        self._subModelsScores = None #to keep track of the scores of the sub-models
+        self.modelIndex = None #to know which sub_model is selected by the user.
+
+        self._backups = []
+
+        self._out = widgets.Output() # Ipwidgets output widget
+        self._explanationSelect = None
+        self._paCMAPparams = {"previous": {"VS": {"n_neighbors":10, "MN_ratio":0.5, "FP_ratio":2}, "ES": {"n_neighbors":10, "MN_ratio":0.5, "FP_ratio":2}}, "current" : {"VS": {"n_neighbors":10, "MN_ratio":0.5, "FP_ratio":2}, "ES": {"n_neighbors":10, "MN_ratio":0.5, "FP_ratio":2}}} # A dict ("previous", "currrent") of dict ("VS, "ES") of dict("n_neighbors", "MN_ratio", "FP_ratio")
+
+
+    def checkESExplanations(self) :
+        """Ensure ES computation of explanations have been done
+        """
+
+        if not self._xds.isExplanationAvailable(self._explanationES[0], self._explanationES[1]) :
+            if self._explanationES[1] == ExplanationDataset.IMPORTED :
+                raise ValueError("You asked for an imported explanation but you did not import it")
+            self._xds.setFullValues(
+                self._explanationES[0], 
+                computeExplanations(
+                    self._ds.getFullValues(Dataset.REGULAR), 
+                    self._model, 
+                    self._explanationES[0]
+                    ),
+                ExplanationDataset.COMPUTED,
+                )
+            logger.debug(f"checkESExplanations : we had to compute a new {ExplanationDataset.getOriginByStr(self._explanationES[1])} {ExplanationMethod.getExplanationMethodAsStr(self._explanationES[0])} values")
+            self.updateFigure(GUI.ES)
+        else :
+            logger.debug("checkESExplanations : nothing to do")
+
+
+    def checkAllProjections(self) :
+        self.checkProjections(GUI.VS)
+        self.checkProjections(GUI.ES)
+
+    def checkProjections(self, side : int) :
+        logger.debug("We are in checkProjections")
+        if side not in [GUI.VS, GUI.ES] :
+            raise ValueError(side," is an invalid side")
+
+        baseSpace = projType = dim = X = params = df = sideStr = None
+
+        # We prepare values before calling computeProjection in a generic way
+        if side == GUI.VS :
+            baseSpace = DimReducMethod.VS
+            X = self._ds.getFullValues(Dataset.REGULAR)
+            projType = self._projectionVS[0]
+            dim = self._projectionVS[1]
+            projValues = self._ds.getProjValues(projType, dim)
+            sideStr = "VS"
+        else :
+            if self._explanationES[0] == ExplanationMethod.SHAP :
+                baseSpace = DimReducMethod.ES_SHAP
+            else :
+                baseSpace = DimReducMethod.ES_LIME
+            X = self._xds.getFullValues(self._explanationES[0], self._explanationES[1])
+            projType = self._projectionES[0]
+            dim = self._projectionES[1]
+            projValues = self._xds.getProjValues(
+                self._explanationES[0],
+                projType, 
+                self._projectionES[1])
+            sideStr = "ES"
+        
+        newPacMAPParams = False        
+        if projType == DimReducMethod.PaCMAP :
+                params = {"n_neighbors":10, "MN_ratio":0.5, "FP_ratio":2}
+                if self._paCMAPparams["current"][sideStr]["n_neighbors"] != self._paCMAPparams["previous"][sideStr]["n_neighbors"] :
+                    params["n_neighbors"] = self._paCMAPparams["current"][sideStr]["n_neighbors"]
+                    self._paCMAPparams["previous"][sideStr]["n_neighbors"] = params["n_neighbors"] # We store the new "previous" value
+                    newPacMAPParams = True  
+                if self._paCMAPparams["current"][sideStr]["MN_ratio"] != self._paCMAPparams["previous"][sideStr]["MN_ratio"] :
+                    params["MN_ratio"] = self._paCMAPparams["current"][sideStr]["MN_ratio"]
+                    self._paCMAPparams["previous"][sideStr]["MN_ratio"] = params["MN_ratio"] # We store the new "previous" value
+                    newPacMAPParams = True 
+                if self._paCMAPparams["current"][sideStr]["FP_ratio"] != self._paCMAPparams["previous"][sideStr]["FP_ratio"] :
+                    params["FP_ratio"] = self._paCMAPparams["current"][sideStr]["FP_ratio"]
+                    self._paCMAPparams["previous"][sideStr]["FP_ratio"] = params["FP_ratio"] # We store the new "previous" value
+                    newPacMAPParams = True 
+                logger.debug(f"checkProjections({sideStr}) : previous params = {self._paCMAPparams['previous'][sideStr]['n_neighbors']}, {self._paCMAPparams['previous'][sideStr]['MN_ratio']}, {self._paCMAPparams['previous'][sideStr]['FP_ratio']}")
+                logger.debug(f"checkProjections({sideStr}) : current params = {self._paCMAPparams['current'][sideStr]['n_neighbors']}, {self._paCMAPparams['current'][sideStr]['MN_ratio']}, {self._paCMAPparams['current'][sideStr]['FP_ratio']}")
+
+
+
+        if newPacMAPParams :
+            logger.debug(f"checkProjections({sideStr}) : new PaCMAP proj with new params['n_neighbors']={params['n_neighbors']}, params['MN_ratio']={params['MN_ratio']}, params['FP_ratio']={params['FP_ratio']}")
+            df = computeProjection(baseSpace, X, projType, dim, n_neighbors = params["n_neighbors"], MN_ratio = params["MN_ratio"], FP_ratio = params["FP_ratio"])
+        elif projValues is None :
+            logger.debug(f"checkProjections({sideStr}) : new {DimReducMethod.getDimReducMethodAsStr(projType)} projection")
+            df = computeProjection(baseSpace, X, projType, dim)
+        else :
+            logger.debug(f"checkProjections({sideStr}) : nothing to do")
+
+        # We set the new projected values
+        if df is not None :
+            if side == GUI.VS :
+                self._ds.setProjValues(projType, dim, df)
+            else :
+                self._xds.setProjValues(self._explanationES[0], projType, dim, df)
+            self.updateFigure(side)
+
+    def upateAllFigures(self) :
+        self.updateFigure(GUI.VS)
+        self.updateFigure(GUI.ES)
+
+    def updateFigure(self, side : int) :
+        if side not in [GUI.VS, GUI.ES] :
+            raise ValueError(side," is an invalid side")
+
+        projValues = figure = figure3D = projType = dim  = None
+    
+        if side == GUI.VS :
+            sideStr = "VS"
+            dim = self._projectionVS[1] 
+            projType = self._projectionVS[0]
+            projValues = self._ds.getProjValues(projType, dim)
+            if dim == 2 : figure = self._leftVSFigure
+            else : figure = self._leftVSFigure3D
+            explainStr = ""
+        else :
+            sideStr = "ES"
+            dim = self._projectionES[1] 
+            projType = self._projectionES[0]
+            projValues = self._xds.getProjValues(self._explanationES[0], projType, dim)
+            if dim == 2 : figure = self._rightESFigure
+            else : figure = self._rightESFigure3D
+            explainStr = f"{ExplanationDataset.getOriginByStr(self._explanationES[1])} {ExplanationMethod.getExplanationMethodAsStr(self._explanationES[0])} with"
+
+        if projValues is not None and figure is not None :
+                with figure.batch_update():
+                    figure.data[0].x, figure.data[0].y = (projValues[0]), (projValues[1])
+                    if dim == DimReducMethod.DIM_THREE :
+                        figure.data[0].z = (projValues[2])
+                logger.debug(f"updateFigure({sideStr}) : figure updated")
+        else :            
+            logger.debug(f"updateFigure({sideStr}) : don't have the proper proj for {explainStr} {DimReducMethod.getDimReducMethodAsStr(projType)} in {dim} dimension")
+
 
     def getSelection(self):
         """Function that returns the current selection.
@@ -135,376 +319,356 @@ class GUI():
         Potato object
             The current selection.
         """
-        return self.selection
-
-    def getSubModels(self):
-        """Function that returns the list of sub-models.
-
-        Returns
-        -------
-        list
-            The list of sub-models.
-        """
-        return self.sub_models
-    
-    def setSubModel(self, sub_models):
-        """Function that sets the list of sub-models.
-
-        Parameters
-        ----------
-        sub_models : list
-            The new list of sub-models.
-        """
-        self.sub_models = sub_models
+        return self.__selection
 
     def __repr__(self):
-        return self.display()
+        self.showGUI()
+        return ""
 
-    def display(self):
-        """Function that displays the interface.
+    def showGUI(self):
+        """Function that renders the interface
         """
+        display(self._out)
 
-        if self.sub_models != None and len(self.sub_models) > 9:
-            raise ValueError("You can enter up to 9 sub-models maximum ! (changes to come)")
-        
-        # wait screen definition
-        data_path = files("antakia.assets").joinpath("logo_antakia.png")
+        # ============  SPLASH SCREEN ==================
 
-        logo_antakia = widgets.Image(
-            value=open(data_path, "rb").read(), layout=Layout(width="230px")
+        logoPath = files("antakia.assets").joinpath("logo_antakia.png")
+        antakiaImage = widgets.Image(
+            value=widgets.Image._load_file_value(logoPath), 
+            layout=Layout(width="230px")
         )
 
-        # waiting screen progress bars definition
-        progress_shap = gui_elements.ProgressLinear()
+        # Splash screen progress bars for explanations
+        explainComputationProgLinear = guiFactory.createProgLinear()
 
-        # VS dimension reduction progress bar
-        progress_red = gui_elements.ProgressLinear()
+        # Splash screen progress bars for ES explanations
+        projComputationProgLinear = guiFactory.createProgLinear()
 
-        # consolidation of progress bars and progress texts in a single HBox
-        prog_shap = gui_elements.TotalProgress("Computing of explanatory values", progress_shap)
-        prog_red = gui_elements.TotalProgress("Computing of dimensions reduction", progress_red)
+        # Consolidation of progress bars and progress texts in a single HBox
+        explainComputationRow = guiFactory.createRow("Computation of explanation values", explainComputationProgLinear)
+        projComputationRow = guiFactory.createRow("Computation of dimension reduction values", projComputationProgLinear)
 
-        # definition of the splash screen which includes all the elements,
-        splash_screen = v.Layout(
+        # Definition of the splash screen which includes all the elements,
+        splashScreenLayout = v.Layout(
             class_="d-flex flex-column align-center justify-center",
-            children=[logo_antakia, prog_shap, prog_red],
+            children=[antakiaImage, explainComputationRow, projComputationRow],
         )
 
-        # we send the splash screen
-        display(splash_screen)
+        # We display the splash screen
+        with self._out:
+            display(splashScreenLayout)
 
-        # if we import the explanatory values, the progress bar of this one is at 100
-        if not self.__calculus:
-            progress_shap.v_model = 100
-            prog_shap.children[2].children[
-                0
-            ].v_model = "Imported explanatory values"
-        else :
-            if self.__explanation == "SHAP":
-                compute_SHAP = compute.computationSHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
-                widgets.jslink((progress_shap, "v_model"), (compute_SHAP.progress_widget, "v_model"))
-                widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_SHAP.text_widget, "v_model"))
-                self.atk.explain["SHAP"] = compute_SHAP.compute()
-            elif self.__explanation == "LIME":
-                compute_LIME = compute.computationLIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
-                widgets.jslink((progress_shap, "v_model"), (compute_LIME.progress_widget, "v_model"))
-                widgets.jslink((prog_shap.children[2].children[0], "v_model"), (compute_LIME.text_widget, "v_model"))
-                self.atk.explain["LIME"] = compute_LIME.compute()
+        explainComputationRow.children[2].children[0].v_model = "Values space ... "
+        projComputationRow.children[2].children[0].v_model = "Default dimension reduction : " + DimReducMethod.getDimReducMethodAsStr(self._projectionVS[0]) + " in " + DimReducMethod.getDimensionAsStr(self._projectionVS[1]) + " ..."
 
-        # definition of the default projection
-        # base, we take the PaCMAP projection
-        
-        initial_choice_of_projection = ["PCA", "t-SNE", "UMAP", "PaCMAP"].index(self.__projectionVS) # string
 
-        prog_red.children[2].children[0].v_model = "Values space... "
-        self.dim_red["VS"][self.__projectionVS] = compute.initialize_dim_red_VS(self.atk.dataset.X_scaled, self.__projectionVS)
-        progress_red.v_model = +50
-        prog_red.children[2].children[0].v_model = "Values space... Explanatory space..."
-        self.dim_red["ES"][self.__explanation][self.__projectionES] = compute.initialize_dim_red_ES(self.atk.explain[self.__explanation], self.__projectionES)
-        progress_red.v_model = +50
+        # We render the figures
+        self.checkESExplanations()
+        self.checkAllProjections()
 
-        # once all this is done, the splash screen is removed
-        splash_screen.class_ = "d-none"
 
-        loading_bar = v.ProgressCircular(
+        # We remove the Splahs screen
+        self._out.clear_output(wait=True)
+        del(splashScreenLayout)
+
+        # ============  MAIN SCREEN ==================
+
+        # Below two circular progess bars to tell when a projection is being computed
+        ourProgCircular = v.ProgressCircular(
             indeterminate=True, color="blue", width="6", size="35", class_="mx-4 my-3"
         )
 
-        # loading when we compute the projections
-        out_loading1 = widgets.HBox([loading_bar])
-        out_loading2 = widgets.HBox([loading_bar])
-        out_loading1.layout.visibility = "hidden"
-        out_loading2.layout.visibility = "hidden"
+        busyVSHBox = widgets.HBox([ourProgCircular])
+        busyESHBox = widgets.HBox([ourProgCircular])
+        busyVSHBox.layout.visibility = "hidden"
+        busyESHBox.layout.visibility = "hidden"
 
-        # dropdown allowing to choose the projection in the value space
-        dropdown_for_VS = v.Select(
+        # Dropdown allowing to choose the projection in the VS
+        dimReducVSSelect = v.Select( 
             label="Projection in the VS:",
-            items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
+            items=DimReducMethod.getDimReducMethodsAsStrList(),
             style_="width: 150px",
         )
+        # We set it to the default projection
+        # Mind the -1 because the dropdown starts at 1
+        dimReducVSSelect.v_model = dimReducVSSelect.items[self._projectionVS[0]-1]
 
-        dropdown_for_VS.v_model = dropdown_for_VS.items[initial_choice_of_projection]
-
-        # dropdown allowing to choose the projection in the space of the explanations
-        dropdown_for_ES = v.Select(
+        # Dropdown allowing to choose the projection in the ES
+        dimReducESSelect = v.Select(
             label="Projection in the ES:",
-            items=["PCA", "t-SNE", "UMAP", "PaCMAP"],
+            items=DimReducMethod.getDimReducMethodsAsStrList(),
             style_="width: 150px",
         )
+        # We set it to the default projection
+        # Mind the -1 because the dropdown starts at 1
+        dimReducESSelect.v_model = dimReducESSelect.items[self._projectionVS[0]-1]
 
-        dropdown_for_ES.v_model = dropdown_for_ES.items[initial_choice_of_projection]
 
-        # here the sliders of the parameters for the VS!
-        slider_param_PaCMAP_neighbours_VS = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :")
-        slider_param_PaCMAP_mn_ratio_VS = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
-        slider_param_PaCMAP_fp_ratio_VS = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
+        # ------------- PacMAP VS --------------------
 
-        def function_update_sliderVS(widget, event, data):
-            # function that updates the values ​​when there is a change of sliders in the parameters of PaCMAP for the VS
-            if widget.label == "Number of neighbors :":
-                slider_param_PaCMAP_neighbours_VS.children[1].children = [str(data)]
-            elif widget.label == "MN ratio :":
-                slider_param_PaCMAP_mn_ratio_VS.children[1].children = [str(data)]
-            elif widget.label == "FP ratio :":
-                slider_param_PaCMAP_fp_ratio_VS.children[1].children = [str(data)]
+        # Here the sliders of the parameters for PaCMAP projection in the VS
+        neighboursPaCMAPVSSliderLayout = guiFactory.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :")
+        mnRatioPaCMAPVSSliderLayout = guiFactory.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
+        fpRatioPacMAPVSSliderLayout = guiFactory.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
 
-        slider_param_PaCMAP_neighbours_VS.children[0].on_event(
-            "input", function_update_sliderVS
+        def updatePaCMAPVSSlider(widget, event, data):
+            """
+                Only udpates slider values
+            """
+            if widget.label == "Number of neighbors :": 
+                neighboursPaCMAPVSSliderLayout.children[1].children = [str(data)]
+                logger.debug(f"updatePaCMAPVSSlider : n_neighbors = {data}")
+                self._paCMAPparams["current"]["VS"]["n_neighbors"] = data
+            elif widget.label == "MN ratio :": 
+                mnRatioPaCMAPVSSliderLayout.children[1].children = [str(data)]
+                self._paCMAPparams["current"]["VS"]["MN_ratio"] = data
+                logger.debug(f"updatePaCMAPVSSlider : MN_ratio = {data}")
+            elif widget.label == "FP ratio :": 
+                fpRatioPacMAPVSSliderLayout.children[1].children = [str(data)]
+                self._paCMAPparams["current"]["VS"]["FP_ratio"] = data
+                logger.debug(f"updatePaCMAPVSSlider : FP_ratio = {data}")
+
+            self.checkProjections(GUI.VS)
+            
+
+        neighboursPaCMAPVSSliderLayout.children[0].on_event(
+            "input", updatePaCMAPVSSlider
         )
-        slider_param_PaCMAP_mn_ratio_VS.children[0].on_event(
-            "input", function_update_sliderVS
+        mnRatioPaCMAPVSSliderLayout.children[0].on_event(
+            "input", updatePaCMAPVSSlider
         )
-        slider_param_PaCMAP_fp_ratio_VS.children[0].on_event(
-            "input", function_update_sliderVS
+        fpRatioPacMAPVSSliderLayout.children[0].on_event(
+            "input", updatePaCMAPVSSlider
         )
 
-        # sliders parametres VS
-        all_sliders_VS = widgets.VBox(
+        allPaCMAPVSSlidersVBox = widgets.VBox( 
+            # Holds the PaCMAP VS sliders
             [
-                slider_param_PaCMAP_neighbours_VS,
-                slider_param_PaCMAP_mn_ratio_VS,
-                slider_param_PaCMAP_fp_ratio_VS,
+                neighboursPaCMAPVSSliderLayout,
+                mnRatioPaCMAPVSSliderLayout,
+                fpRatioPacMAPVSSliderLayout,
             ],
             layout=Layout(width="100%"),
         )
 
-        validate_params_proj_VS = v.Btn(
-            children=[
-                v.Icon(left=True, children=["mdi-check"]),
-                "Validate",
-            ]
+        # validatePaCMAPParamsVSBtn = v.Btn(
+        #     children=[
+        #         v.Icon(left=True, children=["mdi-check"]),
+        #         "Validate",
+        #     ]
+        # )
+
+        # resetPaCMAPParamsVSBtn = v.Btn(
+        #     class_="ml-4",
+        #     children=[
+        #         v.Icon(left=True, children=["mdi-skip-backward"]),
+        #         "Reset",
+        #     ],
+        # )
+        # allPaCMAPActionsVSHBox = widgets.HBox(
+        #     # Hols the validate and reset PacMAP VS Btns
+        #     [validatePaCMAPParamsVSBtn, resetPaCMAPParamsVSBtn]
+        # )
+        paCMAPVSParamsBox = widgets.VBox(
+            # [allPaCMAPVSSlidersVBox, allPaCMAPActionsVSHBox], layout=Layout(width="100%")
+            [allPaCMAPVSSlidersVBox], layout=Layout(width="100%")
         )
 
-        reset_params_proj_VS = v.Btn(
-            class_="ml-4",
-            children=[
-                v.Icon(left=True, children=["mdi-skip-backward"]),
-                "Reset",
-            ],
+        # # Recompute VS PaCMAP projection whenever the user changes the parameters
+        # def updatePaCMAPVS(*args):
+        #     logger.debug("updatePaCMAPVS : Validate has been ckicked. Let's call checkProjections")
+        #     self.checkProjections(GUI.VS)
+
+        # validatePaCMAPParamsVSBtn.on_event("click", updatePaCMAPVSSlider)
+
+        # def resetPaCMAPVS(*args):
+        #     self._paCMAPparams["current"]["VS"]={"n_neighbors":10, "MN_ratio":0.5, "FP_ratio":2}
+        #     self.checkProjections(GUI.VS)
+
+        # resetPaCMAPParamsVSBtn.on_event("click", resetPaCMAPVS)
+
+        # ------------- PacMAP ES -------------------
+
+        # Here the sliders of the parameters for PaCMAP projection in the ES
+        neighboursPaCMAPESSliderLayout = guiFactory.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :") # TODO : should be localized
+        mnRatioPaCMAPESSliderLayout = guiFactory.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
+        fpRatioPacMAPESSliderLayout = guiFactory.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
+
+        def updatePaCMAPESSlider(widget, event, data):
+            """
+                Only udpates slider values
+            """
+            if widget.label == "Number of neighbors :": 
+                neighboursPaCMAPESSliderLayout.children[1].children = [str(data)]
+                # logger.debug(f"updatePaCMAPESSlider : n_neighbors = {data}")
+                self._paCMAPparams["current"]["ES"]["n_neighbors"] = data
+            elif widget.label == "MN ratio :": 
+                mnRatioPaCMAPESSliderLayout.children[1].children = [str(data)]
+                self._paCMAPparams["current"]["ES"]["MN_ratio"] = data
+                # logger.debug(f"updatePaCMAPESSlider : MN_ratio = {data}")
+            elif widget.label == "FP ratio :": 
+                fpRatioPacMAPESSliderLayout.children[1].children = [str(data)]
+                self._paCMAPparams["current"]["ES"]["FP_ratio"] = data
+                # logger.debug(f"updatePaCMAPESSlider : FP_ratio = {data}")
+            
+            self.checkProjections(GUI.ES)
+
+        neighboursPaCMAPESSliderLayout.children[0].on_event(
+            "input", updatePaCMAPESSlider
+        )
+        mnRatioPaCMAPESSliderLayout.children[0].on_event(
+            "input", updatePaCMAPESSlider
+        )
+        fpRatioPacMAPESSliderLayout.children[0].on_event(
+            "input", updatePaCMAPESSlider
         )
 
-        two_buttons_params = widgets.HBox(
-            [validate_params_proj_VS, reset_params_proj_VS]
-        )
-        params_proj_VS = widgets.VBox(
-            [all_sliders_VS, two_buttons_params], layout=Layout(width="100%")
-        )
-
-        def change_parameters_VS(*b):
-            # function that updates the projections when changing the parameters of the projection
-            n_neighbors = slider_param_PaCMAP_neighbours_VS.children[0].v_model
-            MN_ratio = slider_param_PaCMAP_mn_ratio_VS.children[0].v_model
-            FP_ratio = slider_param_PaCMAP_fp_ratio_VS.children[0].v_model
-            out_loading1.layout.visibility = "visible"
-            dim_red = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red['VS']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red.compute(self.atk.dataset.X_scaled, 3, False, n_neighbors, MN_ratio, FP_ratio)]
-            out_loading1.layout.visibility = "hidden"
-            compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
-
-        validate_params_proj_VS.on_event("click", change_parameters_VS)
-
-        def reset_param_VS(*b):
-            # reset projection settings
-            out_loading1.layout.visibility = "visible"
-            dim_red = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red['VS']['PaCMAP'] = [dim_red.compute(self.atk.dataset.X_scaled, 2), dim_red.compute(self.atk.dataset.X_scaled, 3)]
-            out_loading1.layout.visibility = "hidden"
-            compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
-
-        reset_params_proj_VS.on_event("click", reset_param_VS)
-
-        # here the sliders of the parameters for the ES!
-        slider_param_PaCMAP_voisins_ES = gui_elements.SliderParam(v_model=10, min=5, max=30, step=1, label="Number of neighbors :")
-        slider_param_PaCMAP_mn_ratio_ES = gui_elements.SliderParam(v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio :")
-        slider_param_PaCMAP_fp_ratio_ES = gui_elements.SliderParam(v_model=2, min=0.1, max=5, step=0.1, label="FP ratio :")
-
-        def function_update_sliderES(widget, event, data):
-            if widget.label == "Number of neighbors :":
-                slider_param_PaCMAP_voisins_ES.children[1].children = [str(data)]
-            elif widget.label == "MN ratio :":
-                slider_param_PaCMAP_mn_ratio_ES.children[1].children = [str(data)]
-            elif widget.label == "FP ratio :":
-                slider_param_PaCMAP_fp_ratio_ES.children[1].children = [str(data)]
-
-        slider_param_PaCMAP_voisins_ES.children[0].on_event(
-            "input", function_update_sliderES
-        )
-        slider_param_PaCMAP_mn_ratio_ES.children[0].on_event(
-            "input", function_update_sliderES
-        )
-        slider_param_PaCMAP_fp_ratio_ES.children[0].on_event(
-            "input", function_update_sliderES
-        )
-
-        all_sliders_ES = widgets.VBox(
+        allPaCMAPESSlidersVBox = widgets.VBox(
             [
-                slider_param_PaCMAP_voisins_ES,
-                slider_param_PaCMAP_mn_ratio_ES,
-                slider_param_PaCMAP_fp_ratio_ES,
+                neighboursPaCMAPESSliderLayout,
+                mnRatioPaCMAPESSliderLayout,
+                fpRatioPacMAPESSliderLayout,
             ],
             layout=Layout(
                 width="100%",
             ),
         )
 
-        validate_params_proj_ES = v.Btn(
-            children=[
-                v.Icon(left=True, children=["mdi-check"]),
-                "Validate",
-            ]
+        # validatePaCMAPParamsESBtn = v.Btn(
+        #     children=[
+        #         v.Icon(left=True, children=["mdi-check"]),
+        #         "Validate",
+        #     ]
+        # )
+
+        # resetPaCMAPParamsESBtn = v.Btn(
+        #     class_="ml-4",
+        #     children=[
+        #         v.Icon(left=True, children=["mdi-skip-backward"]),
+        #         "Reset",
+        #     ],
+        # )
+
+        # allPaCMAPActionsESHBox = widgets.HBox(
+        #     [validatePaCMAPParamsESBtn, resetPaCMAPParamsESBtn]
+        # )
+        paramsProjESVBox = widgets.VBox(
+            # [allPaCMAPESSlidersVBox, allPaCMAPActionsESHBox],
+            [allPaCMAPESSlidersVBox],
+            layout=Layout(width="100%", display="flex", align_explanationsMenuDict="center"),
         )
 
-        reset_params_proj_ES = v.Btn(
-            class_="ml-4",
-            children=[
-                v.Icon(left=True, children=["mdi-skip-backward"]),
-                "Reset",
-            ],
-        )
+        # # Recompute ES PaCMAP projection whenever the user changes the parameters
+        # def updatePaCMAPES(*updatePaCMAPES):
+        #     logger.debug("updatePaCMAPES : Validate has been ckicked. Let's call checkProjections")
+        #     self.checkProjections(GUI.ES)  
 
-        two_buttons_params_ES = widgets.HBox(
-            [validate_params_proj_ES, reset_params_proj_ES]
-        )
-        params_proj_ES = widgets.VBox(
-            [all_sliders_ES, two_buttons_params_ES],
-            layout=Layout(width="100%", display="flex", align_items="center"),
-        )
+        # validatePaCMAPParamsESBtn.on_event("click", updatePaCMAPES)
 
-        def change_params_ES(*b):
-            n_neighbors = slider_param_PaCMAP_voisins_ES.children[0].v_model
-            MN_ratio = slider_param_PaCMAP_mn_ratio_ES.children[0].v_model
-            FP_ratio = slider_param_PaCMAP_fp_ratio_ES.children[0].v_model
-            out_loading2.layout.visibility = "visible"
-            dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red["ES"][self.__explanation][self.__projectionES] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2, False, n_neighbors, MN_ratio, FP_ratio), dim_red_compute.compute(self.atk.explain[self.__explanation], 3, False, n_neighbors, MN_ratio, FP_ratio)]
-            out_loading2.layout.visibility = "hidden"
-            compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
+        # def resetPaCMAPVS(*args):
 
-        validate_params_proj_ES.on_event("click", change_params_ES)
+        #     self._paCMAPparams["current"]["ES"]={"n_neighbors":10, "MN_ratio":0.5, "FP_ratio":2}
+        #     self.checkProjections(GUI.ES)
 
-        def reset_param_ES(*b):
-            out_loading2.layout.visibility = "visible"
-            dim_red_compute = compute.DimensionalityReductionChooser(method="PaCMAP")
-            self.dim_red["ES"][self.__explanation][self.__projectionES] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.explain[self.__explanation], 3)]
-            out_loading2.layout.visibility = "hidden"
-            compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
 
-        reset_params_proj_ES.on_event("click", reset_param_ES)
 
-        # allows you to choose the color of the points
-        # y, y hat, residuals, current selection, regions, unselected points, automatic clustering
-        radio_buttons_for_color_choice = gui_elements.color_choice()
+        # resetPaCMAPParamsESBtn.on_event("click", resetPaCMAPVS)
 
-        def function_change_color(*args, opacity: bool = True):
-            # allows you to change the color of the points when you click on the buttons
+        # Allows to choose the color of the dots
+        colorChoiceBtnToggle = guiFactory.createColorChoiceBtnToggle()
+
+        def changeColor(*args, opacity: bool = True):
+            # Allows you to change the color of the dots when you click on the buttons
             color = None
             scale = True
             to_modify = True
-            if radio_buttons_for_color_choice.v_model == "y":
-                color = self.atk.dataset.y
-            elif radio_buttons_for_color_choice.v_model == "y^":
-                color = self.atk.dataset.y_pred
-            elif radio_buttons_for_color_choice.v_model == "Selec actuelle":
+            if colorChoiceBtnToggle.v_model == "y":
+                color = self._ds.getYValues(Dataset.REGULAR)
+            elif colorChoiceBtnToggle.v_model == "y^":
+                color = self._ds.getYValues(Dataset.PREDICTED)
+            elif colorChoiceBtnToggle.v_model == "Current selection": 
                 scale = False
-                color = ["grey"] * len(self.atk.dataset.X)
-                for i in range(len(self.selection.indexes)):
-                    color[self.selection.indexes[i]] = "blue"
-            elif radio_buttons_for_color_choice.v_model == "Résidus":
-                color = self.atk.dataset.y - self.atk.dataset.y_pred
+                color = ["grey"] * len(self._ds.getFullValues(Dataset.REGULAR))
+                for i in range(len(self._selection.getIndexes())):
+                    color[self._selection.getIndexes()[i]] = "blue"
+            elif colorChoiceBtnToggle.v_model == "Residues":
+                color = self._ds.getYValues(Dataset.REGULAR) - self._ds.getYValues(Dataset.PREDICTED)
                 color = [abs(i) for i in color]
-            elif radio_buttons_for_color_choice.v_model == "Régions":
+            elif colorChoiceBtnToggle.v_model == "Regions":
                 scale = False
-                color = [0] * len(self.atk.dataset.X)
-                for i in range(len(self.atk.dataset.X)):
-                    for j in range(len(self.atk.regions)):
-                        if i in self.atk.regions[j].indexes:
+                color = [0] * len(self._ds.getFullValues(Dataset.REGULAR))
+                for i in range(len(self._ds.getFullValues(Dataset.REGULAR))):
+                    for j in range(len(self._regions)):
+                        if i in self._regions[j].getIndexes():
                             color[i] = j + 1
-            elif radio_buttons_for_color_choice.v_model == "Non selec":
+            elif colorChoiceBtnToggle.v_model == "Not selected":
                 scale = False
-                color = ["red"] * len(self.atk.dataset.X)
-                if len(self.atk.regions) > 0:
-                    for i in range(len(self.atk.dataset.X)):
-                        for j in range(len(self.atk.regions)):
-                            if i in self.atk.regions[j].indexes:
+                color = ["red"] * len(self._ds.getXValues(Dataset.REGULAR))
+                if len(self._regions) > 0:
+                    for i in range(len(self._ds.getXValues(Dataset.REGULAR))):
+                        for j in range(len(self._regions)):
+                            if i in self._regions[j].getIndexes():
                                 color[i] = "grey"
-            elif radio_buttons_for_color_choice.v_model == "Clustering auto":
-                color = self.__labels_automatic_clustering
+            elif colorChoiceBtnToggle.v_model == "Auto. clustering":
+                color = self._autoClusterRegionColors
                 to_modify = False
                 scale = False
-            with self.fig1.batch_update():
-                self.fig1.data[0].marker.color = color
+
+            with self._leftVSFigure.batch_update():
+                self._leftVSFigure.data[0].marker.color = color
                 if color is not None:
-                    self.fig1.data[0].customdata= color
+                    self._leftVSFigure.data[0].customdata= color
                 else:
-                    self.fig1.data[0].customdata= [None]*len(self.atk.dataset.X)
+                    self._leftVSFigure.data[0].customdata= [None]*len(self._ds.getFullValues(Dataset.REGULAR))
                 if opacity:
-                    self.fig1.data[0].marker.opacity = 1
-            with self.fig2.batch_update():
-                self.fig2.data[0].marker.color = color
+                    self._leftVSFigure.data[0].marker.opacity = 1
+            with self._rightESFigure.batch_update():
+                self._rightESFigure.data[0].marker.color = color
                 if opacity:
-                    self.fig2.data[0].marker.opacity = 1
+                    self._rightESFigure.data[0].marker.opacity = 1
                 if color is not None:
-                    self.fig2.data[0].customdata= color
+                    self._rightESFigure.data[0].customdata= color
                 else:
-                    self.fig2.data[0].customdata= [None]*len(self.atk.dataset.X)
-            with self.fig1_3D.batch_update():
-                self.fig1_3D.data[0].marker.color = color
+                    self._rightESFigure.data[0].customdata= [None]*len(self._ds.getFullValues(Dataset.REGULAR))
+
+            with self._leftVSFigure3D.batch_update():
+                self._leftVSFigure3D.data[0].marker.color = color
                 if color is not None:
-                    self.fig1_3D.data[0].customdata= color
+                    self._leftVSFigure3D.data[0].customdata= color
                 else:
-                    self.fig1_3D.data[0].customdata= [None]*len(self.atk.dataset.X)
-            with self.fig2_3D.batch_update():
-                self.fig2_3D.data[0].marker.color = color
+                    self._leftVSFigure3D.data[0].customdata= [None]*len(self._ds.getFullValues(Dataset.REGULAR))
+            with self._rightESFigure3D.batch_update():
+                self._rightESFigure3D.data[0].marker.color = color
                 if color is not None:
-                    self.fig2_3D.data[0].customdata= color
+                    self._rightESFigure3D.data[0].customdata= color
                 else:
-                    self.fig2_3D.data[0].customdata= [None]*len(self.atk.dataset.X)
+                    self._rightESFigure3D.data[0].customdata= [None]*len(self._ds.getFullValues(Dataset.REGULAR))
             if scale:
-                self.fig1.update_traces(marker=dict(showscale=True))
-                self.fig1_3D.update_traces(marker=dict(showscale=True))
-                self.fig1.data[0].marker.colorscale = "Viridis"
-                self.fig1_3D.data[0].marker.colorscale = "Viridis"
-                self.fig2.data[0].marker.colorscale = "Viridis"
-                self.fig2_3D.data[0].marker.colorscale = "Viridis"
+                self._leftVSFigure.update_traces(marker=dict(showscale=True))
+                self._leftVSFigure3D.update_traces(marker=dict(showscale=True))
+                self._leftVSFigure.data[0].marker.colorscale = "Viridis"
+                self._leftVSFigure3D.data[0].marker.colorscale = "Viridis"
+                self._rightESFigure.data[0].marker.colorscale = "Viridis"
+                self._rightESFigure3D.data[0].marker.colorscale = "Viridis"
             else:
-                self.fig1.update_traces(marker=dict(showscale=False))
-                self.fig1_3D.update_traces(marker=dict(showscale=False))
+                self._leftVSFigure.update_traces(marker=dict(showscale=False))
+                self._leftVSFigure3D.update_traces(marker=dict(showscale=False))
                 if to_modify:
-                    self.fig1.data[0].marker.colorscale = "Plasma"
-                    self.fig1_3D.data[0].marker.colorscale = "Plasma"
-                    self.fig2.data[0].marker.colorscale = "Plasma"
-                    self.fig2_3D.data[0].marker.colorscale = "Plasma"
+                    self._leftVSFigure.data[0].marker.colorscale = "Plasma"
+                    self._leftVSFigure3D.data[0].marker.colorscale = "Plasma"
+                    self._rightESFigure.data[0].marker.colorscale = "Plasma"
+                    self._rightESFigure3D.data[0].marker.colorscale = "Plasma"
                 else:
-                    self.fig1.data[0].marker.colorscale = "Viridis"
-                    self.fig1_3D.data[0].marker.colorscale = "Viridis"
-                    self.fig2.data[0].marker.colorscale = "Viridis"
-                    self.fig2_3D.data[0].marker.colorscale = "Viridis"
+                    self._leftVSFigure.data[0].marker.colorscale = "Viridis"
+                    self._leftVSFigure3D.data[0].marker.colorscale = "Viridis"
+                    self._rightESFigure.data[0].marker.colorscale = "Viridis"
+                    self._rightESFigure3D.data[0].marker.colorscale = "Viridis"
 
-        radio_buttons_for_color_choice.on_event("change", function_change_color)
-
-        # marker 1 is the marker of figure 1
-        marker1 = dict(
-            color=self.atk.dataset.y,
+        colorChoiceBtnToggle.on_event("change", changeColor) 
+    
+        # ---- 2D markers----- 
+        ourVSMarkerDict = dict( 
+            color=self._ds.getYValues(Dataset.REGULAR),
             colorscale="Viridis",
             colorbar=dict(
                 title="y",
@@ -512,599 +676,460 @@ class GUI():
             ),
         )
 
-        # marker 2 is the marker of figure 2 (without colorbar therefore)
-        marker2 = dict(color=self.atk.dataset.y, colorscale="Viridis")
+        ourESMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis")
 
-        barre_menu, fig_size, bouton_save = gui_elements.create_menu_bar()
+        # ---- Menu Bar ----
+        menuAppBar, figureSizeSlider, backupBtn = guiFactory.createMenuBar()
 
-        # for the part on backups
-        init_len_saves = deepcopy(len(self.atk.saves))
+        # ---- backups-----
 
-        def init_save(save):
-            text_regions = "There is no backup"
-            if len(save) > 0:
-                text_regions = str(len(save)) + " save(s) found"
-            table_save = []
-            for i in range(len(save)):
-                new_or_not = "Imported"
-                if i > init_len_saves:
-                    new_or_not = "Created"
-                table_save.append(
-                    [
-                        i + 1,
-                        save[i]["name"],
-                        new_or_not,
-                        len(save[i]["regions"]),
-                    ]
-                )
-            table_save = pd.DataFrame(
-                table_save,
-                columns=[
-                    "Save #",
-                    "Name",
-                    "Origin",
-                    "Number of regions",
-                ],
-            )
-
-            columns = [
-                {"text": c, "sortable": True, "value": c} for c in table_save.columns
-            ]
-
-            table_save = v.DataTable(
-                v_model=[],
-                show_select=True,
-                single_select=True,
-                headers=columns,
-                items=table_save.to_dict("records"),
-                item_value="Save #",
-                item_key="Save #",
-            )
-            return [table_save, text_regions]
-
-        # the table that contains the backups
-        self.__table_save = init_save(self.atk.saves)[0]
-
-        # initialize the save menu !
-        dialogue_save, card_save, delete_save, name_save, visualize_chosen_save, new_save = gui_elements.dialog_save(bouton_save, init_save(self.atk.saves)[1], self.__table_save, self.atk)
-
-        # save a backup
-        def delete_save_function(*args):
-            if self.__table_save.v_model == []:
-                return
-            self.__table_save = card_save.children[1]
-            index = self.__table_save.v_model[0]["Save #"] - 1
-            self.atk.saves.pop(index)
-            self.__table_save, text = init_save(self.atk.saves)
-            card_save.children = [text, self.__table_save] + card_save.children[
-                2:
-            ]
-
-        delete_save.on_event("click", delete_save_function)
-
-        # to view a backup
-        def function_visu_save(*args):
-            self.__table_save = card_save.children[1]
-            if len(self.__table_save.v_model) == 0:
-                return
-            index = self.__table_save.v_model[0]["Save #"] - 1
-            self.atk.regions = [element for element in self.atk.saves[index]["regions"]]
-            color = deepcopy(self.atk.saves[index]["labels"])
-            self.__color_regions = deepcopy(color)
-            with self.fig1.batch_update():
-                self.fig1.data[0].marker.color = color
-                self.fig1.data[0].marker.opacity = 1
-            with self.fig2.batch_update():
-                self.fig2.data[0].marker.color = color
-                self.fig2.data[0].marker.opacity = 1
-            with self.fig1_3D.batch_update():
-                self.fig1_3D.data[0].marker.color = color
-            with self.fig2_3D.batch_update():
-                self.fig2_3D.data[0].marker.color = color
-            radio_buttons_for_color_choice.v_model = "Régions"
-            self.fig1.update_traces(marker=dict(showscale=False))
-            self.fig2.update_traces(marker=dict(showscale=False))
-            function_new_region()
-
-        visualize_chosen_save.on_event("click", function_visu_save)
-
-        # create a new savegame with the current regions
-        def function_new_save(*args):
-            if len(name_save.v_model) == 0 or len(name_save.v_model) > 25:
-                raise Exception("The name of the save must be between 1 and 25 characters !")
-            save1 = {"regions": self.atk.regions, "labels": self.__color_regions,"name": name_save.v_model}
-            save = {key: value[:] for key, value in save1.items()}
-            self.atk.saves.append(save)
-            self.__table_save, text_region = init_save(self.atk.saves)
-            card_save.children = [text_region, self.__table_save] + card_save.children[2:]
+        initialNumBackups = deepcopy(len(self._backups))
             
+        if self._backups is None :
+            self._backups = []
 
-        new_save.on_event("click", function_new_save)
+        # Initialize the interface for backups
+        backupsDialog, backupsCard, deleteBackupBtn, backupNameTextField, saveVisualBtn, newBackupBtn = guiFactory.createBackupsGUI(backupBtn, self._backups, initialNumBackups)
 
-        # value space graph
-        self.fig1 = go.FigureWidget(
-            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker1, customdata=marker1["color"], hovertemplate = '%{customdata:.3f}')
+    # ----- 2D Figures -----
+        # VS 2D Figure
+        self._leftVSFigure = go.FigureWidget(
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=ourVSMarkerDict, customdata=ourVSMarkerDict["color"], hovertemplate = '%{customdata:.3f}')
         )
 
-        # to remove the plotly logo
-        self.fig1._config = self.fig1._config | {"displaylogo": False}
+        # We don't want the Plotly logo
+        self._leftVSFigure._config = self._leftVSFigure._config | {"displaylogo": False}
 
-        # border size
-        M = 40
+        # TODO : shall we set in as a member variable ?
+        # Border size
+        M = 40 #633
 
-        self.fig1.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
-        self.fig1.update_layout(dragmode="lasso")
+        self._leftVSFigure.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model))
+        self._leftVSFigure.update_layout(dragmode="lasso")
 
-        # grapbique de l'espace des explications
-        self.fig2 = go.FigureWidget(
-            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker2, customdata=marker2["color"], hovertemplate = '%{customdata:.3f}')
+        # ES 2D Figure
+        self._rightESFigure = go.FigureWidget(
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=ourESMarkerDict, customdata=ourESMarkerDict["color"], hovertemplate = '%{customdata:.3f}')
         )
+        self._rightESFigure.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model))
+        self._rightESFigure.update_layout(dragmode="lasso")
+        self._rightESFigure._config = self._rightESFigure._config | {"displaylogo": False}
 
-        self.fig2.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(fig_size.v_model))
-        self.fig2.update_layout(dragmode="lasso")
+        # Now both figures are defined :
+        self.checkAllProjections()
+        self.upateAllFigures()
 
-        self.fig2._config = self.fig2._config | {"displaylogo": False}
 
-        # two checkboxes to choose the projection dimension of figures 1 and 2
-        dimension_projection = v.Switch(
+        # ---- 2D and 3D -----
+
+        # to choose the projection dimension of figures 1 and 2
+        dimSwitch = v.Switch(
             class_="ml-3 mr-2",
             v_model=False,
             label="",
         )
 
-        dimension_projection_text = v.Row(
+        dimSwitchRow = v.Row(
             class_="ma-3",
             children=[
                 v.Icon(children=["mdi-numeric-2-box"]),
                 v.Icon(children=["mdi-alpha-d-box"]),
-                dimension_projection,
+                dimSwitch,
                 v.Icon(children=["mdi-numeric-3-box"]),
                 v.Icon(children=["mdi-alpha-d-box"]),
             ],
         )
 
-        dimension_projection_text = add_tooltip(
-            dimension_projection_text, "Dimension of the projection"
+        dimSwitchRow = guiFactory.wrap_in_a_tooltip(
+            dimSwitchRow, "Dimension of the projection" # 667
         )
 
-        def function_dimension_projection(*args):
-            if dimension_projection.v_model:
-                fig_2D_ou_3D.children = [fig1_3D_and_text, fig2_3D_and_text]
+        def switchDimension(*args):
+            if dimSwitch.v_model:
+                self._projectionVS[1] = DimReducMethod.DIM_THREE
+                self._projectionES[1] = DimReducMethod.DIM_THREE
+                figuresHBox.children = [_leftVSFigure3DVBox, _rightESFigure3DVBox]
             else:
-                fig_2D_ou_3D.children = [fig1_and_text, fig2_and_text]
+                self._projectionVS[1] = DimReducMethod.DIM_TWO
+                self._projectionES[1] = DimReducMethod.DIM_TWO
+                figuresHBox.children = [_leftVSFigureVBox, _rightESFigureVBox]
 
-        dimension_projection.on_event("change", function_dimension_projection)
+            self.checkAllProjections()
 
-        # marker 3D is the marker of figure 1 in 3D
-        marker_3D = dict(
-            color=self.atk.dataset.y,
-            colorscale="Viridis",
-            colorbar=dict(
-                thickness=20,
-            ),
-            size=3,
-        )
+            self.upateAllFigures()
 
-        # marker 3D_2 is the marker of figure 2 in 3D (without the colorbar therefore!)
-        marker_3D_2 = dict(color=self.atk.dataset.y, colorscale="Viridis", size=3)
 
-        self.fig1_3D = go.FigureWidget(
-            data=go.Scatter3d(
-                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D,  customdata=marker_3D["color"], hovertemplate = '%{customdata:.3f}'
-            )
-        )
-        self.fig1_3D.update_layout(
-            margin=dict(l=M, r=M, t=0, b=M),
-            width=int(fig_size.v_model),
-            scene=dict(aspectmode="cube"),
-            template="none",
-        )
+        dimSwitch.on_event("change", switchDimension) 
 
-        self.fig1_3D._config = self.fig1_3D._config | {"displaylogo": False}
+        # ---- 3D markers -----
 
-        self.fig2_3D = go.FigureWidget(
-            data=go.Scatter3d(
-                x=[1], y=[1], z=[1], mode="markers", marker=marker_3D_2, customdata=marker_3D_2["color"], hovertemplate = '%{customdata:.3f}'
-            )
-        )
-        self.fig2_3D.update_layout(
-            margin=dict(l=M, r=M, t=0, b=M),
-            width=int(fig_size.v_model),
-            scene=dict(aspectmode="cube"),
-            template="none",
-        )
+        ourVS3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", colorbar=dict(thickness=20,), size=3,)
+        ourES3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", size=3)
 
-        self.fig2_3D._config = self.fig2_3D._config | {"displaylogo": False}
+        # ---- 3D figures -----
 
-        compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
+        self._leftVSFigure3D = go.FigureWidget(data=go.Scatter3d(x=[1], y=[1], z=[1], mode = "markers", marker=ourVS3DMarkerDict, customdata=ourVS3DMarkerDict["color"], hovertemplate = '%{customdata:.3f}')) #691
+        self._leftVSFigure3D.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model), scene=dict(aspectmode="cube"), template="none",) 
+        self._leftVSFigure3D._config = self._leftVSFigure3D._config | {"displaylogo": False}
 
-        # text that indicate spaces for better understanding
-        textVS = widgets.HTML("<h3>Values Space<h3>")
-        textES = widgets.HTML("<h3>Explanatory Space<h3>")
+        self._rightESFigure3D = go.FigureWidget(data=go.Scatter3d(x=[1], y=[1], z=[1], mode="markers", marker=ourES3DMarkerDict, customdata=ourES3DMarkerDict["color"], hovertemplate = '%{customdata:.3f}'))
+        self._rightESFigure3D.update_layout(margin=dict(l=M, r=M, t=0, b=M), width=int(figureSizeSlider.v_model), scene=dict(aspectmode="cube"), template="none",)
+        self._rightESFigure3D._config = self._rightESFigure3D._config | {"displaylogo": False}
 
-        # we display the figures and the text above!
-        fig1_and_text = gui_elements.figure_and_text(self.fig1, textVS)
-        fig2_and_text = gui_elements.figure_and_text(self.fig2, textES)
-        fig1_3D_and_text = gui_elements.figure_and_text(self.fig1_3D, textVS)
-        fig2_3D_and_text = gui_elements.figure_and_text(self.fig2_3D, textES)
+        self.upateAllFigures()
 
-        # HBox which allows you to choose between 2D and 3D figures by changing its children parameter!
-        fig_2D_ou_3D = widgets.HBox([fig1_and_text, fig2_and_text])
+        # ---- Label above the figures -----
+        _leftVSFigureVBox = guiFactory.createVBox(self._leftVSFigure, widgets.HTML("<h3>Values Space 2D<h3>"))
+        _rightESFigureVBox = guiFactory.createVBox(self._rightESFigure, widgets.HTML("<h3>Explanations Space 2D<h3>"))
+        _leftVSFigure3DVBox = guiFactory.createVBox(self._leftVSFigure3D, widgets.HTML("<h3>Values Space 3D<h3>"))
+        _rightESFigure3DVBox = guiFactory.createVBox(self._rightESFigure3D, widgets.HTML("<h3>Explanations Space 3D<h3>"))
 
-        # allows to update graphs 1 & 2 according to the chosen projection
-        def update_scatter(*args):
-            self.__projectionVS = deepcopy(dropdown_for_VS.v_model)
-            self.__projectionES = deepcopy(dropdown_for_ES.v_model)
+        # Default view is 2D
+        figuresHBox = widgets.HBox([_leftVSFigureVBox, _rightESFigureVBox])
 
-            if self.dim_red["VS"][dropdown_for_VS.v_model] is None:
-                out_loading1.layout.visibility = "visible"
-                dim_red_compute = compute.DimensionalityReductionChooser(method=dropdown_for_VS.v_model)
-                self.dim_red["VS"][dropdown_for_VS.v_model] = [dim_red_compute.compute(self.atk.dataset.X_scaled, 2), dim_red_compute.compute(self.atk.dataset.X_scaled, 3)]
-                out_loading1.layout.visibility = "hidden"
-            if self.dim_red["ES"][self.__explanation][dropdown_for_ES.v_model] is None:
-                out_loading2.layout.visibility = "visible"
-                dim_red_compute = compute.DimensionalityReductionChooser(method=dropdown_for_ES.v_model)
-                self.dim_red["ES"][self.__explanation][dropdown_for_ES.v_model] = [dim_red_compute.compute(self.atk.explain[self.__explanation], 2), dim_red_compute.compute(self.atk.explain[self.__explanation], 3)]
-                out_loading2.layout.visibility = "hidden"
+        # Update both figures according to the chosen projection
+        def updateFiguresProjections(*args):
+            self._projectionVS[0] = DimReducMethod.getDimReducMethodAsInt(dimReducVSSelect.v_model)
+            self._projectionES[0] = DimReducMethod.getDimReducMethodAsInt(dimReducESSelect.v_model)
 
-            compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
+            self.checkAllProjections()
 
-            # for the parameters of the projection
-            if dropdown_for_VS.v_model == "PaCMAP":
-                param_VS.v_slots[0]["children"].disabled = False
-            else:
-                param_VS.v_slots[0]["children"].disabled = True
-            if dropdown_for_ES.v_model == "PaCMAP":
-                param_ES.v_slots[0]["children"].disabled = False
-            else:
-                param_ES.v_slots[0]["children"].disabled = True
 
-            dropdown_for_VS.v_model = self.__projectionVS
-            dropdown_for_ES.v_model = self.__projectionES
+        # We listen to the Select events
+        dimReducVSSelect.on_event("change", updateFiguresProjections)
+        dimReducESSelect.on_event("change", updateFiguresProjections)
 
-        # we observe the changes in the values ​​of the dropdowns to change the method of reduction
-        dropdown_for_VS.on_event("change", update_scatter)
-        dropdown_for_ES.on_event("change", update_scatter)
+        # ----- Regions -------
+        # self._regionColor = [0] * self._ds.__len__()
+        # # The table that  shows the different results of the Regions, with a stat of info about them
+        # self._regionsTable = widgets.Output()
 
-        self.__color_regions = [0] * len(self.atk.dataset.X)
+        # ----- selection info card -------
+        initialText, startInitialText, selectionText, selectionCard, validateSkopeBtn, reinitSkopeBtn = guiFactory.createSelectionInfoCard() 
 
-        # definition of the table that will show the different results of the regions, with a stat of info about them
-        table_regions = widgets.Output()
+        # ----- Skope info card -------
+        theVSSkopeText, theVSSkopeText, theESSkopeText, ourVSSkopeCard, ourESCard = guiFactory.createSkopeCard() #777
 
-        # definition of the text that will give information on the selection
-        text_base, text_base_debut, text_selec, card_selec, button_validate_skope, button_reset_skope = gui_elements.create_selection_card()
+        # ----- sub-models slides -------
+        # Texts that will contain the information on the sub_models
+        subModelslides = guiFactory.createSubModelsSlides(self.__sub_models)
 
-        text_skope, text_skopeES, text_skopeVS, one_card_VS, one_card_ES = gui_elements.create_card_skope()
-
-        # texts that will contain the information on the self.sub_models
-        mods = gui_elements.create_slide_sub_models(self)
-
-        def change(widget, event, data, args: bool = True):
+        def selectSubModel(widget, event, data, args: bool = True):
             if args == True:
-                for i in range(len(mods.children)):
-                    mods.children[i].children[0].color = "white"
+                for i in range(len(subModelslides.children)):
+                    subModelslides.children[i].children[0].color = "white"
                 widget.color = "blue lighten-4"
-            for i in range(len(mods.children)):
-                if mods.children[i].children[0].color == "blue lighten-4":
-                    self.__model_index = i
+            for i in range(len(subModelslides.children)):
+                if subModelslides.children[i].children[0].color == "blue lighten-4":
+                    self.modelIndex = i
 
-        for i in range(len(mods.children)):
-            mods.children[i].children[0].on_event("click", change)
+        for i in range(len(subModelslides.children)):
+            subModelslides.children[i].children[0].on_event("click", selectSubModel)
 
-        validate_one_region, supprimer_toutes_les_tuiles, selection = gui_elements.create_buttons_regions()
+        # ----- region UI -------
+        validateRegionBtn, deleteAllRegionsBtn, RegionsBtnsView = guiFactory.createRegionsBtns()
 
+        # --------- Skope sliders  ----------
         # we define the sliders used to modify the histogram resulting from the skope
-        slider_skope1, button_in_real_time_graph1, slider_text_comb1 = gui_elements.slider_skope()
-        slider_skope2, button_in_real_time_graph2, slider_text_comb2 = gui_elements.slider_skope()
-        slider_skope3, button_in_real_time_graph3, slider_text_comb3 = gui_elements.slider_skope()
+        skopeSlider1, realTimeUpdateCheck1, skopeSliderGroup1 = guiFactory.createSkopeSlider()
+        skopeSlider2, realTimeUpdateCheck2, skopeSliderGroup2 = guiFactory.createSkopeSlider()
+        skopeSlider3, realTimeUpdateCheck3, skopeSliderGroup3 = guiFactory.createSkopeSlider()
 
-        # if "in real-time" is checked, no need to validate the changes!
-        def update_validate1(*args):
-            if button_in_real_time_graph1.v_model:
-                validate_change_1.disabled = True
+        # If "in real-time" is checked, no need to validate the changes!
+        def updateValidationBtns1(*args):
+            if realTimeUpdateCheck1.v_model:
+                validateSkopeChangeBtn1.disabled = True
             else:
-                validate_change_1.disabled = False
-        button_in_real_time_graph1.on_event("change", update_validate1)
+                validateSkopeChangeBtn1.disabled = False
+        realTimeUpdateCheck1.on_event("change", updateValidationBtns1)
 
         def update_validate2(*args):
-            if button_in_real_time_graph2.value:
-                validate_change_2.disabled = True
+            if realTimeUpdateCheck2.value:
+                validateSkopeChangeBtn2.disabled = True
             else:
-                validate_change_2.disabled = False
-        button_in_real_time_graph2.on_event("change", update_validate2)
+                validateSkopeChangeBtn2.disabled = False
+        realTimeUpdateCheck2.on_event("change", update_validate2)
 
-        def update_validate3(*args):
-            if button_in_real_time_graph3.v_model:
-                validate_change_3.disabled = True
+        def updateValidationBtns3(*args):
+            if realTimeUpdateCheck3.v_model:
+                validateSkopeChangeBtn3.disabled = True
             else:
-                validate_change_3.disabled = False
-        button_in_real_time_graph3.on_event("change", update_validate3)
+                validateSkopeChangeBtn3.disabled = False
+        realTimeUpdateCheck3.on_event("change", updateValidationBtns3) #821
 
-        # valid buttons definition changes:
+        # Validate buttons definition changes
+        validateSkopeChangeBtn1 = guiFactory.createValidateChangeBtn()
+        validateSkopeChangeBtn2 = guiFactory.createValidateChangeBtn()
+        validateSkopeChangeBtn3 = guiFactory.createValidateChangeBtn()
 
-        def validate_change():
-            widget = v.Btn(
-                class_="ma-3",
-                children=[
-                    v.Icon(class_="mr-2", children=["mdi-check"]),
-                    "Validate the changes",
-                ],
-            )
-            return widget
-
-        validate_change_1 = validate_change()
-        validate_change_2 = validate_change()
-        validate_change_3 = validate_change()
-
-        # we wrap the validation button and the checkbox which allows you to view in real time
-        two_end1 = widgets.HBox([validate_change_1, button_in_real_time_graph1])
-        two_end2 = widgets.HBox([validate_change_2, button_in_real_time_graph2])
-        two_end3 = widgets.HBox([validate_change_3, button_in_real_time_graph3])
-
-        # we define the number of bars of the histogram
-        number_of_bins_histograms = 50
-        # we define the histograms
-        [histogram1, histogram2, histogram3] = gui_elements.create_histograms(number_of_bins_histograms, fig_size.v_model)
+        # We wrap the validation button and the checkbox which allows you to view in real time
+        validateSkopeChangeBtnAndCheck1 = widgets.HBox([validateSkopeChangeBtn1, realTimeUpdateCheck1])
+        validateSkopeChangeBtnAndCheck2 = widgets.HBox([validateSkopeChangeBtn2, realTimeUpdateCheck2])
+        validateSkopeChangeBtnAndCheck3 = widgets.HBox([validateSkopeChangeBtn3, realTimeUpdateCheck3])
+        
+        # We define the histograms
+        [histogram1, histogram2, histogram3] = guiFactory.createHistograms(self._histogramBinNum, figureSizeSlider.v_model)
 
         histogram1 = deepcopy(histogram1)
         histogram2 = deepcopy(histogram2)
         histogram3 = deepcopy(histogram3)
-        all_histograms = [histogram1, histogram2, histogram3]
+        # TODO : so wee have 3 histograms to populate
+        allHistograms = [histogram1, histogram2, histogram3] 
 
-        # definitions of the different color choices for the swarm
-        [total_beeswarm_1, total_beeswarm_2, total_beeswarm_3] = gui_elements.create_beeswarms(self, self.__explanation, fig_size.v_model)
+        ###################
 
-        choice_color_beeswarm1 = total_beeswarm_1.children[0]
-        choice_color_beeswarm2 = total_beeswarm_2.children[0]
-        choice_color_beeswarm3 = total_beeswarm_3.children[0]
+        # ------ Beeswarms -----
 
-        beeswarm1 = total_beeswarm_1.children[1]
-        beeswarm2 = total_beeswarm_2.children[1]
-        beeswarm3 = total_beeswarm_3.children[1]
+        # Definitions of the different color choices for the swarm
+        # TODO :strange to allways rely on this figureSizeSlider to define the size 
+        [beeswarmGrp1, beeswarmGrp2, beeswarmGrp3] = guiFactory.createBeeswarms(self._xds, self._explanationES[0], figureSizeSlider.v_model) 
+    
 
-        # update the beeswarm plots
-        def change_color_beeswarm_shap1(*args):
-            if choice_color_beeswarm1.children[1].v_model == False:
-                marker = compute.function_beeswarm_shap(self, self.__explanation, self.selection.rules[0][2])[1]
+        # TODO : strange to group beeswars to furter ungroup them
+        beeswarm1ColorChoice = beeswarmGrp1.children[0]
+        beeswarm2ColorChoice = beeswarmGrp2.children[0]
+        beeswarm3ColorChoice = beeswarmGrp3.children[0]
+
+        # TODO : strange to group beeswars to furter ungroup them
+        beeswarm1 = beeswarmGrp1.children[1]
+        beeswarm2 = beeswarmGrp2.children[1]
+        beeswarm3 = beeswarmGrp3.children[1]
+
+        # Update the beeswarm plots
+        def changeBeeswarm1Color(*args): #866
+            if beeswarm1ColorChoice.children[1].v_model == False:
+                marker = createBeeswarm(ds, xds, self._selection.getVSRules()[0][2])[1]
                 beeswarm1.data[0].marker = marker
                 beeswarm1.update_traces(marker=dict(showscale=True))
             else:
-                modifie_all_histograms(
-                    slider_skope1.v_model[0]  , slider_skope1.v_model[1]  , 0
+                updateAllHistograms(
+                    skopeSlider1.v_model[0]  , skopeSlider1.v_model[1]  , 0
                 )
                 beeswarm1.update_traces(marker=dict(showscale=False))
 
-        choice_color_beeswarm1.children[1].on_event(
-            "change", change_color_beeswarm_shap1
+        beeswarm1ColorChoice.children[1].on_event(
+            "change", changeBeeswarm1Color
         )
 
-        def change_color_beeswarm_shap2(*args):
+        def changeBeeswarm2Color(*args):
             if choice_color_beeswarm2.children[1].v_model == False:
-                marker = compute.function_beeswarm_shap(self, self.__explanation, self.selection.rules[1][2])[1]
+                marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[1][2])[1]
                 beeswarm2.data[0].marker = marker
                 beeswarm2.update_traces(marker=dict(showscale=True))
             else:
-                modifie_all_histograms(
-                    slider_skope2.v_model[0]  , slider_skope2.v_model[1]  , 1
+                updateAllHistograms(
+                    skopeSlider2.v_model[0]  , skopeSlider2.v_model[1]  , 1
                 )
             beeswarm2.update_traces(marker=dict(showscale=False))
 
-        choice_color_beeswarm2.children[1].on_event(
-            "change", change_color_beeswarm_shap2
+        beeswarm2ColorChoice.children[1].on_event(
+            "change", changeBeeswarm2Color
         )
 
-        def change_color_beeswarm_shap3(*args):
+        def changeBeeswarm3Color(*args): #896
             if choice_color_beeswarm3.children[1].v_model == False:
-                marker = compute.function_beeswarm_shap(self, self.__explanation, self.selection.rules[2][2])[1]
+                marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[2][2])[1]
                 beeswarm3.data[0].marker = marker
                 beeswarm3.update_traces(marker=dict(showscale=True))
             else:
-                modifie_all_histograms(
-                    slider_skope3.v_model[0]  , slider_skope3.v_model[1]  , 2
+                updateAllHistograms(
+                    skopeSlider3.v_model[0]  , skopeSlider3.v_model[1]  , 2
                 )
                 beeswarm3.update_traces(marker=dict(showscale=False))
 
-        choice_color_beeswarm3.children[1].on_event(
-            "change", change_color_beeswarm_shap3
+        beeswarm3ColorChoice.children[1].on_event(
+            "change", changeBeeswarm3Color
         )
 
-        all_beeswarms_total = [total_beeswarm_1, total_beeswarm_2, total_beeswarm_3]
+        allBeeSwarms = [beeswarmGrp1, beeswarmGrp2, beeswarmGrp3]
 
-        all_beeswarms = [beeswarm1, beeswarm2, beeswarm3]
+        allBeeSwarms = [beeswarm1, beeswarm2, beeswarm3]
 
-        all_color_choosers_beeswarms = [
-            choice_color_beeswarm1,
-            choice_color_beeswarm2,
-            choice_color_beeswarm3,
+        allBeeSwarmsColorChosers = [
+            beeswarm1ColorChoice,
+            beeswarm2ColorChoice,
+            beeswarm3ColorChoice,
         ]
-        # set of elements that contain histograms and sliders
-        all_widgets_slider_histo1 = widgets.VBox([slider_text_comb1, histogram1, two_end1])
-        all_widgets_slider_histo2 = widgets.VBox([slider_text_comb2, histogram2, two_end2])
-        all_widgets_slider_histo3 = widgets.VBox([slider_text_comb3, histogram3, two_end3])
 
-        # definition of buttons to delete features (disabled for the first 3 for the moment)
-        b_delete_skope1 = gui_elements.button_delete_skope()
-        b_delete_skope2 = gui_elements.button_delete_skope()
-        b_delete_skope3 = gui_elements.button_delete_skope()
+        # Set of elements that contain histograms and sliders
+        histo1Ctrl = widgets.VBox([skopeSliderGroup1, histogram1, validateSkopeChangeBtnAndCheck1])
+        histo2Ctrl = widgets.VBox([skopeSliderGroup2, histogram2, validateSkopeChangeBtnAndCheck2])
+        histo3Ctrl = widgets.VBox([skopeSliderGroup3, histogram3, validateSkopeChangeBtnAndCheck3])
 
-        # checkbow to know if the feature is continuous or not
-        is_continuous_1 = v.Checkbox(v_model=True, label="is continuous?")
-        is_continuous_2 = v.Checkbox(v_model=True, label="is continuous?")
-        is_continuous_3 = v.Checkbox(v_model=True, label="is continuous?")
+        # Definition of buttons to delete features (disabled for the first 3 for the moment)
+        deleteSkopeBtn1 = guiFactory.deleteSkopeBtn()
+        deleteSkopeBtn2 = guiFactory.deleteSkopeBtn()
+        deleteSkopeBtn3 = guiFactory.deleteSkopeBtn()
 
-        # the right side of the features : button to delete the feature from the rules + checkbox "is continuous?"
-        right_side_1 = v.Col(children=[b_delete_skope1, is_continuous_1], class_="d-flex flex-column align-center justify-center")
-        right_side_2 = v.Col(children=[b_delete_skope2, is_continuous_2], class_="d-flex flex-column align-center justify-center")
-        right_side_3 = v.Col(children=[b_delete_skope3, is_continuous_3], class_="d-flex flex-column align-center justify-center")
+        # Checkbox to know if the feature is continuous or not
+        isContinuousChck1 = v.Checkbox(v_model=True, label="is continuous?")
+        isContinuousChck2 = v.Checkbox(v_model=True, label="is continuous?")
+        isContinuousChck3 = v.Checkbox(v_model=True, label="is continuous?")
 
-        self.__all_widgets_class_1 = gui_elements.create_class_selector(self, self.atk.dataset.X.columns[0])
-        self.__all_widgets_class_2 = gui_elements.create_class_selector(self, self.atk.dataset.X.columns[0])
-        self.__all_widgets_class_3 = gui_elements.create_class_selector(self, self.atk.dataset.X.columns[0])
+        # The right side of the features : button to delete the feature from the rules + checkbox "is continuous?"
+        rightSide1 = v.Col(children=[deleteSkopeBtn1, isContinuousChck1], class_="d-flex flex-column align-center justify-center") #936
+        rightSide2 = v.Col(children=[deleteSkopeBtn2, isContinuousChck2], class_="d-flex flex-column align-center justify-center")
+        rightSide3 = v.Col(children=[deleteSkopeBtn3, isContinuousChck3], class_="d-flex flex-column align-center justify-center")
 
-        # when teh user checks the fact that this feature 
-        def change_continuous1(widget, event, data):
-            if widget.v_model == True and widget == right_side_1.children[1]:
-                in_accordion1.children = [all_widgets_slider_histo1] + list(in_accordion1.children[1:])
+        # TODO : understand what it is
+        # self._featureClass1 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
+        # self._featureClass2 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
+        # self._featureClass1 = guiFactory.createFeatureSelector(self._ds, self._ds.getXValues().columns[0])
+
+        # Udpates when isContinuous checkbox changes
+        def updateOnContinuousChanges1(widget, event, data): #945
+            if widget.v_model == True and widget == rightSide1.children[1]:
+                accordion1.children = [histo1Ctrl] + list(accordion1.children[1:])
                 count = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i-count][2] == self.selection.rules[0][2] and i-count != 0:
-                        self.selection.rules.pop(i-count)
+                for i in range(len(self._selection.getVSRules())):
+                    # TODO : I assume it is the VS rules and not the ES rules
+                    if self._selection.getVSRules()[i-count][2] == self._selection.getVSRules()[0][2] and i-count != 0: 
+                        self._selection.getVSRules().pop(i-count)
                         count += 1
-                self.selection.rules[0][0] = slider_skope1.v_model[0]
-                self.selection.rules[0][4] = slider_skope1.v_model[1]
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
+                self._selection.getVSRules()[0][0] = skopeSlider1.v_model[0]
+                self._selection.getVSRules()[0][4] = skopeSlider1.v_model[1]
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+
+                updateAllGraphs()
             else:
-                in_accordion1.children = [self.__all_widgets_class_1] + list(in_accordion1.children[1:])
-                l = []
-                for i in range(len(self.__all_widgets_class_1.children[2].children)):
-                    if self.__all_widgets_class_1.children[2].children[i].v_model:
-                        l.append(int(self.__all_widgets_class_1.children[2].children[i].label))
+                accordion1.children = [self._featureClass1] + list(accordion1.children[1:])
+                aList = []
+                for i in range(len(self._featureClass1.children[2].children)):
+                    if self._featureClass1.children[2].children[i].v_model:
+                        aList.append(int(self._featureClass1.children[2].children[i].label))
                 if len(l) == 0:
                     widget.v_model = True
                     return
-                column = deepcopy(self.selection.rules[0][2])
+                column = deepcopy(self._selection.getVSRules()[0][2])
                 count = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i-count][2] == column:
-                        self.selection.rules.pop(i-count)
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i-count][2] == column:
+                        self._selection.getVSRules().pop(i-count)
                         count += 1
-                croissant = 0
-                for ele in l:
-                    self.selection.rules.insert(0+croissant, [ele-0.5, '<=', column, '<=', ele+0.5])
-                    croissant += 1
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
-                update_all_graphs()
+                ascending = 0 # TODO not used
+                for item in aList:
+                    self._selection.getVSRules().insert(0+ascending, [item-0.5, '<=', column, '<=', item+0.5])
+                    ascending += 1
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
 
-        def change_continuous2(widget, event, data):
-            features = [self.selection.rules[i][2] for i in range(len(self.selection.rules))]
-            the_set = []
+        def updateOnContinuousChanges2(widget, event, data): #979
+            features = [self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))]
+            aSet = []
             for i in range(len(features)):
-                if features[i] not in the_set:
-                    the_set.append(features[i])
-            index = features.index(the_set[1])
-            if widget.v_model and widget == right_side_2.children[1]:
-                in_accordion2.children = [all_widgets_slider_histo2] + list(in_accordion2.children[1:])
+                if features[i] not in aSet:
+                    aSet.append(features[i])
+            index = features.index(aSet[1])
+            if widget.v_model and widget == rightSide2.children[1]:
+                accordion2.children = [histo2Ctrl] + list(accordion2.children[1:])
                 count = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i-count][2] == self.selection.rules[index][2] and i-count != index:
-                        self.selection.rules.pop(i-count)
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i-count][2] == self._selection.getVSRules()[index][2] and i-count != index:
+                        self._selection.getVSRules().pop(i-count)
                         count += 1
-                self.selection.rules[index][0] = slider_skope2.v_model[0]
-                self.selection.rules[index][4] = slider_skope2.v_model[1]
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
+                self._selection.getVSRules()[index][0] = skopeSlider2.v_model[0]
+                self._selection.getVSRules()[index][4] = skopeSlider2.v_model[1]
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
             else:
-                in_accordion2.children = [self.__all_widgets_class_2] + list(in_accordion2.children[1:])
-                l = []
-                for i in range(len(self.__all_widgets_class_2.children[2].children)):
-                    if self.__all_widgets_class_2.children[2].children[i].v_model:
-                        l.append(int(self.__all_widgets_class_2.children[2].children[i].label))
-                if len(l) == 0:
+                accordion2.children = [self._featureClass2] + list(accordion2.children[1:])
+                aSet = []
+                for i in range(len(self._featureClass2.children[2].children)):
+                    if self._featureClass2.children[2].children[i].v_model:
+                        aList.append(int(self._featureClass2.children[2].children[i].label))
+                if len(aList) == 0:
                     widget.v_model = True
                     return
-                column = deepcopy(self.selection.rules[index][2])
+                column = deepcopy(self._selection.getVSRules()[index][2])
                 count = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i-count][2] == column:
-                        self.selection.rules.pop(i-count)
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i-count][2] == column:
+                        self._selection.getVSRules().pop(i-count)
                         count += 1
-                croissant = 0
-                for ele in l:
-                    self.selection.rules.insert(index+croissant, [ele-0.5, '<=', column, '<=', ele+0.5])
-                    croissant += 1
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
-                update_all_graphs()
+                ascending = 0 # TODO not used
+                for item in aList:
+                    self._selection.getVSRules().insert(index+ascending, [item -0.5, '<=', column, '<=', item +0.5])
+                    ascending += 1
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
 
-        def change_continuous3(widget, event, data):
-            features = [self.selection.rules[i][2] for i in range(len(self.selection.rules))]
-            the_set = []
+        def updateOnContinuousChanges3(widget, event, data): #1019
+            features = [self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))]
+            aSet = []
             for i in range(len(features)):
-                if features[i] not in the_set:
-                    the_set.append(features[i])
-            index = features.index(the_set[2])
-            if widget.v_model and widget == right_side_3.children[1]:
-                in_accordion3.children = [all_widgets_slider_histo3] + list(in_accordion3.children[1:])
+                if features[i] not in aSet:
+                    aSet.append(features[i])
+            index = features.index(aSet[2])
+            if widget.v_model and widget == rightSide3.children[1]:
+                accordion3.children = [histo3Ctrl] + list(accordion3.children[1:])
                 count = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i-count][2] == self.selection.rules[index][2] and i-count != index:
-                        self.selection.rules.pop(i-count)
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i-count][2] == self._selection.getVSRules()[index][2] and i-count != index:
+                        self._selection.getVSRules().pop(i-count)
                         count += 1
-                self.selection.rules[index][0] = slider_skope3.v_model[0]
-                self.selection.rules[index][4] = slider_skope3.v_model[1]
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
+                self._selection.getVSRules()[index][0] = skopeSlider3.v_model[0]
+                self._selection.getVSRules()[index][4] = skopeSlider3.v_model[1]
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
             else:
-                in_accordion3.children = [self.__all_widgets_class_3] + list(in_accordion3.children[1:])
-                l = []
-                for i in range(len(self.__all_widgets_class_3.children[2].children)):
-                    if self.__all_widgets_class_3.children[2].children[i].v_model:
-                        l.append(int(self.__all_widgets_class_3.children[2].children[i].label))
-                if len(l) == 0:
+                accordion3.children = [self._featureClass1] + list(accordion3.children[1:])
+                aSet = []
+                for i in range(len(self._featureClass1.children[2].children)):
+                    if self._featureClass1.children[2].children[i].v_model:
+                        aSet.append(int(self._featureClass1.children[2].children[i].label))
+                if len(aSet) == 0:
                     widget.v_model = True
                     return
-                column = deepcopy(self.selection.rules[index][2])
+                column = deepcopy(self._selection.getVSRules()[index][2])
                 count = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i-count][2] == column:
-                        self.selection.rules.pop(i-count)
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i-count][2] == column:
+                        self._selection.getVSRules().pop(i-count)
                         count += 1
-                croissant = 0
-                for ele in l:
-                    self.selection.rules.insert(index+croissant, [ele-0.5, '<=', column, '<=', ele+0.5])
-                    croissant += 1
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
-                update_all_graphs()
+                ascending = 0 # TODO not used
+                for item in aSet:
+                    self._selection.getVSRules().insert(index+ascending, [item -0.5, '<=', column, '<=', item +0.5])
+                    ascending += 1
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
 
-        # the "is continuous" checkbox
-        right_side_1.children[1].on_event("change", change_continuous1)
-        right_side_2.children[1].on_event("change", change_continuous2)
-        right_side_3.children[1].on_event("change", change_continuous3)
+        # Handling of the "isContinuous" checkbox change event
+        rightSide1.children[1].on_event("change", updateOnContinuousChanges1)
+        rightSide2.children[1].on_event("change", updateOnContinuousChanges2)
+        rightSide3.children[1].on_event("change", updateOnContinuousChanges3)
 
-        in_accordion1 = widgets.HBox(
-            [all_widgets_slider_histo1, total_beeswarm_1, right_side_1],
-            layout=Layout(align_items="center"),
+        accordion1 = widgets.HBox(
+            [histo1Ctrl, beeswarmGrp1, rightSide1],
+            layout=Layout(align_explanationsMenuDict="center"),
         )
-        in_accordion2 = widgets.HBox(
-            [all_widgets_slider_histo2, total_beeswarm_2, right_side_2],
-            layout=Layout(align_items="center"),
+        accordion2 = widgets.HBox(
+            [histo2Ctrl, beeswarmGrp2, rightSide2],
+            layout=Layout(align_explanationsMenuDict="center"),
         )
-        in_accordion3 = widgets.HBox(
-            [all_widgets_slider_histo3, total_beeswarm_3, right_side_3],
-            layout=Layout(align_items="center"),
+        accordion3 = widgets.HBox(
+            [histo3Ctrl, beeswarmGrp3, rightSide3],
+            layout=Layout(align_explanationsMenuDict="center"),
         )
 
-        # we define several accordions in this way to be able to open several at the same time
-        in_accordion1_n = gui_elements.accordion_skope("X1", in_accordion1)
-        in_accordion2_n = gui_elements.accordion_skope("X2", in_accordion2)
-        in_accordion3_n = gui_elements.accordion_skope("X3", in_accordion3)
+        # We define several accordions to be able to open several at the same time
+        accordionGrp1 = guiFactory.skopeAccordion("X1", accordion1)
+        accordionGrp2 = guiFactory.skopeAccordion("X2", accordion2)
+        accordionGrp3 = guiFactory.skopeAccordion("X3", accordion3)
 
-        accordion_skope = widgets.VBox(
-            children=[in_accordion1_n, in_accordion2_n, in_accordion3_n],
+        skopeAccordion = widgets.VBox(
+            children=[accordionGrp1, accordionGrp2, accordionGrp3],
             layout=Layout(width="100%", height="auto"),
         )
 
-        # allows you to take the set of rules and modify the graph so that it responds to everything!
-        def update_all_graphs():
-            self.selection.state = Potato.REFINED_SKR
-            """
-            new_tuile = self.atk.dataset.X[
-                (self.atk.dataset.X[self.selection.rules[0][2]] >= self.selection.rules[0][0])
-                & (self.atk.dataset.X[self.selection.rules[0][2]] <= self.selection.rules[0][4])
-            ].index
-            for i in range(1, len(self.selection.rules)):
-                X_temp = self.atk.dataset.X[
-                    (self.atk.dataset.X[self.selection.rules[i][2]] >= self.selection.rules[i][0])
-                    & (self.atk.dataset.X[self.selection.rules[i][2]] <= self.selection.rules[i][4])
-                ].index
-                new_tuile = [g for g in new_tuile if g in X_temp]
-            """
-            new_tuile = self.selection.applyRules(to_return=True)
+        # Update graphs to match the rules
+        def updateAllGraphs():
+            self._selection.setType(Potato.REFINED_SKR)
+            newSet = self._selection.setIndexesWithSKR(True)
             y_shape_skope = []
             y_color_skope = []
             y_opa_skope = []
-            for i in range(len(self.atk.dataset.X)):
-                if i in new_tuile:
+            for i in range(len(self._ds.getXValues())):
+                if i in newSet:
                     y_shape_skope.append("circle")
                     y_color_skope.append("blue")
                     y_opa_skope.append(0.5)
@@ -1112,345 +1137,324 @@ class GUI():
                     y_shape_skope.append("cross")
                     y_color_skope.append("grey")
                     y_opa_skope.append(0.5)
-            with self.fig1.batch_update():
-                self.fig1.data[0].marker.color = y_color_skope
-            with self.fig2.batch_update():
-                self.fig2.data[0].marker.color = y_color_skope
-            with self.fig1_3D.batch_update():
-                self.fig1_3D.data[0].marker.color = y_color_skope
-            with self.fig2_3D.batch_update():
-                self.fig2_3D.data[0].marker.color = y_color_skope
+            with self._leftVSFigure.batch_update():
+                self._leftVSFigure.data[0].marker.color = y_color_skope
+            with self._rightESFigure.batch_update():
+                self._rightESFigure.data[0].marker.color = y_color_skope
+            with self._leftVSFigure3D.batch_update():
+                self._leftVSFigure3D.data[0].marker.color = y_color_skope
+            with self._rightESFigure3D.batch_update():
+                self._rightESFigure3D.data[0].marker.color = y_color_skope
 
-        # allows to modify all the histograms according to the rules
-        def modifie_all_histograms(value_min, value_max, index):
-            new_list_tout = self.atk.dataset.X.index[
-                self.atk.dataset.X[self.selection.rules[index][2]].between(value_min, value_max)
+        # Allows to modify all the histograms according to the rules
+        def updateAllHistograms(value_min, value_max, index):
+            totalList = self._ds.getXValues().index[
+                self._ds.getXValues()[self._selection.getVSRules()[index][2]].between(value_min, value_max)
             ].tolist()
-            for i in range(len(self.selection.rules)):
-                min = self.selection.rules[i][0]
-                max = self.selection.rules[i][4]
+            for i in range(len(self._selection.getVSRules())):
+                min = self._selection.getVSRules()[i][0]
+                max = self._selection.getVSRules()[i][4]
                 if i != index:
-                    new_list_temp = self.atk.dataset.X.index[
-                        self.atk.dataset.X[self.selection.rules[i][2]].between(min, max)
+                    tempList = self._ds.getXValues().index[
+                        self._ds.getXValues()[self._selection.getVSRules()[i][2]].between(min, max)
                     ].tolist()
-                    new_list_tout = [g for g in new_list_tout if g in new_list_temp]
-            if self.selection.indexes_from_map is not None:
-                new_list_tout = [g for g in new_list_tout if g in self.selection.indexes_from_map]
-            for i in range(len(self.selection.rules)):
-                with all_histograms[i].batch_update():
-                    all_histograms[i].data[2].x = self.atk.dataset.X[self.selection.rules[i][2]][new_list_tout]
-                if all_color_choosers_beeswarms[i].children[1].v_model:
-                    with all_beeswarms[i].batch_update():
-                        y_color = [0] * len(self.atk.explain[self.__explanation])
+                    totalList = [g for g in totalList if g in tempList]
+            if self._selection.getMapIndexes() is not None:
+                totalList = [g for g in totalList if g in self._selection.getMapIndexes()]
+            for i in range(len(self._selection.getVSRules())):
+                with allHistograms[i].batch_update():
+                    allHistograms[i].data[2].x = self._ds.getXValues()[self._selection.getVSRules()[i][2]][totalList]
+                if allBeeSwarmsColorChosers[i].children[1].v_model:
+                    with allBeeSwarms[i].batch_update():
+                        y_color = [0] * len(self._xds.getFullValues(self._explanationES[0]))
                         if i == index:
-                            indexs = self.atk.dataset.X.index[
-                                self.atk.dataset.X[self.selection.rules[i][2]].between(value_min, value_max)
+                            indexs = self._ds.getXValues().index[
+                                self._ds.getXValues()[self._selection.getVSRules()[i][2]].between(value_min, value_max)
                             ].tolist()
                         else:
-                            indexs = self.atk.dataset.X.index[
-                                self.atk.dataset.X[self.selection.rules[i][2]].between(
-                                    self.selection.rules[i][0], self.selection.rules[i][4]
+                            indexs = self._ds.getXValues().index[
+                                self._ds.getXValues()[self._selection.getVSRules()[i][2]].between(
+                                    self._selection.getVSRules()[i][0], self._selection.getVSRules()[i][4]
                                 )
                             ].tolist()
-                        for j in range(len(self.atk.explain[self.__explanation])):
-                            if j in new_list_tout:
+                        for j in range(len(self._xds.getFullValues(self._explanationES[0]))):
+                            if j in totalList:
                                 y_color[j] = "blue"
                             elif j in indexs:
                                 y_color[j] = "#85afcb"
                             else:
                                 y_color[j] = "grey"
-                        all_beeswarms[i].data[0].marker.color = y_color
+                        allBeeSwarms[i].data[0].marker.color = y_color
 
         # when the value of a slider is modified, the histograms and graphs are modified
-        def on_value_change_skope1(widget, event, data):
+        def updateOnSkopeRule1Change(widget, event, data):
             if widget.__class__.__name__ == "RangeSlider":
-                slider_text_comb1.children[0].v_model = slider_skope1.v_model[0]
-                slider_text_comb1.children[2].v_model = slider_skope1.v_model[1]
+                skopeSliderGroup1.children[0].v_model = skopeSlider1.v_model[0]
+                skopeSliderGroup1.children[2].v_model = skopeSlider1.v_model[1]
             else :
-                if slider_text_comb1.children[0].v_model == '' or slider_text_comb1.children[2].v_model == '':
+                if skopeSliderGroup1.children[0].v_model == '' or skopeSliderGroup1.children[2].v_model == '':
                     return
                 else:
-                    slider_skope1.v_model = [float(slider_text_comb1.children[0].v_model), float(slider_text_comb1.children[2].v_model)]
-            new_list = [
+                    skopeSlider1.v_model = [float(skopeSliderGroup1.children[0].v_model), float(skopeSliderGroup1.children[2].v_model)]
+            newList = [
                 g
-                for g in list(self.atk.dataset.X[self.selection.rules[0][2]].values)
-                if g >= slider_skope1.v_model[0]
-                and g <= slider_skope1.v_model[1]
+                for g in list(self._ds.getXValues()[self._selection.getVSRules()[0][2]].values)
+                if g >= skopeSlider1.v_model[0]
+                and g <= skopeSlider1.v_model[1]
             ]
             with histogram1.batch_update():
-                histogram1.data[1].x = new_list
-            if self.__activate_histograms:
-                modifie_all_histograms(
-                    slider_skope1.v_model[0], slider_skope1.v_model[1], 0
+                histogram1.data[1].x = newList
+            if self._activate_histograms:
+                updateAllHistograms(
+                    skopeSlider1.v_model[0], skopeSlider1.v_model[1], 0
                 )
-            if button_in_real_time_graph1.v_model:
-                #self.selection.rules[0][0] = float(deepcopy(slider_skope1.v_model[0]))
-                #self.selection.rules[0][4] = float(deepcopy(slider_skope1.v_model[1]))
-                self.selection.rules[0][0] = float(deepcopy(slider_skope1.v_model[0]))
-                self.selection.rules[0][4] = float(deepcopy(slider_skope1.v_model[1]))
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
+            if realTimeUpdateCheck1.v_model:
+                self._selection.getVSRules()[0][0] = float(deepcopy(skopeSlider1.v_model[0]))
+                self._selection.getVSRules()[0][4] = float(deepcopy(skopeSlider1.v_model[1]))
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
 
-        def on_value_change_skope2(widget, event, data):
+        def updateOnSkopeRule2Change(widget, event, data): #1194
             if widget.__class__.__name__ == "RangeSlider":
-                slider_text_comb2.children[0].v_model = slider_skope2.v_model[0]  
-                slider_text_comb2.children[2].v_model = slider_skope2.v_model[1]  
-            new_list = [
+                skopeSliderGroup2.children[0].v_model = skopeSlider2.v_model[0]  
+                skopeSliderGroup2.children[2].v_model = skopeSlider2.v_model[1]  
+            newList = [
                 g
-                for g in list(self.atk.dataset.X[self.selection.rules[1][2]].values)
-                if g >= slider_skope2.v_model[0]  
-                and g <= slider_skope2.v_model[1]  
+                for g in list(self._ds.getXValues()[self._selection.getVSRules()[1][2]].values)
+                if g >= skopeSlider2.v_model[0]  
+                and g <= skopeSlider2.v_model[1]  
             ]
             with histogram2.batch_update():
-                histogram2.data[1].x = new_list
-            if self.__activate_histograms:
-                modifie_all_histograms(
-                    slider_skope2.v_model[0]  , slider_skope2.v_model[1]  , 1
+                histogram2.data[1].x = newList
+            if self._activate_histograms:
+                updateAllHistograms(
+                    skopeSlider2.v_model[0]  , skopeSlider2.v_model[1]  , 1
                 )
-            if button_in_real_time_graph2.v_model:
-                self.selection.rules[1][0] = float(deepcopy(slider_skope2.v_model[0]  ))
-                self.selection.rules[1][4] = float(deepcopy(slider_skope2.v_model[1]  ))
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
+            if realTimeUpdateCheck2.v_model:
+                self._selection.getVSRules()[1][0] = float(deepcopy(skopeSlider2.v_model[0]  ))
+                self._selection.getVSRules()[1][4] = float(deepcopy(skopeSlider2.v_model[1]  ))
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
 
-        def on_value_change_skope3(widget, event, data):
+        def updateOnSkopeRule3Change(widget, event, data):
             if widget.__class__.__name__ == "RangeSlider":
-                slider_text_comb3.children[0].v_model = slider_skope3.v_model[0]  
-                slider_text_comb3.children[2].v_model = slider_skope3.v_model[1]  
-            new_list = [
+                skopeSliderGroup3.children[0].v_model = skopeSlider3.v_model[0]  
+                skopeSliderGroup3.children[2].v_model = skopeSlider3.v_model[1]  
+            newList = [
                 g
-                for g in list(self.atk.dataset.X[self.selection.rules[2][2]].values)
-                if g >= slider_skope3.v_model[0]  
-                and g <= slider_skope3.v_model[1]  
+                for g in list(self._ds.getXValues()[self._selection.getVSRules()[2][2]].values)
+                if g >= skopeSlider3.v_model[0]  
+                and g <= skopeSlider3.v_model[1]  
             ]
             with histogram3.batch_update():
-                histogram3.data[1].x = new_list
-            if self.__activate_histograms:
-                modifie_all_histograms(
-                    slider_skope3.v_model[0]  , slider_skope3.v_model[1]  , 2
+                histogram3.data[1].x = newList
+            if self._activate_histograms:
+                updateAllHistograms(
+                    skopeSlider3.v_model[0]  , skopeSlider3.v_model[1]  , 2
                 )
-            if button_in_real_time_graph3.v_model:
-                self.selection.rules[2][0] = float(deepcopy(slider_skope3.v_model[0]  ))
-                self.selection.rules[2][4] = float(deepcopy(slider_skope3.v_model[1]  ))
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
+            if realTimeUpdateCheck3.v_model:
+                self._selection.getVSRules()[2][0] = float(deepcopy(skopeSlider3.v_model[0]  ))
+                self._selection.getVSRules()[2][4] = float(deepcopy(skopeSlider3.v_model[1]  ))
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
 
-        def liste_to_string_skope(liste, is_class=False):
-            chaine = ""
-            for rule in liste:
-                for i in range(len(rule)):
-                    if type(rule[i]) == float:
-                        chaine += str(np.round(float(rule[i]), 2))
-                    elif rule[i] is None:
-                        chaine += "None"
-                    elif type(rule[i]) == list:
-                        chaine+="{"
-                        chaine += str(rule[i][0])
-                        for j in range(1, len(rule[i])):
-                            chaine += "," + str(rule[i][j])
-                        chaine+="}"
-                    else:
-                        chaine += str(rule[i])
-                    chaine += " "
-            return chaine
 
         # cwhen the user validates the updates he makes on a rule
-        def function_change_validate_1(*change):
-            a = deepcopy(float(slider_skope1.v_model[0]))
-            b = deepcopy(float(slider_skope1.v_model[1]))
-            self.selection.rules[0][0] = a
-            self.selection.rules[0][4] = b
-            one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-            update_all_graphs()
-            function_scores_models(None)
+        def onSkopeSlider1Change(*change):
+            a = deepcopy(float(skopeSlider1.v_model[0]))
+            b = deepcopy(float(skopeSlider1.v_model[1]))
+            self._selection.getVSRules()[0][0] = a
+            self._selection.getVSRules()[0][4] = b
+            ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+            updateAllGraphs()
+            updateSubModelsScores(None)
 
-        def function_change_validate_2(*change):
-            self.selection.rules[1][0] = float(slider_skope2.v_model[0])
-            self.selection.rules[1][4] = float(slider_skope2.v_model[1])
-            one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-            update_all_graphs()
-            function_scores_models(None)
+        def onSkopeSlider2Change(*change):
+            self._selection.getVSRules()[1][0] = float(skopeSlider2.v_model[0])
+            self._selection.getVSRules()[1][4] = float(skopeSlider2.v_model[1])
+            ourVSSkopeCard.children = guiFactory.createRuleCard()
+            updateAllGraphs()
+            updateSubModelsScores(None)
 
-        def function_change_validate_3(*change):
-            self.selection.rules[2][0] = float(slider_skope3.v_model[0])
-            self.selection.rules[2][4] = float(slider_skope3.v_model[1])
-            one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-            update_all_graphs()
-            function_scores_models(None)
+        def onSkopeSlider3Change(*change):
+            self._selection.getVSRules()[2][0] = float(skopeSlider3.v_model[0])
+            self._selection.getVSRules()[2][4] = float(skopeSlider3.v_model[1])
+            ourVSSkopeCard.children = guiFactory.createRuleCard()
+            updateAllGraphs()
+            updateSubModelsScores(None)
 
-        validate_change_1.on_event("click", function_change_validate_1)
-        validate_change_2.on_event("click", function_change_validate_2)
-        validate_change_3.on_event("click", function_change_validate_3)
+        validateSkopeChangeBtn1.on_event("click", onSkopeSlider1Change)
+        validateSkopeChangeBtn2.on_event("click", onSkopeSlider2Change)
+        validateSkopeChangeBtn3.on_event("click", onSkopeSlider3Change)
 
-        def rules_to_indexs():
-            liste_bool = [True] * len(self.atk.dataset.X)
-            for i in range(len(self.atk.dataset.X)):
-                for j in range(len(self.selection.rules)):
-                    column = list(self.atk.dataset.X.columns).index(self.selection.rules[j][2])
+        def updateSubModelsScores(temp): 
+            #TODO we should implement DATASET.length() 
+            boolList = [True] * len(self._ds.getXValues())
+            for i in range(len(self._ds.getXValues())):
+                for j in range(len(self._selection.getVSRules())):
+                    colIndex = list(self._ds.getXValues().columns).index(self._selection.getVSRules()[j][2])
                     if (
-                        self.selection.rules[j][0] > self.atk.dataset.X.iloc[i, column]
-                        or self.atk.dataset.X.iloc[i, column] > self.selection.rules[j][4]
+                        self._selection.getVSRules()[j][0] > self._ds.getXValues().iloc[i, colIndex]
+                        or self._ds.getXValues().iloc[i, colIndex] > self._selection.getVSRules()[j][4]
                     ):
-                        liste_bool[i] = False
-            temp = [i for i in range(len(self.atk.dataset.X)) if liste_bool[i]]
-            return temp
+                        boolList[i] = False
+            temp = [i for i in range(len(self._ds.getXValues())) if boolList[i]]
 
-        def function_scores_models(temp):
-            if type(temp) == type(None):
-                temp = rules_to_indexs()
-            result_models = function_models(self.atk.dataset.X.iloc[temp, :], self.atk.dataset.y.iloc[temp], self.sub_models)
-            score_tot = []
+            result_models = function_models(self._ds.getXValues().iloc[temp, :], self.atk.dataset.y.iloc[temp], self.sub_models)
+            newScore = []
             for i in range(len(self.sub_models)):
-                score_tot.append(compute.function_score(self.atk.dataset.y.iloc[temp], result_models[i][-2]))
-            score_init = compute.function_score(self.atk.dataset.y.iloc[temp], self.atk.dataset.y_pred[temp])
-            if score_init == 0:
-                l_compar = ["/"] * len(self.sub_models)
+                newScore.append(compute.function_score(self.atk.dataset.y.iloc[temp], result_models[i][-2]))
+            initialScore = compute.function_score(self.atk.dataset.y.iloc[temp], self.atk.dataset.y_pred[temp])
+            if initialScore == 0:
+                delta = ["/"] * len(self.sub_models)
             else:
-                l_compar = [
-                    round(100 * (score_init - score_tot[i]) / score_init, 1)
+                delta = [
+                    round(100 * (initialScore - newScore[i]) / initialScore, 1)
                     for i in range(len(self.sub_models))
                 ]
 
-            self.__score_sub_models = []
+            self._subModelsScores = []
             for i in range(len(self.sub_models)):
-                self.__score_sub_models.append(
+                self._subModelsScores.append(
                     [
-                        score_tot[i],
-                        score_init,
-                        l_compar[i],
+                        newScore[i],
+                        initialScore,
+                        delta[i],
                     ]
                 )
 
             # to generate a string for the scores
             # TODO: different score for the classification! Recall/precision!
-            def string_for_score(i):
-                if score_tot[i] == 0:
+            def _scoreToStr(i):
+                if newScore[i] == 0:
                     return (
                         "MSE = "
-                        + str(score_tot[i])
+                        + str(newScore[i])
                         + " (against "
-                        + str(score_init)
+                        + str(initialScore)
                         + ", +"
                         + "∞"
                         + "%)"
                     )
                 else:
-                    if round(100 * (score_init - score_tot[i]) / score_init, 1) > 0:
+                    if round(100 * (initialScore - newScore[i]) / initialScore, 1) > 0:
                         return (
                             "MSE = "
-                            + str(score_tot[i])
+                            + str(newScore[i])
                             + " (against "
-                            + str(score_init)
+                            + str(initialScore)
                             + ", +"
                             + str(
-                                round(100 * (score_init - score_tot[i]) / score_init, 1)
+                                round(100 * (initialScore - newScore[i]) / initialScore, 1)
                             )
                             + "%)"
                         )
                     else:
                         return (
                             "MSE = "
-                            + str(score_tot[i])
+                            + str(newScore[i])
                             + " (against "
-                            + str(score_init)
+                            + str(initialScore)
                             + ", "
                             + str(
-                                round(100 * (score_init - score_tot[i]) / score_init, 1)
+                                round(100 * (initialScore - newScore[i]) / initialScore, 1)
                             )
                             + "%)"
                         )
 
             for i in range(len(self.sub_models)):
-                mods.children[i].children[0].children[1].children = string_for_score(i)
+                subModelslides.children[i].children[0].children[1].children = _scoreToStr(i)
 
-        # when you click on the skope-rules button
-        def function_validation_skope(*sender):
-            loading_models.class_ = "d-flex"
-            self.__activate_histograms = True
-            if self.selection.y_train == None:
-                text_skopeVS.children[1].children = [
+        # Called when the user clicks on the "add" button and computes the rules
+        def updateSkopeRules(*sender):
+            loadingModelsProgLinear.class_ = "d-flex"
+
+            self._activate_histograms = True
+
+            if self._selection.getYMaskList() == None:
+                theESSkopeText.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
-                text_skopeES.children[1].children = [
+                theVSSkopeText.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
-            elif 0 not in self.selection.y_train or 1 not in self.selection.y_train:
-                text_skopeVS.children[1].children = [
+            elif 0 not in self._selection.getYMaskList() or 1 not in self._selection.getYMaskList():
+                theESSkopeText.children[1].children = [
                     widgets.HTML("You can't choose everything/nothing !")
                 ]
-                text_skopeES.children[1].children = [
+                theVSSkopeText.children[1].children = [
                     widgets.HTML("You can't choose everything/nothing !")
                 ]
             else:
-                # skope calculation for X
-                self.selection.applySkope(self.__explanation, 0.2, 0.2)
-                print(self.selection.rules)
-                # if no rule for one of the two, nothing is displayed
-                if self.selection.success == False:
-                    text_skopeVS.children[1].children = [
+                # We compute the Skope Rules for ES
+                self._selection.applySkopeRules(0.2, 0.2)
+                print(self._selection.getVSRules())
+                # If no rule for one of the two, nothing is displayed
+                if self._selection.hasARulesDefined() == False:
+                    theESSkopeText.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
-                    text_skopeES.children[1].children = [
+                    theVSSkopeText.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
-                # otherwise we display
+                # Otherwise we display the rules
                 else:
-                    #chaine_carac = transform_string(skope_rules_clf.rules_[0])
-                    text_skopeVS.children[0].children[3].children = [
+                    # We start with VS space
+                    theVSSkopeText.children[0].children[3].children = [ 
                         "p = "
-                        + str(self.selection.score[0])
+                        + str(self._selection.getVSScore()[0])
                         + "%"
                         + " r = "
-                        + str(self.selection.score[1])
+                        + str(self._selection.getVSScore()[1])
                         + "%"
                         + " ext. of the tree = "
-                        + str(self.selection.score[2])
+                        + str(self._selection.getVSScore()[2])
                     ]
 
-                    # there we find the values ​​of the skope to use them for the sliders
-                    columns_rules = [self.selection.rules[i][2] for i in range(len(self.selection.rules))]
+                    # There we find the values ​​of the skope to use them for the sliders
+                    columns_rules = [self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))]
                     new_columns_rules = []
                     for i in range(len(columns_rules)):
                         if columns_rules[i] not in new_columns_rules:
                             new_columns_rules.append(columns_rules[i])
                     columns_rules = new_columns_rules
 
-                    self.__other_columns = [g for g in self.atk.dataset.X.columns if g not in columns_rules]
+                    other_columns = [g for g in self._ds.getXValues().columns if g not in columns_rules]
 
-                    widget_list_add_skope.items = self.__other_columns
-                    widget_list_add_skope.v_model = self.__other_columns[0]
+                    addAnotherFeatureWgt.explanationsMenuDict = other_columns 
+                    addAnotherFeatureWgt.v_model = other_columns[0]
 
-                    self.selection.rules = self.selection.rules
+                    # self._selection.getVSRules() = self._selection.getVSRules()
 
-                    one_card_VS.children = gui_elements.generate_rule_card(
-                        liste_to_string_skope(self.selection.rules)
+                    ourVSSkopeCard.children = guiFactory.createRuleCard(
+                        self._selection.ruleListToStr()
                     )
 
-                    [new_y, marker] = compute.function_beeswarm_shap(self, self.__explanation, self.selection.rules[0][2])
+                    [new_y, marker] = createBeeswarm(self._ds, self._xds, self._explanationES[0], self._selection.getVSRules()[0][2]) 
                     beeswarm1.data[0].y = deepcopy(new_y)
-                    beeswarm1.data[0].x = self.atk.explain[self.__explanation][columns_rules[0] + "_shap"]
+                    beeswarm1.data[0].x = self._xds.getFullValues(self._explanationES[0])[columns_rules[0]]
                     beeswarm1.data[0].marker = marker
 
-                    all_histograms = [histogram1]
-                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 1:
-                        all_histograms = [histogram1, histogram2]
-                        [new_y, marker] = compute.function_beeswarm_shap(self, self.__explanation, self.selection.rules[1][2])
+                    allHistograms = [histogram1]
+                    if len(set([self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))])) > 1:
+                        allHistograms = [histogram1, histogram2]
+                        [new_y, marker] = createBeeswarm(self._ds, self._xds, self._explanationES[0], self._selection.getVSRules()[1][2])
                         beeswarm2.data[0].y = deepcopy(new_y)
-                        beeswarm2.data[0].x = self.atk.explain[self.__explanation][columns_rules[1] + "_shap"]
+                        beeswarm2.data[0].x = self._xds.getFullValues(self._explanationES[0])[columns_rules[1]]
                         beeswarm2.data[0].marker = marker
 
-                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 2:
-                        all_histograms = [histogram1, histogram2, histogram3]
-                        [new_y, marker] = compute.function_beeswarm_shap(self, self.__explanation, self.selection.rules[2][2])
+                    if len(set([self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))])) > 2:
+                        allHistograms = [histogram1, histogram2, histogram3]
+                        [new_y, marker] = createBeeswarm(self._ds, self._xds, self._explanationES[0], self._selection.getVSRules()[2][2])
                         beeswarm3.data[0].y = deepcopy(new_y)
-                        beeswarm3.data[0].x = self.atk.explain[self.__explanation][columns_rules[2] + "_shap"]
+                        beeswarm3.data[0].x = self._xds.getFullValues(self._explanationES[0])[columns_rules[2]]
                         beeswarm3.data[0].marker = marker
 
                     y_shape_skope = []
                     y_color_skope = []
                     y_opa_skope = []
-                    for i in range(len(self.atk.dataset.X)):
-                        if i in self.selection.indexes:
+                    for i in range(len(self._ds.getXValues())):
+                        if i in self._selection.getIndexes():
                             y_shape_skope.append("circle")
                             y_color_skope.append("blue")
                             y_opa_skope.append(0.5)
@@ -1458,146 +1462,148 @@ class GUI():
                             y_shape_skope.append("cross")
                             y_color_skope.append("grey")
                             y_opa_skope.append(0.5)
-                    radio_buttons_for_color_choice.v_model = "Selec actuelle"
-                    function_change_color(None)
+                    colorChoiceBtnToggle.v_model = "Current selection"
+                    changeMarkersColor(None)
 
-                    accordion_skope.children = [
-                        in_accordion1_n,
+                    skopeAccordion.children = [
+                        accordionGrp1,
                     ]
 
-                    in_accordion1_n.children[0].children[0].children = (
+                    accordionGrp1.children[0].children[0].children = (
                         "X1 (" + columns_rules[0].replace("_", " ") + ")"
                     )
 
                     if len(columns_rules) > 1:
-                        accordion_skope.children = [
-                            in_accordion1_n,
-                            in_accordion2_n,
+                        skopeAccordion.children = [
+                            accordionGrp1,
+                            accordionGrp2,
                         ]
-                        in_accordion2_n.children[0].children[0].children = (
+                        accordionGrp2.children[0].children[0].children = (
                             "X2 (" + columns_rules[1].replace("_", " ") + ")"
                         )
                     if len(columns_rules) > 2:
-                        accordion_skope.children = [
-                            in_accordion1_n,
-                            in_accordion2_n,
+                        skopeAccordion.children = [
+                            accordionGrp1,
+                            accordionGrp2,
                             in_accordion3_n,
                         ]
                         in_accordion3_n.children[0].children[0].children = (
                             "X3 (" + columns_rules[2].replace("_", " ") + ")"
                         )
 
-                    self.__all_widgets_class_1 = gui_elements.create_class_selector(self, columns_rules[0], self.selection.rules[0][0], self.selection.rules[0][4], fig_size=fig_size.v_model)
+                    _featureClass1 = guiFactory.create_class_selector(self, columns_rules[0], self._selection.getVSRules()[0][0], self._selection.getVSRules()[0][4], fig_size=figureSizeSlider.v_model) #1490
                     if len(columns_rules) > 1:
-                        self.__all_widgets_class_2 = gui_elements.create_class_selector(self, columns_rules[1], self.selection.rules[1][0], self.selection.rules[1][4], fig_size=fig_size.v_model)
+                        _featureClass2 = guiFactory.create_class_selector(self, columns_rules[1], self._selection.getVSRules()[1][0], self._selection.getVSRules()[1][4], fig_size=figureSizeSlider.v_model)
                     if len(columns_rules) > 2:
-                        self.__all_widgets_class_3 = gui_elements.create_class_selector(self, columns_rules[2], self.selection.rules[2][0], self.selection.rules[2][4], fig_size=fig_size.v_model)
+                        _featureClass3 = guiFactory.create_class_selector(self, columns_rules[2], self._selection.getVSRules()[2][0], self._selection.getVSRules()[2][4], fig_size=figureSizeSlider.v_model)
 
-                    for ii in range(len(self.__all_widgets_class_1.children[2].children)):
-                        self.__all_widgets_class_1.children[2].children[ii].on_event("change", change_continuous1)
+                    for ii in range(len(_featureClass1.children[2].children)):
+                        _featureClass1.children[2].children[ii].on_event("change", updateOnContinuousChanges1)
 
-                    for ii in range(len(self.__all_widgets_class_2.children[2].children)):
-                        self.__all_widgets_class_2.children[2].children[ii].on_event("change", change_continuous2)
+                    for ii in range(len(_featureClass2.children[2].children)):
+                        _featureClass2.children[2].children[ii].on_event("change", updateOnContinuousChanges2)
 
-                    for ii in range(len(self.__all_widgets_class_3.children[2].children)):
-                        self.__all_widgets_class_3.children[2].children[ii].on_event("change", change_continuous3)
+                    for ii in range(len(_featureClass3.children[2].children)):
+                        _featureClass3.children[2].children[ii].on_event("change", updateOnContinuousChanges3)
 
-                    if self.atk.dataset.lat in columns_rules and self.atk.dataset.long in columns_rules:
-                        button_add_map.disabled = False
+                    if self._xds.getLatLon()[0] in colums_rules and self._xds.getLatLon()[0] in colums_rules :
+                        addMapBtn.disabled = False
                     else:
-                        button_add_map.disabled = True
+                        addMapBtn.disabled = True
 
-                    slider_skope1.min = -10e10
-                    slider_skope1.max = 10e10
-                    slider_skope2.min = -10e10
-                    slider_skope2.max = 10e10
-                    slider_skope3.min = -10e10
-                    slider_skope3.max = 10e10
+                    skopeSlider1.min = -10e10
+                    skopeSlider1.max = 10e10
+                    skopeSlider2.min = -10e10
+                    skopeSlider2.max = 10e10
+                    skopeSlider3.min = -10e10
+                    skopeSlider3.max = 10e10
 
-                    slider_skope1.max = max(self.atk.dataset.X[columns_rules[0]])
-                    slider_skope1.min = min(self.atk.dataset.X[columns_rules[0]])
-                    slider_skope1.v_model = [self.selection.rules[0][0], self.selection.rules[0][-1]]
-                    [slider_text_comb1.children[0].v_model, slider_text_comb1.children[2].v_model] = [slider_skope1.v_model[0], slider_skope1.v_model[1]]
+                    skopeSlider1.max = max(self._ds.getXValues()[columns_rules[0]])
+                    skopeSlider1.min = min(self._ds.getXValues()[columns_rules[0]])
+                    skopeSlider1.v_model = [self._selection.getVSRules()[0][0], self._selection.getVSRules()[0][-1]]
+                    [skopeSliderGroup1.children[0].v_model, skopeSliderGroup1.children[2].v_model] = [skopeSlider1.v_model[0], skopeSlider1.v_model[1]]
 
-                    if len(self.selection.rules) > 1 :
-                        slider_skope2.max = max(self.atk.dataset.X[columns_rules[1]])
-                        slider_skope2.min = min(self.atk.dataset.X[columns_rules[1]])
-                        slider_skope2.v_model = [self.selection.rules[1][0], self.selection.rules[1][-1]]
-                        [slider_text_comb2.children[0].v_model, slider_text_comb2.children[2].v_model] = [slider_skope2.v_model[0],slider_skope2.v_model[1]]
+                    if len(self._selection.getVSRules()) > 1 :
+                        skopeSlider2.max = max(self._ds.getXValues()[columns_rules[1]])
+                        skopeSlider2.min = min(self._ds.getXValues()[columns_rules[1]])
+                        skopeSlider2.v_model = [self._selection.getVSRules()[1][0], self._selection.getVSRules()[1][-1]]
+                        [skopeSliderGroup2.children[0].v_model, skopeSliderGroup2.children[2].v_model] = [skopeSlider2.v_model[0],skopeSlider2.v_model[1]]
 
-                    if len(self.selection.rules) > 2:
-                        slider_skope3.max = max(self.atk.dataset.X[columns_rules[2]])
-                        slider_skope3.min = min(self.atk.dataset.X[columns_rules[2]])
-                        slider_skope3.v_model = [self.selection.rules[2][0], self.selection.rules[2][-1]]
+                    if len(self._selection.getVSRules()) > 2:
+                        skopeSlider3.max = max(self._ds.getXValues()[columns_rules[2]])
+                        skopeSlider3.min = min(self._ds.getXValues()[columns_rules[2]])
+                        skopeSlider3.v_model = [self._selection.getVSRules()[2][0], self._selection.getVSRules()[2][-1]]
                         [
-                            slider_text_comb3.children[0].v_model,
-                            slider_text_comb3.children[2].v_model,
+                            skopeSliderGroup3.children[0].v_model,
+                            skopeSliderGroup3.children[2].v_model,
                         ] = [
-                            slider_skope3.v_model[0],
-                            slider_skope3.v_model[1],
+                            skopeSlider3.v_model[0],
+                            skopeSlider3.v_model[1],
                         ]
 
                     with histogram1.batch_update():
-                        histogram1.data[0].x = list(self.atk.dataset.X[columns_rules[0]])
-                        df_respect1 = self.selection.respectOneRule(0)
+                        histogram1.data[0].x = list(self._ds.getXValues()[columns_rules[0]])
+                        df_respect1 = self._selection.respectOneRule(0)
                         histogram1.data[1].x = list(df_respect1[columns_rules[0]])
-                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 1:
+                    if len(set([self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))])) > 1:
                         with histogram2.batch_update():
-                            histogram2.data[0].x = list(self.atk.dataset.X[columns_rules[1]])
-                            df_respect2 = self.selection.respectOneRule(1)
+                            histogram2.data[0].x = list(self._ds.getXValues()[columns_rules[1]])
+                            df_respect2 = self._selection.respectOneRule(1)
                             histogram2.data[1].x = list(df_respect2[columns_rules[1]])
-                    if len(set([self.selection.rules[i][2] for i in range(len(self.selection.rules))])) > 2:
+                    if len(set([self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))])) > 2:
                         with histogram3.batch_update():
-                            histogram3.data[0].x = list(self.atk.dataset.X[columns_rules[2]])
-                            df_respect3 = self.selection.respectOneRule(2)
+                            histogram3.data[0].x = list(self._ds.getXValues()[columns_rules[2]])
+                            df_respect3 = self._selection.respectOneRule(2)
                             histogram3.data[1].x = list(df_respect3[columns_rules[2]])
 
-                    modifie_all_histograms(
-                        slider_skope1.v_model[0], slider_skope1.v_model[1], 0
+                    updateAllHistograms(
+                        skopeSlider1.v_model[0], skopeSlider1.v_model[1], 0
                     )
 
-                    text_skopeES.children[0].children[3].children = [
+                    theVSSkopeText.children[0].children[3].children = [
                         # str(skope_rules_clf.rules_[0])
                         # + "\n"
                         "p = "
-                        + str(self.selection.score_exp[0])
+                        + str(self._selection.getESScore()[0])
                         + "%"
                         + " r = "
-                        + str(self.selection.score_exp[1])
+                        + str(self._selection.getESScore()[1])
                         + "%"
                         + " ext. of the tree ="
-                        + str(self.selection.score_exp[2])
+                        + str(self._selection.getESScore()[2])
                     ]
-                    one_card_ES.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules_exp))
-                    function_scores_models(self.selection.indexes)
+                    ourESCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr(False)) # We want ES Rules printed
+                    updateSubModelsScores(self._selection.getIndexes())
 
-                    in_accordion1_n.children[0].disabled = False
-                    in_accordion2_n.children[0].disabled = False
+                    accordionGrp1.children[0].disabled = False
+                    accordionGrp2.children[0].disabled = False
                     in_accordion3_n.children[0].disabled = False
 
-            slider_skope1.on_event("input", on_value_change_skope1)
-            slider_skope2.on_event("input", on_value_change_skope2)
-            slider_skope3.on_event("input", on_value_change_skope3)
+            skopeSlider1.on_event("input", updateOnSkopeRule1Change)
+            skopeSlider2.on_event("input", updateOnSkopeRule2Change)
+            skopeSlider3.on_event("input", updateOnSkopeRule3Change)
 
-            slider_text_comb1.children[0].on_event("input", on_value_change_skope1)
-            slider_text_comb1.children[2].on_event("input", on_value_change_skope1)
+            skopeSliderGroup1.children[0].on_event("input", updateOnSkopeRule1Change)
+            skopeSliderGroup1.children[2].on_event("input", updateOnSkopeRule1Change)
 
-            loading_models.class_ = "d-none"
+            loadingModelsProgLinear.class_ = "d-none"
 
-            self.__save_rules = deepcopy(self.selection.rules)
+            self._save_rules = deepcopy(self._selection.getVSRules())
 
-            function_change_color(None)
+            changeMarkersColor(None)
 
-        def reset_skope(*b):
-            self.selection.rules = self.__save_rules
-            function_validation_skope(None)
-            function_scores_models(None)
+        def reinitSkopeRules(*b):
+            self._selection.setVSRules(self._save_rules)
+            updateSkopeRules(None)
+            updateSubModelsScores(None)
 
-        button_reset_skope.on_event("click", reset_skope)
+        reinitSkopeBtn.on_event("click", reinitSkopeRules)
 
-        # here to see the values ​​of the selected points (VS and ES)
+        # Here to see the values ​​of the selected points (VZ and ES)
         out_selec = v.Layout(style_="min-width: 47%; max-width: 47%", children=[v.Html(tag="h4", children=["Select points on the figure to see their values ​​here"])])
+        
         out_selec_SHAP = v.Layout(style_="min-width: 47%; max-width: 47%", children=[v.Html(tag="h4", children=["Select points on the figure to see their SHAP values ​​here"])])
+        
         out_selec_all = v.Alert(
             max_height="400px",
             style_="overflow: auto",
@@ -1607,7 +1613,7 @@ class GUI():
             ],
         )
 
-        # to see the data of the current selection
+        # To see the data of the current selection
         out_accordion = v.ExpansionPanels(
             class_="ma-2",
             children=[
@@ -1620,13 +1626,13 @@ class GUI():
             ],
         )
 
-        find_clusters = v.Btn(
+        findClusterBtn = v.Btn(
             class_="ma-1 mt-2 mb-0",
             elevation="2",
             children=[v.Icon(children=["mdi-magnify"]), "Find clusters"],
         )
 
-        slider_clusters = v.Slider(
+        clustersSlider = v.Slider(
             style_="width : 30%",
             class_="ma-3 mb-0",
             min=2,
@@ -1636,52 +1642,52 @@ class GUI():
             disabled=True,
         )
 
-        text_slider_cluster = v.Html(
+        clustersSliderTxt = v.Html(
             tag="h3",
             class_="ma-3 mb-0",
-            children=["Number of clusters " + str(slider_clusters.v_model)],
+            children=["Number of clusters " + str(clustersSlider.v_model)],
         )
 
-        def fonct_text_clusters(*b):
-            text_slider_cluster.children = [
-                "Number of clusters " + str(slider_clusters.v_model)
+        def clusterSliderGrp(*b): 
+            clustersSliderTxt.children = [
+                "Number of clusters " + str(clustersSlider.v_model)
             ]
 
-        slider_clusters.on_event("input", fonct_text_clusters)
+        clustersSlider.on_event("input", clusterSliderGrp)
 
-        check_number_of_clusters = v.Checkbox(
+        clustersNumberCheck = v.Checkbox( 
             v_model=True, label="Optimal number of clusters :", class_="ma-3"
         )
 
-        def bool_nb_opti(*b):
-            slider_clusters.disabled = check_number_of_clusters.v_model
+        def clustersNumberCheckChange(*b):
+            clustersSlider.disabled = clustersNumberCheck.v_model
 
-        check_number_of_clusters.on_event("change", bool_nb_opti)
+        clustersNumberCheck.on_event("change", clustersNumberCheckChange)
 
-        part_for_clusters = v.Layout(
+        clusterGrp = v.Layout( 
             class_="d-flex flex-row",
             children=[
-                find_clusters,
-                check_number_of_clusters,
-                slider_clusters,
-                text_slider_cluster,
+                findClusterBtn,
+                clustersNumberCheck,
+                clustersSlider,
+                clustersSliderTxt,
             ],
         )
 
         new_df = pd.DataFrame([], columns=["Region #", "Number of points"])
         columns = [{"text": c, "sortable": True, "value": c} for c in new_df.columns]
-        results_clusters_table = v.DataTable(
+        clusterResultsTable = v.DataTable(
             class_="w-100",
             style_="width : 100%",
             v_model=[],
             show_select=False,
             headers=columns,
-            items=new_df.to_dict("records"),
+            explanationsMenuDict=new_df.to_dict("records"),
             item_value="Region #",
             item_key="Region #",
             hide_default_footer=True,
         )
-        results_clusters = v.Row(
+        clusterResults = v.Row(
             children=[
                 v.Layout(
                     class_="flex-grow-0 flex-shrink-0",
@@ -1689,40 +1695,39 @@ class GUI():
                 ),
                 v.Layout(
                     class_="flex-grow-1 flex-shrink-0",
-                    children=[results_clusters_table],
+                    children=[clusterResultsTable],
                 ),
             ],
         )
 
-        # allows you to make dyadic clustering
-        def function_clusters(*b):
-            loading_clusters.class_ = "d-flex"
-            if check_number_of_clusters.v_model:
-                result = function_auto_clustering(self.atk.dataset.X_scaled, self.atk.explain[self.__explanation], 3, True)
+        # Allows you to make dyadic clustering
+        def dynamicClustering(*b):
+            loadingClustersProgLinear.class_ = "d-flex"
+            if clustersNumberCheck.v_model:
+                result = proposeAutoDyadicClustering(self._ds.getXValues(Dataset.SCALED), self._xds.getFullValues(self._explanationES[0]), 3, True)
             else:
-                nb_clusters = slider_clusters.v_model
-                result = function_auto_clustering(self.atk.dataset.X_scaled, self.atk.explain[self.__explanation], nb_clusters, False)
-            self.__result_dyadic_clustering = result
+                result = proposeAutoDyadicClustering(self._ds.getXValues(Dataset.SCALED), self._xds.getFullValues(self._explanationES[0]), clustersSlider.v_model, False)
+            self._dyadicClusteringResult = result
             labels = result[1]
-            self.__labels_automatic_clustering = labels
-            with self.fig1.batch_update():
-                self.fig1.data[0].marker.color = labels
-                self.fig1.update_traces(marker=dict(showscale=False))
-            with self.fig2.batch_update():
-                self.fig2.data[0].marker.color = labels
-            with self.fig1_3D.batch_update():
-                self.fig1_3D.data[0].marker.color = labels
-                self.fig1_3D.update_traces(marker=dict(showscale=False))
-            with self.fig2_3D.batch_update():
-                self.fig2_3D.data[0].marker.color = labels
-            labels_regions = result[0]
+            self._dyadicClusteringLabels = labels
+            with self._leftVSFigure.batch_update():
+                self._leftVSFigure.data[0].marker.color = labels
+                self._leftVSFigure.update_traces(marker=dict(showscale=False))
+            with self._rightESFigure.batch_update():
+                self._rightESFigure.data[0].marker.color = labels
+            with self._leftVSFigure3D.batch_update():
+                self._leftVSFigure3D.data[0].marker.color = labels
+                self._leftVSFigure3D.update_traces(marker=dict(showscale=False))
+            with self._rightESFigure3D.batch_update():
+                self._rightESFigure3D.data[0].marker.color = labels
+            regionsLabels = result[0]
             new_df = []
-            for i in range(len(labels_regions)):
+            for i in range(len(regionsLabels)):
                 new_df.append(
                     [
                         i + 1,
-                        len(labels_regions[i]),
-                        str(round(len(labels_regions[i]) / len(self.atk.dataset.X) * 100, 2)) + "%",
+                        len(regionsLabels[i]),
+                        str(round(len(regionsLabels[i]) / len(self._ds.getXValues()) * 100, 2)) + "%",
                     ]
                 )
             new_df = pd.DataFrame(
@@ -1733,29 +1738,29 @@ class GUI():
             columns = [
                 {"text": c, "sortable": False, "value": c} for c in new_df.columns
             ]
-            results_clusters_table = v.DataTable(
+            clusterResultsTable = v.DataTable(
                 class_="w-100",
                 style_="width : 100%",
                 show_select=False,
                 single_select=True,
                 v_model=[],
                 headers=columns,
-                items=data,
+                explanationsMenuDict=data,
                 item_value="Region #",
                 item_key="Region #",
                 hide_default_footer=True,
             )
             all_chips = []
             all_radio = []
-            N_stages = len(labels_regions)
+            N_antakiaStepsCard = len(regionsLabels)
             Multip = 100
             debut = 0
-            fin = (N_stages * Multip - 1) * (1 + 1 / (N_stages - 1))
-            pas = (N_stages * Multip - 1) / (N_stages - 1)
+            fin = (N_antakiaStepsCard * Multip - 1) * (1 + 1 / (N_antakiaStepsCard - 1))
+            pas = (N_antakiaStepsCard * Multip - 1) / (N_antakiaStepsCard - 1)
             scale_colors = np.arange(debut, fin, pas)
             a = 0
             for i in scale_colors:
-                color = sns.color_palette("viridis", N_stages * Multip).as_hex()[
+                color = sns.color_palette("viridis", N_antakiaStepsCard * Multip).as_hex()[
                     round(i)
                 ]
                 all_chips.append(v.Chip(class_="rounded-circle", color=color))
@@ -1773,7 +1778,7 @@ class GUI():
                 style_="width : 10%",
                 children=all_chips,
             )
-            results_clusters = v.Row(
+            clusterResults = v.Row(
                 children=[
                     v.Layout(
                         class_="flex-grow-0 flex-shrink-0", children=[part_for_radio]
@@ -1783,134 +1788,137 @@ class GUI():
                     ),
                     v.Layout(
                         class_="flex-grow-1 flex-shrink-0",
-                        children=[results_clusters_table],
+                        children=[clusterResultsTable],
                     ),
                 ],
             )
-            part_for_selection.children = part_for_selection.children[:-1] + [
-                results_clusters
+            tabOneSelectionColumn.children = tabOneSelectionColumn.children[:-1] + [
+                clusterResults
             ]
 
-            radio_buttons_for_color_choice.v_model = "Clustering auto"
+            colorChoiceBtnToggle.v_model = "Clustering auto"
 
-            part_for_selection.children[-1].children[0].children[0].on_event(
-                "change", function_choice_cluster
+            tabOneSelectionColumn.children[-1].children[0].children[0].on_event(
+                "change", selectedClusterChange
             )
-            loading_clusters.class_ = "d-none"
-            return N_stages
+            loadingClustersProgLinear.class_ = "d-none"
+            return N_antakiaStepsCard
 
-        # when we select a region created by the automatic dyadic clustering
-        def function_choice_cluster(widget, event, data):
-            result = self.__result_dyadic_clustering
+        # When we select a region created by the automatic dyadic clustering
+        def selectedClusterChange(widget, event, data): #1803
+            result = _dyadicClusteringResult
             labels = result[1]
-            index = part_for_selection.children[-1].children[0].children[0].v_model
+            index = tabOneSelectionColumn.children[-1].children[0].children[0].v_model
             liste = [i for i, d in enumerate(labels) if d == float(index)]
-            function_lasso_selection(None, None, None, liste)
-            radio_buttons_for_color_choice.v_model = "Clustering auto"
-            function_change_color(opacity=False)
+            lassoSelection(None, None, None, liste)
+            colorChoiceBtnToggle.v_model = "Clustering auto"
+            changeMarkersColor(opacity=False)
 
-        find_clusters.on_event("click", function_clusters)
+        findClusterBtn.on_event("click", dynamicClustering)
 
-        # function which is called as soon as the points are selected (step 1)
-        def function_lasso_selection(trace, points, selector, *args):
+        # Called as soon as the points are selected (step 1)
+        # TODO : we should type and provide hints fort this fonction
+        def lassoSelection(trace, points, selector, *args): #1815
             if len(args) > 0:
-                liste = args[0]
-                les_points = liste
+                passedList = args[0]
+                selectedDots = passedList
             else:
-                les_points = points.point_inds
-            self.selection = Potato(self.atk, les_points)
-            self.selection.state = Potato.LASSO
-            if len(les_points) == 0:
-                card_selec.children[0].children[1].children = "0 point !"
-                text_selec.value = text_base_debut
+                selectedDots = points.point_inds #ids
+            self._selection = Potato(self._ds, self._xds, self._explanationES[0], selectedDots, Potato.LASSO)
+            if len(selectedDots) == 0:
+                selectionCard.children[0].children[1].children = "0 point !"
+                selectionText.value = startInitialText
                 return
-            card_selec.children[0].children[1].children = (
-                str(len(les_points))
+
+            selectionCard.children[0].children[1].children = (
+                str(len(selectedDots))
                 + " points selected ("
-                + str(round(len(les_points) / len(self.atk.dataset.X) * 100, 2))
+                + str(round(len(selectedDots) / self._ds.__len__() * 100, 2))
                 + "% of the overall)"
             )
-            text_selec.value = (
-                text_base
-                + str(len(les_points))
+            selectionText.value = (
+                initialText
+                + str(len(selectedDots))
                 + " points selected ("
-                + str(round(len(les_points) / len(self.atk.dataset.X) * 100, 2))
+                + str(round(len(selectedDots) / len(self._ds.getFullValues(Dataset.REGULAR)) * 100, 2))
                 + "% of the overall)"
             )
-            opa = []
-            for i in range(len(self.fig2.data[0].x)):
-                if i in les_points:
+            opa = [] # stands for Opacity
+            for i in range(len(self._rightESFigure.data[0].x)):
+                if i in selectedDots:
                     opa.append(1)
                 else:
                     opa.append(0.1)
-            with self.fig2.batch_update():
-                self.fig2.data[0].marker.opacity = opa
-            with self.fig1.batch_update():
-                self.fig1.data[0].marker.opacity = opa
 
-            X_train = self.atk.dataset.X.copy()
+            with self._leftVSFigure.batch_update():
+                self._leftVSFigure.data[0].marker.opacity = opa
+            with self._rightESFigure.batch_update():
+                self._rightESFigure.data[0].marker.opacity = opa
 
-            X_mean = (
+            # TODO : why duplicate X ?
+            XX = self._ds.getFullValues(Dataset.REGULAR).copy()
+
+            XXmean = (
                 pd.DataFrame(
-                    X_train.iloc[self.selection.indexes, :].mean(axis=0).values.reshape(1, -1),
-                    columns=X_train.columns,
+                    XX.iloc[self._selection.getIndexes(),:].mean(axis=0).values.reshape(1, -1),
+                    columns=XX.columns,
                 )
                 .round(2)
                 .rename(index={0: "Mean of the selection"})
             )
-            X_mean_tot = (
+            XXmean_tot = (
                 pd.DataFrame(
-                    X_train.mean(axis=0).values.reshape(1, -1), columns=X_train.columns
+                    XX.mean(axis=0).values.reshape(1, -1), columns=XX.columns
                 )
                 .round(2)
                 .rename(index={0: "Mean of the whole dataset"})
             )
-            X_mean = pd.concat([X_mean, X_mean_tot], axis=0)
+            XXmean = pd.concat([XXmean, XXmean_tot], axis=0)
             SHAP_mean = (
                 pd.DataFrame(
-                    self.atk.explain[self.__explanation].iloc[self.selection.indexes, :]
+                    self._xds.getFullValues(self._explanationES[0]).iloc[self._selection.getIndexes(), :]
                     .mean(axis=0)
                     .values.reshape(1, -1),
-                    columns=self.atk.explain[self.__explanation].columns,
+                    columns=self._xds.getFullValues(self._explanationES[0]).columns,
                 )
                 .round(2)
                 .rename(index={0: "Mean of the selection"})
             )
             SHAP_mean_tot = (
                 pd.DataFrame(
-                    self.atk.explain[self.__explanation].mean(axis=0).values.reshape(1, -1),
-                    columns=self.atk.explain[self.__explanation].columns,
+                    self._xds.getFullValues(self._explanationES[0]).mean(axis=0).values.reshape(1, -1),
+                    columns=self._xds.getFullValues(self._explanationES[0]).columns,
                 )
                 .round(2)
                 .rename(index={0: "Mean of the whole dataset"})
             )
             SHAP_mean = pd.concat([SHAP_mean, SHAP_mean_tot], axis=0)
 
-            X_mean.insert(loc=0, column=' ', value=["Mean of the selection", "Mean of the whole dataset"])
-            data = X_mean.to_dict("records")
+            XXmean.insert(loc=0, column=' ', value=["Mean of the selection", "Mean of the whole dataset"])
+            data = XXmean.to_dict("records")
             columns = [
-                {"text": c, "sortable": True, "value": c} for c in X_mean.columns
+                {"text": c, "sortable": True, "value": c} for c in XXmean.columns
             ]
 
             out_selec_table_means = v.DataTable(
                 v_model=[],
                 show_select=False,
                 headers=columns.copy(),
-                items=data.copy(),
+                explanationsMenuDict=data.copy(),
                 hide_default_footer=True,
                 disable_sort=True,
             )
 
-            data = X_train.iloc[self.selection.indexes, :].round(3).to_dict("records")
+            data = XX.iloc[self._selection.getIndexes(), :].round(3).to_dict("records")
             columns = [
-                {"text": c, "sortable": True, "value": c} for c in X_train.columns
+                {"text": c, "sortable": True, "value": c} for c in XX.columns
             ]
 
             out_selec_table = v.DataTable(
                 v_model=[],
                 show_select=False,
                 headers=columns.copy(),
-                items=data.copy(),
+                explanationsMenuDict=data.copy(),
             )
 
             out_selec.children = [v.Col(class_= "d-flex flex-column justify-center align-center", children=[
@@ -1931,21 +1939,21 @@ class GUI():
                 v_model=[],
                 show_select=False,
                 headers=columns.copy(),
-                items=data.copy(),
+                explanationsMenuDict=data.copy(),
                 hide_default_footer=True,
                 disable_sort=True,
             )
 
-            data = self.atk.explain[self.__explanation].iloc[self.selection.indexes, :].round(3).to_dict("records")
+            data = self._xds.getFullValues(self._explanationES[0]).iloc[self._selection.getIndexes(), :].round(3).to_dict("records")
             columns = [
-                {"text": c, "sortable": True, "value": c} for c in self.atk.explain[self.__explanation].columns
+                {"text": c, "sortable": True, "value": c} for c in self._xds.getFullValues(self._explanationES[0]).columns
             ]
 
             out_selec_table = v.DataTable(
                 v_model=[],
                 show_select=False,
                 headers=columns.copy(),
-                items=data.copy(),
+                explanationsMenuDict=data.copy(),
             )
 
             out_selec_SHAP.children = [v.Col(class_="d-flex flex-column justify-center align-center", children=[
@@ -1955,51 +1963,53 @@ class GUI():
                 v.Html(tag="h4", children=["Entire dataset:"], class_="mb-2"),
                 out_selec_table
             ])]
+            # End lasso
 
-
-        # function that is called when validating a tile to add it to the set of regions
-        def function_new_region(*args):
+        # Called when validating a tile to add it to the set of Regions
+        def newRegionValidated(*args):
             if len(args) == 0:
                 pass
-            elif self.selection in self.atk.regions:
-                print("AntakIA WARNING: this region is already in the set of regions")
+            elif self._selection in self._regions:
+                print("AntakIA WARNING: this region is already in the set of Regions")
             else:
-                self.selection.state = Potato.REGION
-                if self.__model_index == None:
-                    name_model = None
-                    score_model = [1,1,1]
+                self._selection.setType(Potato.REGION)
+                if self.modelIndex == None:
+                    modelName = None 
+                    modelScore = [1,1,1]
                 else:
-                    name_model = self.sub_models[self.__model_index].__class__.__name__
-                    score_model = self.__score_sub_models[self.__model_index]
-                if self.selection.rules == None :
+                    modelName = self.sub_models[self.modelIndex].__class__.__name__
+                    modelScore = self._subModelsScores[self.modelIndex]
+                if self._selection.getVSRules() == None :
                     return
 
-                self.selection.applyRules()
-                new_tuile = deepcopy(self.selection.getIndexes())
-                self.selection.sub_model["name"], self.selection.sub_model["score"] = name_model, score_model
-                # here we will force so that all the points of the new tile belong only to it: we will modify the existing tiles
-                self.atk.regions = conflict_handler(self.atk.regions, new_tuile)
-                self.selection.setIndexes(new_tuile)
-                self.atk.newRegion(self.selection)
-            self.__color_regions=[0]*len(self.atk.dataset.X)
-            for i in range(len(self.__color_regions)):
-                for j in range(len(self.atk.regions)):
-                    if i in self.atk.regions[j].indexes:
-                        self.__color_regions[i] = j+1
-                        break
+                # self._selection.setIndexesWithRules() # TODO not sur wa have to call that
+
+                newIndexes = deepcopy(self._selection.getIndexes())
+                self._selection.sub_model["name"], self.selection.sub_model["score"] = modelName, modelScore
+                # We check that all the points of the new region belong only to it: we will modify the existing tiles
+                self._regions = overlapHandler(self._regions, newIndexes)
+                self._selection.setNewIndexes(newIndexes)
+                
+            self._regionColor=[0]*self._ds.__len__()
+            if self._regions is not None :
+                for i in range(len(self._regionColor)):
+                    for j in range(len(self._regions)):
+                        if i in self._regions[j].getIndexes():
+                            self._regionColor[i] = j+1
+                            break
 
             toute_somme = 0
             temp = []
             score_tot = 0
             score_tot_glob = 0
             autre_toute_somme = 0
-            for i in range(len(self.atk.regions)):
-                if self.atk.regions[i].sub_model["score"] == None:
+            for i in range(len(self._regions)):
+                if self._regions[i].getSubModel()["score"] == None:
                     temp.append(
                         [
                             i + 1,
-                            len(self.atk.regions[i]),
-                            np.round(len(self.atk.regions[i]) / len(self.atk.dataset.X) * 100, 2),
+                            len(self._regions[i]),
+                            np.round(len(self._regions[i]) / len(self._ds.getFullValues(Dataset.REGULAR)) * 100, 2),
                             "/",
                             "/",
                             "/",
@@ -2010,20 +2020,20 @@ class GUI():
                     temp.append(
                         [
                             i + 1,
-                            len(self.atk.regions[i]),
-                            np.round(len(self.atk.regions[i]) / len(self.atk.dataset.X) * 100, 2),
-                            self.atk.regions[i].sub_model["model"],
-                            self.atk.regions[i].sub_model["score"][0],
-                            self.atk.regions[i].sub_model["score"][1],
-                            str(self.atk.regions[i].sub_model["score"][2]) + "%",
+                            len(self._regions[i]),
+                            np.round(len(self._regions[i]) / len(self._ds.getXValues()) * 100, 2),
+                            self._regions[i].getSubModel()["model"],
+                            self._regions[i].getSubModel()["score"][0],
+                            self._regions[i].getSubModel()["score"][1],
+                            str(self._regions[i].getSubModel()["score"][2]) + "%",
                         ]
                     )
-                    score_tot += self.atk.regions[i].sub_model["score"][0] * len(self.atk.regions[i])
-                    score_tot_glob += self.atk.regions[i].sub_model["score"][1] * len(
-                        self.atk.regions[i]
+                    score_tot += self._regions[i].getSubModel()["score"][0] * len(self._regions[i])
+                    score_tot_glob += self._regions[i].getSubModel()["score"][1] * len(
+                        self._regions[i]
                     )
-                    autre_toute_somme += len(self.atk.regions[i])
-                toute_somme += len(self.atk.regions[i])
+                    autre_toute_somme += len(self._regions[i])
+                toute_somme += len(self._regions[i])
             if autre_toute_somme == 0:
                 score_tot = "/"
                 score_tot_glob = "/"
@@ -2039,7 +2049,7 @@ class GUI():
                 [
                     "Total",
                     toute_somme,
-                    np.round(toute_somme / len(self.atk.dataset.X) * 100, 2),
+                    np.round(toute_somme / len(self._ds) * 100, 2),
                     "/",
                     score_tot,
                     score_tot_glob,
@@ -2058,190 +2068,135 @@ class GUI():
                     "Gain in MSE",
                 ],
             )
-            with table_regions:
-                clear_output()
-                data = new_df[:-1].to_dict("records")
-                total = new_df[-1:].iloc[:, 1:].to_dict("records")
-                columns = [
-                    {"text": c, "sortable": True, "value": c} for c in new_df.columns
-                ]
-                columns_total = [
-                    {"text": c, "sortable": True, "value": c}
-                    for c in new_df.columns[1:]
-                ]
-                table_donnes = v.DataTable(
-                    v_model=[],
-                    show_select=True,
-                    headers=columns,
-                    items=data,
-                    item_value="Region #",
-                    item_key="Region #",
-                )
-                table_total = v.DataTable(
-                    v_model=[],
-                    headers=columns_total,
-                    items=total,
-                    hide_default_footer=True,
-                )
-                ensemble_tables = v.Layout(
-                    class_="d-flex flex-column",
-                    children=[
-                        table_donnes,
-                        v.Divider(class_="mt-7 mb-4"),
-                        v.Html(tag="h2", children=["Review of the regions :"]),
-                        table_total,
-                    ],
-                )
+           
 
-                def function_suppression_tuiles(*b):
-                    if table_donnes.v_model == []:
-                        return
-                    taille = len(table_donnes.v_model)
-                    a = 0
-                    for i in range(taille):
-                        index = table_donnes.v_model[i]["Region #"] - 1
-                        self.atk.regions.pop(index - a)
-                        function_new_region()
-                        a += 1
-                    radio_buttons_for_color_choice.v_model = "Régions"
-                    function_change_color()
+        validateRegionBtn.on_event("click", newRegionValidated)
+        validateSkopeBtn.on_event("click", updateSkopeRules)
 
-                supprimer_toutes_les_tuiles.on_event(
-                    "click", function_suppression_tuiles
-                )
+        self._leftVSFigure.data[0].on_selection(lassoSelection)
+        self._rightESFigure.data[0].on_selection(lassoSelection)
 
-                display(ensemble_tables)
+        def figureSizeChanged(*args): #2121
+            with self._leftVSFigure.batch_update():
+                self._leftVSFigure.layout.width = int(figureSizeSlider.v_model)
+            with self._rightESFigure.batch_update():
+                self._rightESFigure.layout.width = int(figureSizeSlider.v_model)
+            with self._leftVSFigure3D.batch_update():
+                self._leftVSFigure3D.layout.width = int(figureSizeSlider.v_model)
+            with self._rightESFigure3D.batch_update():
+                self._rightESFigure3D.layout.width = int(figureSizeSlider.v_model)
+            for i in range(len(allHistograms)):
+                with allHistograms[i].batch_update():
+                    allHistograms[i].layout.width = 0.9 * int(figureSizeSlider.v_model)
+                with allBeeSwarms[i].batch_update():
+                    allBeeSwarms[i].layout.width = 0.9 * int(figureSizeSlider.v_model)
 
-        validate_one_region.on_event("click", function_new_region)
-        button_validate_skope.on_event("click", function_validation_skope)
+        figureSizeSlider.on_event("input", figureSizeChanged)
 
-        self.fig1.data[0].on_selection(function_lasso_selection)
-        self.fig2.data[0].on_selection(function_lasso_selection)
-
-        def function_fig_size(*args):
-            with self.fig1.batch_update():
-                self.fig1.layout.width = int(fig_size.v_model)
-            with self.fig2.batch_update():
-                self.fig2.layout.width = int(fig_size.v_model)
-            with self.fig1_3D.batch_update():
-                self.fig1_3D.layout.width = int(fig_size.v_model)
-            with self.fig2_3D.batch_update():
-                self.fig2_3D.layout.width = int(fig_size.v_model)
-            for i in range(len(all_histograms)):
-                with all_histograms[i].batch_update():
-                    all_histograms[i].layout.width = 0.9 * int(fig_size.v_model)
-                with all_beeswarms[i].batch_update():
-                    all_beeswarms[i].layout.width = 0.9 * int(fig_size.v_model)
-
-        fig_size.on_event("input", function_fig_size)
-
-        button_add_skope = v.Btn(
+        addSkopeBtn = v.Btn(
             class_="ma-4 pa-2 mb-1",
             children=[v.Icon(children=["mdi-plus"]), "Add a rule"],
         )
 
-        widget_list_add_skope = v.Select(
+        addAnotherFeatureWgt = v.Select(
             class_="mr-3 mb-0",
-            items=["/"],
+            explanationsMenuDict=["/"],
             v_model="/",
             style_="max-width : 15%",
         )
 
-        button_add_map = v.Btn(
+        addMapBtn = v.Btn(
             class_="ma-4 pa-2 mb-1",
             children=[v.Icon(class_="mr-4", children=["mdi-map"]), "Display the map"],
             color="white",
             disabled=True,
         )
 
-        def function_display_map(widget, event, data):
+        def displayMap(widget, event, data):
             if widget.color == "white":
-                part_map.class_= "d-flex justify-space-around ma-0 pa-0"
+                mapPartLayout.class_= "d-flex justify-space-around ma-0 pa-0"
                 widget.color = "error"
                 widget.children =  [widget.children[0]] + ["Hide the map"]
-                self.__save_lat_rule = [self.selection.rules[i] for i in range(len(self.selection.rules)) if self.selection.rules[i][2] == self.atk.dataset.lat]
-                self.__save_long_rule = [self.selection.rules[i] for i in range(len(self.selection.rules)) if self.selection.rules[i][2] == self.atk.dataset.long]
+                _save_lat_rule = [self._selection.getVSRules()[i] for i in range(len(self._selection.getVSRules())) if self._selection.getVSRules()[i][2] == self._ds.getLatLon([0])]
+                _save_long_rule = [self._selection.getVSRules()[i] for i in range(len(self._selection.getVSRules())) if self._selection.getVSRules()[i][2] == self._ds.getLatLon([1])]
                 count = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i-count][2] == self.atk.dataset.lat or self.selection.rules[i-count][2] == self.atk.dataset.long:
-                        self.selection.rules.pop(i-count)
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i-count][2] == self.atk.dataset.lat or self._selection.getVSRules()[i-count][2] == self.atk.dataset.long:
+                        self._selection.getVSRules().pop(i-count)
                         count += 1
-                for i in range(len(accordion_skope.children)):
-                    if accordion_skope.children[i].children[0].children[0].children[0][4:-1] in [self.atk.dataset.lat, self.atk.dataset.long]:
-                        accordion_skope.children[i].disabled = True
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
+                for i in range(len(skopeAccordion.children)):
+                    if skopeAccordion.children[i].children[0].children[0].children[0][4:-1] in [self._ds.getLatLon([0]), self._ds.getLatLon([1])]:
+                        skopeAccordion.children[i].disabled = True
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
             else:
                 self.selection.setIndexesFromMap(None)
                 widget.color = "white"
-                part_map.class_= "d-none ma-0 pa-0"
+                mapPartLayout.class_= "d-none ma-0 pa-0"
                 widget.children =  [widget.children[0]] + ["Display the map"]
-                self.selection.rules = self.selection.rules + self.__save_lat_rule + self.__save_long_rule
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
-                for i in range(len(accordion_skope.children)):
-                    accordion_skope.children[i].disabled = False
-            
-            
+                self._selection.setVSRules(self._selection.getVSRules() + _save_lat_rule + _save_long_rule)
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
+                for i in range(len(skopeAccordion.children)):
+                    skopeAccordion.children[i].disabled = False
 
-        button_add_map.on_event("click", function_display_map)
-
-        add_group = v.Row(children=[button_add_skope, widget_list_add_skope, v.Spacer(), button_add_map])
+        addButtonsGrp = v.Row(children=[addSkopeBtn, addAnotherFeatureWgt, v.Spacer(), addMapBtn])
 
         # function called when we add a feature to the rules. We instanciate the exact same things than from the previous features
         # (beeswarms, histograms, etc...)
-        def function_add_skope(*b):
+        def addSkopeRule(*b): 
             new_rule = [0] * 5
-            column = widget_list_add_skope.v_model
-            if self.__other_columns == None:
+            column = addAnotherFeatureWgt.v_model
+            if self._otherColumns == None:
                 return
-            self.__other_columns = [a for a in self.__other_columns if a != column]
+            self._otherColumns = [a for a in self._otherColumns if a != column]
             new_rule[2] = column
-            new_rule[0] = round(min(list(self.atk.dataset.X[column].values)), 1)
+            new_rule[0] = round(min(list(self._ds.getFullValues(Dataset.REGULAR)[column].values)), 1)
             new_rule[1] = "<="
             new_rule[3] = "<="
-            new_rule[4] = round(max(list(self.atk.dataset.X[column].values)), 1)
-            self.selection.rules.append(new_rule)
-            one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
+            new_rule[4] = round(max(list(self._ds.getFullValues(Dataset.REGULAR)[column].values)), 1)
+            self._selection.getVSRules().append(new_rule)
+            ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
 
-            new_validate_change, new_slider_skope, new_histogram = gui_elements.create_new_feature_rule(self, new_rule, column, number_of_bins_histograms, fig_size.v_model)
+            newValidateChange, newSkopeSlider, newHistogram = guiFactory.createNewFeatureRuleGUI(self, new_rule, column, self._histogramBinNum, figureSizeSlider.v_model)
 
-            all_histograms.append(new_histogram)
+            allHistograms.append(newHistogram)
 
-            def new_function_change_validate(*change):
+            # TODO to understand
+            def newFunctionChangeValidate(*change): #2211
                 ii = -1
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i][2] == column_2:
+                for i in range(len(self._selection.getVSRules())): # Why only VS rules ?
+                    if self._selection.getVSRules()[i][2] == column_2:
                         ii = int(i)
-                a = deepcopy(float(new_slider_skope.v_model[0]  ))
-                b = deepcopy(float(new_slider_skope.v_model[1]  ))
-                self.selection.rules[ii][0] = a
-                self.selection.rules[ii][4] = b
-                self.selection.rules[ii][0] = a
-                self.selection.rules[ii][4] = b
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                update_all_graphs()
-                function_scores_models(None)
+                a = deepcopy(float(newSkopeSlider.v_model[0]  ))
+                b = deepcopy(float(newSkopeSlider.v_model[1]  ))
+                self._selection.getVSRules()[ii][0] = a
+                self._selection.getVSRules()[ii][4] = b
+                self._selection.getVSRules()[ii][0] = a
+                self._selection.getVSRules()[ii][4] = b
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                updateAllGraphs()
+                updateSubModelsScores(None)
 
-            new_validate_change.on_event("click", new_function_change_validate)
+            newValidateChange.on_event("click", newFunctionChangeValidate) 
 
-            new_button_in_real_time_graph = v.Checkbox(
+            newRealTimeGraphCheck = v.Checkbox(
                 v_model=False, label="Real-time updates on the graphs", class_="ma-3"
             )
 
-            new_slider_text_comb = v.Layout(
+            newTextAndSliderGrp = v.Layout(
                 children=[
                     v.TextField(
                         style_="max-width:100px",
-                        v_model=new_slider_skope.v_model[0]  ,
+                        v_model=newSkopeSlider.v_model[0]  ,
                         hide_details=True,
                         type="number",
                         density="compact",
                     ),
-                    new_slider_skope,
+                    newSkopeSlider,
                     v.TextField(
                         style_="max-width:100px",
-                        v_model=new_slider_skope.v_model[1]  ,
+                        v_model=newSkopeSlider.v_model[1]  ,
                         hide_details=True,
                         type="number",
                         density="compact",
@@ -2249,37 +2204,37 @@ class GUI():
                 ],
             )
 
-            def new_update_validate(*args):
-                if new_button_in_real_time_graph.v_model:
-                    new_validate_change.disabled = True
+            def validateNewUpdate(*args): 
+                if newRealTimeGraphCheck.v_model:
+                    newValidateChange.disabled = True
                 else:
-                    new_validate_change.disabled = False
+                    newValidateChange.disabled = False
 
-            new_button_in_real_time_graph.on_event("change", new_update_validate)
+            newRealTimeGraphCheck.on_event("change", validateNewUpdate)
 
-            new_two_end = widgets.HBox([new_validate_change, new_button_in_real_time_graph])
+            newToBeDefinedGrp = widgets.HBox([newValidateChange, newRealTimeGraphCheck])
 
-            new_all_widgets_slider_histo = widgets.VBox(
-                [new_slider_text_comb, new_histogram, new_two_end]
+            allnewWidgetsColumn = widgets.VBox(
+                [newTextAndSliderGrp, newHistogram, newToBeDefinedGrp]
             )
 
             column_shap = column + "_shap"
-            y_histo_shap = [0] * len(self.atk.explain[self.__explanation])
+            y_histo_shap = [0] * len(self._xds.getFullValues()) 
             new_beeswarm = go.FigureWidget(
-                data=[go.Scatter(x=self.atk.explain[self.__explanation][column_shap], y=y_histo_shap, mode="markers")]
+                data=[go.Scatter(x=self._xds.getFullValues(self._explanationES[0])[column_shap], y=y_histo_shap, mode="markers")]
             )
             new_beeswarm.update_layout(
                 margin=dict(l=0, r=0, t=0, b=0),
                 height=200,
-                width=0.9 * int(fig_size.v_model),
+                width=0.9 * int(figureSizeSlider.v_model),
             )
             new_beeswarm.update_yaxes(visible=False, showticklabels=False)
-            [new_y, marker] = compute.function_beeswarm_shap(self, self.__explanation, column)
+            [new_y, marker] = createBeeswarm(self, _explanationES[0], column)
             new_beeswarm.data[0].y = new_y
-            new_beeswarm.data[0].x = self.atk.explain[self.__explanation][column_shap]
+            new_beeswarm.data[0].x = self._xds.getFullValues(self._explanationES[0])[column_shap]
             new_beeswarm.data[0].marker = marker
 
-            new_choice_color_beeswarm = v.Row(
+            newBeeswarmColorChosen = v.Row( 
                 class_="pt-3 mt-0 ml-4",
                 children=[
                     "Value of Xi",
@@ -2292,39 +2247,40 @@ class GUI():
                 ],
             )
 
-            def new_change_color_beeswarm_shap(*args):
-                if new_choice_color_beeswarm.children[1].v_model == False:
-                    marker = compute.function_beeswarm_shap(self, self.__explanation, self.selection.rules[len(self.selection.rules) - 1][2])[1]
+            def noBeeswarmColorChosen(*args):
+                if newBeeswarmColorChosen.children[1].v_model == False:
+                    marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[len(self._selection.getVSRules()) - 1][2])[1]
                     new_beeswarm.data[0].marker = marker
                     new_beeswarm.update_traces(marker=dict(showscale=True))
                 else:
-                    modifie_all_histograms(
-                        new_slider_skope.v_model[0]  ,
-                        new_slider_skope.v_model[1]  ,
+                    updateAllHistograms(
+                        newSkopeSlider.v_model[0]  ,
+                        newSkopeSlider.v_model[1]  ,
                         0,
                     )
                     new_beeswarm.update_traces(marker=dict(showscale=False))
 
-            new_choice_color_beeswarm.children[1].on_event(
-                "change", new_change_color_beeswarm_shap
+
+            newBeeswarmColorChosen.children[1].on_event(
+                "change", noBeeswarmColorChosen
             )
 
-            new_beeswarm_tot = widgets.VBox([new_choice_color_beeswarm, new_beeswarm])
+            new_beeswarm_tot = widgets.VBox([newBeeswarmColorChosen, new_beeswarm])
             new_beeswarm_tot.layout.margin = "0px 0px 0px 20px"
 
-            all_beeswarms_total.append(new_beeswarm_tot)
+            allBeeSwarms_total.append(new_beeswarm_tot)
 
-            if not check_beeswarm.v_model:
+            if not beeSwarmCheck.v_model:
                 new_beeswarm_tot.layout.display = "none"
 
-            all_beeswarms.append(new_beeswarm)
+            allBeeSwarms.append(new_beeswarm)
 
-            all_color_choosers_beeswarms.append(new_choice_color_beeswarm)
+            allBeeSwarmsColorChosers.append(newBeeswarmColorChosen)
 
-            widget_list_add_skope.items = self.__other_columns
-            widget_list_add_skope.v_model = self.__other_columns[0]
+            addAnotherFeatureWgt.explanationsMenuDict = self._otherColumns
+            addAnotherFeatureWgt.v_model = self._otherColumns[0]
 
-            new_b_delete_skope = v.Btn(
+            newSkopeDeleteBtn = v.Btn(
                 color="error",
                 class_="ma-2 ml-4 pa-1",
                 elevation="3",
@@ -2332,318 +2288,318 @@ class GUI():
                 children=[v.Icon(children=["mdi-delete"])],
             )
 
-            def new_delete_skope(*b):
-                column_2 = new_slider_skope.label
+            def deleteNewSkopex(*b): 
+                column_2 = newSkopeSlider.label
                 ii = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i][2] == column_2:
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i][2] == column_2:
                         ii = i
                         break
-                all_beeswarms_total.pop(ii)
-                all_histograms.pop(ii)
-                self.selection.rules.pop(ii)
-                all_beeswarms.pop(ii)
-                all_color_choosers_beeswarms.pop(ii)
-                self.__other_columns = [column_2] + self.__other_columns
-                one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                widget_list_add_skope.items = self.__other_columns
-                widget_list_add_skope.v_model = self.__other_columns[0]
-                accordion_skope.children = [
-                    a for a in accordion_skope.children if a != new_in_accordion_n
+                allBeeSwarms_total.pop(ii)
+                allHistograms.pop(ii)
+                self._selection.getVSRules().pop(ii)
+                allBeeSwarms.pop(ii)
+                allBeeSwarmsColorChosers.pop(ii)
+                self._otherColumns = [column_2] + self._otherColumns
+                ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                addAnotherFeatureWgt.explanationsMenuDict = self._otherColumns
+                addAnotherFeatureWgt.v_model = self._otherColumns[0]
+                skopeAccordion.children = [
+                    a for a in skopeAccordion.children if a != newFeatureAccordion_n
                 ]
-                for i in range(ii, len([accordion_skope.children[a] for a in range(len(accordion_skope.children)) if accordion_skope.children[a].disabled == False])):
-                    col = "X" + str(i + 1) + " (" + self.selection.rules[i][2] + ")"
-                    accordion_skope.children[i].children[0].children[0].children = [col]
+                for i in range(ii, len([skopeAccordion.children[a] for a in range(len(skopeAccordion.children)) if skopeAccordion.children[a].disabled == False])):
+                    col = "X" + str(i + 1) + " (" + self._selection.getVSRules()[i][2] + ")"
+                    skopeAccordion.children[i].children[0].children[0].children = [col]
 
-                if widget_list_add_skope.v_model in [self.atk.dataset.lat, self.atk.dataset.long]:
-                    if self.atk.dataset.lat in [self.selection.rules[i][2] for i in range(len(self.selection.rules))] and self.atk.dataset.long in [self.selection.rules[i][2] for i in range(len(self.selection.rules))]:
-                        button_add_map.disabled = False
+                if addAnotherFeatureWgt.v_model in [self._ds.getLatLon()[0], self._ds.getLatLon()[1]]:
+                    if self._ds.getLatLon()[0] in [self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))] and self._ds.getLatLon()[1] in [self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))]:
+                        addMapBtn.disabled = False
                     else :
-                        button_add_map.disabled = True
-                update_all_graphs()
+                        addMapBtn.disabled = True
+                updateAllGraphs()
 
-            new_b_delete_skope.on_event("click", new_delete_skope)
+            newSkopeDeleteBtn.on_event("click", deleteNewSkopex)
 
-            is_continuous_new = v.Checkbox(v_model=True, label="is continuous?")
+            newIsContinuousCheck = v.Checkbox(v_model=True, label="is continuous?") #2367
 
-            right_side_new = v.Col(children=[new_b_delete_skope, is_continuous_new], class_="d-flex flex-column align-center justify-center")
+            newRightSideColumn = v.Col(children=[newSkopeDeleteBtn, newIsContinuousCheck], class_="d-flex flex-column align-center justify-center")
 
-            all_widgets_class_new = gui_elements.create_class_selector(self, self.selection.rules[-1][2], min=min(list(self.atk.dataset.X[new_slider_skope.label].values)), max=max(list(self.atk.dataset.X[new_slider_skope.label].values)), fig_size=fig_size.v_model)
+            newFeatureGrp = guiFactory.create_class_selector(self, self._selection.getVSRules()[-1][2], min=min(list(self._ds.getFullValues(Dataset.REGULAR)[newSkopeSlider.label].values)), max=max(list(self._ds.getFullValues(Dataset.REGULAR)[newSkopeSlider.label].values)), fig_size=figureSizeSlider.v_model) #2371
 
-            def change_continuous_new(widget, event, data):
-                column_2 = new_slider_skope.label
+            def newContinuousChange(widget, event, data): 
+                column_2 = newSkopeSlider.label
                 index = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i][2] == column_2:
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i][2] == column_2:
                         index = i
                         break
-                if widget.v_model == True and widget == right_side_new.children[1]:
-                    new_in_accordion.children = [new_all_widgets_slider_histo] + list(new_in_accordion.children[1:])
+                if widget.v_model == True and widget == newRightSideColumn.children[1]:
+                    newFeatureAccordion.children = [allnewWidgetsColumn] + list(newFeatureAccordion.children[1:])
                     count = 0
-                    for i in range(len(self.selection.rules)):
-                        if self.selection.rules[i-count][2] == self.selection.rules[index][2] and i-count != index:
-                            self.selection.rules.pop(i-count)
+                    for i in range(len(self._selection.getVSRules())):
+                        if self._selection.getVSRules()[i-count][2] == self._selection.getVSRules()[index][2] and i-count != index:
+                            self._selection.getVSRules().pop(i-count)
                             count += 1
-                    self.selection.rules[index][0] = new_slider_skope.v_model[0]
-                    self.selection.rules[index][4] = new_slider_skope.v_model[1]
-                    one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-                    update_all_graphs()
+                    self._selection.getVSRules()[index][0] = newSkopeSlider.v_model[0]
+                    self._selection.getVSRules()[index][4] = newSkopeSlider.v_model[1]
+                    ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                    updateAllGraphs()
                 else:
-                    new_in_accordion.children = [all_widgets_class_new] + list(new_in_accordion.children[1:])
+                    newFeatureAccordion.children = [newFeatureGrp] + list(newFeatureAccordion.children[1:])
                     l = []
-                    for i in range(len(all_widgets_class_new.children[2].children)):
-                        if all_widgets_class_new.children[2].children[i].v_model:
-                            l.append(int(all_widgets_class_new.children[2].children[i].label))
+                    for i in range(len(newFeatureGrp.children[2].children)):
+                        if newFeatureGrp.children[2].children[i].v_model:
+                            l.append(int(newFeatureGrp.children[2].children[i].label))
                     if len(l) == 0:
                         widget.v_model = True
                         return
-                    column = deepcopy(self.selection.rules[index][2])
+                    column = deepcopy(self._selection.getVSRules()[index][2])
                     count = 0
-                    for i in range(len(self.selection.rules)):
-                        if self.selection.rules[i-count][2] == column:
-                            self.selection.rules.pop(i-count)
+                    for i in range(len(self._selection.getVSRules())):
+                        if self._selection.getVSRules()[i-count][2] == column:
+                            self._selection.getVSRules().pop(i-count)
                             count += 1
                     croissant = 0
                     for ele in l:
-                        self.selection.rules.insert(index+croissant, [ele-0.5, '<=', column, '<=', ele+0.5])
+                        self._selection.getVSRules().insert(index+croissant, [ele-0.5, '<=', column, '<=', ele+0.5])
                         croissant += 1
-                    one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules), is_class=True)
-                    update_all_graphs()
+                    ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+                    updateAllGraphs()
 
-            right_side_new.children[1].on_event("change", change_continuous_new)
+            newRightSideColumn.children[1].on_event("change", newContinuousChange)
 
-            for ii in range(len(all_widgets_class_new.children[2].children)):
-                all_widgets_class_new.children[2].children[ii].on_event("change", change_continuous_new)
+            for ii in range(len(newFeatureGrp.children[2].children)):
+                newFeatureGrp.children[2].children[ii].on_event("change", newContinuousChange)
 
-            new_in_accordion = widgets.HBox(
-                [new_all_widgets_slider_histo, new_beeswarm_tot, right_side_new],
-                layout=Layout(align_items="center"),
+            newFeatureAccordion = widgets.HBox(
+                [allnewWidgetsColumn, new_beeswarm_tot, newRightSideColumn],
+                layout=Layout(align_explanationsMenuDict="center"),
             )
 
-            new_in_accordion_n = v.ExpansionPanels(
+            newFeatureAccordion_n = v.ExpansionPanels(
                 class_="ma-2 mb-1",
                 children=[
                     v.ExpansionPanel(
                         children=[
                             v.ExpansionPanelHeader(children=["Xn"]),
-                            v.ExpansionPanelContent(children=[new_in_accordion]),
+                            v.ExpansionPanelContent(children=[newFeatureAccordion]),
                         ]
                     )
                 ],
             )
 
-            accordion_skope.children = [*accordion_skope.children, new_in_accordion_n]
-            name_colcol = "X" + str(len(accordion_skope.children)) + " (" + column + ")"
-            accordion_skope.children[-1].children[0].children[0].children = name_colcol
+            skopeAccordion.children = [*skopeAccordion.children, newFeatureAccordion_n]
+            name_colcol = "X" + str(len(skopeAccordion.children)) + " (" + column + ")"
+            skopeAccordion.children[-1].children[0].children[0].children = name_colcol
 
-            with new_histogram.batch_update():
+            with newHistogram.batch_update():
                 new_list = [
                     g
-                    for g in list(self.atk.dataset.X[column].values)
-                    if g >= new_slider_skope.v_model[0]  
-                    and g <= new_slider_skope.v_model[1]  
+                    for g in list(self._ds.getFullValues(Dataset.REGULAR)[column].values)
+                    if g >= newSkopeSlider.v_model[0]  
+                    and g <= newSkopeSlider.v_model[1]  
                 ]
-                new_histogram.data[1].x = new_list
+                newHistogram.data[1].x = new_list
 
-                column_2 = new_slider_skope.label
-                new_list_rule = self.atk.dataset.X.index[
-                    self.atk.dataset.X[column_2].between(
-                        new_slider_skope.v_model[0]  ,
-                        new_slider_skope.v_model[1]  ,
+                column_2 = newSkopeSlider.label
+                new_list_rule = self._ds.getFullValues(Dataset.REGULAR).index[
+                    self._ds.getFullValues(Dataset.REGULAR)[column_2].between(
+                        newSkopeSlider.v_model[0]  ,
+                        newSkopeSlider.v_model[1]  ,
                     )
                 ].tolist()
                 new_list_tout = new_list_rule.copy()
-                for i in range(1, len(self.selection.rules)):
-                    new_list_temp = self.atk.dataset.X.index[
-                        self.atk.dataset.X[self.selection.rules[i][2]].between(
-                            self.selection.rules[i][0], self.selection.rules[i][4]
+                for i in range(1, len(self._selection.getVSRules())):
+                    new_list_temp = self._ds.getFullValues(Dataset.REGULAR).index[
+                        self._ds.getFullValues(Dataset.REGULAR)[self._selection.getVSRules()[i][2]].between(
+                            self._selection.getVSRules()[i][0], self._selection.getVSRules()[i][4]
                         )
                     ].tolist()
                     new_list_tout = [g for g in new_list_tout if g in new_list_temp]
-                new_list_tout_new = self.atk.dataset.X[column_2][new_list_tout]
-                new_histogram.data[2].x = new_list_tout_new
+                new_list_tout_new = self._ds.getXValues()[column_2][new_list_tout]
+                newHistogram.data[2].x = new_list_tout_new
 
-            def new_on_value_change_skope(*b1):
-                new_slider_text_comb.children[0].v_model = (
-                    new_slider_skope.v_model[0]  
+            def newSkopeValueChange(*b1): #2466
+                newTextAndSliderGrp.children[0].v_model = (
+                    newSkopeSlider.v_model[0]  
                 )
-                new_slider_text_comb.children[2].v_model = (
-                    new_slider_skope.v_model[1]  
+                newTextAndSliderGrp.children[2].v_model = (
+                    newSkopeSlider.v_model[1]  
                 )
-                column_2 = new_slider_skope.label
+                column_2 = newSkopeSlider.label
                 ii = 0
-                for i in range(len(self.selection.rules)):
-                    if self.selection.rules[i][2] == column_2:
+                for i in range(len(self._selection.getVSRules())):
+                    if self._selection.getVSRules()[i][2] == column_2:
                         ii = i
                         break
                 new_list = [
                     g
-                    for g in list(self.atk.dataset.X[column_2].values)
-                    if g >= new_slider_skope.v_model[0]  
-                    and g <= new_slider_skope.v_model[1]  
+                    for g in list(self._ds.getXValues()[column_2].values)
+                    if g >= newSkopeSlider.v_model[0]  
+                    and g <= newSkopeSlider.v_model[1]  
                 ]
-                with new_histogram.batch_update():
-                    new_histogram.data[1].x = new_list
-                if self.__activate_histograms:
-                    modifie_all_histograms(
-                        new_slider_skope.v_model[0]  ,
-                        new_slider_skope.v_model[1]  ,
+                with newHistogram.batch_update():
+                    newHistogram.data[1].x = new_list
+                if activate_histograms:
+                    updateAllHistograms(
+                        newSkopeSlider.v_model[0]  ,
+                        newSkopeSlider.v_model[1]  ,
                         ii,
                     )
-                if new_button_in_real_time_graph.v_model:
-                    self.selection.rules[ii - 1][0] = float(
-                        deepcopy(new_slider_skope.v_model[0]  )
+                if newRealTimeGraphCheck.v_model:
+                    self._selection.getVSRules()[ii - 1][0] = float(
+                        deepcopy(newSkopeSlider.v_model[0]  )
                     )
-                    self.selection.rules[ii - 1][4] = float(
-                        deepcopy(new_slider_skope.v_model[1]  )
+                    self._selection.getVSRules()[ii - 1][4] = float(
+                        deepcopy(newSkopeSlider.v_model[1]  )
                     )
-                    one_card_VS.children = gui_elements.generate_rule_card(
-                        liste_to_string_skope(self.selection.rules)
-                    )
-                    update_all_graphs()
+                    ourVSSkopeCard.children = guiFactory.createRuleCard(
+                        self._selection.ruleListToStr())
+                    updateAllGraphs()
 
-            new_slider_skope.on_event("input", new_on_value_change_skope)
+            newSkopeSlider.on_event("input", newSkopeValueChange)
 
-            if new_slider_skope.label in [self.atk.dataset.lat, self.atk.dataset.long]:
-                if self.atk.dataset.lat in [self.selection.rules[i][2] for i in range(len(self.selection.rules))] and self.atk.dataset.long in [self.selection.rules[i][2] for i in range(len(self.selection.rules))]:
-                    button_add_map.disabled = False
+            if newSkopeSlider.label in [self._xds.getLatLon([0]), self._xds.getLatLon()[0]]:
+                if self._xds.getLatLon()[0] in [self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))] and self._xds.getLatLon()[1] in [self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))]:
+                    addMapBtn.disabled = False
                 else :
-                    button_add_map.disabled = True
+                    addMapBtn.disabled = True
 
-        function_new_region()
 
-        button_add_skope.on_event("click", function_add_skope)
+        #End addSkopeRule
 
-        param_VS = gui_elements.create_settings_card(params_proj_VS, "Settings of the projection in the Values Space")
-        param_ES = gui_elements.create_settings_card(params_proj_ES, "Settings of the projection in the Explanatory Space")
+        newRegionValidated() 
 
-        projVS_and_load = widgets.HBox(
+        addSkopeBtn.on_event("click", addSkopeRule)
+
+        dimReducVSSettingsMenu = guiFactory.createSettingsMenu(paCMAPVSParamsBox, "Settings of the projection in the Values Space")
+        dimReducESSettingsMenu = guiFactory.createSettingsMenu(paramsProjESVBox, "Settings of the projection in the Explanations Space")
+
+        dimReducVSHBox = widgets.HBox(
             [
-                dropdown_for_VS,
-                v.Layout(children=[param_VS]),
-                out_loading1,
+                dimReducVSSelect,
+                v.Layout(children=[dimReducVSSettingsMenu]),
+                busyVSHBox,
             ]
         )
-        projES_and_load = widgets.HBox(
+        dimReducESHBox = widgets.HBox( 
             [
-                dropdown_for_ES,
-                v.Layout(children=[param_ES]),
-                out_loading2,
+                dimReducESSelect,
+                v.Layout(children=[dimReducESSettingsMenu]),
+                busyESHBox,
             ]
         )
 
-        bouton_reset_opa = v.Btn(
+        resetOpacityBtn = v.Btn(
             icon=True,
             children=[v.Icon(children=["mdi-opacity"])],
             class_="ma-2 ml-6 pa-3",
             elevation="3",
         )
 
-        bouton_reset_opa.children = [
-            add_tooltip(
-                bouton_reset_opa.children[0],
+        resetOpacityBtn.children = [
+            guiFactory.wrap_in_a_tooltip(
+                resetOpacityBtn.children[0],
                 "Reset the opacity of the points",
             )
         ]
 
-        def function_reset_opa(*args):
-            with self.fig1.batch_update():
-                self.fig1.data[0].marker.opacity = 1
-            with self.fig2.batch_update():
-                self.fig2.data[0].marker.opacity = 1
+        def resetOpacity(*args):
+            with self._leftVSFigure.batch_update():
+                self._leftVSFigure.data[0].marker.opacity = 1
+            with self._rightESFigure.batch_update():
+                self._rightESFigure.data[0].marker.opacity = 1
 
-        bouton_reset_opa.on_event("click", function_reset_opa)
+        resetOpacityBtn.on_event("click", resetOpacity)
 
-        items = [{'text': "Imported", 'disabled': True},
-                {'text': "SHAP", 'disabled': True},
-                {'text': "LIME", 'disabled': True}]
-        
-        for item in items:
-            if self.atk.explain[item['text']] is not None:
-                item_default = item['text']
-                item['disabled'] = False
-
-        choose_explanation = v.Select(
-            label="Explainability method",
-            items=items,
-            v_model=item_default,
+        self._explanationSelect = v.Select(
+            label="Explanation method",
+            items=[
+                {'text': "SHAP (imported)", 'disabled': True },
+                {'text': "SHAP (computed)", 'disabled': True },
+                {'text': "LIME (imported)", 'disabled': True },
+                {'text': "LIME (computed)", 'disabled': True }
+                ],
             class_="ma-2 mt-1 ml-6",
             style_="width: 150px",
             disabled = False,
         )
 
-        def function_choose_explanation(widget, event, data):
-            self.__explanation = data
-            exp_val = self.atk.explain[data]
-            if self.dim_red['ES'][self.__explanation][self.__projectionES] == None:
-                out_loading2.layout.visibility = "visible"
-                dim_red = compute.DimensionalityReductionChooser(method=dropdown_for_ES.v_model)
-                self.dim_red['ES'][self.__explanation][self.__projectionES] = [dim_red.compute(exp_val, 2), dim_red.compute(exp_val, 3)]
-                out_loading2.layout.visibility = "hidden"
-            compute.update_figures(self, self.__explanation, self.__projectionVS, self.__projectionES)
+        self.updateExplanationSelect()
 
-        choose_explanation.on_event("change", function_choose_explanation)
-        
-        new_prog_SHAP = gui_elements.prog_other("SHAP")
-        new_prog_LIME = gui_elements.prog_other("LIME")
+        def changeExplanationMethod(widget, event, data):
+            # _explanationSelect has been changed
 
-        if self.__calculus == True:
-            if self.__explanation == "SHAP":
-                new_prog_SHAP.children[1].v_model = 100
-                new_prog_SHAP.children[2].v_model = "Computations already done !"
-                new_prog_SHAP.children[-1].disabled = True
-            elif self.__explanation == "LIME":
-                new_prog_LIME.children[1].v_model = 100
-                new_prog_LIME.children[2].v_model = "Computations already done !"
-                new_prog_LIME.children[-1].disabled = True
+            oldExplanationMethod, oldOrigin = self._explanationES
+            newExplanationMethod, newOrigin = None, None
 
-        def function_validation_explanation(widget, event, data):
+            match data : 
+                case "SHAP (imported)" : 
+                    newExplanationMethod = ExplanationMethod.SHAP
+                    newOrigin = ExplanationDataset.IMPORTED        
+                case "SHAP (computed)" : 
+                    newExplanationMethod = ExplanationMethod.SHAP
+                    newOrigin = ExplanationDataset.COMPUTED
+                case "LIME (imported)" : 
+                    newExplanationMethod = ExplanationMethod.LIME
+                    newOrigin = ExplanationDataset.IMPORTED
+                case "LIME (computed)" : 
+                    newExplanationMethod = ExplanationMethod.LIME
+                    newOrigin = ExplanationDataset.COMPUTED
+
+            self._explanationES = (newExplanationMethod, newOrigin)
+
+            self.checkESExplanations()
+            self.updateFigure(GUI.ES)
+    
+
+        self._explanationSelect.on_event("change", changeExplanationMethod)
+
+        ourSHAPProgLinearColumn = guiFactory.createProgressLinearColumn("SHAP")
+        ourLIMEProgLinearColumn = guiFactory.createProgressLinearColumn("LIME")
+
+        shapComputed = self._xds.isExplanationAvailable(ExplanationMethod.SHAP, ExplanationDataset.COMPUTED)
+
+        if shapComputed:
+            ourSHAPProgLinearColumn.children[1].v_model = 100
+            ourSHAPProgLinearColumn.children[2].v_model = "Computations already done !"
+            ourSHAPProgLinearColumn.children[-1].disabled = True
+        else :
+            ourSHAPProgLinearColumn.children[1].v_model = 0
+            ourSHAPProgLinearColumn.children[2].v_model = "No computation available"
+            ourSHAPProgLinearColumn.children[-1].disabled = False
+
+        limeComputed = self._xds.isExplanationAvailable(ExplanationMethod.LIME, ExplanationDataset.COMPUTED)
+
+        if limeComputed:
+            ourLIMEProgLinearColumn.children[1].v_model = 100
+            ourLIMEProgLinearColumn.children[2].v_model = "Computations already done !"
+            ourLIMEProgLinearColumn.children[-1].disabled = True
+        else :
+            ourLIMEProgLinearColumn.children[1].v_model = 0
+            ourLIMEProgLinearColumn.children[2].v_model = "No computation available"
+            ourLIMEProgLinearColumn.children[-1].disabled = False
+
+        def explanationComputationRequested(widget, event, data): 
+            logger.debug(f"explanationComputationRequested : computation asked for {widget.v_model}")
+            
+            # We set the new value for self._explanationES
             if widget.v_model == "SHAP":
-                self.__compute_SHAP = compute.computationSHAP(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
-                widgets.jslink((new_prog_SHAP.children[1], "v_model"), (self.__compute_SHAP.progress_widget, "v_model"))
-                widgets.jslink((new_prog_SHAP.children[2], "v_model"), (self.__compute_SHAP.text_widget, "v_model"))
-                widgets.jslink((new_prog_SHAP.children[-1], "color"), (self.__compute_SHAP.done_widget, "v_model"))
-                self.__compute_SHAP.compute_in_thread()
-                new_prog_SHAP.children[-1].disabled = True
-            if widget.v_model == "LIME":
-                self.__compute_LIME = compute.computationLIME(self.atk.dataset.X, self.atk.dataset.X_all, self.atk.dataset.model)
-                widgets.jslink((new_prog_LIME.children[1], "v_model"), (self.__compute_LIME.progress_widget, "v_model"))
-                widgets.jslink((new_prog_LIME.children[2], "v_model"), (self.__compute_LIME.text_widget, "v_model"))
-                widgets.jslink((new_prog_LIME.children[-1], "color"), (self.__compute_LIME.done_widget, "v_model"))
-                self.__compute_LIME.compute_in_thread()
-                new_prog_LIME.children[-1].disabled = True
-                
-        def when_SHAP_computation_is_done(*args):
-            self.atk.explain["SHAP"] = self.__compute_SHAP.value
-            items = choose_explanation.items.copy()
-            for item in items:
-                if item['text'] == "SHAP":
-                    item['disabled'] = False
-            choose_explanation.items = items.copy() + [{'text': "Update", 'disabled': False}]
-            choose_explanation.items = choose_explanation.items[:-1]
+                self._explanationES = (ExplanationMethod.SHAP, ExplanationDataset.COMPUTED)
+            else :
+                self._explanationES = (ExplanationMethod.LIME, ExplanationDataset.COMPUTED)
+            
+            self.checkESExplanations()
+            self.updateExplanationSelect()
+            self.updateFigure(GUI.ES)
 
-        def when_LIME_computation_is_done(*args):
-            self.atk.explain["LIME"] = self.__compute_LIME.value
-            items = choose_explanation.items.copy()
-            for item in items:
-                if item['text'] == "LIME":
-                    item['disabled'] = False
-            choose_explanation.items = items.copy() + [{'text': "Update", 'disabled': False}]
-            choose_explanation.items = choose_explanation.items[:-1]
 
-        new_prog_SHAP.children[-1].observe(when_SHAP_computation_is_done, "color")
-        new_prog_LIME.children[-1].observe(when_LIME_computation_is_done, "color")
+        ourSHAPProgLinearColumn.children[-1].on_event("click", explanationComputationRequested) 
+        ourLIMEProgLinearColumn.children[-1].on_event("click", explanationComputationRequested)
 
-        new_prog_SHAP.children[-1].on_event("click", function_validation_explanation)
-        new_prog_LIME.children[-1].on_event("click", function_validation_explanation)
+        computeExplanationsCard = guiFactory.computeExplanationsCard(ourSHAPProgLinearColumn, ourLIMEProgLinearColumn)
 
-        time_computing = gui_elements.time_computing(new_prog_SHAP, new_prog_LIME)
-
-        widgets.jslink(
-            (time_computing.children[0], "v_model"), (time_computing.children[1].children[0], "v_model")
-        )
-
-        choose_computing = v.Menu(
+        computeMenu = v.Menu( 
             v_slots=[
                 {
                     "name": "activator",
@@ -2652,7 +2608,7 @@ class GUI():
                         v_on="props.on",
                         icon=True,
                         size="x-large",
-                        children=[add_tooltip(v.Icon(children=["mdi-timer-sand"], size="large"), "Time of computing")],
+                        children=[guiFactory.wrap_in_a_tooltip(v.Icon(children=["mdi-timer-sand"], size="large"), "Time of computing")],
                         class_="ma-2 pa-3",
                         elevation="3",
                     ),
@@ -2662,7 +2618,7 @@ class GUI():
                 v.Card(
                     class_="pa-4",
                     rounded=True,
-                    children=[time_computing],
+                    children=[computeExplanationsCard],
                     min_width="500",
                 )
             ],
@@ -2670,29 +2626,29 @@ class GUI():
             close_on_content_click=False,
             offset_y=True,
         )
-            
 
-        top_of_the_UI_all_buttons = widgets.HBox(
+
+        topButtonsHBox = widgets.HBox(
             [
-                dimension_projection_text,
+                dimSwitchRow,
                 v.Layout(
                     class_="pa-2 ma-2",
                     elevation="3",
                     children=[
-                        add_tooltip(
+                        guiFactory.wrap_in_a_tooltip(
                             v.Icon(
                                 children=["mdi-format-color-fill"],
                                 class_="mt-n5 mr-4"
                             ),
                             "Color of the points",
                         ),
-                        radio_buttons_for_color_choice,
-                        bouton_reset_opa,
-                        choose_explanation,
-                        choose_computing,
+                        colorChoiceBtnToggle,
+                        resetOpacityBtn,
+                        self._explanationSelect,
+                        computeMenu,
                     ],
                 ),
-                v.Layout(class_="mt-3", children=[projVS_and_load, projES_and_load]),
+                v.Layout(class_="mt-3", children=[dimReducVSHBox, dimReducESHBox]),
             ],
             layout=Layout(
                 width="100%",
@@ -2701,35 +2657,37 @@ class GUI():
                 justify_content="space-around",
             ),
         )
-        figures = widgets.VBox([fig_2D_ou_3D], layout=Layout(width="100%"))
 
-        check_beeswarm = v.Checkbox(
+
+        figuresVBox = widgets.VBox([figuresHBox], layout=Layout(width="100%"))
+
+        beeSwarmCheck = v.Checkbox(
             v_model=True,
             label="Show Shapley's beeswarm plots",
             class_="ma-1 mr-3",
         )
 
-        def function_check_beeswarm(*b):
-            if not check_beeswarm.v_model:
-                for i in range(len(all_beeswarms_total)):
-                    all_beeswarms_total[i].layout.display = "none"
+        def beeSwarmCheckChange(*b):
+            if not beeSwarmCheck.v_model:
+                for i in range(len(allBeeSwarms_total)):
+                    allBeeSwarms_total[i].layout.display = "none"
             else:
-                for i in range(len(all_beeswarms_total)):
-                    all_beeswarms_total[i].layout.display = "block"
+                for i in range(len(allBeeSwarms_total)):
+                    allBeeSwarms_total[i].layout.display = "block"
 
-        check_beeswarm.on_event("change", function_check_beeswarm)
+        beeSwarmCheck.on_event("change", beeSwarmCheckChange)
 
-        buttons_skope = v.Layout(
+        skopeBtns = v.Layout(
             class_="d-flex flex-row",
             children=[
-                button_validate_skope,
-                button_reset_skope,
+                validateSkopeBtn,
+                reinitSkopeBtn,
                 v.Spacer(),
-                check_beeswarm,
+                beeSwarmCheck,
             ],
         )
 
-        two_buttons = widgets.VBox([buttons_skope, text_skope])
+        skopeBtnsGrp = widgets.VBox([skopeBtns, theVSSkopeText])
 
         bouton_magic = v.Btn(
             class_="ma-3",
@@ -2739,7 +2697,7 @@ class GUI():
             ],
         )
 
-        part_for_magic = v.Layout(
+        magicGUI = v.Layout(
             class_="d-flex flex-row justify-center align-center",
             children=[
                 v.Spacer(),
@@ -2755,86 +2713,86 @@ class GUI():
             ],
         )
 
-        def function_checkbox_magic(*args):
-            if part_for_magic.children[2].v_model:
-                part_for_magic.children[3].disabled = False
+        def magicCheckChange(*args):
+            if magicGUI.children[2].v_model:
+                magicGUI.children[3].disabled = False
             else:
-                part_for_magic.children[3].disabled = True
+                magicGUI.children[3].disabled = True
 
-        part_for_magic.children[2].on_event("change", function_checkbox_magic)
+        magicGUI.children[2].on_event("change", magicCheckChange)
 
         def find_best_score():
             a = 1000
-            for i in range(len(self.__score_sub_models)):
-                score = self.__score_sub_models[i][0]
+            for i in range(len(self._subModelsScores)):
+                score = self._subModelsScores[i][0]
                 if score < a:
                     a = score
                     index = i
             return index
 
-        def function_bouton_magic(*args):
-            demo = part_for_magic.children[2].v_model
+        def magicClustering(*args):
+            demo = magicGUI.children[2].v_model
             if demo == False:
-                stages.children[0].v_model = 3
-            N_stages = function_clusters(None)
+                antakiaMethodCard.children[0].v_model = 3
+            N_antakiaStepsCard = dynamicClustering(None)
             if demo:
-                tempo = int(part_for_magic.children[3].v_model) / 10
+                tempo = int(magicGUI.children[3].v_model) / 10
                 if tempo < 0:
                     tempo = 0
             else:
                 tempo = 0
             time.sleep(tempo)
-            for i in range(N_stages):
-                part_for_selection.children[-1].children[0].children[0].v_model = str(i)
-                function_choice_cluster(None, None, None)
+            for i in range(N_antakiaStepsCard):
+                tabOneSelectionColumn.children[-1].children[0].children[0].v_model = str(i)
+                selectedClusterChange(None, None, None)
                 time.sleep(tempo)
                 if demo:
-                    stages.children[0].v_model = 1
+                    antakiaMethodCard.children[0].v_model = 1
                 time.sleep(tempo)
-                function_validation_skope(None)
+                updateSkopeRules(None)
                 time.sleep(tempo)
                 if demo:
-                    stages.children[0].v_model = 2
+                    antakiaMethodCard.children[0].v_model = 2
                 time.sleep(tempo)
                 index = find_best_score()
-                mods.children[index].children[0].color = "blue lighten-4"
-                change(None, None, None, False)
+                subModelslides.children[index].children[0].color = "blue lighten-4"
+                selectSubModel(None, None, None, False)
                 time.sleep(tempo)
-                mods.children[index].children[0].color = "white"
+                subModelslides.children[index].children[0].color = "white"
                 if demo:
-                    stages.children[0].v_model = 3
+                    antakiaMethodCard.children[0].v_model = 3
                 time.sleep(tempo)
-                function_new_region(None)
+                newRegionValidated(None)
                 time.sleep(tempo)
-                if i != N_stages - 1:
+                if i != N_antakiaStepsCard - 1:
                     if demo:
-                        stages.children[0].v_model = 0
+                        antakiaMethodCard.children[0].v_model = 0
                     time.sleep(tempo)
-            radio_buttons_for_color_choice.v_model = "Régions"
-            function_change_color(None)
+            colorChoiceBtnToggle.v_model = "Regions"
+            changeMarkersColor(None)
 
         #map plotly
-        map_select = go.FigureWidget(
-            data=go.Scatter(x=[1], y=[1], mode="markers", marker=marker1, customdata=marker1["color"], hovertemplate = '%{customdata:.3f}')
+        mapWIdget = go.FigureWidget( 
+            data=go.Scatter(x=[1], y=[1], mode="markers", marker=ourVSMarkerDict, customdata=ourVSMarkerDict["color"], hovertemplate = '%{customdata:.3f}')
         )
 
-        map_select.update_layout(dragmode="lasso")
+        mapWIdget.update_layout(dragmode="lasso")
 
-        # instanciate the map, with longitude and latitude
-        if self.atk.dataset.lat is not None and self.atk.dataset.long is not None:
-            df = self.atk.dataset.X
+        # instanciate the map, with latitude and longitude
+        if self._ds.getLatLon() is not None:
+            df = self._ds.getFullValues()
             data=go.Scattergeo(
-                lon = df[self.atk.dataset.long],
-                lat = df[self.atk.dataset.lat],
+                lat = df[self._ds.getLatLon()[0]],
+                lon = df[self._ds.getLatLon()[1]],
                 mode = 'markers',
-                marker_color = self.atk.dataset.y,
+                marker_color = self._ds.getYValues(),
                 )
-            map_select = go.FigureWidget(
+            mapWIdget = go.FigureWidget(
             data=data
             )
-            lat_center = max(df[self.atk.dataset.lat]) - (max(df[self.atk.dataset.lat]) - min(df[self.atk.dataset.lat]))/2
-            long_center = max(df[self.atk.dataset.long]) - (max(df[self.atk.dataset.long]) - min(df[self.atk.dataset.long]))/2
-            map_select.update_layout(
+            lat_center = max(df[self._ds.getLatLon()[0]]) - (max(df[self._ds.getLatLon()[0]]) - min(df[self._ds.getLatLon()[0]]))/2
+            long_center = max(df[self._ds.getLatLon()[1]]) - (max(df[self._ds.getLatLon()[1]]) - min(df[self._ds.getLatLon()[1]]))/2
+            mapWIdget.update_layout(
                 margin={"r": 0, "t": 0, "l": 0, "b": 0},
                 #geo_scope="world",
                 height=300,
@@ -2849,7 +2807,7 @@ class GUI():
                 )
             )
             
-        map_text_selection = v.Card(
+        mapSelectionTxt = v.Card(
             style_="width: 30%",
             class_="ma-5",
             children=[
@@ -2865,38 +2823,38 @@ class GUI():
             ],
         )
 
-        def change_text_map(trace, points, selector):
-            map_text_selection.children[1].children[0].children = ["Number of entries selected: " + str(len(points.point_inds))]
-            self.selection.setIndexesFromMap(points.point_inds)
-            one_card_VS.children = gui_elements.generate_rule_card(liste_to_string_skope(self.selection.rules))
-            update_all_graphs()
+        def changeMapText(trace, points, selector):
+            mapSelectionTxt.children[1].children[0].children = ["Number of entries selected: " + str(len(points.point_inds))]
+            self._selection._mapIndexes = points.point_inds
+            ourVSSkopeCard.children = guiFactory.createRuleCard(self._selection.ruleListToStr())
+            updateAllGraphs()
 
-        map_select.data[0].on_selection(change_text_map)
+        mapWIdget.data[0].on_selection(changeMapText)
 
-        part_map = v.Layout(
+        mapPartLayout = v.Layout(
             class_="d-none ma-0 pa-0",
-            children=[map_select, map_text_selection]
+            children=[mapWIdget, mapSelectionTxt]
         )
 
-        bouton_magic.on_event("click", function_bouton_magic)
+        bouton_magic.on_event("click", magicClustering)
 
-        loading_clusters = v.ProgressLinear(
+        loadingClustersProgLinear = v.ProgressLinear(
             indeterminate=True, class_="ma-3", style_="width : 100%"
         )
 
-        loading_clusters.class_ = "d-none"
+        loadingClustersProgLinear.class_ = "d-none"
 
-        part_for_selection = v.Col(
+        tabOneSelectionColumn = v.Col(
             children=[
-                card_selec,
+                selectionCard,
                 out_accordion,
-                part_for_clusters,
-                loading_clusters,
-                results_clusters,
+                clusterGrp,
+                loadingClustersProgLinear,
+                clusterResults,
             ]
         )
 
-        loading_models = v.ProgressLinear(
+        loadingModelsProgLinear = v.ProgressLinear( 
             indeterminate=True,
             class_="my-0 mx-15",
             style_="width: 100%;",
@@ -2904,13 +2862,14 @@ class GUI():
             height="5",
         )
 
-        loading_models.class_ = "d-none"
+        loadingModelsProgLinear.class_ = "d-none"
 
-        part_for_skope = v.Col(children=[two_buttons, accordion_skope, add_group, part_map])
-        part_for_modele = widgets.VBox([loading_models, mods])
-        part_for_toutes_regions = widgets.VBox([selection, table_regions])
+        tabTwoSkopeRulesColumn = v.Col(children=[skopeBtnsGrp, skopeAccordion, addButtonsGrp, mapPartLayout])
+        tabThreeSubstitutionVBox = widgets.VBox([loadingModelsProgLinear, subModelslides])
+        # allRegionUI = widgets.VBox([self._selection, self._regionsTable])
+        tabFourRegionListVBox = widgets.VBox([loadingModelsProgLinear, subModelslides]) # Just want to go further
 
-        stages = v.Card(
+        antakiaMethodCard = v.Card(
             class_="w-100 pa-3 ma-3",
             elevation="3",
             children=[
@@ -2921,7 +2880,7 @@ class GUI():
                         v.Tab(value="one", children=["1. Current selection"]),
                         v.Tab(value="two", children=["2. Selection adjustment"]),
                         v.Tab(value="three", children=["3. Choice of the sub-model"]),
-                        v.Tab(value="four", children=["4. Overview of the regions"]),
+                        v.Tab(value="four", children=["4. Overview of the Regions"]),
                     ],
                 ),
                 v.CardText(
@@ -2931,10 +2890,10 @@ class GUI():
                             class_="w-100",
                             v_model="tabs",
                             children=[
-                                v.WindowItem(value=0, children=[part_for_selection]),
-                                v.WindowItem(value=1, children=[part_for_skope]),
-                                v.WindowItem(value=2, children=[part_for_modele]),
-                                v.WindowItem(value=3, children=[part_for_toutes_regions]),
+                                v.WindowItem(value=0, children=[tabOneSelectionColumn]),
+                                v.WindowItem(value=1, children=[tabTwoSkopeRulesColumn]),
+                                v.WindowItem(value=2, children=[tabThreeSubstitutionVBox]),
+                                v.WindowItem(value=3, children=[tabFourRegionListVBox]),
                             ],
                         )
                     ],
@@ -2942,60 +2901,91 @@ class GUI():
             ],
         )
 
+
         widgets.jslink(
-            (stages.children[0], "v_model"), (stages.children[1].children[0], "v_model")
+            (antakiaMethodCard.children[0], "v_model"), (antakiaMethodCard.children[1].children[0], "v_model")
         )
 
-        part_for_data = widgets.VBox(
+        ourGUIVBox = widgets.VBox(
             [
-                barre_menu,
-                dialogue_save,
-                top_of_the_UI_all_buttons,
-                figures,
-                stages,
-                part_for_magic,
+                menuAppBar,
+                backupsDialog,
+                topButtonsHBox,
+                figuresVBox,
+                antakiaMethodCard,
+                magicGUI,
             ],
             layout=Layout(width="100%"),
         )
+        with self._out:
+            display(ourGUIVBox)    
 
-        display(part_for_data)
-        #return part_for_data
 
     def results(self, number: int = None, item: str = None):
         L_f = []
-        if len(self.atk.regions) == 0:
+        if len(self._regions) == 0:
             return "No region has been created !"
-        for i in range(len(self.atk.regions)):
+        for i in range(len(self._regions)):
             dictio = dict()
-            dictio["X"] = self.atk.dataset.X.iloc[self.atk.regions[i].indexes, :].reset_index(
+            dictio["X"] = self._ds.getXValues().iloc[self._regions[i].getIndexes(), :].reset_index(
                 drop=True
             )
-            dictio["y"] = self.atk.dataset.y.iloc[self.atk.regions[i].indexes].reset_index(drop=True)
-            dictio["indexs"] = self.atk.regions[i].indexes
+            dictio["y"] = self._ds.getYValues().iloc[self._regions[i].getIndexes()].reset_index(drop=True)
+            dictio["indexs"] = self._regions[i].getIndexes()
             dictio["explain"] = {"Imported": None, "SHAP": None, "LIME": None}
-            if self.atk.explain["Imported"] is not None:
-                dictio["explain"]["Imported"] = self.atk.explain["Imported"].iloc[self.atk.regions[i].indexes, :].reset_index(
-                    drop=True
-                )
-            if self.atk.explain["LIME"] is not None:
-                dictio["explain"]["LIME"] = self.atk.explain["LIME"].iloc[self.atk.regions[i].indexes, :].reset_index(
-                    drop=True
-                )
-            if self.atk.explain["SHAP"] is not None:
-                dictio["explain"]["SHAP"] = self.atk.explain["SHAP"].iloc[self.atk.regions[i].indexes, :].reset_index(
-                    drop=True
-                )
-            if self.atk.regions[i].sub_model == None:
+
+            if (self._xds.isExplanationAvailable(ExplanationMethod.SHAP)[1] == ExplanationDataset.IMPORTED) or (self._xds.isExplanationAvailable(ExplanationMethod.SHAP)[1] == ExplanationDataset.BOTH) :
+                # We have imported SHAP
+                dictio["explain"]["Imported"] = self._xds.getFullValues(ExplanationMethod.SHAP,  onlyImported=True).iloc[self._regions[i].getIndexes(), :].reset_index(idrop=True)
+
+            if (self._xds.isExplanationAvailable(ExplanationMethod.LIME)[1] == ExplanationDataset.IMPORTED) or (self._xds.isExplanationAvailable(ExplanationMethod.LIME)[1] == ExplanationDataset.BOTH) :
+                # We have imported LIME
+                dictio["explain"]["Imported"] = self._xds.getFullValues(ExplanationMethod.LIME, onlyImported=True).iloc[self._regions[i].getIndexes(), :].reset_index(drop=True)
+           
+            # Now we're talking of computed explanations
+            tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.SHAP)
+            if tempTuple[0] and (tempTuple[1] == ExplanationDataset.IMPORTED or tempTuple[1] == ExplanationDataset.BOTH) :
+                dictio["explain"]["SHAP"] = self._xds.getFullValues(ExplanationMethod.SHAP).iloc[self._regions[i].getIndexes(), :].reset_index(drop=True)
+            tempTuple = self._xds.isExplanationAvailable(ExplanationMethod.LIME)
+            if tempTuple[0] and (tempTuple[1] is ExplanationDataset.IMPORTED or ExplanationDataset.BOTH) :
+                dictio["explain"]["LIME"] = self._xds.getFullValues(ExplanationMethod.LIME).iloc[self._regions[i].getIndexes(), :].reset_index(drop=True)
+                
+            if self._regions[i].sub_model == None:
                 dictio["model name"] = None
                 dictio["model score"] = None
                 dictio["model"] = None
             else:
-                dictio["model name"] =  self.atk.regions[i].sub_model["name"].__name__
-                dictio["model score"] = self.atk.regions[i].sub_model["score"]
-                dictio["model"] = self.atk.regions[i].sub_model["name"]
-            dictio["rules"] = self.atk.regions[i].rules
+                dictio["model name"] =  self._regions[i].sub_model["name"].__name__
+                dictio["model score"] = self._regions[i].sub_model["score"]
+                dictio["model"] = self._regions[i].sub_model["name"]
+            dictio["rules"] = self._regions[i].rules
             L_f.append(dictio)
         if number == None or item == None:
             return L_f
         else:
-            return L_f[number][item]
+                return L_f[number][item]
+
+
+
+    def updateExplanationSelect(self) :
+        """ Update the explanationMenduDict widget and only enable items that are available
+        """
+
+        if self._explanationSelect is not None :
+            shapImported = self._xds.isExplanationAvailable(ExplanationMethod.SHAP, ExplanationDataset.IMPORTED)
+            shapComputed = self._xds.isExplanationAvailable(ExplanationMethod.SHAP, ExplanationDataset.COMPUTED)
+            limeImported = self._xds.isExplanationAvailable(ExplanationMethod.LIME, ExplanationDataset.IMPORTED)
+            limeComputed = self._xds.isExplanationAvailable(ExplanationMethod.LIME, ExplanationDataset.COMPUTED)
+
+            newItems = [deepcopy(a) for a in self._explanationSelect.items]
+
+            newItems = [
+                {'text': "SHAP (imported)", 'disabled': not shapImported},
+                {'text': "SHAP (computed)", 'disabled': not shapComputed},
+                {'text': "LIME (imported)", 'disabled': not limeImported},
+                {'text': "LIME (computed)", 'disabled': not limeComputed},
+                ]
+
+            self._explanationSelect.items = newItems
+        
+        

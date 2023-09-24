@@ -8,13 +8,330 @@ from IPython.display import display
 
 from sklearn.preprocessing import StandardScaler
 
-from antakia.compute import ExplainationMethod, DimensionalityReduction
-from antakia import gui_elements # TODO : why ?
-
-
+from abc import ABC, abstractmethod
 import time
-
 from copy import deepcopy
+import logging
+from logging import getLogger
+
+from antakia.utils import confLogger
+
+logger = logging.getLogger(__name__)
+handler = confLogger(logger)
+handler.clear_logs()
+handler.show_logs()
+
+from antakia.utils import simpleType
+
+class Model(ABC) :
+
+    @abstractmethod
+    def predict(self, x:pd.DataFrame ) -> pd.Series:
+        pass
+
+    @abstractmethod
+    def score(self, X:pd.DataFrame, y : pd.Series ) -> float :
+        pass
+
+
+class LongTask(ABC):
+    '''
+    Abstract class to compute long tasks, often in a separate thread.
+
+    Attributes      
+    ----------
+    _longTaskType : int
+        Can be LongTask.EXPLAINATION or LongTask.DIMENSIONALITY_REDUCTION   
+    _X : dataframe
+    _progress : int
+        The progress of the long task, between 0 and 100.
+    '''
+
+    # Class attributes : LongTask types
+    EXPLANATION = 1
+    DIMENSIONALITY_REDUCTION = 2
+
+    def __init__(self, longTaskType : int, X : pd.DataFrame) :
+        if not LongTask.isValidLongTaskType(longTaskType) :
+            raise ValueError(longTaskType, " is a bad long task type")
+        if X is None :
+                raise ValueError("You must provide a dataframe for a LongTask")
+        self._longTaskType = longTaskType
+        self._X = X
+        self._progress = 0
+
+
+    def getX(self) -> pd.DataFrame :
+        return self._X
+    
+    def getProgress(self) -> int:
+        logger.debug(f"LongTask.getProgress : returning {self._progress}")
+        return self._progress
+
+    def setProgress(self, progress : int) :
+        """
+        Method to send the progress of the long task.
+
+        Parameters
+        ----------
+        progress : int
+            An integer between 0 and 100.
+        """
+        self._progress
+
+    @abstractmethod
+    def getTopic(self) -> str:
+        """Required by pubssub.
+        Identifier for the long task being computed.
+
+        Returns:
+            str: a Topic for pubsub
+        """
+        pass
+
+    def __call__(self) : 
+        logger.debug(f"LongTask.__call__ : I'm going to upadte the subscriber")
+        self.setProgress(self._progress)
+
+    @staticmethod
+    def isValidLongTaskType(type: int) -> bool:
+        """
+        Returns True if the type is a valid LongTask type.
+        """
+        return type == LongTask.EXPLANATION or type == LongTask.DIMENSIONALITY_REDUCTION
+
+
+    
+    def getLongTaskType(self) -> int:
+        return self._longTaskType
+    
+    @abstractmethod
+    def compute(self) -> pd.DataFrame:
+        """
+        Method to compute the long task and update listener with the progress.
+        """
+        pass
+
+class ExplanationMethod(LongTask):
+    """
+    Abstract class (see Long Task) to compute explaination values for the Explanation Space (ES)
+
+    Attributes
+    _model : Model to explain
+    _explainationType : SHAP or LIME
+    """
+
+    # Class attributes types
+    SHAP = 0
+    LIME = 1
+
+    def __init__(self, explainationType : int, X  : pd.DataFrame, model : Model = None, userComputedValuesForProjection : bool = True) :
+        # TODO : do wee need X_all ?
+        super().__init__(LongTask.EXPLANATION,  X)
+        self._model = model
+        self._explainationType = explainationType
+    
+    # Overloading the setProgress
+    def setProgress(self, progress : int) :
+        """
+        Method to send the progress of the long task.
+
+        Parameters
+        ----------
+        progress : int
+            An integer between 0 and 100.
+        """
+        self._progress = progress
+
+    def getModel(self) -> Model:
+        return self._model
+
+    @staticmethod
+    def isValidExplanationType(type:int) -> bool:
+        """
+        Returns True if the type is a valid explanation type.
+        """
+        return type == ExplanationMethod.SHAP or type == ExplanationMethod.LIME
+
+    def getTopic(self) -> str:
+        """Required by pubssub.
+        Identifier for the long task being computed.
+
+        Returns:
+            str: a Topic for pubsub
+        """
+        return ExplanationMethod.getExplanationMethodAsStr(self._explainationType)
+
+    @staticmethod
+    def getExplanationMethodsAsList() -> list :
+        return [ExplanationMethod.SHAP, ExplanationMethod.LIME]
+    
+    @staticmethod
+    def getExplanationMethodAsStr(type : int) -> str :
+        if type == ExplanationMethod.SHAP :
+            return "SHAP"
+        elif type == ExplanationMethod.LIME :
+            return "LIME"
+        else :
+            raise ValueError(type," is a bad explaination type")
+
+class DimReducMethod(LongTask):
+    # TODO : do we need XAll ?
+    """
+    Class that allows to reduce the dimensionality of the data.
+
+    Attributes
+    ----------
+    _dimReducType : int, can be PCA, TSNE etc.
+    _dimension : int
+        Dimension reduction methods require a dimension parameter
+        We store it in the abstract class
+    """
+    # Class attributes types
+
+    VS = 0
+    ES = 1 # Shoud not be allowed
+    ES_SHAP = 3
+    ES_LIME = 4
+
+    PCA = 1
+    TSNE = 2
+    UMAP = 3
+    PaCMAP = 4
+
+    DIM_TWO = 2
+    DIM_THREE = 3
+
+    def __init__(self, baseSpace : int, dimReducType : int , dimension : int, X : pd.DataFrame) :
+        """
+        Constructor for the DimReducMethod class.
+
+        Parameters
+        ----------
+        baseSpace : int
+            Can be : VS, ES.SHAP or ES.LIME
+            We store it here (not in implementation class)
+        dimeReducType : int
+            Dimension reduction methods among DimReducMethod.PCA, DimReducMethod.TSNE, DimReducMethod.UMAP or DimReducMethod.PaCMAP
+            We store it here (not in implementation class)
+        dimension : int
+            Target dimension. Can be DIM_TWO or DIM_THREE
+            We store it here (not in implementation class)
+        X : pd.DataFrame
+            Stored in LongTask instance  
+    """
+        assert baseSpace is not DimReducMethod.ES
+        self._baseSpace = baseSpace
+        self._dimReducType = dimReducType
+        self._dimension = dimension
+
+        LongTask.__init__(self, LongTask.DIMENSIONALITY_REDUCTION, X)
+
+
+    def getBaseSpace(self) -> int:
+        return self._baseSpace
+
+    
+    @staticmethod
+    def getESBaseSpace(explainMethod : int) -> int :
+        if explainMethod == ExplanationMethod.SHAP :
+            return DimReducMethod.ES_SHAP
+        elif explainMethod == ExplanationMethod.LIME :
+            return DimReducMethod.ES_LIME
+        else :
+            raise ValueError(explainMethod, " is a bad explaination method")    
+
+    def getDimReducType(self) -> int:
+        return self._dimReducType
+
+    def getDimension(self) -> int:
+        return self._dimension
+
+    def getTopic(self) -> str:
+        """Required by pubssub.
+        Identifier for the long task being computed.
+
+        Returns:
+            str: a Topic for pubsub
+        """
+        # Should look like "VS/PCA/2D" or "ES.SHAP/t-SNE/3D"
+        return DimReducMethod.getBaseSpaceAsStr(self.getBaseSpace()) + "/" + DimReducMethod.getDimReducMethodAsStr(self.getDimReducType()) + "/" + DimReducMethod.getDimensionAsStr(self.getDimension())
+
+    @staticmethod
+    def getBaseSpaceAsStr(baseSpace : int) -> str:
+        if baseSpace == DimReducMethod.VS :
+            return "VS"
+        elif baseSpace == DimReducMethod.ES_SHAP :
+            return "ES_SHAP"
+        elif baseSpace == DimReducMethod.ES_LIME :
+            return "ES_LIME"
+        else :
+            raise ValueError(baseSpace, " is a bad base space")
+
+    @staticmethod
+    def getDimReducMethodAsStr(type : int) -> str :
+        if type == DimReducMethod.PCA :
+            return "PCA"
+        elif type == DimReducMethod.TSNE :
+            return "t-SNE"
+        elif type == DimReducMethod.UMAP :
+            return "UMAP"
+        elif type == DimReducMethod.PaCMAP :
+            return "PaCMAP"
+        elif type is None :
+            return None
+        else :
+            raise ValueError(type, " is an invalid dimensionality reduction method")
+
+    @staticmethod
+    def getDimReducMethodAsInt(type : str) -> int :
+        if type == "PCA" :
+            return DimReducMethod.PCA
+        elif type == "t-SNE" :
+            return DimReducMethod.TSNE
+        elif type == "UMAP" :
+            return DimReducMethod.UMAP
+        elif type == "PaCMAP" :
+            return DimReducMethod.PaCMAP
+        elif type is None :
+            return None
+        else :
+            raise ValueError(type, " is an invalid dimensionality reduction method")
+
+    @staticmethod
+    def getDimReducMethodsAsList() -> list :
+        return [DimReducMethod.PCA, DimReducMethod.TSNE, DimReducMethod.UMAP, DimReducMethod.PaCMAP]
+
+    @staticmethod
+    def getDimReducMethodsAsStrList() -> list :
+        return ["PCA", "t-SNE", "UMAP", "PaCMAP"]
+
+    @staticmethod
+    def getDimensionAsStr(dim) -> str:
+        if dim == DimReducMethod.DIM_TWO :
+            return "2D"
+        elif dim == DimReducMethod.DIM_THREE :
+            return "3D"
+        else :
+            raise ValueError(dim, " is a bad dimension")
+    
+    @staticmethod
+    def isValidDimReducType(type:int) -> bool:
+        """
+        Returns True if the type is a valid dimensionality reduction type.
+        """
+        return type == DimReducMethod.PCA or type == DimReducMethod.TSNE or type == DimReducMethod.UMAP or type == DimReducMethod.PaCMAP
+
+    @staticmethod
+    def isValidDimNumber(type:int) -> bool:
+        """
+        Returns True if the type is a valid dimension number.
+        """
+        return  type == DimReducMethod.DIM_TWO or type == DimReducMethod.DIM_THREE
+
+
+# ================================================
+
 
 class Dataset():
     """
@@ -22,40 +339,51 @@ class Dataset():
     
     Instance attributes
     ------------------
-    X  : pandas.Dataframe
+    _X  : pandas.Dataframe
         The dataframe to be used by AntakIA
-    Xall: pandas.Dataframe
+    _X_proj : dict :
+        - key DimReducMethod.PCA : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PCA-projected X values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PCA-projected X values
+        - key DimReducMethod.TSNE : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D TSNE-projected X values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D TSNE-projected X values
+        - key DimReducMethod.UMAP : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D UMAP-projected X values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D UMAP-projected X values
+        -  key DimReducMethod.PaCMAP : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PaCMAP-projected X values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PaCMAP-projected X values
+    _X_all: pandas.Dataframe
         The entire dataframe. X may be smaller than Xall if the frac method has been used.
-    X_scaled : pandas.Dataframe
+    _X_scaled : pandas.Dataframe
         The dataframe with normalized (scaled) values.
-    model : ????
-        The "black-box" ML model to explain.
-    y_pred : pandas.Series
+    _y : pandas.Series
+        Target values
+    _y_pred : pandas.Series
         The Serie containing the predictions of the model. Computed at construction time.
-    y : pandas.Series
-        The Serie containing the target values.    
-    explanations : ExplanationDataset
-        See the class ExplanationDataset below
-    comments : List of str
+    _comments : List of str
         The comments associated to each variable in X
-    sensible : List of bool
+    _sensible : List of bool
         If True, a warning will be displayed when the feature is used in the explanations. More to come in the future.
-    lat : str
+    _lat : str
         The name of the latitude column if it exists.
         #TODO use a specific object for lat/long ?
-    long : str
+    _long : str
         The name of the longitude column if it exists.
         #TODO idem
     """
 
-    # Class attributes 
-    X_CURRENTLY_USED = 0
-    X_ALL = 1
-    X_SCALED = 2
-    Y=0
-    Y_PRED=1
+    # Class attributes for X values
+    REGULAR = 1
+    SCALED = 2
 
-    def __init__(self, X:pd.DataFrame = None, csv:str = None, y:pd.Series = None, model = None, user_explanations:pd.DataFrame = None, user_explanationa_type:int = None):
+    # Class attributes for Y values
+    TARGET = 0
+    PREDICTED = 1
+
+
+    def __init__(self, X:pd.DataFrame, csv:str = None, y:pd.Series = None):
         """
         Constructor of the class Dataset.
         
@@ -69,11 +397,6 @@ class Dataset():
         y : pandas.series (optional)
             The series containing the target values.
             TODO : is it compulsory ?
-        model : (optional) TODO wich type is it ? TODO : how is it it's optional ?
-            The "black-box" ML model to explain. The model must have a predict method.
-            TODO : write a Model class ?
-        user_explanations: dict (optional)
-            Explanations provided by the user, as a dictionary.
         """
 
         if X is None and csv is None :
@@ -81,133 +404,169 @@ class Dataset():
         if X is not None and csv is not None :
             raise ValueError("You must provide either a dataframe or a CSV file, not both")
         if X is not None :
-            self.X = X
+            self._X = X
         else :
-            self.X = pd.read_csv(csv)
+            self._X = pd.read_csv(csv)
 
-        self.explanations = None
+        self._X_proj = {} # Empty dict
+        self._explanations = None
 
         # We remove spaces in the column names
-        X.columns = [X.columns[i].replace(" ", "_") for i in range(len(X.columns))]
-        X = X.reset_index(drop=True)
+        self._X.columns = [self._X.columns[i].replace(" ", "_") for i in range(len(self._X.columns))]
+        self._X = self._X.reset_index(drop=True)
 
-        self.X_all = X
-        self.model = model
-        self.y = y
-        self.X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
-        self.X_scaled.columns = X.columns
+        self._X_all = X
+        self._y = y
+        self._y_pred = None # TODO : could be included in the dataset ?
+        self._X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
+        self._X_scaled.columns = X.columns
 
-        # We compute the predictions of the model
-        self.y_pred = pd.Series(self.model.predict(self.X))
+        self._comments = [""]*len(self._X.columns) 
+        self._sensible = [False]*len(self._X.columns)
 
-        self.verbose = None # TODO shoulb be setttable through **kwargs ?
-        self.widget = None # TODO what is this ?
+        self._fraction = 1 # TODO : what is this ?
+        self._frac_indexes = self._X.index #
 
-        self.comments = [""]*len(self.X.columns) 
-        self.sensible = [False]*len(self.X.columns)
-
-        self.fraction = 1 # TODO : what is this ?
-        self.frac_indexes = self.X.index #
-
-        # TODO : should be handled with a GeoData object ?
-        self.long, self.lat = None, None # TODO : shoudl only  be used if needed
+        # # TODO : should be handled with a GeoData object ?
+        self._long, self.__lat = None, None # TODO : shoudl only  be used if needed
 
         for name in ['longitude', 'Longitude', 'Long', 'long']:
-            if name in self.X.columns:
-                self.long = name
+            if name in self._X.columns:
+                self._long = name
 
         for name in ['latitude', 'Latitude', 'Lat', 'lat']:
-            if name in self.X.columns:
-                self.lat = name
+            if name in self._X.columns:
+                self._lat = name
 
-        if user_explanations is not None:
-            if user_explanationa_type is None:
-                raise ValueError("You must provide the type of the explanations")
-            self.explanations = ExplanationsDataset(self, user_explanations.values, user_explanations_type)
 
     def __str__(self):
         text = "Dataset object :\n"
         text += "------------------\n"
-        text += "- Number of observations:"  + str(self.X.shape[0]) + "\n"
-        text += "- Number of variables: " + str(self.X.shape[1]) + "\n"
-        if self.explanations is not None:
-            text += "Includes :\n"
-            text += self.explanations.__str__()
+        text += "- Number of observations:"  + str(self._X.shape[0]) + "\n"
+        text += "- Number of variables: " + str(self._X.shape[1]) + "\n"
         return text
     
     # TODO : is it useful ?
     def __len__(self):
-        return self.X.shape[0]
+        return self._X.shape[0]
 
 
-    def getXValues(self, flavor : int) -> pd.DataFrame:
-        """Returns X values for the dataset.
-
-        Args:
-            flavor (int): shoudl be Dataset.X_CURRENTLY_USED, Dataset.X_ALL, Dataset.X_SCALED
-
-        Returns:
-            pd.DataFrame: X values for this current flavor
+    def getFullValues(self, flavour : int = REGULAR) -> pd.DataFrame:
         """
-        if flavor == Dataset.X_CURRENTLY_USED:
-            return self.X
-        elif flavor == Dataset.X_ALL:
-            return self.X_all
-        elif flavor == Dataset.X_SCALED:
-            return self.X_scaled
-        else:
-            raise ValueError("Unknown flavor")
-        
-    
-    def getYValues(self, flavor : int) -> pd.Series:
-        """Returns Y values for the dataset.
-
-        Args:
-            flavor (int): shoudl be Dataset.Y or Dataset.Y_PRED
-
-        Returns:
-            pd.Series: Y values for this current flavor
-        """
-        if flavor == Dataset.Y:
-            return self.y
-        elif flavor == Dataset.Y_PRED:
-            return self.y_pred
-        else:
-            raise ValueError("Unknown flavor")
-        
-    def getExplanations(self) -> ExplanationsDataset:
-        """Returns the explanations of the dataset.
-
-        Returns:
-            ExplanationsDataset: the explanations of the dataset.
-        """
-        return self.explanations
-
-
-    def getShape(self)-> tuple:
-        """ Returns the shape of the used dataset"""
-        return self.X.shape
-    
-    def frac(self, p:float):
-        """
-        Reduces the dataset to a fraction of its size.
+        Access non projected values for the dataset as a DataFrame.
 
         Parameters
-        ---------
-        p : float
-            The fraction (%) of the dataset to keep.
+        ----------
+        flavour : int
+            The flavour of the X values to return. Must be Dataset.REGULAR or Dataset.SCALED.
+
+        Returns
+        -------
+        pd.DataFrame :
+            The X values for the given flavour
+        """    
+        if flavour == Dataset.REGULAR :
+            return self._X
+        elif flavour == Dataset.SCALED :
+            return self._X_scaled
+        else :
+            raise ValueError("Bad flavour value")
+        
+    def isValidXFlavour (flavour : int) -> bool:
         """
+        Returns True if the flavour is valid, False otherwise.
+        """
+        return flavour == Dataset.REGULAR or flavour == Dataset.SCALED
 
-        self.X = self.X_all.sample(frac=p, random_state=9)
-        self.frac_indexes = deepcopy(self.X.index)
-        self.X_scaled = self.X_scaled.iloc[self.frac_indexes].reset_index(drop=True)
-        self.y_pred = self.y_pred.iloc[self.frac_indexes].reset_index(drop=True)
-        if self.y is not None:
-            self.y = self.y.iloc[self.frac_indexes].reset_index(drop=True)
-        self.fraction = p
-        self.X.reset_index(drop=True, inplace=True)
 
-    def setLongLat(self, long:str, lat:str):
+    def isValidYFlavour(flavour : int) -> bool:
+        """
+        Returns True if the flavour is valid, False otherwise.
+        """
+        return flavour == Dataset.TARGET or flavour == Dataset.PREDICTED
+
+    def getProjValues(self, dimReducMethodType:int, dimension:int) -> pd.DataFrame:
+        """Returns de projected X values using a dimensionality reduction method and target dimension (2 or 3)
+
+        Args:
+            dimReducMethodType (int): the type of dimensionality reduction method
+            dimension (int, optional): Defaults to DimReducMethod.DIM_TWO.
+
+        Returns:
+            pd.DataFrame: the projected X values. May be None 
+        """
+        if not DimReducMethod.isValidDimReducType(dimReducMethodType) :
+            raise ValueError("Bad dimensionality reduction type")
+        if not DimReducMethod.isValidDimNumber(dimension) :
+            raise ValueError("Bad dimension number")
+        
+        df = None
+
+        if dimReducMethodType not in self._X_proj :
+            df = None
+        elif dimension not in self._X_proj[dimReducMethodType] :
+            df = None
+        else :
+            # logger.debug(f"Dataset.getProjValues : found a {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} proj in {dimension}D for VS values")    
+            df = self._X_proj[dimReducMethodType][dimension]
+
+        # logger.debug(f"Dataset.getProjValues : returnning {simpleType(df)}")
+
+        return df
+    
+
+    def setProjValues(self, dimReducMethodType:int, dimension:int, values: pd.DataFrame) :
+        """Set X_proj alues for this dimensionality reduction and  dimension."""
+
+        # TODO we may want to check values.shape and raise value error if it does not match
+        if not DimReducMethod.isValidDimReducType(dimReducMethodType) :
+                raise ValueError("Bad dimensionality reduction type")
+        if not DimReducMethod.isValidDimNumber(dimension) :
+                raise ValueError("Bad dimension number")
+        
+        if dimReducMethodType not in self._X_proj :
+            self._X_proj[dimReducMethodType] = {} # We create a new dict for this dimReducMethodType
+        if dimension not in self._X_proj[dimReducMethodType] :
+            self._X_proj[dimReducMethodType][dimension] = {} # We create a new dict for this dimension
+
+        logger.debug(f"DS.setProjValues : I set new values for {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} in {dimension}D proj")
+        self._X_proj[dimReducMethodType][dimension] = values
+
+
+    def getYValues(self, flavour : int = TARGET) -> pd.Series:
+        """
+        Returns the y values of the dataset as a Series, depending on the flavour.
+        """
+        if flavour == Dataset.TARGET :
+            return self._y
+        elif flavour == Dataset.PREDICTED :
+            return self._y_pred
+        else :
+            raise ValueError("Bad flavour value for Y")
+
+    def setYValues(self, y :pd.Series, flavour : int = TARGET) :
+        """
+        Sets the y values of the dataset as a Series, depending on the flavour.
+        """
+        if type(y) is int :
+                raise ValueError(f"Dataset.setYValues you must provide a Pandas Series, not an int)")  
+        if y is None or len(y) == 0 :
+                raise ValueError(f"Dataset.setYValues you must provide some Y data)")  
+        else :
+            if flavour == Dataset.TARGET :
+                self._y = y
+            elif flavour == Dataset.PREDICTED :
+                self._y_pred = y
+            else :
+                raise ValueError("Bad flavour value for Y")
+
+
+    def getShape(self):
+        """ Returns the shape of the used dataset"""
+        return self._X.shape
+
+
+    def setLatLon(self, lat:str, long:str) :
         """
         Sets the longitude and latitude columns of the dataset.
 
@@ -218,320 +577,339 @@ class Dataset():
         lat : str
             The name of the latitude column.
         """
-        self.long = long
-        self.lat = lat
+        self._lat = lat
+        self._long = long
 
-    def getLongLat(self) -> tuple:
+    def getLatLon(self) -> (float, float):
         """
         Returns the longitude and latitude columns of the dataset.
 
         Returns
         -------
-        long : str
-            The name of the longitude column.
         lat : str
             The name of the latitude column.
+        long : str
+            The name of the longitude column.
         """
-        return self.long, self.lat
-
-    def improve(self):
-        """
-        Improves the dataset. 
-
-        # TODO : shoudl be in the gui module
-
-        Displays a widget to modify the dataset. For each feature, you can change its name, its type, its comment and if it is sensible or not.
-
-        You also have the access to the general informations of the dataset.
-        """
-        general_infos = v.Row(class_="ma-2", children=[
-            v.Icon(children=["mdi-database"], size="30px"),
-            v.Html(tag="h3", class_="mb-3 mt-3 ml-4", children=[
-                str(self.X.shape[0]) + " observations, " + str(self.X.shape[1]) + " features"
-                ])])
-        liste_slides = []
-        for i in range(self.X.shape[1]):
-            infos = [min(self.X.iloc[:,i]), max(self.X.iloc[:,i]), np.mean(self.X.iloc[:,i]), np.std(self.X.iloc[:,i])]
-            infos = [round(infos[j], 3) for j in range(len(infos))]
-            liste_slides.append(gui_elements.create_slide_dataset(self.X.columns[i], i+1, self.X.dtypes[i], len(self.X.columns), self.comments[i], self.sensible[i], infos))
-
-        slidegroup = v.SlideGroup(
-            v_model=None,
-            class_="ma-3 pa-3",
-            elevation=4,
-            center_active=True,
-            show_arrows=True,
-            children=liste_slides,
-        )
-
-        def changement_sensible(widget, event, data):
-            i = int(widget.class_)-1
-            if widget.v_model :
-                liste_slides[i].children[0].color = "red lighten-5"
-                self.sensible[i] = True
-            else:
-                liste_slides[i].children[0].color = "white"
-                self.sensible[i] = False
-
-        def changement_names(widget, event, data):
-            i = widget.value-1
-            self.X = self.X.rename(columns={self.X.columns[i]: widget.v_model})
-
-        def changement_type(widget, event, data):
-            i = widget.value-1
-            widget2 = liste_slides[i].children[0].children[-1].children[1].children[0]
-            try :
-                self.X = self.X.astype({self.X.columns[i]: widget2.v_model})
-            except:
-                print("The type of the column " + self.X.columns[i] + " cannot be changed to " + widget2.v_model)
-                widget.color = "error"
-                time.sleep(2)
-                widget.color = ""
-            else:
-                widget.color = "success"
-                time.sleep(2)
-                widget.color = ""
-
-        def changement_comment(widget, event, data):
-            i = widget.value-1
-            self.comments[i] = widget.v_model
-
-        for i in range(len(liste_slides)):
-            liste_slides[i].children[0].children[-1].children[2].on_event("change", changement_sensible)
-            liste_slides[i].children[0].children[-1].children[3].on_event("change", changement_comment)
-            liste_slides[i].children[0].children[0].children[0].on_event("change", changement_names)
-            liste_slides[i].children[0].children[-1].children[1].children[-1].on_event("click", changement_type)
-
-        widget = v.Col(children=[
-            general_infos,
-            slidegroup,
-        ])
-        display(widget)
+        return (self._lat, self._long)
 
 # =============================================================================
 
 
-class ExplanationsDataset():
+class ExplanationDataset():
     """
-    ExplanationsDataset class.
+    ExplanationDataset class.
 
-    An Explanations object holds the explanations values of the model for the dataset.
+    An Explanations object holds the explanations values of the model.
+    It is the "explained version" of a Dataset object.
 
     Instance Attributes
     --------------------
-    parent : Dataset
-        The parent dataset.
-    shapValues : dict
+    _shapValues : dict
         - key IMPORTED : a pandas Dataframe containing the SHAP values provided by the user.
         - key COMPUTED : a pandas Dataframe containing the SHAP values computed by AntakIA.
-        - key DimensionalityReduction.PCA : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D PCA-projected SHAP values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D PCA-projected SHAP values
-        - key DimensionalityReduction.TSNE : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D TSNE-projected SHAP values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D TSNE-projected SHAP values
-        - key DimensionalityReduction.UMAP : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D UMAP-projected SHAP values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D UMAP-projected SHAP values
-        -  key DimensionalityReduction.PacMAP : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D PacMAP-projected SHAP values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D PacMAP-projected SHAP values
-    limeValues : dict
+        - key DimReducMethod.PCA : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PCA-projected SHAP values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PCA-projected SHAP values
+        - key DimReducMethod.TSNE : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D TSNE-projected SHAP values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D TSNE-projected SHAP values
+        - key DimReducMethod.UMAP : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D UMAP-projected SHAP values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D UMAP-projected SHAP values
+        -  key DimReducMethod.PaCMAP : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PaCMAP-projected SHAP values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PaCMAP-projected SHAP values
+    _limeValues : dict
         - key IMPORTED : a pandas Dataframe containing the LIME values provided by the user.
         - key COMPUTED : a pandas Dataframe containing the LIME values computed by AntakIA.
-        - key DimensionalityReduction.PCA : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D PCA-projected LIME values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D PCA-projected LIME values
-        - key DimensionalityReduction.TSNE : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D TSNE-projected LIME values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D TSNE-projected LIME values
-        - key DimensionalityReduction.UMAP : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D UMAP-projected LIME values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D UMAP-projected LIME values
-        -  key DimensionalityReduction.PacMAP : a dict with :
-            - key DimensionalityReduction.DIM_TWO : a pandas Dataframe with 2D PacMAP-projected LIME values
-            - key DimensionalityReduction.DIM_THREE :  a pandas Dataframe with 3D PacMAP-projected LIME values
+        - key DimReducMethod.PCA : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PCA-projected LIME values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PCA-projected LIME values
+        - key DimReducMethod.TSNE : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D TSNE-projected LIME values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D TSNE-projected LIME values
+        - key DimReducMethod.UMAP : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D UMAP-projected LIME values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D UMAP-projected LIME values
+        -  key DimReducMethod.PaCMAP : a dict with :
+            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PaCMAP-projected LIME values
+            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PaCMAP-projected LIME values
+
         """
     
+    
     # Class attributes
-    # Characterizes an user-provided Dataframe of explainations
-    IMPORTED = -1 
     # Characterizes an AntaKIA-computed Dataframe of explainations
-    COMPUTED = 0
+    COMPUTED = -1
+    # Characterizes an user-provided Dataframe of explainations
+    IMPORTED = -2 
+    # We have both computed and imported values
+    BOTH = -3
+    # User doesn't care
+    ANY = -4
 
-    def __init__(self, parent : Dataset, values : pd.DataFrame, explanationType:int):
+    @staticmethod
+    def isValidOriginType(originValue : int) -> bool :
+        return originValue in [ExplanationDataset.COMPUTED, ExplanationDataset.IMPORTED, ExplanationDataset.ANY]
+
+    def __init__(self, values : pd.DataFrame, explanationType:int):
         """
-        Constructor of the class Dataset.
+        Constructor of the class ExplanationDataset.
         
         Parameters :
         ------------
-        parent : Dataset
-            The parent dataset.
         values : pandas.Dataframe
-            The dataframe containing explanations values. Must match parent.shape()
+            The dataframe containing explanations values provided by the user (IMPORTED)
         explanationType : int
             Must be ExplainedValues.SHAP or ExplainedValues.LIME
         """
-        if values.shape != parent.X.shape :
-            raise ValueError("The shape of the explanations dataframe must match the shape of the parent dataset")
-        self.parent = parent
 
-        if explanationType==ExplainedValues.SHAP :
-            self.shapValues = {self.IMPORTED : values}
-            self.limeValues = {self.IMPORTED : None}
-        elif explanationType==ExplainedValues.LIME :
-            self.shapValues = {self.IMPORTED : None}
-            self.limeValues = {self.IMPORTED : values}
+        if explanationType==ExplanationMethod.SHAP :
+            self._shapValues = {self.IMPORTED : values}
+            self._limeValues = {self.IMPORTED : None}
+        elif explanationType==ExplanationMethod.LIME :
+            self._shapValues = {self.IMPORTED : None}
+            self._limeValues = {self.IMPORTED : values}
         else :
             raise ValueError("explanationType must be ExplainedValues.SHAP or ExplainedValues.LIME")
 
+    @staticmethod
+    def getOriginByStr(originValue : int) -> str :
+        if originValue == ExplanationDataset.IMPORTED : return "imported"
+        elif originValue == ExplanationDataset.COMPUTED : return "computed"
+        elif originValue == ExplanationDataset.BOTH : return "both"
+        elif originValue == ExplanationDataset.ANY : return "any"
+        else : raise ValueError(originValue," is a bad origin type")
 
-    def getValues(self, explainationMethodType:int, dimensionalityReductionType:int = None, dimension:int = None) -> pd.DataFrame:
+
+    def getFullValues(self, explainationMethodType:int, origin : int = ANY) :
+        """Looks for imported or computed explaned values with no dimension reduction, hence "FullValues"
+            Parameters:
+            explainationMethodType = see ExplanationMethod integer constants
+            origin = see ExplanationDataset integer constants, defaults to ANY ie. we return imported or computed
+            Returns: a pandas dataframe or None
         """
-        Returns the explanations values of the dataset.
+        
+        if not ExplanationMethod.isValidExplanationType(explainationMethodType) :
+            raise ValueError(explainationMethodType," is a bad explanation method type")
+        
+        storedExplanations, df = None, None
+        
+        if explainationMethodType==ExplanationMethod.SHAP :
+            storedExplanations = self._shapValues
+        else :
+            storedExplanations = self._limeValues
+    
+        if origin != ExplanationDataset.ANY :
+            # User wants a specific origin
+            # logger.debug(f"XDS.getFullValues : {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} values with {ExplanationDataset.getOriginByStr(origin)} origin required")
+            if not ExplanationDataset.isValidOriginType(origin) :
+                raise ValueError(origin, " is a bad origin type")
+            if origin in storedExplanations :
+                # logger.debug(f"XDS.getFullValues : found {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} values with {ExplanationDataset.getOriginByStr(origin)} origin ")
+                df = storedExplanations[origin]
+            else :
+                # logger.debug(f"XDS.getFullValues : could not find {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} values with {ExplanationDataset.getOriginByStr(origin)} origin ")
+                df = None   
+        else :
+            # logger.debug(f"XDS.getFullValues : user wants {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} values whatever the origin")
+            if ExplanationDataset.IMPORTED in storedExplanations :
+                # logger.debug(f"XDS.getFullValues : found {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} values with imported origin ")
+                df = storedExplanations[ExplanationDataset.IMPORTED]
+            elif ExplanationDataset.COMPUTED in storedExplanations :
+                # logger.debug(f"XDS.getFullValues : found {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} values with computed origin ")
+                df = self._shapValues[ExplanationDataset.COMPUTED]
+            else :
+                # logger.debug(f"XDS.getFullValues : no {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} values")
+                df = None
+        
+        # logger.debug(f"XDS.getFullValues : we return {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} {ExplanationDataset.getOriginByStr(origin)} values : {simpleType(df)}")
+        return df
+
+    def getProjValues(self, explainationMethodType:int, dimReducMethodType:int, dimension:int) -> pd.DataFrame:
+        """
+        Looks for projecte values for a given type of explanation method.
+        We don't store projected values per origin : if explanations are computed for a given method (say SHAP), we we'll erase the previous projected values for an imported set/
 
         Parameters
         ----------
         explainationMethodType : int
-            Must be ExplainationMethod.SHAP or ExplainationMethod.LIME
-        dimensionalityReductionType : int
-            Must be DimensionalityReduction.PCA, DimensionalityReduction.TSNE, DimensionalityReduction.UMAP or DimensionalityReduction.PacMAP   
+            Should be ExplanationMethod.SHAP or ExplanationMethod.LIME
+        DimReducMethodType : int
+            Should be DimReducMethod.PCA, DimReducMethod.TSNE, DimReducMethod.UMAP or DimReducMethod.PaCMAP.
         dimension : int 
             The dimension of the projection (2 or 3).
 
         Returns
         -------
         values : pandas.Dataframe
-            The values for this explainationMethodType, dimensionalityReductionType and dimension.
+            The values for this explainationMethodType, DimReducMethodType and dimension.
             Returns None if not computed yet.
         """
+
+        if not ExplanationMethod.isValidExplanationType(explainationMethodType) :
+            raise ValueError(explainationMethodType," is a bad explanation method type")
+        if dimReducMethodType is not None and not DimReducMethod.isValidDimReducType(dimReducMethodType) :
+            raise ValueError(dimReducMethodType," is a bad dimensionality reduction type")
+        if dimension is not None and not DimReducMethod.isValidDimNumber(dimension) :
+            raise ValueError(dimension, " is a bad dimension number")
+
+        storedProjValues, df = None, None
+        
+        if explainationMethodType==ExplanationMethod.SHAP :
+            storedProjValues = self._shapValues
+        else :
+            storedProjValues = self._limeValues
+        
+        if dimReducMethodType in storedProjValues :
+            if storedProjValues[dimReducMethodType] is not None and dimension in storedProjValues[dimReducMethodType] :
+                df = storedProjValues[dimReducMethodType][dimension]
+        
+        # if df is not None :
+        #     # logger.debug(f"XDS.getProjValues : proj {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} in {dimension} dim FOUND in our {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} explanations")
+        # else :
+            # logger.debug(f"XDS.getProjValues : proj {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} in {dimension}D NOT found in our {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} explanations")
             
-        if explainationMethodType==ExplainationMethod.SHAP :
-            if dimension == DimensionalityReduction.DIM_ALL :
-                if ExplanationsDataset.COMPUTED in self.shapValues :
-                    return self.shapValues[ExplanationsDataset.COMPUTED] # We return computed values first
-                else :
-                    if ExplanationsDataset.IMPORTED in self.shapValues : 
-                        return self.shapValues[ExplanationsDataset.IMPORTED] # we return user-provided values if no cimputed values
-                    else :
-                        return None      
-            else :
-                if dimension == DimensionalityReduction.DIM_TWO :
-                    if self.shapValues[dimensionalityReductionType][DimensionalityReduction.DIM_TWO] is not None :
-                        return self.shapValues[dimensionalityReductionType][DimensionalityReduction.DIM_TWO]
-                    else :
-                        # TODO log that there is no such projection computed yet for this explanation method and dimension
-                        return None
-                else :
-                    if dimension == DimensionalityReduction.DIM_THREE :
-                        if self.shapValues[dimensionalityReductionType][DimensionalityReduction.DIM_THREE] is not None :
-                            return self.shapValues[dimensionalityReductionType][DimensionalityReduction.DIM_THREE]
-                        else :
-                            return None
-                    else :
-                        raise ValueError(dimension, " is not a proper dimension")
+
+        # logger.debug(f"XDS.getProjValues : we return {simpleType(df)}")
+        return df
+
+
+    def setFullValues(self, explainationMethodType:int, values: pd.DataFrame, origin : int) :
+        """
+            Use to set explained valued (not projected values) 
+            Parameters:
+            explainationMethodType : see ExplanationMethod integer constants, can be SHAP or LIME
+            values : a pandas dataframe
+            origin : see ExplanationDataset integer constants, can be IMPORTED or COMPUTED
+        """
+        if not ExplanationMethod.isValidExplanationType(explainationMethodType) :
+            raise ValueError(explainationMethodType," is a bad explanation method type")
+        if not ExplanationDataset.isValidOriginType(origin) :
+            raise ValueError(origin," is a bad origin type")
+                    
+
+        if explainationMethodType==ExplanationMethod.SHAP :
+            ourStore = self._shapValues
         else :
-            if explainationMethodType==ExplainationMethod.LIME :
-                if dimension == DimensionalityReduction.DIM_ALL :
-                    if ExplanationsDataset.COMPUTED in self.limeValues :
-                        return self.limeValues[ExplanationsDataset.COMPUTED]
-                    else :
-                        if ExplanationsDataset.IMPORTED in self.limeValues : 
-                            return self.limeValues[ExplanationsDataset.IMPORTED]
-                        else :
-                            raise ValueError(dimension, " is not a proper dimension")
-                else :
-                    if dimension == DimensionalityReduction.DIM_TWO :
-                        if self.limeValues[dimensionalityReductionType][DimensionalityReduction.DIM_TWO] is not None :
-                            return self.limeValues[dimensionalityReductionType][DimensionalityReduction.DIM_TWO]
-                        else :
-                            # TODO log that there is no such projection computed yet for this explanation method and dimension
-                            return None
-                    else :
-                        if dimension == DimensionalityReduction.DIM_THREE :
-                            if self.limeValues[dimensionalityReductionType][DimensionalityReduction.DIM_THREE] is not None :
-                                return self.limeValues[dimensionalityReductionType][DimensionalityReduction.DIM_THREE]
-                            else :
-                                return None
-                        else :
-                            raise ValueError(dimension, " is not a proper dimension")
-            else :
-                 raise ValueError("Bad explanantion method type")
+            ourStore = self._limeValues
         
-    def userProvidedData(self, explainationMethodType:int = None) -> tuple:
+        if origin not in ourStore :
+            ourStore[origin] = {}
+
+        # logger.debug(f"XDS.setFullValues : we store {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} {ExplanationDataset.getOriginByStr(origin)} values with {simpleType(values)}")
+
+        ourStore[origin] = values
+
+
+    def setProjValues(self, explainationMethodType:int, dimReducMethodType:int, dimension:int, values: pd.DataFrame) :
+        """Set values for this ExplanationDataset, given an explanation method, a dimensionality reduction and a dimension.
+
+        Args:
+            explainationMethodType : int
+                SHAP or LIME (see ExplanationMethod class in compute.py)
+            values : pd.DataFrame
+                The values to set.
+            dimReducMethodTypev : int
+                Type of dimensuion reduction. Can be None if values are not projected.
+            dimension (int, optional): dimension of projection. Can be None if values are not projected.
         """
-        Returns True if the user provided explanations values, False otherwise.
-        """
-        
-        if explainationMethodType==ExplainationMethod.SHAP :
-            return self.shapValues[ExplanationsDataset.IMPORTED] is not None, ExplainationMethod.SHAP
+        if not ExplanationMethod.isValidExplanationType(explainationMethodType) :
+            raise ValueError(explainationMethodType," is a bad explanation method type")
+        if dimReducMethodType is not None and not DimReducMethod.isValidDimReducType(dimReducMethodType) :
+                raise ValueError(dimReducMethodType," is a bad dimensionality reduction type")
+        if dimension is not None and not DimReducMethod.isValidDimNumber(dimension) :
+                raise ValueError(dimension, " is a bad dimension number")
+
+        ourStore = None
+
+        if explainationMethodType==ExplanationMethod.SHAP :
+            ourStore = self._shapValues
         else :
-            return self.limeValues[ExplanationsDataset.IMPORTED] is not None, ExplainationMethod.LIME
+            ourStore = self._limeValues
+
+        if dimReducMethodType not in ourStore :
+            ourStore[dimReducMethodType] = {}
+        if dimension not in ourStore[dimReducMethodType] :
+            ourStore[dimReducMethodType][dimension] = {}
         
 
-    def antakIAComputedData(self, explainationMethodType:int) -> bool:
+        logger.debug(f"XDS.setProjValues : we store {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} with {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} proj in {dimension} dim -> {simpleType(values)}")
+
+        ourStore[dimReducMethodType][dimension] = values
+ 
+
+    def isExplanationAvailable(self, explainationMethodType:int, origin : int) ->  (bool) :
+        """ Tells wether we have this explanation method values or not for this origin
         """
-        Returns True if AntakIA computed explanations values, False otherwise.
-        """
-        
-        if explainationMethodType==ExplainationMethod.SHAP :
-            return self.shapValues[ExplanationsDataset.COMPUTED] is not None
+        if not ExplanationMethod.isValidExplanationType(explainationMethodType) :
+            raise ValueError(explainationMethodType," is a bad explaination method type")
+        if not ExplanationDataset.isValidOriginType(origin) :
+            raise ValueError(origin," is a bad origin type")
+
+        storedValues = None
+        if explainationMethodType==ExplanationMethod.SHAP : 
+            storedValues = self._shapValues
         else :
-            return self.limeValues[ExplanationsDataset.COMPUTED] is not None
+            storedValues = self._limeValues
+        
+        if origin == ExplanationDataset.ANY :
+            return self.isExplanationAvailable(ExplanationDataset.IMPORTED) or self.isExplanationAvailable(ExplanationDataset.COMPUTED)
+        else :
+            if origin in storedValues and storedValues[origin] is not None :
+                # logger.debug(f"isExplanationAvailable : yes we have {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)}")
+                return True
 
+    def _descProjHelper(self, text : str, explainationMethodType:int, dimReducMethodType : int) -> str :
+        if explainationMethodType==ExplanationMethod.SHAP :
+            explainDict = self._shapValues
+        elif explainationMethodType==ExplanationMethod.LIME :
+            explainDict = self._limeValues
+        else :
+            raise ValueError(explainationMethodType," is a bad explaination method type")
+        
+        if not DimReducMethod.isValidDimReducType(dimReducMethodType) : 
+            raise ValueError(dimReducMethodType," is a bad dimensionality reduction type")
 
-    # TOOD : should be refactored
-    def __str__(self) -> str:  
-        text = "Explanation object :\n"
-        text += "------------------\n"
-        shap = False
-        if self.userProvidedData(ExplainationMethod.SHAP) :
-            text += "- SHAP values imported : YES\n"
-            shap = True
-        if self.antakIAComputedData(ExplainationMethod.SHAP) :
-            text += "- SHAP values computed : YES\n"
-            shap = True
-        if shap :
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.PCA, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection PCA 2D : YES\n"
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.PCA, DimensionalityReduction.DIM_THREE) is not None :
-                text += "   - Projection PCA 3D : YES\n"
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.TSNE, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection TSNE 2D : YES\n"
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.TSNE, DimensionalityReduction.DIM_THREE) is not None :
-                text += "   - Projection TSNE 3D : YES\n"
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.UMAP, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection UMAP 2D : YES\n"
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.UMAP, DimensionalityReduction.DIM_THREE) is not None :   
-                text += "   - Projection UMAP 3D : YES\n"
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.PacMAP, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection PacMAP 2D : YES\n"
-            if self.getValues(ExplainationMethod.SHAP, DimensionalityReduction.PacMAP, DimensionalityReduction.DIM_THREE) is not None :   
-                text += "   - Projection PacMAP 3D : YES\n"   
+        if dimReducMethodType in explainDict and explainDict[dimReducMethodType] is not None :
+                text +=  ExplanationMethod.getExplanationMethodAsStr(explainationMethodType) +" values dict has " + DimReducMethod.getDimReducMethodAsStr(dimReducMethodType) + " projected values :\n"
+                if DimReducMethod.DIM_TWO in explainDict[dimReducMethodType] and explainDict[dimReducMethodType][DimReducMethod.DIM_TWO] is not None :
+                    text += "    2D :"  + str(explainDict[dimReducMethodType][DimReducMethod.DIM_TWO].shape[0]) + " observations, " + str(self._shapValues[dimReducMethodType][DimReducMethod.DIM_TWO].shape[1]) + " features\n"
+                if DimReducMethod.DIM_THREE in explainDict[dimReducMethodType] and explainDict[dimReducMethodType][DimReducMethod.DIM_THREE] is not None :
+                    text += "    3D :"  + str(explainDict[dimReducMethodType][DimReducMethod.DIM_THREE].shape[0]) + " observations, " + str(explainDict[dimReducMethodType][DimReducMethod.DIM_THREE].shape[1]) + " features\n" 
 
-        lime = False
-        if self.userProvidedData(ExplainationMethod.LIME) :
-            text += "- LIME values imported : YES\n"
-            lime = True
-        if self.antakIAComputedData(ExplainationMethod.LIME) :
-            text += "- LIME values computed : YES\n"
-            lime = True
-        if lime :
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.PCA, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection PCA 2D : YES\n"
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.PCA, DimensionalityReduction.DIM_THREE) is not None :
-                text += "   - Projection PCA 3D : YES\n"
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.TSNE, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection TSNE 2D : YES\n"
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.TSNE, DimensionalityReduction.DIM_THREE) is not None :
-                text += "   - Projection TSNE 3D : YES\n"
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.UMAP, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection UMAP 2D : YES\n"
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.UMAP, DimensionalityReduction.DIM_THREE) is not None :   
-                text += "   - Projection UMAP 3D : YES\n"
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.PacMAP, DimensionalityReduction.DIM_TWO) is not None :
-                text += "   - Projection PacMAP 2D : YES\n"
-            if self.getValues(ExplainationMethod.LIME, DimensionalityReduction.PacMAP, DimensionalityReduction.DIM_THREE) is not None :   
-                text += "   - Projection PacMAP 3D : YES\n"   
+        return text
 
+    def _descExplainHelper(self, text : str, explainationMethodType:int) -> str :
+        if explainationMethodType==ExplanationMethod.SHAP :
+            explainDict = self._shapValues
+        elif explainationMethodType==ExplanationMethod.LIME :
+            explainDict = self._limeValues
+        else :
+            raise ValueError(explainationMethodType," is a bad explaination method type")
+        
+        
+        if explainDict is None or len(explainDict) == 0 :
+            text += ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)+ " values dict is empty\n"
+        else : 
+            if ExplanationDataset.IMPORTED in explainDict and explainDict[ExplanationDataset.IMPORTED] is not None :
+                text += ExplanationMethod.getExplanationMethodAsStr(explainationMethodType) + " values dict has imported values :\n"
+                text += "    "  + str(explainDict[ExplanationDataset.IMPORTED].shape[0]) + " observations, " + str(explainDict[ExplanationDataset.IMPORTED].shape[1]) + " features\n"
+
+            if ExplanationDataset.COMPUTED in explainDict and explainDict[ExplanationDataset.COMPUTED] is not None :
+                text += ExplanationMethod.getExplanationMethodAsStr(explainationMethodType) + " values dict has computed values :\n"
+                text += "    "  + str(explainDict[ExplanationDataset.COMPUTED].shape[0]) + " observations, " +  + str(explainDict[ExplanationDataset.COMPUTED].shape[1]) + " features\n"
+        
+        for projType in DimReducMethod.getDimReducMethodsAsList() :
+            text +=  self._descProjHelper(text, explainationMethodType, projType)
+
+        return text
+
+    def __repr__(self) -> str:  
+        text = "ExplanationDataset object :\n"
+        text += "---------------------------\n"
+        
+        for explainType in ExplanationMethod.getExplanationMethodsAsList() :
+            text += self._descExplainHelper(text, explainType)
         return text

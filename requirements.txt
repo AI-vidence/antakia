@@ -12,6 +12,7 @@ pacmap
 pandas
 plotly
 pre-commit
+pypubsub
 scikit-learn
 shap
 umap-learn
