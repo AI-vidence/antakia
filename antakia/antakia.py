@@ -94,7 +94,6 @@ class AntakIA():
         """
         self._gui = GUI(self._dataset, self._model, self._explainDataset)
 
-
         return self._gui
 
 # ========= Getters  ===========

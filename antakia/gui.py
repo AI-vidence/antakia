@@ -322,12 +322,14 @@ class GUI():
         return self.__selection
 
     def __repr__(self):
+        logger.debug("__repr__ : here we are")
         self.showGUI()
         return ""
 
     def showGUI(self):
         """Function that renders the interface
         """
+        logger.debug("showGUI : here we are")
         display(self._out)
 
         # ============  SPLASH SCREEN ==================
@@ -370,6 +372,7 @@ class GUI():
         # We remove the Splahs screen
         self._out.clear_output(wait=True)
         del(splashScreenLayout)
+
 
         # ============  MAIN SCREEN ==================
 
