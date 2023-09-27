@@ -1,50 +1,52 @@
 # Datascience imports
-import pandas as pd
-import numpy as np
-from skrules import SkopeRules
-from sklearn.manifold import TSNE
-from sklearn.decomposition import PCA
-
-from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import StandardScaler
-
-from sklearn.ensemble import RandomForestRegressor
-from sklearn import linear_model
-from sklearn import ensemble
-
-# GUI related imports
-# import ipywidgets as widgets
-from ipywidgets import widgets, Layout
-from ipywidgets.widgets.widget import Widget
-from IPython.display import display, clear_output, HTML
-import ipyvuetify as v
-import plotly.graph_objects as go
-import seaborn as sns
+import logging
 
 # Others imports
 import time
-from copy import deepcopy
-from importlib.resources import files
-from typing import Tuple
-import logging
-from logging import getLogger
 
 # Warnings imports
 import warnings
-from numba.core.errors import NumbaDeprecationWarning
-warnings.simplefilter(action="ignore", category=FutureWarning)
-warnings.simplefilter(action="ignore", category=UserWarning)
-warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
-warnings.filterwarnings("ignore")
+from copy import deepcopy
+from importlib.resources import files
 
-# Internal imports
+import ipyvuetify as v
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import seaborn as sns
+from IPython.display import display
+from ipywidgets import Layout, widgets
+from sklearn import ensemble, linear_model
+from sklearn.ensemble import RandomForestRegressor
 
 from antakia import guiFactory
-from antakia.utils import confLogger, proposeAutoDyadicClustering, _function_models as function_models
-from antakia.utils import overlapHandler, wrapRepr, simpleType
+
+# Internal imports
+from antakia.compute import (
+    DimReducMethod,
+    ExplanationMethod,
+    computeExplanations,
+    computeProjection,
+    createBeeswarm,
+)
+from antakia.data import (  # noqa: E402
+    Dataset,
+    ExplanationDataset,
+    ExplanationMethod,
+    Model,
+)
 from antakia.potato import *
-from antakia.compute import DimReducMethod, ExplanationMethod, SHAPExplanation, LIMExplanation, computeProjection,  createBeeswarm, computeExplanations
-from antakia.data import Dataset, ExplanationDataset, Model, ExplanationMethod
+from antakia.utils import _function_models as function_models
+from antakia.utils import (  # noqa: E402
+    confLogger,
+    overlapHandler,  # noqa: E402
+    proposeAutoDyadicClustering,
+)
+
+warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.simplefilter(action="ignore", category=UserWarning)
+# warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
+warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
@@ -282,7 +284,7 @@ class GUI():
         if side not in [GUI.VS, GUI.ES] :
             raise ValueError(side," is an invalid side")
 
-        projValues = figure = figure3D = projType = dim  = None
+        projValues = figure = projType = dim  = None
     
         if side == GUI.VS :
             sideStr = "VS"
@@ -818,7 +820,7 @@ class GUI():
         subModelslides = guiFactory.createSubModelsSlides(self.__sub_models)
 
         def selectSubModel(widget, event, data, args: bool = True):
-            if args == True:
+            if args is True:
                 for i in range(len(subModelslides.children)):
                     subModelslides.children[i].children[0].color = "white"
                 widget.color = "blue lighten-4"
@@ -900,7 +902,7 @@ class GUI():
 
         # Update the beeswarm plots
         def changeBeeswarm1Color(*args): #866
-            if beeswarm1ColorChoice.children[1].v_model == False:
+            if beeswarm1ColorChoice.children[1].v_model is False:
                 marker = createBeeswarm(ds, xds, self._selection.getVSRules()[0][2])[1]
                 beeswarm1.data[0].marker = marker
                 beeswarm1.update_traces(marker=dict(showscale=True))
@@ -915,7 +917,7 @@ class GUI():
         )
 
         def changeBeeswarm2Color(*args):
-            if choice_color_beeswarm2.children[1].v_model == False:
+            if choice_color_beeswarm2.children[1].v_model is False:
                 marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[1][2])[1]
                 beeswarm2.data[0].marker = marker
                 beeswarm2.update_traces(marker=dict(showscale=True))
@@ -930,7 +932,7 @@ class GUI():
         )
 
         def changeBeeswarm3Color(*args): #896
-            if choice_color_beeswarm3.children[1].v_model == False:
+            if choice_color_beeswarm3.children[1].v_model is False:
                 marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[2][2])[1]
                 beeswarm3.data[0].marker = marker
                 beeswarm3.update_traces(marker=dict(showscale=True))
@@ -981,7 +983,7 @@ class GUI():
 
         # Udpates when isContinuous checkbox changes
         def updateOnContinuousChanges1(widget, event, data): #945
-            if widget.v_model == True and widget == rightSide1.children[1]:
+            if widget.v_model is True and widget == rightSide1.children[1]:
                 accordion1.children = [histo1Ctrl] + list(accordion1.children[1:])
                 count = 0
                 for i in range(len(self._selection.getVSRules())):
@@ -1374,7 +1376,7 @@ class GUI():
 
             self._activate_histograms = True
 
-            if self._selection.getYMaskList() == None:
+            if self._selection.getYMaskList() is None:
                 theESSkopeText.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
@@ -1393,7 +1395,7 @@ class GUI():
                 self._selection.applySkopeRules(0.2, 0.2)
                 print(self._selection.getVSRules())
                 # If no rule for one of the two, nothing is displayed
-                if self._selection.hasARulesDefined() == False:
+                if self._selection.hasARulesDefined() is False:
                     theESSkopeText.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
@@ -1438,16 +1440,13 @@ class GUI():
                     beeswarm1.data[0].x = self._xds.getFullValues(self._explanationES[0])[columns_rules[0]]
                     beeswarm1.data[0].marker = marker
 
-                    allHistograms = [histogram1]
                     if len(set([self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))])) > 1:
-                        allHistograms = [histogram1, histogram2]
                         [new_y, marker] = createBeeswarm(self._ds, self._xds, self._explanationES[0], self._selection.getVSRules()[1][2])
                         beeswarm2.data[0].y = deepcopy(new_y)
                         beeswarm2.data[0].x = self._xds.getFullValues(self._explanationES[0])[columns_rules[1]]
                         beeswarm2.data[0].marker = marker
 
                     if len(set([self._selection.getVSRules()[i][2] for i in range(len(self._selection.getVSRules()))])) > 2:
-                        allHistograms = [histogram1, histogram2, histogram3]
                         [new_y, marker] = createBeeswarm(self._ds, self._xds, self._explanationES[0], self._selection.getVSRules()[2][2])
                         beeswarm3.data[0].y = deepcopy(new_y)
                         beeswarm3.data[0].x = self._xds.getFullValues(self._explanationES[0])[columns_rules[2]]
@@ -1976,13 +1975,13 @@ class GUI():
                 print("AntakIA WARNING: this region is already in the set of Regions")
             else:
                 self._selection.setType(Potato.REGION)
-                if self.modelIndex == None:
+                if self.modelIndex is None:
                     modelName = None 
                     modelScore = [1,1,1]
                 else:
                     modelName = self.sub_models[self.modelIndex].__class__.__name__
                     modelScore = self._subModelsScores[self.modelIndex]
-                if self._selection.getVSRules() == None :
+                if self._selection.getVSRules() is None :
                     return
 
                 # self._selection.setIndexesWithRules() # TODO not sur wa have to call that
@@ -2007,7 +2006,7 @@ class GUI():
             score_tot_glob = 0
             autre_toute_somme = 0
             for i in range(len(self._regions)):
-                if self._regions[i].getSubModel()["score"] == None:
+                if self._regions[i].getSubModel()["score"] is None:
                     temp.append(
                         [
                             i + 1,
@@ -2059,7 +2058,7 @@ class GUI():
                     percent,
                 ]
             )
-            new_df = pd.DataFrame(
+            pd.DataFrame(
                 temp,
                 columns=[
                     "Region #",
@@ -2150,7 +2149,7 @@ class GUI():
         def addSkopeRule(*b): 
             new_rule = [0] * 5
             column = addAnotherFeatureWgt.v_model
-            if self._otherColumns == None:
+            if self._otherColumns is None:
                 return
             self._otherColumns = [a for a in self._otherColumns if a != column]
             new_rule[2] = column
@@ -2251,7 +2250,7 @@ class GUI():
             )
 
             def noBeeswarmColorChosen(*args):
-                if newBeeswarmColorChosen.children[1].v_model == False:
+                if newBeeswarmColorChosen.children[1].v_model is False:
                     marker = createBeeswarm(self, _explanationES[0], self._selection.getVSRules()[len(self._selection.getVSRules()) - 1][2])[1]
                     new_beeswarm.data[0].marker = marker
                     new_beeswarm.update_traces(marker=dict(showscale=True))
@@ -2310,7 +2309,7 @@ class GUI():
                 skopeAccordion.children = [
                     a for a in skopeAccordion.children if a != newFeatureAccordion_n
                 ]
-                for i in range(ii, len([skopeAccordion.children[a] for a in range(len(skopeAccordion.children)) if skopeAccordion.children[a].disabled == False])):
+                for i in range(ii, len([skopeAccordion.children[a] for a in range(len(skopeAccordion.children)) if skopeAccordion.children[a].disabled is False])):
                     col = "X" + str(i + 1) + " (" + self._selection.getVSRules()[i][2] + ")"
                     skopeAccordion.children[i].children[0].children[0].children = [col]
 
@@ -2336,7 +2335,7 @@ class GUI():
                     if self._selection.getVSRules()[i][2] == column_2:
                         index = i
                         break
-                if widget.v_model == True and widget == newRightSideColumn.children[1]:
+                if widget.v_model is True and widget == newRightSideColumn.children[1]:
                     newFeatureAccordion.children = [allnewWidgetsColumn] + list(newFeatureAccordion.children[1:])
                     count = 0
                     for i in range(len(self._selection.getVSRules())):
@@ -2735,7 +2734,7 @@ class GUI():
 
         def magicClustering(*args):
             demo = magicGUI.children[2].v_model
-            if demo == False:
+            if demo is False:
                 antakiaMethodCard.children[0].v_model = 3
             N_antakiaStepsCard = dynamicClustering(None)
             if demo:
@@ -2953,7 +2952,7 @@ class GUI():
             if tempTuple[0] and (tempTuple[1] is ExplanationDataset.IMPORTED or ExplanationDataset.BOTH) :
                 dictio["explain"]["LIME"] = self._xds.getFullValues(ExplanationMethod.LIME).iloc[self._regions[i].getIndexes(), :].reset_index(drop=True)
                 
-            if self._regions[i].sub_model == None:
+            if self._regions[i].sub_model is None:
                 dictio["model name"] = None
                 dictio["model score"] = None
                 dictio["model"] = None
@@ -2963,7 +2962,7 @@ class GUI():
                 dictio["model"] = self._regions[i].sub_model["name"]
             dictio["rules"] = self._regions[i].rules
             L_f.append(dictio)
-        if number == None or item == None:
+        if number is None or item is None:
             return L_f
         else:
                 return L_f[number][item]

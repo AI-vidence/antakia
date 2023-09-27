@@ -1,18 +1,10 @@
+import logging
+from abc import ABC, abstractmethod
+
 import pandas as pd
-import numpy as np
 
 # TODO : these references to IPython should be removed in favor of a new scheme (see Wiki)
-import ipyvuetify as v
-import ipywidgets as widgets
-from IPython.display import display 
-
 from sklearn.preprocessing import StandardScaler
-
-from abc import ABC, abstractmethod
-import time
-from copy import deepcopy
-import logging
-from logging import getLogger
 
 from antakia.utils import confLogger
 
@@ -22,6 +14,7 @@ handler.clear_logs()
 handler.show_logs()
 
 from antakia.utils import simpleType
+
 
 class Model(ABC) :
 
@@ -90,7 +83,7 @@ class LongTask(ABC):
         pass
 
     def __call__(self) : 
-        logger.debug(f"LongTask.__call__ : I'm going to upadte the subscriber")
+        logger.debug("LongTask.__call__ : I'm going to upadte the subscriber")
         self.setProgress(self._progress)
 
     @staticmethod
@@ -549,9 +542,9 @@ class Dataset():
         Sets the y values of the dataset as a Series, depending on the flavour.
         """
         if type(y) is int :
-                raise ValueError(f"Dataset.setYValues you must provide a Pandas Series, not an int)")  
+                raise ValueError("Dataset.setYValues you must provide a Pandas Series, not an int)")  
         if y is None or len(y) == 0 :
-                raise ValueError(f"Dataset.setYValues you must provide some Y data)")  
+                raise ValueError("Dataset.setYValues you must provide some Y data)")  
         else :
             if flavour == Dataset.TARGET :
                 self._y = y
