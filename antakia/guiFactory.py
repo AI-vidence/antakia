@@ -16,232 +16,13 @@ import pandas as pd
 from ipywidgets import Layout, widgets
 from plotly.graph_objects import FigureWidget, Histogram, Scatter
 
-from antakia.data import Dataset, DimReducMethod, ExplanationDataset
+from antakia.data import Dataset, DimReducMethod, ExplanationDataset, ExplanationMethod
 from antakia.utils import confLogger
 
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
-
-
-class AntakiaExplorer :
-    """
-    _figure : FigureWidget
-    _projectionSelect : v.Select
-    _projectionSliders : v.Dialog
-    _isExplainExplorer : bool
-    _explanationSelect : v.Select # if _isExplainExplorer is True
-    _explainComputeMenu : v.Menu # if _isExplainExplorer is True
-    _ds : Dataset # even if _explainExplorer we need _ds for the Y values
-    _xds : ExplanationDataset # if _isExplainExplorer is True
-    _currentDim : int # May be 2 or 3
-    _currentProjection : int # refers to DimReduction constants
-    _currentExplanation : int # refers to Explanation constants. Only relevant if _isExplainExplorer is True
-
-    _sideStr : str
-    """
-
-    def __init__(self, ds : Dataset, xds : ExplanationDataset, isExplainExplorer : bool):
-        """
-        Instantiate a new AntakiaExplorer. Should not be used directly. Instead, people should use static methods : createVSExplorer and createEXExplorer.
-        """ 
-        self._isExplainExplorer = isExplainExplorer
-        if self._isExplainExplorer :
-            self._xds = xds
-            self._explanationSelect = v.Select(
-                label="Explanation method",
-                items=[
-                    {'text': "SHAP (imported)", 'disabled': True },
-                    {'text': "SHAP (computed)", 'disabled': True },
-                    {'text': "LIME (imported)", 'disabled': True },
-                    {'text': "LIME (computed)", 'disabled': True }
-                    ],
-            class_="ma-2 mt-1 ml-6",
-            style_="width: 150px",
-            disabled = False,
-            )
-            self._explainComputeMenu = v.Menu(
-                    v_slots=[
-                                {
-                                    "name": "activator",
-                                    "variable": "props",
-                                    "children": v.Btn(
-                                        v_on="props.on",
-                                        icon=True,
-                                        size="x-large",
-                                        children=[wrap_in_a_stooltip(v.Icon(children=["mdi-timer-sand"], size="large"), "Time of computing")],
-                                        class_="ma-2 pa-3",
-                                        elevation="3",
-                                    ),
-                                }
-                        ],
-                    children=[
-                        v.Tabs(
-                                class_="w-100",
-                                v_model="tabs",
-                                children=[
-                                    v.Tab(value="one", children=["SHAP (computed)"]),
-                                    v.Tab(value="two", children=["LIME (computed)"]),
-                                ],
-                            ),
-                        v.CardText(
-                            class_="w-100",
-                            children=[
-                                v.Window(
-                                    class_="w-100",
-                                    v_model="tabs",
-                                    children=[
-                                        v.WindowItem(value=0, children=[
-                                            v.Col( #This is Tab "one" content
-                                                class_="d-flex flex-column align-center",
-                                                children=[
-                                                        v.Html(
-                                                            tag="h3",
-                                                            class_="mb-3",
-                                                            children=["Compute " + methodName + " values"],
-                                                    ),
-                                                    v.ProgressLinear(
-                                                        style_="width: 80%",
-                                                        v_model=0,
-                                                        color="primary",
-                                                        height="15",
-                                                        striped=True,
-                                                    ),
-                                                    v.TextField(
-                                                        class_="w-100",
-                                                        style_="width: 100%",
-                                                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
-                                                        readonly=True,
-                                                    ),
-                                                    v.Btn(
-                                                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"], #SHAP compute button
-                                                        class_="ma-2 ml-6 pa-3",
-                                                        elevation="3",
-                                                        v_model=methodName,
-                                                        color="primary",
-                                                    ),
-                                                ],
-                                            )
-                                        ]),
-                                        v.WindowItem(value=1, children=[
-                                            v.Col( #This is Tab "two" content
-                                                class_="d-flex flex-column align-center",
-                                                children=[
-                                                        v.Html(
-                                                            tag="h3",
-                                                            class_="mb-3",
-                                                            children=["Compute LIME values"],
-                                                    ),
-                                                    v.ProgressLinear( # LIME progress bar we'll have to update
-                                                        style_="width: 80%",
-                                                        v_model=0,
-                                                        color="primary",
-                                                        height="15",
-                                                        striped=True,
-                                                    ),
-                                                    v.TextField(
-                                                        class_="w-100",
-                                                        style_="width: 100%",
-                                                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
-                                                        readonly=True,
-                                                    ),
-                                                    v.Btn(
-                                                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"], # LIME compute button
-                                                        class_="ma-2 ml-6 pa-3",
-                                                        elevation="3",
-                                                        v_model=methodName,
-                                                        color="primary",
-                                                    ),
-                                                ],
-                                            )
-                                            ]),
-                                    ],
-                                )
-                            ],
-                        ),
-                        ],
-                        v_model=False,
-                        close_on_content_click=False,
-                        offset_y=True,
-                        )
-            self._currentExplanation = None
-            self._sideStr="ES"
-        else :
-            self._sideStr="VS"
-        self._ds = ds
-        self._projectionSelect = v.Select(
-            label="Projection in the :"+self._sideStr,
-            items=DimReducMethod.getDimReducMethodsAsStrList(),
-            style_="width: 150px",
-        )
-        self._projectionSliders = v.Dialog()
-        self._currentProjection = None
-
-        self._markers = dict( 
-            color=self._ds.getYValues(Dataset.REGULAR),
-            colorscale="Viridis",
-            colorbar=dict(
-                title="y",
-                thickness=20,
-            ),
-        )
-
-
-        self._figure = FigureWidget(
-            data=Scatter(
-                x=self._getX(), 
-                y=self._getY(), 
-                mode="markers", 
-                marker=self._markers, 
-                customdata=self._markers["color"], 
-                hovertemplate = '%{customdata:.3f}')
-        )
-        self._currentDim = 2
-
-    # ---- getter & setters ------
-
-    def isExplainExplorer(self) -> bool :
-        return self._isExplainExplorer
-    
-    def getProjectionSelect(self) -> v.Select :
-        return self._projectionSelect   
-
-    def getProjectionSliders(self) -> v.Dialog :
-        return self._projectionSliders 
-
-    def getExplanationSelect(self) -> v.Select :
-        return self._explanationSelect
-    
-    def getExplainComputeMenu(self) -> v.Menu :
-        return self._explainComputeMenu
-    
-    # ----------------  
-    
-    def _getX(self) -> pd.DataFrame :
-        if self._isExplainExplorer :
-            return self._xds.getFullValues(self._currentExplanation)
-        else :
-            return self._ds.getFullXValues()
-
-    def _getY(self) -> pd.Series :
-        return self._ds.getYValues()
-
-    
-    @staticmethod
-    def createVSExplorer(ds:Dataset): # WHat shall i return ?
-        
-        return AntakiaExplorer(ds, None, False)
-
-    @staticmethod
-    def createESExplorer(xds:ExplanationDataset):
-
-     return AntakiaExplorer(None, xds, True)
-        
-    
-
-    
-
 
 
 def wrap_in_a_tooltip(widget, text) -> v.Tooltip:
@@ -787,14 +568,6 @@ def createBackupsGUI(backupBtn : v.Btn ,ourbackups : list, initialNumBackups : i
     # return backupsDialog, backupsCard
     return backupsDialog, backupsCard, deleteBackupBtn, backupNameTextField, showBackup, newBackupBtn
 
-def createVBox(fig, text):
-    widget = widgets.VBox(
-        [text, fig],
-        layout=Layout(
-            display="flex", align_items="center", margin="0px 0px 0px 0px"
-        ),
-    )
-    return widget
 
 # ------
 def createSkopeCard():
@@ -1546,4 +1319,239 @@ def create_slide_dataset(name, i, type, taille, commentaire, sensible, infos):
     if sensible:
         slide.children[0].color = "red lighten-5"
     return slide
+
+class AntakiaExplorer :
+    """
+    _figure : FigureWidget
+    _projectionSelect : v.Select
+    _projectionSliders : v.Dialog
+    _isExplainExplorer : bool
+    _explanationSelect : v.Select # if _isExplainExplorer is True
+    _explainComputeMenu : v.Menu # if _isExplainExplorer is True
+    _ds : Dataset # even if _explainExplorer we need _ds for the Y values
+    _xds : ExplanationDataset # if _isExplainExplorer is True
+    _currentDim : int # May be 2 or 3
+    _currentProjection : int # refers to DimReduction constants
+    _currentExplanation : int # refers to Explanation constants. Only relevant if _isExplainExplorer is True
+    _currentOrigin : int # refers to ExplanationDataset constants. Only relevant if _isExplainExplorer is True
+
+    _sideStr : str
+    """
+
+    def __init__(self, ds : Dataset, xds : ExplanationDataset, isExplainExplorer : bool):
+        """
+        Instantiate a new AntakiaExplorer. Should not be used directly. Instead, people should use static methods : createVSExplorer and createEXExplorer.
+        """ 
+        self._isExplainExplorer = isExplainExplorer
+        if self._isExplainExplorer :
+            self._xds = xds
+            self._explanationSelect = v.Select(
+                label="Explanation method",
+                items=[
+                    {'text': "SHAP (imported)", 'disabled': True },
+                    {'text': "SHAP (computed)", 'disabled': True },
+                    {'text': "LIME (imported)", 'disabled': True },
+                    {'text': "LIME (computed)", 'disabled': True }
+                    ],
+            class_="ma-2 mt-1 ml-6",
+            style_="width: 150px",
+            disabled = False,
+            )
+            self._explainComputeMenu = v.Menu(
+                    v_slots=[
+                                {
+                                    "name": "activator",
+                                    "variable": "props",
+                                    "children": v.Btn(
+                                        v_on="props.on",
+                                        icon=True,
+                                        size="x-large",
+                                        # children=[wrap_in_a_stooltip(v.Icon(children=["mdi-timer-sand"], size="large"), "Time of computing")],
+                                        # children=v.Icon(children=["mdi-timer-sand"], size="large"),
+                                        class_="ma-2 pa-3",
+                                        elevation="3",
+                                    ),
+                                }
+                        ],
+                    children=[
+                        v.Tabs(
+                                class_="w-100",
+                                v_model="tabs",
+                                children=[
+                                    v.Tab(value="one", children=["SHAP (computed)"]),
+                                    v.Tab(value="two", children=["LIME (computed)"]),
+                                ],
+                            ),
+                        v.CardText(
+                            class_="w-100",
+                            children=[
+                                v.Window(
+                                    class_="w-100",
+                                    v_model="tabs",
+                                    children=[
+                                        v.WindowItem(value=0, children=[
+                                            v.Col( #This is Tab "one" content
+                                                class_="d-flex flex-column align-center",
+                                                children=[
+                                                        v.Html(
+                                                            tag="h3",
+                                                            class_="mb-3",
+                                                            children=["Compute SHAP values"],
+                                                    ),
+                                                    v.ProgressLinear(
+                                                        style_="width: 80%",
+                                                        v_model=0,
+                                                        color="primary",
+                                                        height="15",
+                                                        striped=True,
+                                                    ),
+                                                    v.TextField(
+                                                        class_="w-100",
+                                                        style_="width: 100%",
+                                                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                                                        readonly=True,
+                                                    ),
+                                                    v.Btn(
+                                                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"], #SHAP compute button
+                                                        class_="ma-2 ml-6 pa-3",
+                                                        elevation="3",
+                                                        v_model="lion",
+                                                        color="primary",
+                                                    ),
+                                                ],
+                                            )
+                                        ]),
+                                        v.WindowItem(value=1, children=[
+                                            v.Col( #This is Tab "two" content
+                                                class_="d-flex flex-column align-center",
+                                                children=[
+                                                        v.Html(
+                                                            tag="h3",
+                                                            class_="mb-3",
+                                                            children=["Compute LIME values"],
+                                                    ),
+                                                    v.ProgressLinear( # LIME progress bar we'll have to update
+                                                        style_="width: 80%",
+                                                        v_model=0,
+                                                        color="primary",
+                                                        height="15",
+                                                        striped=True,
+                                                    ),
+                                                    v.TextField(
+                                                        class_="w-100",
+                                                        style_="width: 100%",
+                                                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                                                        readonly=True,
+                                                    ),
+                                                    v.Btn(
+                                                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"], # LIME compute button
+                                                        class_="ma-2 ml-6 pa-3",
+                                                        elevation="3",
+                                                        v_model="panthère",
+                                                        color="primary",
+                                                    ),
+                                                ],
+                                            )
+                                            ]),
+                                    ],
+                                )
+                            ],
+                        ),
+                        ],
+                        v_model=False,
+                        close_on_content_click=False,
+                        offset_y=True,
+                        )
+            self._currentExplanation = ExplanationMethod.SHAP # Shall we set _explanationSelect ?
+            self._currentOrigin = ExplanationDataset.IMPORTED
+            self._sideStr="ES"
+        else :
+            self._sideStr="VS"
+        self._ds = ds
+        self._projectionSelect = v.Select(
+            label="Projection in the :"+self._sideStr,
+            items=DimReducMethod.getDimReducMethodsAsStrList(),
+            style_="width: 150px",
+        )
+        self._projectionSliders = widgets.VBox([
+                        v.Slider(
+                            v_model=10, min=5, max=30, step=1, label="Number of neighbours"
+                        ),
+                        v.Html(class_="ml-3", tag="h3", children=["machin"]),
+                        v.Slider(
+                            v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio"
+                        ),
+                        v.Html(class_="ml-3", tag="h3", children=["truc"]),
+                        v.Slider(
+                            v_model=2, min=0.1, max=5, step=0.1, label="FP ratio"
+                        ),
+                        v.Html(class_="ml-3", tag="h3", children=["bidule"]),
+                    ],
+                )
+
+        self._currentProjection = None
+
+        self._markers = dict( 
+            color=self._ds.getYValues(Dataset.REGULAR),
+            colorscale="Viridis",
+            colorbar=dict(
+                title="y",
+                thickness=20,
+            ),
+        )
+
+        #  ourESMarkerDict = dict(
+        #     color=self._ds.getYValues(Dataset.REGULAR), 
+        #     colorscale="Viridis")
+
+    #   ourVS3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", colorbar=dict(thickness=20,), size=3,)
+    #     ourES3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", size=3)
+
+
+
+        self._figure = FigureWidget(
+            data=Scatter(
+                x=self._getX(), 
+                y=self._getY(), 
+                mode="markers", 
+                marker=self._markers, 
+                customdata=self._markers["color"], 
+                hovertemplate = '%{customdata:.3f}')
+        )
+        self._currentDim = 2
+
+    # ---- getter & setters ------
+
+    def isExplainExplorer(self) -> bool :
+        return self._isExplainExplorer
+    
+    def getProjectionSelect(self) -> v.Select :
+        return self._projectionSelect   
+
+    def getProjectionSliders(self) -> widgets.VBox :
+        return self._projectionSliders 
+
+    def getExplanationSelect(self) -> v.Select :
+        return self._explanationSelect
+    
+    def getExplainComputeMenu(self) -> v.Menu :
+        return self._explainComputeMenu
+
+    def getFigureWidget(self)-> widgets.Widget :
+        return self._figure
+
+    def  setDimension(self, dim : int) : 
+        self._currentDim = dim
+
+    
+    # ----------------  
+    
+    def _getX(self) -> pd.DataFrame :
+        if self._isExplainExplorer :
+            return self._xds.getFullValues(self._currentExplanation, self._currentOrigin)
+        else :
+            return self._ds.getFullValues()
+
+    def _getY(self) -> pd.Series :
+        return self._ds.getYValues()
 
