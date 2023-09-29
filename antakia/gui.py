@@ -3240,7 +3240,6 @@ class GUI:
 
         loadingModelsProgLinear.class_ = "d-none"
 
-        # tabTwoSkopeRulesColumn = v.Col(children=[skopeBtnsGrp, skopeAccordion, addButtonsGrp, mapPartLayout])
         tabTwoSkopeRulesColumn = v.Col(
             children=[skopeBtnsGrp, skopeAccordion, addButtonsGrp]
         )
@@ -3248,9 +3247,7 @@ class GUI:
             [loadingModelsProgLinear, subModelslides]
         )
         # allRegionUI = widgets.VBox([self._selection, self._regionsTable])
-        tabFourRegionListVBox = widgets.VBox(
-            [loadingModelsProgLinear, subModelslides]
-        )  # Just want to go further
+        tabFourRegionListVBox = loadingModelsProgLinear # Just want to go further
 
         antakiaMethodCard = v.Card(
             class_="w-100 pa-3 ma-3",
