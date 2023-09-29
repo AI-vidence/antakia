@@ -746,7 +746,7 @@ def createSkopeSlider():
         children=[
             v.TextField(
                 style_="max-width:100px",
-                v_model=skopeSlider.v_model[0],
+                v_model=skopeSlider.v_model[0], # min value of the slider
                 hide_details=True,
                 type="number",
                 density="compact",
@@ -754,7 +754,7 @@ def createSkopeSlider():
             skopeSlider,
             v.TextField(
                 style_="max-width:100px",
-                v_model=skopeSlider.v_model[1],
+                v_model=skopeSlider.v_model[1], # max value of the slider
                 hide_details=True,
                 type="number",
                 density="compact",
