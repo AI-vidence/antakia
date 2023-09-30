@@ -733,16 +733,16 @@ class GUI:
 
         # ----- Skope info card -------
         (
-            theVSSkopeText,
-            theVSSkopeText,
-            theESSkopeText,
+            skopeText,
+            ourVSSkopeText,
+            ourESSkopeText,
             ourVSSkopeCard,
-            ourESCard,
+            ourESSkopeCard,
         ) = guiFactory.createSkopeCard()  # 777
 
         # ----- sub-models slides -------
         # Texts that will contain the information on the sub_models
-        subModelslides = guiFactory.createSubModelsSlides(self.__sub_models)
+        subModelslides = guiFactory.createSubModelsSlides(self._sub_models)
 
         def selectSubModel(widget, event, data, args: bool = True):
             if args is True:
@@ -1460,20 +1460,20 @@ class GUI:
             self._activate_histograms = True
 
             if self._selection.getYMaskList() is None:
-                theESSkopeText.children[1].children = [
+                ourESSkopeText.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
-                theVSSkopeText.children[1].children = [
+                ourVSSkopeText.children[1].children = [
                     widgets.HTML("Please select points")
                 ]
             elif (
                 0 not in self._selection.getYMaskList()
                 or 1 not in self._selection.getYMaskList()
             ):
-                theESSkopeText.children[1].children = [
+                ourESSkopeText.children[1].children = [
                     widgets.HTML("You can't choose everything/nothing !")
                 ]
-                theVSSkopeText.children[1].children = [
+                ourVSSkopeText.children[1].children = [
                     widgets.HTML("You can't choose everything/nothing !")
                 ]
             else:
@@ -1482,16 +1482,16 @@ class GUI:
                 print(self._selection.getVSRules())
                 # If no rule for one of the two, nothing is displayed
                 if self._selection.hasARulesDefined() is False:
-                    theESSkopeText.children[1].children = [
+                    ourESSkopeText.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
-                    theVSSkopeText.children[1].children = [
+                    ourVSSkopeText.children[1].children = [
                         widgets.HTML("No rule found")
                     ]
                 # Otherwise we display the rules
                 else:
                     # We start with VS space
-                    theVSSkopeText.children[0].children[3].children = [
+                    ourVSSkopeText.children[0].children[3].children = [
                         "p = "
                         + str(self._selection.getVSScore()[0])
                         + "%"
@@ -1764,7 +1764,7 @@ class GUI:
                         skopeSlider1.v_model[0], skopeSlider1.v_model[1], 0
                     )
 
-                    theVSSkopeText.children[0].children[3].children = [
+                    ourVSSkopeText.children[0].children[3].children = [
                         # str(skope_rules_clf.rules_[0])
                         # + "\n"
                         "p = "
@@ -1776,7 +1776,7 @@ class GUI:
                         + " ext. of the tree ="
                         + str(self._selection.getESScore()[2])
                     ]
-                    ourESCard.children = guiFactory.createRuleCard(
+                    ourESSkopeCard.children = guiFactory.createRuleCard(
                         self._selection.ruleListToStr(False)
                     )  # We want ES Rules printed
                     updateSubModelsScores(self._selection.getIndexes())
@@ -3061,7 +3061,7 @@ class GUI:
             ],
         )
 
-        skopeBtnsGrp = widgets.VBox([skopeBtns, theVSSkopeText])
+        skopeBtnsGrp = widgets.VBox([skopeBtns, skopeText])
 
         bouton_magic = v.Btn(
             class_="ma-3",
