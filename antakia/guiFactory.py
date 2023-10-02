@@ -3,25 +3,21 @@ GUI Factory for AntakIA components
 """
 
 
-from ipywidgets import widgets, Layout
-import ipyvuetify as v
-import plotly.graph_objects as go
-
-
-import pandas as pd
-import numpy as np
-
+import json
+import logging
 import os
 import time
-import logging
-from logging import getLogger
-from importlib.resources import files
-import json
 from copy import deepcopy
+from importlib.resources import files
 
-from antakia.data import Dataset, ExplanationDataset
+import ipyvuetify as v
+import numpy as np
+import pandas as pd
+from ipywidgets import Layout, widgets
+from plotly.graph_objects import FigureWidget, Histogram, Scatter
+
+from antakia.data import Dataset, DimReducMethod, ExplanationDataset, ExplanationMethod
 from antakia.utils import confLogger
-
 
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
@@ -30,7 +26,7 @@ handler.show_logs()
 
 
 def wrap_in_a_tooltip(widget, text) -> v.Tooltip:
-    """ Allows to add a tooltip to a widget
+    """ Allows to add a tooltip to a widget  # noqa: E501
     """
     pass
     wrapped_widget = v.Tooltip(
@@ -317,9 +313,8 @@ def createBackupsGUI(backupBtn : v.Btn ,ourbackups : list, initialNumBackups : i
         text = str(len(ourbackups)) + " backup(s) found"
         dataTableRowList = []
         for i in range(len(bu)):
-            newOrNotStr = "Imported"
             if i > initialNumBackups:
-                newOrNotStr = "Created"
+                pass
             dataTableRowList.append(
                 [
                     i + 1,
@@ -328,7 +323,7 @@ def createBackupsGUI(backupBtn : v.Btn ,ourbackups : list, initialNumBackups : i
                     len(bu[i]["Regions"]),
                 ]
             )
-        dataTableColumnsDataFrame  = pd.DataFrame(
+        pd.DataFrame(
             dataTableRowList,
             columns=[
                 "Backup #",
@@ -341,7 +336,7 @@ def createBackupsGUI(backupBtn : v.Btn ,ourbackups : list, initialNumBackups : i
     dataTableColumnsDict = [ 
         # {"text": c, "sortable": True, "value": c} for c in dataTableColumnsDataFrame.columns
     ]
-    backupDataTable = v.DataTable(
+    v.DataTable(
         v_model=[],
         show_select=True,
         single_select=True,
@@ -362,7 +357,7 @@ def createBackupsGUI(backupBtn : v.Btn ,ourbackups : list, initialNumBackups : i
 
     def showBackup(*args): 
         pass
-        raise NotImplemented("showBackup() not implemented yet)") # TODO implement
+        raise NotImplementedError("showBackup() not implemented yet)") # TODO implement
         # self._backupTable = backupsCard.children[1]
         # if len(self._backupTable.v_model) == 0:
         #     return
@@ -573,14 +568,6 @@ def createBackupsGUI(backupBtn : v.Btn ,ourbackups : list, initialNumBackups : i
     # return backupsDialog, backupsCard
     return backupsDialog, backupsCard, deleteBackupBtn, backupNameTextField, showBackup, newBackupBtn
 
-def createVBox(fig, text):
-    widget = widgets.VBox(
-        [text, fig],
-        layout=Layout(
-            display="flex", align_items="center", margin="0px 0px 0px 0px"
-        ),
-    )
-    return widget
 
 # ------
 def createSkopeCard():
@@ -759,7 +746,7 @@ def createSkopeSlider():
         children=[
             v.TextField(
                 style_="max-width:100px",
-                v_model=skopeSlider.v_model[0],
+                v_model=skopeSlider.v_model[0], # min value of the slider
                 hide_details=True,
                 type="number",
                 density="compact",
@@ -767,7 +754,7 @@ def createSkopeSlider():
             skopeSlider,
             v.TextField(
                 style_="max-width:100px",
-                v_model=skopeSlider.v_model[1],
+                v_model=skopeSlider.v_model[1], # max value of the slider
                 hide_details=True,
                 type="number",
                 density="compact",
@@ -780,9 +767,9 @@ def createSkopeSlider():
 def createHistograms(nombre_bins, fig_size):
     # TODO : i understand we create empty histograms to be further used
     x = np.linspace(0, 20, 20)
-    histogram1 = go.FigureWidget(
+    histogram1 = FigureWidget(
         data=[
-            go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="grey")
+            Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="grey")
         ]
     )
     histogram1.update_layout(
@@ -794,7 +781,7 @@ def createHistograms(nombre_bins, fig_size):
         height=150,
     )
     histogram1.add_trace(
-        go.Histogram(
+        Histogram(
             x=x,
             bingroup=1,
             nbinsx=nombre_bins,
@@ -803,7 +790,7 @@ def createHistograms(nombre_bins, fig_size):
         )
     )
     histogram1.add_trace(
-        go.Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
+        Histogram(x=x, bingroup=1, nbinsx=nombre_bins, marker_color="blue")
     )
     histogram2 = deepcopy(histogram1)
     histogram3 = deepcopy(histogram2)
@@ -829,8 +816,8 @@ def createBeeswarms(expDS : ExplanationDataset, explainMethod : int, figureSize 
     expValues = expDS.getFullValues(explainMethod)
     expValuesHistogram = [0] * len(expValues)
 
-    beeswarm1 = go.FigureWidget(
-        data=[go.Scatter(x=expValues, y=expValuesHistogram, mode="markers")]
+    beeswarm1 = FigureWidget(
+        data=[Scatter(x=expValues, y=expValuesHistogram, mode="markers")]
     )
     beeswarm1.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
@@ -855,8 +842,8 @@ def createBeeswarms(expDS : ExplanationDataset, explainMethod : int, figureSize 
         ],
     )
 
-    beeswarm2 = go.FigureWidget(
-        data=[go.Scatter(x=expValues, y=expValuesHistogram, mode="markers")]
+    beeswarm2 = FigureWidget(
+        data=[Scatter(x=expValues, y=expValuesHistogram, mode="markers")]
     )
     beeswarm2.update_layout(
         margin=dict(l=20, r=0, t=0, b=0),
@@ -868,8 +855,8 @@ def createBeeswarms(expDS : ExplanationDataset, explainMethod : int, figureSize 
     beeswarmGrp2 = widgets.VBox([bs2ColorChoice, beeswarm2])
     beeswarmGrp2.layout.margin = "0px 0px 0px 20px"
 
-    beeswarm3 = go.FigureWidget(
-        data=[go.Scatter(x=expValues, y=expValuesHistogram, mode="markers")]
+    beeswarm3 = FigureWidget(
+        data=[Scatter(x=expValues, y=expValuesHistogram, mode="markers")]
     )
     beeswarm3.update_layout(
         margin=dict(l=20, r=0, t=0, b=0),
@@ -1129,9 +1116,9 @@ def createNewFeatureRuleGUI(gui, newRule, column, binNumber, fig_size):
         label=newRule[2],
     )
 
-    new_histogram = go.FigureWidget(
+    new_histogram = FigureWidget(
         data=[
-            go.Histogram(
+            Histogram(
                 x=gui.atk.dataset.X[column].values,
                 bingroup=1,
                 nbinsx=binNumber,
@@ -1149,7 +1136,7 @@ def createNewFeatureRuleGUI(gui, newRule, column, binNumber, fig_size):
     )
 
     new_histogram.add_trace(
-        go.Histogram(
+        Histogram(
             x=gui.atk.dataset.X[column].values,
             bingroup=1,
             nbinsx=binNumber,
@@ -1158,7 +1145,7 @@ def createNewFeatureRuleGUI(gui, newRule, column, binNumber, fig_size):
         )
     )
     new_histogram.add_trace(
-        go.Histogram(
+        Histogram(
             x=gui.atk.dataset.X[column].values,
             bingroup=1,
             nbinsx=binNumber,
@@ -1332,4 +1319,239 @@ def create_slide_dataset(name, i, type, taille, commentaire, sensible, infos):
     if sensible:
         slide.children[0].color = "red lighten-5"
     return slide
+
+class AntakiaExplorer :
+    """
+    _figure : FigureWidget
+    _projectionSelect : v.Select
+    _projectionSliders : v.Dialog
+    _isExplainExplorer : bool
+    _explanationSelect : v.Select # if _isExplainExplorer is True
+    _explainComputeMenu : v.Menu # if _isExplainExplorer is True
+    _ds : Dataset # even if _explainExplorer we need _ds for the Y values
+    _xds : ExplanationDataset # if _isExplainExplorer is True
+    _currentDim : int # May be 2 or 3
+    _currentProjection : int # refers to DimReduction constants
+    _currentExplanation : int # refers to Explanation constants. Only relevant if _isExplainExplorer is True
+    _currentOrigin : int # refers to ExplanationDataset constants. Only relevant if _isExplainExplorer is True
+
+    _sideStr : str
+    """
+
+    def __init__(self, ds : Dataset, xds : ExplanationDataset, isExplainExplorer : bool):
+        """
+        Instantiate a new AntakiaExplorer. Should not be used directly. Instead, people should use static methods : createVSExplorer and createEXExplorer.
+        """ 
+        self._isExplainExplorer = isExplainExplorer
+        if self._isExplainExplorer :
+            self._xds = xds
+            self._explanationSelect = v.Select(
+                label="Explanation method",
+                items=[
+                    {'text': "SHAP (imported)", 'disabled': True },
+                    {'text': "SHAP (computed)", 'disabled': True },
+                    {'text': "LIME (imported)", 'disabled': True },
+                    {'text': "LIME (computed)", 'disabled': True }
+                    ],
+            class_="ma-2 mt-1 ml-6",
+            style_="width: 150px",
+            disabled = False,
+            )
+            self._explainComputeMenu = v.Menu(
+                    v_slots=[
+                                {
+                                    "name": "activator",
+                                    "variable": "props",
+                                    "children": v.Btn(
+                                        v_on="props.on",
+                                        icon=True,
+                                        size="x-large",
+                                        # children=[wrap_in_a_stooltip(v.Icon(children=["mdi-timer-sand"], size="large"), "Time of computing")],
+                                        # children=v.Icon(children=["mdi-timer-sand"], size="large"),
+                                        class_="ma-2 pa-3",
+                                        elevation="3",
+                                    ),
+                                }
+                        ],
+                    children=[
+                        v.Tabs(
+                                class_="w-100",
+                                v_model="tabs",
+                                children=[
+                                    v.Tab(value="one", children=["SHAP (computed)"]),
+                                    v.Tab(value="two", children=["LIME (computed)"]),
+                                ],
+                            ),
+                        v.CardText(
+                            class_="w-100",
+                            children=[
+                                v.Window(
+                                    class_="w-100",
+                                    v_model="tabs",
+                                    children=[
+                                        v.WindowItem(value=0, children=[
+                                            v.Col( #This is Tab "one" content
+                                                class_="d-flex flex-column align-center",
+                                                children=[
+                                                        v.Html(
+                                                            tag="h3",
+                                                            class_="mb-3",
+                                                            children=["Compute SHAP values"],
+                                                    ),
+                                                    v.ProgressLinear(
+                                                        style_="width: 80%",
+                                                        v_model=0,
+                                                        color="primary",
+                                                        height="15",
+                                                        striped=True,
+                                                    ),
+                                                    v.TextField(
+                                                        class_="w-100",
+                                                        style_="width: 100%",
+                                                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                                                        readonly=True,
+                                                    ),
+                                                    v.Btn(
+                                                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"], #SHAP compute button
+                                                        class_="ma-2 ml-6 pa-3",
+                                                        elevation="3",
+                                                        v_model="lion",
+                                                        color="primary",
+                                                    ),
+                                                ],
+                                            )
+                                        ]),
+                                        v.WindowItem(value=1, children=[
+                                            v.Col( #This is Tab "two" content
+                                                class_="d-flex flex-column align-center",
+                                                children=[
+                                                        v.Html(
+                                                            tag="h3",
+                                                            class_="mb-3",
+                                                            children=["Compute LIME values"],
+                                                    ),
+                                                    v.ProgressLinear( # LIME progress bar we'll have to update
+                                                        style_="width: 80%",
+                                                        v_model=0,
+                                                        color="primary",
+                                                        height="15",
+                                                        striped=True,
+                                                    ),
+                                                    v.TextField(
+                                                        class_="w-100",
+                                                        style_="width: 100%",
+                                                        v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                                                        readonly=True,
+                                                    ),
+                                                    v.Btn(
+                                                        children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"], # LIME compute button
+                                                        class_="ma-2 ml-6 pa-3",
+                                                        elevation="3",
+                                                        v_model="panthère",
+                                                        color="primary",
+                                                    ),
+                                                ],
+                                            )
+                                            ]),
+                                    ],
+                                )
+                            ],
+                        ),
+                        ],
+                        v_model=False,
+                        close_on_content_click=False,
+                        offset_y=True,
+                        )
+            self._currentExplanation = ExplanationMethod.SHAP # Shall we set _explanationSelect ?
+            self._currentOrigin = ExplanationDataset.IMPORTED
+            self._sideStr="ES"
+        else :
+            self._sideStr="VS"
+        self._ds = ds
+        self._projectionSelect = v.Select(
+            label="Projection in the :"+self._sideStr,
+            items=DimReducMethod.getDimReducMethodsAsStrList(),
+            style_="width: 150px",
+        )
+        self._projectionSliders = widgets.VBox([
+                        v.Slider(
+                            v_model=10, min=5, max=30, step=1, label="Number of neighbours"
+                        ),
+                        v.Html(class_="ml-3", tag="h3", children=["machin"]),
+                        v.Slider(
+                            v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio"
+                        ),
+                        v.Html(class_="ml-3", tag="h3", children=["truc"]),
+                        v.Slider(
+                            v_model=2, min=0.1, max=5, step=0.1, label="FP ratio"
+                        ),
+                        v.Html(class_="ml-3", tag="h3", children=["bidule"]),
+                    ],
+                )
+
+        self._currentProjection = None
+
+        self._markers = dict( 
+            color=self._ds.getYValues(Dataset.REGULAR),
+            colorscale="Viridis",
+            colorbar=dict(
+                title="y",
+                thickness=20,
+            ),
+        )
+
+        #  ourESMarkerDict = dict(
+        #     color=self._ds.getYValues(Dataset.REGULAR), 
+        #     colorscale="Viridis")
+
+    #   ourVS3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", colorbar=dict(thickness=20,), size=3,)
+    #     ourES3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", size=3)
+
+
+
+        self._figure = FigureWidget(
+            data=Scatter(
+                x=self._getX(), 
+                y=self._getY(), 
+                mode="markers", 
+                marker=self._markers, 
+                customdata=self._markers["color"], 
+                hovertemplate = '%{customdata:.3f}')
+        )
+        self._currentDim = 2
+
+    # ---- getter & setters ------
+
+    def isExplainExplorer(self) -> bool :
+        return self._isExplainExplorer
+    
+    def getProjectionSelect(self) -> v.Select :
+        return self._projectionSelect   
+
+    def getProjectionSliders(self) -> widgets.VBox :
+        return self._projectionSliders 
+
+    def getExplanationSelect(self) -> v.Select :
+        return self._explanationSelect
+    
+    def getExplainComputeMenu(self) -> v.Menu :
+        return self._explainComputeMenu
+
+    def getFigureWidget(self)-> widgets.Widget :
+        return self._figure
+
+    def  setDimension(self, dim : int) : 
+        self._currentDim = dim
+
+    
+    # ----------------  
+    
+    def _getX(self) -> pd.DataFrame :
+        if self._isExplainExplorer :
+            return self._xds.getFullValues(self._currentExplanation, self._currentOrigin)
+        else :
+            return self._ds.getFullValues()
+
+    def _getY(self) -> pd.Series :
+        return self._ds.getYValues()
 
