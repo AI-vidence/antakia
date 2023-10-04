@@ -40,7 +40,6 @@ class AntakIA():
     __backups: dict
         A list of saved regions # TODO to be explained. Rather unclear for me for now
     __backups_path: str
-    __sub_models: list
 
     """
 
@@ -75,7 +74,12 @@ class AntakIA():
 
         # TODO : compute Y_pred here
 
-        self._sub_models =  [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
+
+    @staticmethod
+    def get_default_submodels() :
+        """ Returns a list of explanable models
+        """
+        return [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
 
 
     def startGUI(self, defaultProjection: int = DimReducMethod.PaCMAP) -> GUI :

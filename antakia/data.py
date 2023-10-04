@@ -345,6 +345,40 @@ class DimReducMethod(LongTask):
 
 # ================================================
 
+class Variable:
+    """ 
+        Describes each X column or Y value
+
+        _symbol : str
+            How it should be displayed in the GUI
+        _descr : str
+            A description of the variable
+        _type : str
+            The type of the variable
+        _sensible : bool
+            Wether the variable is sensible or not
+        _explained : bool
+        _explain_method : int
+        _contiuous : bool
+        _lat : bool
+        _lon : bool
+    """
+
+    def __init__(self, symbol: str, type: str):
+        self._symbol = symbol
+        self._type = type
+
+        self._descr = None
+        self._sensible = False
+        self._continuous = False
+        self._explained = False
+        self._explain_method = None
+        self._lat = False
+        self._lon = False
+
+    def getSymbol(self) -> str:
+        return self._symbol
+
 
 class Dataset:
     """
@@ -371,20 +405,12 @@ class Dataset:
         The entire dataframe. X may be smaller than Xall if the frac method has been used.
     _X_scaled : pandas.Dataframe
         The dataframe with normalized (scaled) values.
+    _variables : list of Variable
+        Describes each column of the dataset
     _y : pandas.Series
         Target values
     _y_pred : pandas.Series
         The Serie containing the predictions of the model. Computed at construction time.
-    _comments : List of str
-        The comments associated to each variable in X
-    _sensible : List of bool
-        If True, a warning will be displayed when the feature is used in the explanations. More to come in the future.
-    _lat : str
-        The name of the latitude column if it exists.
-        #TODO use a specific object for lat/long ?
-    _long : str
-        The name of the longitude column if it exists.
-        #TODO idem
     """
 
     # Class attributes for X values
@@ -437,22 +463,16 @@ class Dataset:
         self._X_scaled = pd.DataFrame(StandardScaler().fit_transform(X))
         self._X_scaled.columns = X.columns
 
-        self._comments = [""] * len(self._X.columns)
-        self._sensible = [False] * len(self._X.columns)
+        self._variables = []
+        for col in self._X.columns:
+            var = Variable(col.title, col.dtype)
+            var._explained = False  # since we're un Dataset constructor
+            if col.title in ["longitude", "Longitude", "Long", "long"]:
+                var._lon = True            
+            if col.title in ["latitude", "Latitude", "Lat", "lat"]:
+                var._lon = True
+            self._variables.append(var)
 
-        self._fraction = 1  # TODO : what is this ?
-        self._frac_indexes = self._X.index  #
-
-        # # TODO : should be handled with a GeoData object ?
-        self._long, self.__lat = None, None  # TODO : shoudl only  be used if needed
-
-        for name in ["longitude", "Longitude", "Long", "long"]:
-            if name in self._X.columns:
-                self._long = name
-
-        for name in ["latitude", "Latitude", "Lat", "lat"]:
-            if name in self._X.columns:
-                self._lat = name
 
     def __str__(self):
         text = "Dataset object :\n"
@@ -464,6 +484,12 @@ class Dataset:
     # TODO : is it useful ?
     def __len__(self):
         return self._X.shape[0]
+    
+    def get_variables(self) -> list:
+        return self._variables
+
+    def get_var_values(self, variable: Variable) -> pd.Series:
+        return self._X[variable.getSymbol()]
 
     def getFullValues(self, flavour: int = REGULAR) -> pd.DataFrame:
         """
