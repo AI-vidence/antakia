@@ -36,7 +36,7 @@ from antakia.data import (  # noqa: E402
     Model,
 )
 from antakia.potato import *
-from antakia.utils import _function_models as function_models
+from antakia.utils import models_scores_to_str, score
 from antakia.utils import (  # noqa: E402
     confLogger,
     overlapHandler,  # noqa: E402
@@ -93,7 +93,7 @@ class GUI:
     Widgets:
     _out : Output Widget
         used in the output cell
-    _app_graph : a graph of nested Widgets
+    _app_graph : a graph of nested Widgets (widgets.VBox)
     _color : Pandas Series : color for each Y point
     _opacity : float
     _paCMAPparams = dictionnary containing the parameters for the PaCMAP projection
@@ -106,11 +106,11 @@ class GUI:
     _save_rules useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
     _otherColumns : to keep track of the columns that are not used in the rules !
     _activate_histograms : to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
-    __dyadicClusteringResult : to keep track  of the entire results from the dyadic-clustering
+    _dyadicClusteringResult : to keep track  of the entire results from the dyadic-clustering
     _autoClusterRegionColors: the color of the Regions created by the automatic dyadic clustering
     _dyadicClusteringLabels :  to keep track of the labels from the automatic-clustering, used for the colors !
     modelIndex : to know which sub_model is selected by the user.
-    _subModelsScores : to keep track of the scores of the sub-models
+    _submodels_scores : to keep track of the scores of the sub-models
     _backups : A list of backups
     
 
@@ -219,6 +219,7 @@ class GUI:
             None  # to keep track of the columns that are not used in the rules !
         )
         self._activate_histograms = False  # to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
+        
         self._histogramBinNum = 50
         self._autoClusterRegionColors = (
             []
@@ -227,12 +228,7 @@ class GUI:
         self.__dyadicClusteringResult = (
             None  # to keep track  of the entire results from the dyadic-clustering
         )
-        self._sub_models = [
-            linear_model.LinearRegression(),
-            RandomForestRegressor(random_state=9),
-            ensemble.GradientBoostingRegressor(random_state=9),
-        ]
-        self._subModelsScores = None  # to keep track of the scores of the sub-models
+        self._submodels_scores = None  # to keep track of the scores of the sub-models
         self.modelIndex = one  # to know which sub_model is selected by the user.
 
         self._backups = []
@@ -246,6 +242,193 @@ class GUI:
     
     def get_selection(self) -> Potato:
         return self._selection
+    
+    def get_app_graph(self) -> widgets.VBox:
+        return self._app_graph
+    
+    def update_submodels_scores(self, temp): # when called, temp is always None
+            bool_list = [True] * self._ds.get_length()
+            for i in range(self._ds.get_length()):
+                for j in range(len(self._selection.getVSRules())):
+                    col_index = list(self._ds.getXValues().columns).index(
+                        self._selection.getVSRules()[j][2]
+                    )
+                    if (
+                        self._selection.getVSRules()[j][0]
+                        > self._ds.getXValues().iloc[i, col_index]
+                        or self._ds.getXValues().iloc[i, col_index]
+                        > self._selection.getVSRules()[j][4]
+                    ):
+                        bool_list[i] = False
+            temp = [i for i in range(self._ds.get_length()) if bool_list[i]]
+
+            models = get_default_submodels()
+
+            result_models = models_scores_to_str(
+                self._ds.getXValues().iloc[temp, :],
+                self._ds.getYValues().iloc[temp],
+                models,
+            )
+            new_score = []
+            for i in range(len(models)):
+                new_score.append(
+                    score(
+                        self._ds.getYValues().iloc[temp],
+                        result_models[i][-2]
+                    )
+                )
+            initial_score = score(
+                self._ds.getYValues().iloc[temp], 
+                self._ds.getYValues(Dataset.PREDICTED)[temp]
+            )
+            if initial_score == 0:
+                delta = ["/"] * len(self.sub_models)
+            else:
+                delta = [
+                    round(100 * (initial_score - new_score[i]) / initial_score, 1)
+                    for i in range(len(models))
+                ]
+
+            self._submodels_scores = []
+            for i in range(len(self.sub_models)):
+                self._submodels_scores.append(
+                    [
+                        new_score[i],
+                        initial_score,
+                        delta[i],
+                    ]
+                )
+
+            def _scoreToStr(i):
+                if new_score[i] == 0:
+                    return (
+                        "MSE = "
+                        + str(new_score[i])
+                        + " (against "
+                        + str(initial_score)
+                        + ", +"
+                        + "∞"
+                        + "%)"
+                    )
+                else:
+                    if round(100 * (initial_score - new_score[i]) / initial_score, 1) > 0:
+                        return (
+                            "MSE = "
+                            + str(new_score[i])
+                            + " (against "
+                            + str(initial_score)
+                            + ", +"
+                            + str(
+                                round(
+                                    100 * (initial_score - new_score[i]) / initial_score, 1
+                                )
+                            )
+                            + "%)"
+                        )
+                    else:
+                        return (
+                            "MSE = "
+                            + str(new_score[i])
+                            + " (against "
+                            + str(initial_score)
+                            + ", "
+                            + str(
+                                round(
+                                    100 * (initial_score - new_score[i]) / initial_score, 1
+                                )
+                            )
+                            + "%)"
+                        )
+
+            for i in range(len(self.sub_models)):
+                subModelslides.children[i].children[0].children[
+                    1
+                ].children = _scoreToStr(i)
+    
+    def update_graph_with_rules(self):
+            """ Redraws both graph with points in blue or grey depending on the rules
+            """
+            self._selection.setType(Potato.REFINED_SKR)
+            newSet = self._selection.setIndexesWithSKR(True)
+            y_color_skope = []
+            for i in range(len(self._ds.getFullValues())):
+                if i in newSet:
+                    y_color_skope.append("blue")
+                else:
+                    y_color_skope.append("grey")
+
+            self._color = y_color_skope
+            # Let's redraw
+            self._redraw_both_graphs()
+
+    def update_histograms_with_rules(self, min, max, rule_index):
+                total_list = (
+                    self._ds.getFullValues()
+                    .index[
+                        self._ds.getFullValues()[self._selection.getVSRules()[rule_index][2]
+                        ].between(min, max)
+                    ]
+                    .tolist()
+                )
+                for i in range(len(self._selection.getVSRules())):
+                    min = self._selection.getVSRules()[i][0]
+                    max = self._selection.getVSRules()[i][4]
+                    if i != rule_index:
+                        temp_list = (
+                            self._ds.getXValues()
+                            .index[
+                                self._ds.getXValues()[
+                                    self._selection.getVSRules()[i][2]
+                                ].between(min, max)
+                            ]
+                            .tolist()
+                        )
+                        total_list = [g for g in total_list if g in temp_list]
+                if self._selection.getMapIndexes() is not None:
+                    total_list = [
+                        g for g in total_list if g in self._gui.get_selection().getMapIndexes()
+                    ]
+                for i in range(len(self._selection.getVSRules())):
+                    for refiner in widget_at_address(self._app_graph, "30501").children:
+                        # We retrieve the refiner's histogram :
+                        with widget_at_address(refiner.get_widget(), "001001").batch_update():
+                            widget_at_address(refiner.get_widget(), "001001").data[0].x = self._ds.getXValues()[self._selection.getVSRules()[i][2]][total_list]
+                        
+                        # We retrieve the refiner's beeswarm :
+                        if widget_at_address(refiner.get_widget(), "001011").v_model :
+                            with widget_at_address(refiner.get_widget(), "001011").batch_update():
+                                y_color = [0] * len(self._xds.getFullValues(self._explanationES[0]))
+                                if i == rule_index:
+                                    indexs = (
+                                        self._ds.getXValues()
+                                        .index[
+                                            self._ds.getXValues()[
+                                                self._selection.getVSRules()[i][2]
+                                            ].between(min, max)
+                                        ]
+                                        .tolist()
+                                    )
+                                else:
+                                    indexs = (
+                                        self._ds.getFullValues().index[
+                                            self._ds.getXValues()[
+                                                self._selection.getVSRules()[i][2]
+                                            ].between(
+                                                self._selection.getVSRules()[i][0],
+                                                self._selection.getVSRules()[i][4],
+                                            )
+                                        ].tolist()
+                                    )
+                                for j in range(
+                                    len(self._xds.getFullValues(self._explanationES[0]))
+                                ):
+                                    if j in total_list:
+                                        y_color[j] = "blue"
+                                    elif j in indexs:
+                                        y_color[j] = "#85afcb"
+                                    else:
+                                        y_color[j] = "grey"
+                                widget_at_address(refiner.get_widget(), "001011").data[0].marker.color = y_color
 
     def update_explanation_select(self):
         """Update the explanationMenduDict widget and only enable items that are available"""
@@ -594,312 +777,6 @@ class GUI:
             RuleVariableRefiner(self, self._ds.get_variables[2])
         ]
 
-        def update_histograms_with_rules(min, max, rule_index):
-            total_list = (
-                self._ds.getFullValues()
-                .index[
-                    self._ds.getFullValues()[self._selection.getVSRules()[rule_index][2]
-                    ].between(min, max)
-                ]
-                .tolist()
-            )
-            for i in range(len(self._selection.getVSRules())):
-                min = self._selection.getVSRules()[i][0]
-                max = self._selection.getVSRules()[i][4]
-                if i != rule_index:
-                    temp_list = (
-                        self._ds.getXValues()
-                        .index[
-                            self._ds.getXValues()[
-                                self._selection.getVSRules()[i][2]
-                            ].between(min, max)
-                        ]
-                        .tolist()
-                    )
-                    total_list = [g for g in total_list if g in temp_list]
-            if self._selection.getMapIndexes() is not None:
-                total_list = [
-                    g for g in total_list if g in self._gui.get_selection().getMapIndexes()
-                ]
-            for i in range(len(self._selection.getVSRules())):
-                for refiner in widget_at_address(self._app_graph, "30501").children:
-                    # We retrieve the refiner's histogram :
-                    with widget_at_address(refiner.get_widget(), "001001").batch_update():
-                        widget_at_address(refiner.get_widget(), "001001").data[0].x = self._ds.getXValues()[self._selection.getVSRules()[i][2]][total_list]
-                    
-                    # We retrieve the refiner's beeswarm :
-                    if widget_at_address(refiner.get_widget(), "001011").v_model :
-                        with widget_at_address(refiner.get_widget(), "001011").batch_update():
-                            y_color = [0] * len(self._xds.getFullValues(self._explanationES[0]))
-                            if i == rule_index:
-                                indexs = (
-                                    self._ds.getXValues()
-                                    .index[
-                                        self._ds.getXValues()[
-                                            self._selection.getVSRules()[i][2]
-                                        ].between(min, max)
-                                    ]
-                                    .tolist()
-                                )
-                            else:
-                                indexs = (
-                                    self._ds.getFullValues().index[
-                                        self._ds.getXValues()[
-                                            self._selection.getVSRules()[i][2]
-                                        ].between(
-                                            self._selection.getVSRules()[i][0],
-                                            self._selection.getVSRules()[i][4],
-                                        )
-                                    ].tolist()
-                                )
-                            for j in range(
-                                len(self._xds.getFullValues(self._explanationES[0]))
-                            ):
-                                if j in total_list:
-                                    y_color[j] = "blue"
-                                elif j in indexs:
-                                    y_color[j] = "#85afcb"
-                                else:
-                                    y_color[j] = "grey"
-                            widget_at_address(refiner.get_widget(), "001011").data[0].marker.color = y_color
-
-        def update_graph_with_rules():
-            """ Redraws both graph with points in blue or grey depending on the rules
-            """
-            self._selection.setType(Potato.REFINED_SKR)
-            newSet = self._selection.setIndexesWithSKR(True)
-            y_color_skope = []
-            for i in range(len(self._ds.getFullValues())):
-                if i in newSet:
-                    y_color_skope.append("blue")
-                else:
-                    y_color_skope.append("grey")
-
-            self._color = y_color_skope
-            # Let's redraw
-            self._redraw_both_graphs()
-
-        # when the value of a slider is modified, the histograms and graphs are modified
-        def updateOnSkopeRule1Change(widget, event, data):
-            if widget.__class__.__name__ == "RangeSlider":
-                skopeSliderGroup1.children[0].v_model = skopeSlider1.v_model[0]
-                skopeSliderGroup1.children[2].v_model = skopeSlider1.v_model[1]
-            else:
-                if (
-                    skopeSliderGroup1.children[0].v_model == ""
-                    or skopeSliderGroup1.children[2].v_model == ""
-                ):
-                    return
-                else:
-                    skopeSlider1.v_model = [
-                        float(skopeSliderGroup1.children[0].v_model),
-                        float(skopeSliderGroup1.children[2].v_model),
-                    ]
-            newList = [
-                g
-                for g in list(
-                    self._ds.getXValues()[self._selection.getVSRules()[0][2]].values
-                )
-                if g >= skopeSlider1.v_model[0] and g <= skopeSlider1.v_model[1]
-            ]
-            with histogram1.batch_update():
-                histogram1.data[1].x = newList
-            if self._activate_histograms:
-                update_histograms_with_rules(skopeSlider1.v_model[0], skopeSlider1.v_model[1], 0)
-            if realTimeUpdateCheck1.v_model:
-                self._selection.getVSRules()[0][0] = float(
-                    deepcopy(skopeSlider1.v_model[0])
-                )
-                self._selection.getVSRules()[0][4] = float(
-                    deepcopy(skopeSlider1.v_model[1])
-                )
-                ourVSSkopeCard.children = gui_utils.createRuleCard(
-                    self._selection.ruleListToStr()
-                )
-                update_graph_with_rules()
-
-        def updateOnSkopeRule2Change(widget, event, data):  # 1194
-            if widget.__class__.__name__ == "RangeSlider":
-                skopeSliderGroup2.children[0].v_model = skopeSlider2.v_model[0]
-                skopeSliderGroup2.children[2].v_model = skopeSlider2.v_model[1]
-            newList = [
-                g
-                for g in list(
-                    self._ds.getXValues()[self._selection.getVSRules()[1][2]].values
-                )
-                if g >= skopeSlider2.v_model[0] and g <= skopeSlider2.v_model[1]
-            ]
-            with histogram2.batch_update():
-                histogram2.data[1].x = newList
-            if self._activate_histograms:
-                update_histograms_with_rules(skopeSlider2.v_model[0], skopeSlider2.v_model[1], 1)
-            if realTimeUpdateCheck2.v_model:
-                self._selection.getVSRules()[1][0] = float(
-                    deepcopy(skopeSlider2.v_model[0])
-                )
-                self._selection.getVSRules()[1][4] = float(
-                    deepcopy(skopeSlider2.v_model[1])
-                )
-                ourVSSkopeCard.children = gui_utils.createRuleCard(
-                    self._selection.ruleListToStr()
-                )
-                update_graph_with_rules()
-
-        def updateOnSkopeRule3Change(widget, event, data):
-            if widget.__class__.__name__ == "RangeSlider":
-                skopeSliderGroup3.children[0].v_model = skopeSlider3.v_model[0]
-                skopeSliderGroup3.children[2].v_model = skopeSlider3.v_model[1]
-            newList = [
-                g
-                for g in list(
-                    self._ds.getXValues()[self._selection.getVSRules()[2][2]].values
-                )
-                if g >= skopeSlider3.v_model[0] and g <= skopeSlider3.v_model[1]
-            ]
-            with histogram3.batch_update():
-                histogram3.data[1].x = newList
-            if self._activate_histograms:
-                update_histograms_with_rules(skopeSlider3.v_model[0], skopeSlider3.v_model[1], 2)
-            if realTimeUpdateCheck3.v_model:
-                self._selection.getVSRules()[2][0] = float(
-                    deepcopy(skopeSlider3.v_model[0])
-                )
-                self._selection.getVSRules()[2][4] = float(
-                    deepcopy(skopeSlider3.v_model[1])
-                )
-                ourVSSkopeCard.children = gui_utils.createRuleCard(
-                    self._selection.ruleListToStr()
-                )
-                update_graph_with_rules()
-
-        # cwhen the user validates the updates he makes on a rule
-        def onSkopeSlider1Change(*change):
-            a = deepcopy(float(skopeSlider1.v_model[0]))
-            b = deepcopy(float(skopeSlider1.v_model[1]))
-            self._selection.getVSRules()[0][0] = a
-            self._selection.getVSRules()[0][4] = b
-            ourVSSkopeCard.children = gui_utils.createRuleCard(
-                self._selection.ruleListToStr()
-            )
-            update_graph_with_rules()
-            updateSubModelsScores(None)
-
-        def onSkopeSlider2Change(*change):
-            self._selection.getVSRules()[1][0] = float(skopeSlider2.v_model[0])
-            self._selection.getVSRules()[1][4] = float(skopeSlider2.v_model[1])
-            ourVSSkopeCard.children = gui_utils.createRuleCard()
-            update_graph_with_rules()
-            updateSubModelsScores(None)
-
-        def onSkopeSlider3Change(*change):
-            self._selection.getVSRules()[2][0] = float(skopeSlider3.v_model[0])
-            self._selection.getVSRules()[2][4] = float(skopeSlider3.v_model[1])
-            ourVSSkopeCard.children = gui_utils.createRuleCard()
-            update_graph_with_rules()
-            updateSubModelsScores(None)
-
-        validateSkopeChangeBtn1.on_event("click", onSkopeSlider1Change)
-        validateSkopeChangeBtn2.on_event("click", onSkopeSlider2Change)
-        validateSkopeChangeBtn3.on_event("click", onSkopeSlider3Change)
-
-        def updateSubModelsScores(temp):
-            # TODO we should implement DATASET.length()
-            boolList = [True] * len(self._ds.getXValues())
-            for i in range(len(self._ds.getXValues())):
-                for j in range(len(self._selection.getVSRules())):
-                    colIndex = list(self._ds.getXValues().columns).index(
-                        self._selection.getVSRules()[j][2]
-                    )
-                    if (
-                        self._selection.getVSRules()[j][0]
-                        > self._ds.getXValues().iloc[i, colIndex]
-                        or self._ds.getXValues().iloc[i, colIndex]
-                        > self._selection.getVSRules()[j][4]
-                    ):
-                        boolList[i] = False
-            temp = [i for i in range(len(self._ds.getXValues())) if boolList[i]]
-
-            result_models = function_models(
-                self._ds.getXValues().iloc[temp, :],
-                self.atk.dataset.y.iloc[temp],
-                self.sub_models,
-            )
-            newScore = []
-            for i in range(len(self.sub_models)):
-                newScore.append(
-                    compute.function_score(
-                        self.atk.dataset.y.iloc[temp], result_models[i][-2]
-                    )
-                )
-            initialScore = compute.function_score(
-                self.atk.dataset.y.iloc[temp], self.atk.dataset.y_pred[temp]
-            )
-            if initialScore == 0:
-                delta = ["/"] * len(self.sub_models)
-            else:
-                delta = [
-                    round(100 * (initialScore - newScore[i]) / initialScore, 1)
-                    for i in range(len(self.sub_models))
-                ]
-
-            self._subModelsScores = []
-            for i in range(len(self.sub_models)):
-                self._subModelsScores.append(
-                    [
-                        newScore[i],
-                        initialScore,
-                        delta[i],
-                    ]
-                )
-
-            # to generate a string for the scores
-            # TODO: different score for the classification! Recall/precision!
-            def _scoreToStr(i):
-                if newScore[i] == 0:
-                    return (
-                        "MSE = "
-                        + str(newScore[i])
-                        + " (against "
-                        + str(initialScore)
-                        + ", +"
-                        + "∞"
-                        + "%)"
-                    )
-                else:
-                    if round(100 * (initialScore - newScore[i]) / initialScore, 1) > 0:
-                        return (
-                            "MSE = "
-                            + str(newScore[i])
-                            + " (against "
-                            + str(initialScore)
-                            + ", +"
-                            + str(
-                                round(
-                                    100 * (initialScore - newScore[i]) / initialScore, 1
-                                )
-                            )
-                            + "%)"
-                        )
-                    else:
-                        return (
-                            "MSE = "
-                            + str(newScore[i])
-                            + " (against "
-                            + str(initialScore)
-                            + ", "
-                            + str(
-                                round(
-                                    100 * (initialScore - newScore[i]) / initialScore, 1
-                                )
-                            )
-                            + "%)"
-                        )
-
-            for i in range(len(self.sub_models)):
-                subModelslides.children[i].children[0].children[
-                    1
-                ].children = _scoreToStr(i)
-
         # Called when the user clicks on the "add" button and computes the rules
         def updateSkopeRules(*sender):
             loadingModelsProgLinear.class_ = "d-flex"
@@ -1226,18 +1103,12 @@ class GUI:
                     ourESSkopeCard.children = gui_utils.createRuleCard(
                         self._selection.ruleListToStr(False)
                     )  # We want ES Rules printed
-                    updateSubModelsScores(self._selection.getIndexes())
+                    update_submodels_scores(self._selection.getIndexes())
 
                     accordionGrp1.children[0].disabled = False
                     accordionGrp2.children[0].disabled = False
                     in_accordion3_n.children[0].disabled = False
 
-            skopeSlider1.on_event("input", updateOnSkopeRule1Change)
-            skopeSlider2.on_event("input", updateOnSkopeRule2Change)
-            skopeSlider3.on_event("input", updateOnSkopeRule3Change)
-
-            skopeSliderGroup1.children[0].on_event("input", updateOnSkopeRule1Change)
-            skopeSliderGroup1.children[2].on_event("input", updateOnSkopeRule1Change)
 
             loadingModelsProgLinear.class_ = "d-none"
 
@@ -1248,7 +1119,7 @@ class GUI:
         def reinitSkopeRules(*b):
             self._selection.setVSRules(self._save_rules)
             updateSkopeRules(None)
-            updateSubModelsScores(None)
+            update_submodels_scores(None)
 
         reinitSkopeBtn.on_event("click", reinitSkopeRules)
 
@@ -1959,7 +1830,7 @@ class GUI:
                     self._selection.ruleListToStr()
                 )
                 update_graph_with_rules()
-                updateSubModelsScores(None)
+                update_submodels_scores(None)
 
             newValidateChange.on_event("click", newFunctionChangeValidate)
 

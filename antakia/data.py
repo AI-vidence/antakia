@@ -485,6 +485,9 @@ class Dataset:
     def __len__(self):
         return self._X.shape[0]
     
+    def get_length(self) -> int:
+        return self.__len__()
+    
     def get_variables(self) -> list:
         return self._variables
 

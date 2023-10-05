@@ -1293,10 +1293,81 @@ class RuleVariableRefiner :
                 ), # End ExpansionPanel 00 
             ] 
         )
+        # We vire the input event on the skopeSlider (0010001)
+        widget_at_address(self._widget, "0010001").on_event("input", skope_rule_changed)
+        # We core the click event on validateSkopeChangeBtn (010020)
+        widget_at_address(self._widget, "010020").on_event("click", skope_slider_changed)
 
+
+        def skope_slider_changed(*change):
+            # We retrive the skopeSlider (0010001) min value
+            self._gui.get_selection().getVSRules()[2][0] = float(widget_at_address(self._widget,"0010001").v_model[0])
+            # We retrive the skopeSlider (0010001) max value
+            self._gui.get_selection().getVSRules()[2][4] = float(widget_at_address(self._widget,"0010001").v_model[1])
+            # We redefined ourVSSkopeCard (30500101)
+            widget_at_address(self._gui.get_app_graph(), "30500101").children = create_rule_card()
+
+            self._gui.update_graph_with_rules()
+            self._gui.update_submodels_scores(None)
+
+        
 
         def get_widget(self) -> v.ExpansionPanels :
             return self._widget
+        
+        
+        def skope_rule_changed(widget, event, data):
+            # when the value of a slider is modified, the histograms and graphs are modified
+            if widget.__class__.__name__ == "RangeSlider":
+                # We set the text before the slider (0010000) to the min value of the slider
+                widget_at_address(self._widget, "0010000").v_model = widget_at_address(self._widget, "0010001").v_model[0]
+                # We set the text after the slider (0010002) to the min value of the slider
+                widget_at_address(self._widget, "0010002").v_model = widget_at_address(self._widget, "0010001").v_model[1]
+            else:
+                if (
+                    widget_at_address(self._widget, "0010000").v_model == ""
+                    or widget_at_address(self._widget, "0010002").v_model == ""
+                ):
+                    # If no value, we return
+                    return
+                else:
+                    # Inversely, we set the slider to the values after the texts
+                    widget_at_address(self._widget, "0010001").v_model = [
+                        float(widget_at_address(self._widget, "0010000").v_model), # min
+                        float(widget_at_address(self._widget, "0010002").v_model), # max
+                    ]
+            
+            new_list = [
+                g
+                for g in list(
+                    self._gui.get_dataset().getFullValues()[self._gui.get_selection().getVSRules()[0][2]].values
+                )
+                if g >= widget_at_address(self._widget, "0010001").v_model[0] and g <= widget_at_address(self._widget, "0010001").v_model[1]
+            ]
+
+            # We updat the histogram (001001)
+            with widget_at_address(self._widget, "001001").batch_update():
+                widget_at_address(self._widget, "001001").data[1].x = new_list
+            
+            # TODO : what is _activate_histograms
+            if self._activate_histograms:
+                self._gui.update_histograms_with_rules(widget_at_address(self._widget, "0010001").v_model[0], widget_at_address(self._widget, "0010001").v_model[1], 0)
+
+            # If realTimeUpdateCheck (0010021) is checked :
+            if widget_at_address(self._widget, "0010021").v_model:
+                # We update rules with the skopeSlider (0010001) values  
+                self._selection.getVSRules()[0][0] = float(
+                    deepcopy(widget_at_address(self._widget, "0010021").v_model[0]) # min
+                )
+                self._selection.getVSRules()[0][4] = float(
+                    deepcopy(widget_at_address(self._widget, "0010021").v_model[1]) # max
+                )
+                widget_at_address(self._gui.get_app_graph(), "30500101").children = create_rule_card(
+                    self._selection.ruleListToStr()
+                ) 
+                self._gui.update_histograms_with_rules()
+
+        
 
 
         def get_class_selector(self, min : int = 1, max : int = -1, fig_size :int =700) -> v.Layout :

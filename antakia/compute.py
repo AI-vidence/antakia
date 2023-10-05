@@ -261,13 +261,6 @@ def computeProjection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dimen
     # logger.debug(f"computeProjection: returns a {type(projValues)} with {projValues.shape} ({dimension}D) in {DimReducMethod.getBaseSpaceAsStr(baseSpace)} baseSpace")
     
     return projValues
-       
-        
-
-def function_score(y, y_chap):
-    y = np.array(y)
-    y_chap = np.array(y_chap)
-    return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
 
 @staticmethod
 def createBeeswarm(ds : Dataset, xds : ExplanationDataset, explainationMth : int, variableIndex : int) -> Tuple: #255

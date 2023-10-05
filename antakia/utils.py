@@ -253,16 +253,25 @@ def fromRules(df, rules_list):
     return df
 
 
-def _function_models(X, y, sub_models):
+def score(y, y_chap):
+    y = np.array(y)
+    y_chap = np.array(y_chap)
+    return round(np.sqrt(sum((y - y_chap) ** 2) / len(y)), 3)
+
+
+def models_scores_to_str(X: pd.DataFrame, y: pd.Series, models: list) -> list:
+    """
+    Returns  a list with a string indicating scores of the models
+    """
     # function that returns a list with the name/score/perf of the different models imported for a given X and y
-    models_liste = []
-    for i in range(len(sub_models)):
+    list = []
+    for i in range(len(models)):
         l = []
-        sub_models[i].fit(X, y)
-        l.append(sub_models[i].__class__.__name__)
-        l.append(str(round(sub_models[i].score(X, y), 3)))
+        models[i].fit(X, y)
+        l.append(models[i].__class__.__name__)
+        l.append(str(round(models[i].score(X, y), 3)))
         l.append("MSE")
-        l.append(sub_models[i].predict(X))
-        l.append(sub_models[i])
-        models_liste.append(l)
-    return models_liste
+        l.append(models[i].predict(X))
+        l.append(models[i])
+        list.append(l)
+    return list
