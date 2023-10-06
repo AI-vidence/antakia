@@ -236,7 +236,7 @@ class PaCMAPDimReduc(DimReducMethod):
 
 # --------------------------------------------------------------------------
 
-def computeProjection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dimension : int, **kwargs) -> pd.DataFrame:
+def compute_projection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dimension : int, **kwargs) -> pd.DataFrame:
     
     if not DimReducMethod.isValidDimReducType(dimReducMethod) or not DimReducMethod.isValidDimNumber(dimension):
         raise ValueError("Cannot compute proj method #", dimReducMethod, " in ", dimension, " dimensions")

@@ -156,14 +156,14 @@ class ExplanationMethod(LongTask):
         Returns:
             str: a Topic for pubsub
         """
-        return ExplanationMethod.getExplanationMethodAsStr(self._explainationType)
+        return ExplanationMethod.explain_method_as_str(self._explainationType)
 
     @staticmethod
     def getExplanationMethodsAsList() -> list:
         return [ExplanationMethod.SHAP, ExplanationMethod.LIME]
 
     @staticmethod
-    def getExplanationMethodAsStr(type: int) -> str:
+    def explain_method_as_str(type: int) -> str:
         if type == ExplanationMethod.SHAP:
             return "SHAP"
         elif type == ExplanationMethod.LIME:
@@ -272,7 +272,7 @@ class DimReducMethod(LongTask):
             raise ValueError(baseSpace, " is a bad base space")
 
     @staticmethod
-    def getDimReducMethodAsStr(type: int) -> str:
+    def dimreducmethod_as_str(type: int) -> str:
         if type == DimReducMethod.PCA:
             return "PCA"
         elif type == DimReducMethod.TSNE:
@@ -502,7 +502,7 @@ class Dataset:
     def get_var_values(self, variable: Variable) -> pd.Series:
         return self._X[variable.getSymbol()]
 
-    def getFullValues(self, flavour: int = REGULAR) -> pd.DataFrame:
+    def get_full_values(self, flavour: int = REGULAR) -> pd.DataFrame:
         """
         Access non projected values for the dataset as a DataFrame.
 
@@ -535,7 +535,7 @@ class Dataset:
         """
         return flavour == Dataset.TARGET or flavour == Dataset.PREDICTED
 
-    def getProjValues(self, dimReducMethodType: int, dimension: int) -> pd.DataFrame:
+    def proj_values(self, dimReducMethodType: int, dimension: int) -> pd.DataFrame:
         """Returns de projected X values using a dimensionality reduction method and target dimension (2 or 3)
 
         Args:
@@ -564,7 +564,7 @@ class Dataset:
 
         return df
 
-    def setProjValues(
+    def set_proj_values(
         self, dimReducMethodType: int, dimension: int, values: pd.DataFrame
     ):
         """Set X_proj alues for this dimensionality reduction and  dimension."""
@@ -589,7 +589,7 @@ class Dataset:
         )
         self._X_proj[dimReducMethodType][dimension] = values
 
-    def getYValues(self, flavour: int = TARGET) -> pd.Series:
+    def y_values(self, flavour: int = TARGET) -> pd.Series:
         """
         Returns the y values of the dataset as a Series, depending on the flavour.
         """
@@ -726,7 +726,7 @@ class ExplanationDataset:
             )
 
     @staticmethod
-    def getOriginByStr(originValue: int) -> str:
+    def origin_by_str(originValue: int) -> str:
         if originValue == ExplanationDataset.IMPORTED:
             return "imported"
         elif originValue == ExplanationDataset.COMPUTED:
@@ -738,7 +738,7 @@ class ExplanationDataset:
         else:
             raise ValueError(originValue, " is a bad origin type")
 
-    def getFullValues(self, explainationMethodType: int, origin: int = ANY):
+    def full_values(self, explainationMethodType: int, origin: int = ANY):
         """Looks for imported or computed explaned values with no dimension reduction, hence "FullValues"
         Parameters:
         explainationMethodType = see ExplanationMethod integer constants
@@ -784,7 +784,7 @@ class ExplanationDataset:
         # logger.debug(f"XDS.getFullValues : we return {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} {ExplanationDataset.getOriginByStr(origin)} values : {simpleType(df)}")
         return df
 
-    def getProjValues(
+    def proj_values(
         self, explainationMethodType: int, dimReducMethodType: int, dimension: int
     ) -> pd.DataFrame:
         """
@@ -842,7 +842,7 @@ class ExplanationDataset:
         # logger.debug(f"XDS.getProjValues : we return {simpleType(df)}")
         return df
 
-    def setFullValues(
+    def set_full_values(
         self, explainationMethodType: int, values: pd.DataFrame, origin: int
     ):
         """
@@ -871,7 +871,7 @@ class ExplanationDataset:
 
         ourStore[origin] = values
 
-    def setProjValues(
+    def set_proj_values(
         self,
         explainationMethodType: int,
         dimReducMethodType: int,
@@ -915,12 +915,12 @@ class ExplanationDataset:
             ourStore[dimReducMethodType][dimension] = {}
 
         logger.debug(
-            f"XDS.setProjValues : we store {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)} with {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} proj in {dimension} dim -> {simpleType(values)}"
+            f"XDS.setProjValues : we store {ExplanationMethod.explain_method_as_str(explainationMethodType)} with {DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)} proj in {dimension} dim -> {simpleType(values)}"
         )
 
         ourStore[dimReducMethodType][dimension] = values
 
-    def isExplanationAvailable(self, explainationMethodType: int, origin: int) -> bool:
+    def is_explanation_available(self, explainationMethodType: int, origin: int) -> bool:
         """Tells wether we have this explanation method values or not for this origin"""
         if not ExplanationMethod.isValidExplanationType(explainationMethodType):
             raise ValueError(
@@ -936,9 +936,9 @@ class ExplanationDataset:
             storedValues = self._limeValues
 
         if origin == ExplanationDataset.ANY:
-            return self.isExplanationAvailable(
+            return self.is_explanation_available(
                 ExplanationDataset.IMPORTED
-            ) or self.isExplanationAvailable(ExplanationDataset.COMPUTED)
+            ) or self.is_explanation_available(ExplanationDataset.COMPUTED)
         else:
             if origin in storedValues and storedValues[origin] is not None:
                 # logger.debug(f"isExplanationAvailable : yes we have {ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)}")
@@ -966,7 +966,7 @@ class ExplanationDataset:
             and explainDict[dimReducMethodType] is not None
         ):
             text += (
-                ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)
+                ExplanationMethod.explain_method_as_str(explainationMethodType)
                 + " values dict has "
                 + DimReducMethod.getDimReducMethodAsStr(dimReducMethodType)
                 + " projected values :\n"
@@ -1023,7 +1023,7 @@ class ExplanationDataset:
 
         if explainDict is None or len(explainDict) == 0:
             text += (
-                ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)
+                ExplanationMethod.explain_method_as_str(explainationMethodType)
                 + " values dict is empty\n"
             )
         else:
@@ -1032,7 +1032,7 @@ class ExplanationDataset:
                 and explainDict[ExplanationDataset.IMPORTED] is not None
             ):
                 text += (
-                    ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)
+                    ExplanationMethod.explain_method_as_str(explainationMethodType)
                     + " values dict has imported values :\n"
                 )
                 text += (
@@ -1048,7 +1048,7 @@ class ExplanationDataset:
                 and explainDict[ExplanationDataset.COMPUTED] is not None
             ):
                 text += (
-                    ExplanationMethod.getExplanationMethodAsStr(explainationMethodType)
+                    ExplanationMethod.explain_method_as_str(explainationMethodType)
                     + " values dict has computed values :\n"
                 )
                 text += (

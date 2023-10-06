@@ -26,7 +26,7 @@ from antakia.compute import (
     DimReducMethod,
     ExplanationMethod,
     computeExplanations,
-    computeProjection
+    compute_projection
 )
 from antakia.data import (  # noqa: E402
     Dataset,
@@ -221,7 +221,7 @@ class GUI:
         self._activate_histograms = False  # to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
         
         self._histogramBinNum = 50
-        self._autoClusterRegionColors = (
+        self._auto_colors = (
             []
         )  # the color of the Regions created by the automatic dyadic clustering
         self._dyadicClusteringLabels = None  # to keep track of the labels from the automatic-clustering, used for the colors !
@@ -756,42 +756,38 @@ class GUI:
                     + str(self._selection.getESScore()[2])
                 ]
                 widget_at_address(self._app_graph, "30500111").children = create_rule_card(self._selection.ruleListToStr(False))  # We want ES Rules printed
-                update_submodels_scores(self._selection.getIndexes())
+                self.update_submodels_scores(self._selection.getIndexes())
 
+        # We retrieve loadingModelsProgLinear (30600)
+        widget_at_address(self._app_graph, "30600").class_ = "d-none"
 
-
-                ## ===============
-                ## J'en suis là
-                ## ===============
-
-
-        loadingModelsProgLinear.class_ = "d-none"
-
+        # TODO : understand what it's for
         self._save_rules = deepcopy(self._selection.getVSRules())
 
-        changeMarkersColor(None)
+        # TODO : this function is inside display_GUI. Should I make it an instance method ? Is it ok with event management ?
+        change_color(None)
 
     def check_explanation(self):
         """Ensure ES computation of explanations have been done"""
 
-        if not self._xds.isExplanationAvailable(
+        if not self._xds.is_explanation_available(
             self._explanationES[0], self._explanationES[1]
         ):
             if self._explanationES[1] == ExplanationDataset.IMPORTED:
                 raise ValueError(
                     "You asked for an imported explanation but you did not import it"
                 )
-            self._xds.setFullValues(
+            self._xds.set_full_values(
                 self._explanationES[0],
                 computeExplanations(
-                    self._ds.getFullValues(Dataset.REGULAR),
+                    self._ds.get_full_values(Dataset.REGULAR),
                     self._model,
                     self._explanationES[0],
                 ),
                 ExplanationDataset.COMPUTED,
             )
             logger.debug(
-                f"check_explanation : we had to compute a new {ExplanationDataset.getOriginByStr(self._explanationES[1])} {ExplanationMethod.getExplanationMethodAsStr(self._explanationES[0])} values"
+                f"check_explanation : we had to compute a new {ExplanationDataset.getOriginBorigin_by_stryStr(self._explanationES[1])} {ExplanationMethod.explain_method_as_str(self._explanationES[0])} values"
             )
             self.redraw_graph(GUI.ES)
         else:
@@ -810,73 +806,73 @@ class GUI:
         if side not in [GUI.VS, GUI.ES]:
             raise ValueError(side, " is an invalid side")
 
-        baseSpace = projType = dim = X = params = df = sideStr = None
+        baseSpace = projType = dim = X = params = df = side_str = None
 
         # We prepare values before calling computeProjection in a generic way
         if side == GUI.VS:
             baseSpace = DimReducMethod.VS
-            X = self._ds.getFullValues(Dataset.REGULAR)
+            X = self._ds.get_full_values(Dataset.REGULAR)
             projType = self._projectionVS[0]
             dim = self._projectionVS[1]
-            projValues = self._ds.getProjValues(projType, dim)
-            sideStr = "VS"
+            projValues = self._ds.proj_values(projType, dim)
+            side_str = "VS"
         else:
             if self._explanationES[0] == ExplanationMethod.SHAP:
                 baseSpace = DimReducMethod.ES_SHAP
             else:
                 baseSpace = DimReducMethod.ES_LIME
-            X = self._xds.getFullValues(self._explanationES[0], self._explanationES[1])
+            X = self._xds.full_values(self._explanationES[0], self._explanationES[1])
             projType = self._projectionES[0]
             dim = self._projectionES[1]
-            projValues = self._xds.getProjValues(
+            projValues = self._xds.proj_values(
                 self._explanationES[0], projType, self._projectionES[1]
             )
-            sideStr = "ES"
+            side_str = "ES"
 
         newPacMAPParams = False
         if projType == DimReducMethod.PaCMAP:
             params = {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2}
             if (
-                self._paCMAPparams["current"][sideStr]["n_neighbors"]
-                != self._paCMAPparams["previous"][sideStr]["n_neighbors"]
+                self._paCMAPparams["current"][side_str]["n_neighbors"]
+                != self._paCMAPparams["previous"][side_str]["n_neighbors"]
             ):
-                params["n_neighbors"] = self._paCMAPparams["current"][sideStr][
+                params["n_neighbors"] = self._paCMAPparams["current"][side_str][
                     "n_neighbors"
                 ]
-                self._paCMAPparams["previous"][sideStr]["n_neighbors"] = params[
+                self._paCMAPparams["previous"][side_str]["n_neighbors"] = params[
                     "n_neighbors"
                 ]  # We store the new "previous" value
                 newPacMAPParams = True
             if (
-                self._paCMAPparams["current"][sideStr]["MN_ratio"]
-                != self._paCMAPparams["previous"][sideStr]["MN_ratio"]
+                self._paCMAPparams["current"][side_str]["MN_ratio"]
+                != self._paCMAPparams["previous"][side_str]["MN_ratio"]
             ):
-                params["MN_ratio"] = self._paCMAPparams["current"][sideStr]["MN_ratio"]
-                self._paCMAPparams["previous"][sideStr]["MN_ratio"] = params[
+                params["MN_ratio"] = self._paCMAPparams["current"][side_str]["MN_ratio"]
+                self._paCMAPparams["previous"][side_str]["MN_ratio"] = params[
                     "MN_ratio"
                 ]  # We store the new "previous" value
                 newPacMAPParams = True
             if (
-                self._paCMAPparams["current"][sideStr]["FP_ratio"]
-                != self._paCMAPparams["previous"][sideStr]["FP_ratio"]
+                self._paCMAPparams["current"][side_str]["FP_ratio"]
+                != self._paCMAPparams["previous"][side_str]["FP_ratio"]
             ):
-                params["FP_ratio"] = self._paCMAPparams["current"][sideStr]["FP_ratio"]
-                self._paCMAPparams["previous"][sideStr]["FP_ratio"] = params[
+                params["FP_ratio"] = self._paCMAPparams["current"][side_str]["FP_ratio"]
+                self._paCMAPparams["previous"][side_str]["FP_ratio"] = params[
                     "FP_ratio"
                 ]  # We store the new "previous" value
                 newPacMAPParams = True
             logger.debug(
-                f"check_projection({sideStr}) : previous params = {self._paCMAPparams['previous'][sideStr]['n_neighbors']}, {self._paCMAPparams['previous'][sideStr]['MN_ratio']}, {self._paCMAPparams['previous'][sideStr]['FP_ratio']}"
+                f"check_projection({side_str}) : previous params = {self._paCMAPparams['previous'][side_str]['n_neighbors']}, {self._paCMAPparams['previous'][side_str]['MN_ratio']}, {self._paCMAPparams['previous'][side_str]['FP_ratio']}"
             )
             logger.debug(
-                f"check_projection({sideStr}) : current params = {self._paCMAPparams['current'][sideStr]['n_neighbors']}, {self._paCMAPparams['current'][sideStr]['MN_ratio']}, {self._paCMAPparams['current'][sideStr]['FP_ratio']}"
+                f"check_projection({side_str}) : current params = {self._paCMAPparams['current'][side_str]['n_neighbors']}, {self._paCMAPparams['current'][side_str]['MN_ratio']}, {self._paCMAPparams['current'][side_str]['FP_ratio']}"
             )
 
         if newPacMAPParams:
             logger.debug(
-                f"check_projection({sideStr}) : new PaCMAP proj with new params['n_neighbors']={params['n_neighbors']}, params['MN_ratio']={params['MN_ratio']}, params['FP_ratio']={params['FP_ratio']}"
+                f"check_projection({side_str}) : new PaCMAP proj with new params['n_neighbors']={params['n_neighbors']}, params['MN_ratio']={params['MN_ratio']}, params['FP_ratio']={params['FP_ratio']}"
             )
-            df = computeProjection(
+            df = compute_projection(
                 baseSpace,
                 X,
                 projType,
@@ -887,18 +883,18 @@ class GUI:
             )
         elif projValues is None:
             logger.debug(
-                f"check_projection({sideStr}) : new {DimReducMethod.getDimReducMethodAsStr(projType)} projection"
+                f"check_projection({side_str}) : new {DimReducMethod.getDimReducMethodAsStr(projType)} projection"
             )
-            df = computeProjection(baseSpace, X, projType, dim)
+            df = compute_projection(baseSpace, X, projType, dim)
         else:
-            logger.debug(f"check_projection({sideStr}) : nothing to do")
+            logger.debug(f"check_projection({side_str}) : nothing to do")
 
         # We set the new projected values
         if df is not None:
             if side == GUI.VS:
-                self._ds.setProjValues(projType, dim, df)
+                self._ds.set_proj_values(projType, dim, df)
             else:
-                self._xds.setProjValues(self._explanationES[0], projType, dim, df)
+                self._xds.set_proj_values(self._explanationES[0], projType, dim, df)
             self.redraw_graph(side)
 
     def redraw_both_graphs(self):
@@ -929,9 +925,9 @@ class GUI:
             sideStr = "ES"
             dim = self._projectionES[1]
             projType = self._projectionES[0]
-            projValues = self._xds.getProjValues(self._explanationES[0], projType, dim)
+            projValues = self._xds.proj_values(self._explanationES[0], projType, dim)
             figure = widget_at_address(self._app_graph, "2011")
-            explainStr = f"{ExplanationDataset.getOriginByStr(self._explanationES[1])} {ExplanationMethod.getExplanationMethodAsStr(self._explanationES[0])} with"
+            explainStr = f"{ExplanationDataset.origin_by_str(self._explanationES[1])} {ExplanationMethod.explain_method_as_str(self._explanationES[0])} with"
 
         if projValues is not None and figure is not None:
             with figure.batch_update():
@@ -944,7 +940,7 @@ class GUI:
             logger.debug(f"updateFigure({sideStr}) : figure updated")
         else:
             logger.debug(
-                f"updateFigure({sideStr}) : don't have the proper proj for {explainStr} {DimReducMethod.getDimReducMethodAsStr(projType)} in {dim} dimension"
+                f"updateFigure({sideStr}) : don't have the proper proj for {explainStr} {DimReducMethod.dimreducmethod_as_str(projType)} in {dim} dimension"
             )
 
     def get_selection(self):
@@ -953,10 +949,10 @@ class GUI:
         return self._selection
 
     def __repr__(self):
-        self.display_GUI()
+        self.display_gui()
         return ""
 
-    def display_GUI(self):
+    def display_gui(self):
         """ Renders the interface
         """
         display(self._out)
@@ -1003,18 +999,18 @@ class GUI:
             choice = self._app_graph.children[1].children[1].children[1].v_model
             self._color = None
             if choice == "y":
-                self._color = self._ds.getYValues(Dataset.REGULAR)
+                self._color = self._ds.y_values(Dataset.REGULAR)
             elif choice == "y^":
-                self._color = self._ds.getYValues(Dataset.PREDICTED)
+                self._color = self._ds.y_values(Dataset.PREDICTED)
             elif choice == "current selection":
                 self._color = ["grey"] * len(self._ds.getFullValues(Dataset.REGULAR))
                 for i in range(len(self._selection.getIndexes())):
                     color[self._selection.getIndexes()[i]] = "blue"
             elif choice == "residual":
-                self._color = self._ds.getYValues(Dataset.REGULAR) - self._ds.getYValues(
+                self._color = self._ds.y_values(Dataset.REGULAR) - self._ds.y_values(
                     Dataset.PREDICTED
                 )
-                self._color = [abs(i) for i in color]
+                self._color = [abs(i) for i in self._color]
             elif choice == "regions":
                 self._color = [0] * len(self._ds.getFullValues(Dataset.REGULAR))
                 for i in range(len(self._ds.getFullValues(Dataset.REGULAR))):
@@ -1029,7 +1025,7 @@ class GUI:
                             if i in self._regions[j].getIndexes():
                                 self._color[i] = "grey"
             elif choice == "auto":
-                self._color = self._autoClusterRegionColors
+                self._color = self._auto_colors
 
             # Let's redraw
             self._redraw_both_graphs()
@@ -1077,7 +1073,7 @@ class GUI:
                     # TODO : define selected sub_model
                     pass
         
-        # We retrieve the SlideGroup (306010)
+        # We wire the click events of the SlideGroup(306010) children
         for slide_item in widget_at_address(self._app_graph, "306010").children :
             slide_item.on_event("click", select_submodel)
 
@@ -1091,129 +1087,42 @@ class GUI:
         ]
 
         # Called when the user clicks on the "add" button and computes the rules
-        
-
         def reinitSkopeRules(*b):
             self._selection.setVSRules(self._save_rules)
-            update_skope_rules(None)
-            update_submodels_scores(None)
+            self.update_skope_rules(None)
+            self.update_submodels_scores(None)
 
-        reinitSkopeBtn.on_event("click", reinitSkopeRules)
+        # We wire the click event on the reinitSkopeBtn (3050001)
+        widget_at_address(self._app_graph, "3050001").on_event("click", reinitSkopeRules)
 
-        # Here to see the values ​​of the selected points (VZ and ES)
-        out_selec = v.Layout(
-            style_="min-width: 47%; max-width: 47%",
-            children=[
-                v.Html(
-                    tag="h4",
-                    children=["Select points on the figure to see their values ​​here"],
-                )
-            ],
-        )
 
-        out_selec_SHAP = v.Layout(
-            style_="min-width: 47%; max-width: 47%",
-            children=[
-                v.Html(
-                    tag="h4",
-                    children=[
-                        "Select points on the figure to see their SHAP values ​​here"
-                    ],
-                )
-            ],
-        )
 
-        out_selec_all = v.Alert(
-            max_height="400px",
-            style_="overflow: auto",
-            elevation="0",
-            children=[
-                v.Row(
-                    class_="d-flex flex-row justify-space-between",
-                    children=[
-                        out_selec,
-                        v.Divider(class_="ma-2", vertical=True),
-                        out_selec_SHAP,
-                    ],
-                ),
-            ],
-        )
-
-        # To see the data of the current selection
-        out_accordion = v.ExpansionPanels(
-            class_="ma-2",
-            children=[
-                v.ExpansionPanel(
-                    children=[
-                        v.ExpansionPanelHeader(children=["Data selected"]),
-                        v.ExpansionPanelContent(children=[out_selec_all]),
-                    ]
-                )
-            ],
-        )
-
-        findClusterBtn = v.Btn(
-            class_="ma-1 mt-2 mb-0",
-            elevation="2",
-            children=[v.Icon(children=["mdi-magnify"]), "Find clusters"],
-        )
-
-        clustersSlider = v.Slider(
-            style_="width : 30%",
-            class_="ma-3 mb-0",
-            min=2,
-            max=20,
-            step=1,
-            v_model=3,
-            disabled=True,
-        )
-
-        clustersSliderTxt = v.Html(
-            tag="h3",
-            class_="ma-3 mb-0",
-            children=["Number of clusters " + str(clustersSlider.v_model)],
-        )
-
-        def clusterSliderGrp(*b):
-            clustersSliderTxt.children = [
-                "Number of clusters " + str(clustersSlider.v_model)
+        def cluster_number_changed(*b):
+            # TODO : the slider must be transmitted in *b : we shoudl use it this way
+            # We set the clustersSliderTxt to the current clustersSlider value
+            widget_at_address(self._app_graph, "30423").children = [
+                "Number of clusters " + str(widget_at_address(self._app_graph, "30422").v_model)
             ]
 
-        clustersSlider.on_event("input", clusterSliderGrp)
+        # We wire the input event on the clustersSlider (30422)
+        widget_at_address(self._app_graph, "30422").on_event("input", cluster_number_changed)
 
-        clustersNumberCheck = v.Checkbox(
-            v_model=True, label="Optimal number of clusters :", class_="ma-3"
-        )
+        def cluster_check_changed(*b):
+            # TODO : the clusterCheck must be transmitted in *b : we shoudl use it this way
+            # clusterSlider(30422) visibility is linked to clusterCheck(30421)
+            widget_at_address(self._app_graph, "30422").disabled = widget_at_address(self._app_graph, "30421").v_model
 
-        def clustersNumberCheckChange(*b):
-            clustersSlider.disabled = clustersNumberCheck.v_model
+        widget_at_address(self._app_graph, "30421").on_event("change", cluster_check_changed)
 
-        clustersNumberCheck.on_event("change", clustersNumberCheckChange)
-
-        clusterGrp = v.Layout(
-            class_="d-flex flex-row",
-            children=[
-                findClusterBtn,
-                clustersNumberCheck,
-                clustersSlider,
-                clustersSliderTxt,
-            ],
-        )
-
+        # Let's create an empty / dummy cluster_results_table :
         new_df = pd.DataFrame([], columns=["Region #", "Number of points"])
         columns = [{"text": c, "sortable": True, "value": c} for c in new_df.columns]
-        clusterResultsTable = v.DataTable(
-            class_="w-100",
-            style_="width : 100%",
-            v_model=[],
-            show_select=False,
-            headers=columns,
-            explanationsMenuDict=new_df.to_dict("records"),
-            item_value="Region #",
-            item_key="Region #",
-            hide_default_footer=True,
-        )
-        clusterResults = v.Row(
+
+        # We insert the cluster_results_table in our v.Row clusterResults (30442)
+
+        widget_at_address(self._app_graph, "3044")
+
+        widget_at_address(self._app_graph, "3044").v.Row(
             children=[
                 v.Layout(
                     class_="flex-grow-0 flex-shrink-0",
@@ -1221,7 +1130,17 @@ class GUI:
                 ),
                 v.Layout(
                     class_="flex-grow-1 flex-shrink-0",
-                    children=[clusterResultsTable],
+                    children=[v.DataTable(
+                        class_="w-100",
+                        style_="width : 100%",
+                        v_model=[],
+                        show_select=False,
+                        headers=columns,
+                        explanationsMenuDict=new_df.to_dict("records"),
+                        item_value="Region #",
+                        item_key="Region #",
+                        hide_default_footer=True,
+                    )],
                 ),
             ],
         )
