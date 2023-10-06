@@ -411,6 +411,8 @@ class Dataset:
         Target values
     _y_pred : pandas.Series
         The Serie containing the predictions of the model. Computed at construction time.
+    _has_geo : bool
+        if there are a longitude and a latitude column
     """
 
     # Class attributes for X values
@@ -464,14 +466,20 @@ class Dataset:
         self._X_scaled.columns = X.columns
 
         self._variables = []
+        _geo_vars = 0
+        self._has_geo = False
         for col in self._X.columns:
             var = Variable(col.title, col.dtype)
             var._explained = False  # since we're un Dataset constructor
             if col.title in ["longitude", "Longitude", "Long", "long"]:
-                var._lon = True            
+                var._lon = True
+                _geo_vars += 1 
             if col.title in ["latitude", "Latitude", "Lat", "lat"]:
                 var._lon = True
+                _geo_vars += 1
             self._variables.append(var)
+        if _geo_vars == 2 :
+            self._has_geo = True
 
 
     def __str__(self):
@@ -613,33 +621,22 @@ class Dataset:
     def getShape(self):
         """Returns the shape of the used dataset"""
         return self._X.shape
+    
+    def has_geo(self) -> bool:
+        return self._has_geo
+    
+    def get_geo_variables(self) -> list:
+        if not self.has_geo():
+            return None
+        geo_list = [None, None]
+        for v in self._variables:
+            if v._lat:
+                geo_list[0] = v
+            if v._lon:
+                geo_list[1] = v
+        return geo_list
 
-    def setLatLon(self, lat: str, long: str):
-        """
-        Sets the longitude and latitude columns of the dataset.
 
-        Parameters
-        ---------
-        long : str
-            The name of the longitude column.
-        lat : str
-            The name of the latitude column.
-        """
-        self._lat = lat
-        self._long = long
-
-    def getLatLon(self) -> (float, float):
-        """
-        Returns the longitude and latitude columns of the dataset.
-
-        Returns
-        -------
-        lat : str
-            The name of the latitude column.
-        long : str
-            The name of the longitude column.
-        """
-        return (self._lat, self._long)
 
 
 # =============================================================================

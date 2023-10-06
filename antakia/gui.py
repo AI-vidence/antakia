@@ -26,8 +26,7 @@ from antakia.compute import (
     DimReducMethod,
     ExplanationMethod,
     computeExplanations,
-    computeProjection,
-    createBeeswarm,
+    computeProjection
 )
 from antakia.data import (  # noqa: E402
     Dataset,
@@ -50,7 +49,9 @@ from antakia.gui_utils import (
     createMenuBar,
     wrap_in_a_tooltip,
     add_model_slideItem,
-    RuleVariableRefiner
+    RuleVariableRefiner,
+    get_beeswarm_values
+    create_rule_card,
 )
 
 
@@ -96,6 +97,7 @@ class GUI:
     _app_graph : a graph of nested Widgets (widgets.VBox)
     _color : Pandas Series : color for each Y point
     _opacity : float
+    _fig_size : int
     _paCMAPparams = dictionnary containing the parameters for the PaCMAP projection
         nested keys are "previous" / "current", then "VS" / "ES", then "n_neighbors" / "MN_ratio" / "FP_ratio"
     
@@ -193,6 +195,7 @@ class GUI:
 
         self._out = widgets.Output()  # Ipwidgets output widget
         self._app_graph = None
+        self._fig_size = 200
         self._color = None
         self._opacity = 1.0
         self._paCMAPparams = {
@@ -211,9 +214,6 @@ class GUI:
         self._regionsTable = None
         self._regions = []  # a list of Potato objects
         # TODO : understand the following
-        self._featureClass1 = None
-        self._featureClass2 = None
-        self._featureClass3 = None
         self._save_rules = None  # useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
         self._otherColumns = (
             None  # to keep track of the columns that are not used in the rules !
@@ -299,7 +299,7 @@ class GUI:
                     ]
                 )
 
-            def _scoreToStr(i):
+            def _score_to_str(i):
                 if new_score[i] == 0:
                     return (
                         "MSE = "
@@ -341,9 +341,11 @@ class GUI:
                         )
 
             for i in range(len(self.sub_models)):
-                subModelslides.children[i].children[0].children[
+                # We retrieve subModelslides (30601)
+                widget_at_address(self._app_graph, "30601").children[i].children[0].children[
                     1
-                ].children = _scoreToStr(i)
+                ].children = _score_to_str(i)
+
     
     def update_graph_with_rules(self):
             """ Redraws both graph with points in blue or grey depending on the rules
@@ -457,6 +459,317 @@ class GUI:
             ]
 
             self._explanationSelect.items = newItems
+
+    def update_skope_rules(self, *sender):
+        # TODO : We should deal with RuleVariableRefiner
+
+        # We retrieve loadingModelsProgLinear (30600)
+        widget_at_address(self._app_graph, "30600").class_ = "d-flex"
+
+        # TODO : understand what it's for
+        self._activate_histograms = True
+
+        if self._selection.getYMaskList() is None:
+            # We retrieve ourVSSkopeCard (30500101) and ourESSkopeCard (30500111)
+            widget_at_address(self._app_graph, "30500101").children = widget_at_address(self._app_graph, "30500111").children = [widgets.HTML("Please select points")]
+        elif (
+            0 not in self._selection.getYMaskList()
+            or 1 not in self._selection.getYMaskList()
+        ):
+            # We retrieve ourVSSkopeCard (30500101) and ourESSkopeCard (30500111)
+            widget_at_address(self._app_graph, "30500101").children = widget_at_address(self._app_graph, "30500111").children = [widgets.HTML("You can't choose everything/nothing !")]
+        else:
+            # TODO : understand what it's for
+            self._selection.apply_skope_rules(0.2, 0.2)
+            # If no rule for one of the two, nothing is displayed
+            if self._selection.has_rules_defined() is False:
+                # We retrieve ourVSSkopeCard (30500101) and ourESSkopeCard (30500111)
+                widget_at_address(self._app_graph, "30500101").children = widget_at_address(self._app_graph, "30500111").children = [widgets.HTML("No rule found")]
+            # Otherwise we display the rules
+            else:
+                # We retrieve ourVSSkopeText v.Html(30501003)
+                widget_at_address(self._app_graph, "30501003").children = [
+                    "p = "
+                    + str(self._selection.getVSScore()[0])
+                    + "%"
+                    + " r = "
+                    + str(self._selection.getVSScore()[1])
+                    + "%"
+                    + " ext. of the tree = "
+                    + str(self._selection.getVSScore()[2])
+                ]
+
+                # There we find the values ​​of the skope to use them for the sliders
+                columns_rules = [
+                    self._selection.getVSRules()[i][2]
+                    for i in range(len(self._selection.getVSRules()))
+                ]
+                new_columns_rules = []
+                for i in range(len(columns_rules)):
+                    if columns_rules[i] not in new_columns_rules:
+                        new_columns_rules.append(columns_rules[i])
+                columns_rules = new_columns_rules
+
+                other_columns = [
+                    g
+                    for g in self._ds.getXValues().columns
+                    if g not in columns_rules
+                ]
+                
+                # We retrieve addAnotherFeatureWgt (305021)
+                widget_at_address(self._app_graph, "305021").explanationsMenuDict = other_columns
+                widget_at_address(self._app_graph, "305021").v_model = other_columns[0]
+                # TODO : unclear for me :
+                # self._selection.getVSRules() = self._selection.getVSRules()
+
+                # We retrieve ourVSSkopeCard (30500101)
+                widget_at_address(self._app_graph, "30500101").children = gui_utils.create_rule_card(
+                    self._selection.ruleListToStr()
+                )
+
+                # Let's retrieve the refiners :
+                refiners_list = widget_at_address(self._app_graph, "30501").children
+
+                [new_y, marker] = get_beeswarm_values(
+                    self._ds,
+                    self._xds,
+                    self._explanationES[0],
+                    self._selection.getVSRules()[0][2],
+                )
+                beeswarm1 = widget_at_address(refiners_list[0].get_widget(), " 001011") # That's the beeswarm refiner #1
+                beeswarm1.data[0].y = deepcopy(new_y)
+                beeswarm1.data[0].x = self._xds.getFullValues(
+                    self._explanationES[0]
+                )[columns_rules[0]]
+                beeswarm1.data[0].marker = marker
+
+                if (
+                    len(
+                        set(
+                            [
+                            self._selection.getVSRules()[i][2]
+                            for i in range(len(self._selection.getVSRules()))
+                            ]
+                        )
+                    )
+                    > 1
+                ):
+                    [new_y, marker] = createBeeswarm(
+                        self._ds,
+                        self._xds,
+                        self._explanationES[0],
+                        self._selection.getVSRules()[1][2],
+                    )
+                    beeswarm2 = widget_at_address(refiners_list[1].get_widget(), " 001011") # That's the beeswarm refiner #2
+                    beeswarm2.data[0].y = deepcopy(new_y)
+                    beeswarm2.data[0].x = self._xds.getFullValues(
+                        self._explanationES[0]
+                    )[columns_rules[1]]
+                    beeswarm2.data[0].marker = marker
+
+                if (
+                    len(
+                        set(
+                            [
+                                self._selection.getVSRules()[i][2]
+                                for i in range(len(self._selection.getVSRules()))
+                            ]
+                        )
+                    )
+                    > 2
+                ):
+                    [new_y, marker] = createBeeswarm(
+                        self._ds,
+                        self._xds,
+                        self._explanationES[0],
+                        self._selection.getVSRules()[2][2],
+                    )
+                    beeswarm3 = widget_at_address(refiners_list[2].get_widget(), " 001011") # That's the beeswarm refiner #3
+                    beeswarm3.data[0].y = deepcopy(new_y)
+                    beeswarm3.data[0].x = self._xds.getFullValues(
+                        self._explanationES[0]
+                    )[columns_rules[2]]
+                    beeswarm3.data[0].marker = marker
+
+                y_shape_skope = []
+                y_color_skope = []
+                y_opa_skope = []
+                for i in range(len(self._ds.getXValues())):
+                    if i in self._selection.getIndexes():
+                        y_shape_skope.append("circle")
+                        y_color_skope.append("blue")
+                        y_opa_skope.append(0.5)
+                    else:
+                        y_shape_skope.append("cross")
+                        y_color_skope.append("grey")
+                        y_opa_skope.append(0.5)
+                
+                # We update colorChoiceBtnToggle (111)
+                widget_at_address(self._app_graph, "111").v_model = "Current selection"
+                change_color(None) #TODO : strange
+
+                skopeAccordion = widget_at_address(self._app_graph, "30501")
+                accordionGrp1 = widget_at_address(refiners_list[0].get_widget(), "0")
+                skopeAccordion.children = [
+                    accordionGrp1
+                ]
+
+                accordionGrp1.children[0].children[0].children = (
+                    "X1 (" + columns_rules[0].replace("_", " ") + ")"
+                )
+
+                if len(columns_rules) > 1:
+                    accordionGrp2 = widget_at_address(refiners_list[1].get_widget(), "0")
+                    skopeAccordion.children = [
+                        accordionGrp1,
+                        accordionGrp2,
+                    ]
+                    accordionGrp2.children[0].children[0].children = (
+                        "X2 (" + columns_rules[1].replace("_", " ") + ")"
+                    )
+                if len(columns_rules) > 2:
+                    accordionGrp3 = widget_at_address(refiners_list[2].get_widget(), "0")
+                    skopeAccordion.children = [
+                        accordionGrp1,
+                        accordionGrp2,
+                        accordionGrp3,
+                    ]
+                    accordionGrp3.children[0].children[0].children = (
+                        "X3 (" + columns_rules[2].replace("_", " ") + ")"
+                    )
+
+                _featureClass1 = refiners_list[0].create_class_selector(
+                    self,
+                    columns_rules[0],
+                    self._selection.getVSRules()[0][0],
+                    self._selection.getVSRules()[0][4],
+                    self.fig_size
+                )
+                if len(columns_rules) > 1:
+                    _featureClass2 = refiners_list[1].create_class_selector(
+                    self,
+                    columns_rules[0],
+                    self._selection.getVSRules()[0][0],
+                    self._selection.getVSRules()[0][4],
+                    self.fig_size
+                )
+                if len(columns_rules) > 2:
+                    _featureClass3 = refiners_list[2].create_class_selector(
+                    self,
+                    columns_rules[0],
+                    self._selection.getVSRules()[0][0],
+                    self._selection.getVSRules()[0][4],
+                    self.fig_size
+                )
+
+                for ii in range(len(_featureClass1.children[2].children)):
+                    _featureClass1.children[2].children[ii].on_event(
+                        "change", refiners_list[0].continuous_check_changed
+                    )
+
+                for ii in range(len(_featureClass2.children[2].children)):
+                    _featureClass2.children[2].children[ii].on_event(
+                        "change", refiners_list[1].continuous_check_changed
+                    )
+
+                for ii in range(len(_featureClass3.children[2].children)):
+                    _featureClass3.children[2].children[ii].on_event(
+                        "change", refiners_list[2].continuous_check_changed
+                    )
+
+                
+                widget_at_address(self._app_graph, "305023").disabled = not self._ds.has_geo()
+
+                refiner_index = 0
+                for refiner in refiners_list :
+                    expansionPanelHeader = widget_at_address(self.refiner.get_widget(), "00")
+                    skopeSliderGrp = widget_at_address(self.refiner.get_widget(), "001000")
+                    skopeSlider = widget_at_address(self.refiner.get_widget(), "0010001")
+                    
+                    skopeSliderGrp.on_event(
+                        "selected", self.refiner.skope_slider_changed
+                    )
+                    skopeSlider.min = min(self._ds.getXValues()[columns_rules[refiner_index]])
+                    skopeSlider.max = max(self._ds.getXValues()[columns_rules[refiner_index]])
+                    skopeSlider.v_model = [self._selection.getVSRules()[0][0], self._selection.getVSRules()[refiner_index][-1]]
+                    
+                    # We display the slider values
+
+                    [skopeSliderGrp.children[0].v_model, skopeSliderGrp.children[2].v_model] = [skopeSlider.v_model[0], skopeSlider.v_model[1]]
+
+                    refiner.update_histograms_with_rules(skopeSlider.v_model[0], skopeSlider.v_model[1], 0)
+
+                    expansionPanelHeader.disabled = False
+                    
+                    refiner_index += 1
+
+                # with histogram1.batch_update():
+                #     histogram1.data[0].x = list(
+                #         self._ds.getXValues()[columns_rules[0]]
+                #     )
+                #     df_respect1 = self._selection.respectOneRule(0)
+                #     histogram1.data[1].x = list(df_respect1[columns_rules[0]])
+                # if (
+                #     len(
+                #         set(
+                #             [
+                #                 self._selection.getVSRules()[i][2]
+                #                 for i in range(len(self._selection.getVSRules()))
+                #             ]
+                #         )
+                #     )
+                #     > 1
+                # ):
+                #     with histogram2.batch_update():
+                #         histogram2.data[0].x = list(
+                #             self._ds.getXValues()[columns_rules[1]]
+                #         )
+                #         df_respect2 = self._selection.respectOneRule(1)
+                #         histogram2.data[1].x = list(df_respect2[columns_rules[1]])
+                # if (
+                #     len(
+                #         set(
+                #             [
+                #                 self._selection.getVSRules()[i][2]
+                #                 for i in range(len(self._selection.getVSRules()))
+                #             ]
+                #         )
+                #     )
+                #     > 2
+                # ):
+                #     with histogram3.batch_update():
+                #         histogram3.data[0].x = list(
+                #             self._ds.getXValues()[columns_rules[2]]
+                #         )
+                #         df_respect3 = self._selection.respectOneRule(2)
+                #         histogram3.data[1].x = list(df_respect3[columns_rules[2]])
+
+                widget_at_address(self._app_graph, "30501003").children = [
+
+                    "p = "
+                    + str(self._selection.getESScore()[0])
+                    + "%"
+                    + " r = "
+                    + str(self._selection.getESScore()[1])
+                    + "%"
+                    + " ext. of the tree ="
+                    + str(self._selection.getESScore()[2])
+                ]
+                widget_at_address(self._app_graph, "30500111").children = create_rule_card(self._selection.ruleListToStr(False))  # We want ES Rules printed
+                update_submodels_scores(self._selection.getIndexes())
+
+
+
+                ## ===============
+                ## J'en suis là
+                ## ===============
+
+
+        loadingModelsProgLinear.class_ = "d-none"
+
+        self._save_rules = deepcopy(self._selection.getVSRules())
+
+        changeMarkersColor(None)
 
     def check_explanation(self):
         """Ensure ES computation of explanations have been done"""
@@ -680,8 +993,8 @@ class GUI:
         widget_at_address(self._app_graph, "12120").layout.visibility = "hidden"
 
         # --------- Two AntakiaExporer ------------
-        widget_at_address(self._app_graph, "2001") = AntakiaExplorer(self._ds, None, False)
-        widget_at_address(self._app_graph, "2011") = AntakiaExplorer(self._ds, self._xds, True)
+        widget_at_address(self._app_graph, "200").children[1] = AntakiaExplorer(self._ds, None, False)
+        widget_at_address(self._app_graph, "201").children[1] = AntakiaExplorer(self._ds, self._xds, True)
 
     
         # --------- Set point color ------------
@@ -729,7 +1042,7 @@ class GUI:
         self.redraw_both_graphs()
 
         # We set a tooltip to the 2D-3D Switch 
-        widget_at_address(self._app_graph, "10") = wrap_in_a_tooltip(
+        wrap_in_a_tooltip(
             widget_at_address(self._app_graph, "10"), "Dimension of the projection"
         )
 
@@ -778,347 +1091,11 @@ class GUI:
         ]
 
         # Called when the user clicks on the "add" button and computes the rules
-        def updateSkopeRules(*sender):
-            loadingModelsProgLinear.class_ = "d-flex"
-
-            self._activate_histograms = True
-
-            if self._selection.getYMaskList() is None:
-                ourESSkopeText.children[1].children = [
-                    widgets.HTML("Please select points")
-                ]
-                ourVSSkopeText.children[1].children = [
-                    widgets.HTML("Please select points")
-                ]
-            elif (
-                0 not in self._selection.getYMaskList()
-                or 1 not in self._selection.getYMaskList()
-            ):
-                ourESSkopeText.children[1].children = [
-                    widgets.HTML("You can't choose everything/nothing !")
-                ]
-                ourVSSkopeText.children[1].children = [
-                    widgets.HTML("You can't choose everything/nothing !")
-                ]
-            else:
-                # We compute the Skope Rules for ES
-                self._selection.applySkopeRules(0.2, 0.2)
-                print(self._selection.getVSRules())
-                # If no rule for one of the two, nothing is displayed
-                if self._selection.hasARulesDefined() is False:
-                    ourESSkopeText.children[1].children = [
-                        widgets.HTML("No rule found")
-                    ]
-                    ourVSSkopeText.children[1].children = [
-                        widgets.HTML("No rule found")
-                    ]
-                # Otherwise we display the rules
-                else:
-                    # We start with VS space
-                    ourVSSkopeText.children[0].children[3].children = [
-                        "p = "
-                        + str(self._selection.getVSScore()[0])
-                        + "%"
-                        + " r = "
-                        + str(self._selection.getVSScore()[1])
-                        + "%"
-                        + " ext. of the tree = "
-                        + str(self._selection.getVSScore()[2])
-                    ]
-
-                    # There we find the values ​​of the skope to use them for the sliders
-                    columns_rules = [
-                        self._selection.getVSRules()[i][2]
-                        for i in range(len(self._selection.getVSRules()))
-                    ]
-                    new_columns_rules = []
-                    for i in range(len(columns_rules)):
-                        if columns_rules[i] not in new_columns_rules:
-                            new_columns_rules.append(columns_rules[i])
-                    columns_rules = new_columns_rules
-
-                    other_columns = [
-                        g
-                        for g in self._ds.getXValues().columns
-                        if g not in columns_rules
-                    ]
-
-                    addAnotherFeatureWgt.explanationsMenuDict = other_columns
-                    addAnotherFeatureWgt.v_model = other_columns[0]
-
-                    # self._selection.getVSRules() = self._selection.getVSRules()
-
-                    ourVSSkopeCard.children = gui_utils.createRuleCard(
-                        self._selection.ruleListToStr()
-                    )
-
-                    [new_y, marker] = createBeeswarm(
-                        self._ds,
-                        self._xds,
-                        self._explanationES[0],
-                        self._selection.getVSRules()[0][2],
-                    )
-                    beeswarm1.data[0].y = deepcopy(new_y)
-                    beeswarm1.data[0].x = self._xds.getFullValues(
-                        self._explanationES[0]
-                    )[columns_rules[0]]
-                    beeswarm1.data[0].marker = marker
-
-                    if (
-                        len(
-                            set(
-                                [
-                                    self._selection.getVSRules()[i][2]
-                                    for i in range(len(self._selection.getVSRules()))
-                                ]
-                            )
-                        )
-                        > 1
-                    ):
-                        [new_y, marker] = createBeeswarm(
-                            self._ds,
-                            self._xds,
-                            self._explanationES[0],
-                            self._selection.getVSRules()[1][2],
-                        )
-                        beeswarm2.data[0].y = deepcopy(new_y)
-                        beeswarm2.data[0].x = self._xds.getFullValues(
-                            self._explanationES[0]
-                        )[columns_rules[1]]
-                        beeswarm2.data[0].marker = marker
-
-                    if (
-                        len(
-                            set(
-                                [
-                                    self._selection.getVSRules()[i][2]
-                                    for i in range(len(self._selection.getVSRules()))
-                                ]
-                            )
-                        )
-                        > 2
-                    ):
-                        [new_y, marker] = createBeeswarm(
-                            self._ds,
-                            self._xds,
-                            self._explanationES[0],
-                            self._selection.getVSRules()[2][2],
-                        )
-                        beeswarm3.data[0].y = deepcopy(new_y)
-                        beeswarm3.data[0].x = self._xds.getFullValues(
-                            self._explanationES[0]
-                        )[columns_rules[2]]
-                        beeswarm3.data[0].marker = marker
-
-                    y_shape_skope = []
-                    y_color_skope = []
-                    y_opa_skope = []
-                    for i in range(len(self._ds.getXValues())):
-                        if i in self._selection.getIndexes():
-                            y_shape_skope.append("circle")
-                            y_color_skope.append("blue")
-                            y_opa_skope.append(0.5)
-                        else:
-                            y_shape_skope.append("cross")
-                            y_color_skope.append("grey")
-                            y_opa_skope.append(0.5)
-                    colorChoiceBtnToggle.v_model = "Current selection"
-                    changeMarkersColor(None)
-
-                    skopeAccordion.children = [
-                        accordionGrp1,
-                    ]
-
-                    accordionGrp1.children[0].children[0].children = (
-                        "X1 (" + columns_rules[0].replace("_", " ") + ")"
-                    )
-
-                    if len(columns_rules) > 1:
-                        skopeAccordion.children = [
-                            accordionGrp1,
-                            accordionGrp2,
-                        ]
-                        accordionGrp2.children[0].children[0].children = (
-                            "X2 (" + columns_rules[1].replace("_", " ") + ")"
-                        )
-                    if len(columns_rules) > 2:
-                        skopeAccordion.children = [
-                            accordionGrp1,
-                            accordionGrp2,
-                            in_accordion3_n,
-                        ]
-                        in_accordion3_n.children[0].children[0].children = (
-                            "X3 (" + columns_rules[2].replace("_", " ") + ")"
-                        )
-
-                    _featureClass1 = gui_utils.create_class_selector(
-                        self,
-                        columns_rules[0],
-                        self._selection.getVSRules()[0][0],
-                        self._selection.getVSRules()[0][4],
-                        fig_size=figureSizeSlider.v_model,
-                    )  # 1490
-                    if len(columns_rules) > 1:
-                        _featureClass2 = gui_utils.create_class_selector(
-                            self,
-                            columns_rules[1],
-                            self._selection.getVSRules()[1][0],
-                            self._selection.getVSRules()[1][4],
-                            fig_size=figureSizeSlider.v_model,
-                        )
-                    if len(columns_rules) > 2:
-                        _featureClass3 = gui_utils.create_class_selector(
-                            self,
-                            columns_rules[2],
-                            self._selection.getVSRules()[2][0],
-                            self._selection.getVSRules()[2][4],
-                            fig_size=figureSizeSlider.v_model,
-                        )
-
-                    for ii in range(len(_featureClass1.children[2].children)):
-                        _featureClass1.children[2].children[ii].on_event(
-                            "change", updateOnContinuousChanges1
-                        )
-
-                    for ii in range(len(_featureClass2.children[2].children)):
-                        _featureClass2.children[2].children[ii].on_event(
-                            "change", updateOnContinuousChanges2
-                        )
-
-                    for ii in range(len(_featureClass3.children[2].children)):
-                        _featureClass3.children[2].children[ii].on_event(
-                            "change", updateOnContinuousChanges3
-                        )
-
-                    if (
-                        self._xds.getLatLon()[0] in colums_rules
-                        and self._xds.getLatLon()[0] in colums_rules
-                    ):
-                        addMapBtn.disabled = False
-                    else:
-                        addMapBtn.disabled = True
-
-                    skopeSlider1.min = -10e10
-                    skopeSlider1.max = 10e10
-                    skopeSlider2.min = -10e10
-                    skopeSlider2.max = 10e10
-                    skopeSlider3.min = -10e10
-                    skopeSlider3.max = 10e10
-
-                    skopeSlider1.max = max(self._ds.getXValues()[columns_rules[0]])
-                    skopeSlider1.min = min(self._ds.getXValues()[columns_rules[0]])
-                    skopeSlider1.v_model = [
-                        self._selection.getVSRules()[0][0],
-                        self._selection.getVSRules()[0][-1],
-                    ]
-                    [
-                        skopeSliderGroup1.children[0].v_model,
-                        skopeSliderGroup1.children[2].v_model,
-                    ] = [skopeSlider1.v_model[0], skopeSlider1.v_model[1]]
-
-                    if len(self._selection.getVSRules()) > 1:
-                        skopeSlider2.max = max(self._ds.getXValues()[columns_rules[1]])
-                        skopeSlider2.min = min(self._ds.getXValues()[columns_rules[1]])
-                        skopeSlider2.v_model = [
-                            self._selection.getVSRules()[1][0],
-                            self._selection.getVSRules()[1][-1],
-                        ]
-                        [
-                            skopeSliderGroup2.children[0].v_model,
-                            skopeSliderGroup2.children[2].v_model,
-                        ] = [skopeSlider2.v_model[0], skopeSlider2.v_model[1]]
-
-                    if len(self._selection.getVSRules()) > 2:
-                        skopeSlider3.max = max(self._ds.getXValues()[columns_rules[2]])
-                        skopeSlider3.min = min(self._ds.getXValues()[columns_rules[2]])
-                        skopeSlider3.v_model = [
-                            self._selection.getVSRules()[2][0],
-                            self._selection.getVSRules()[2][-1],
-                        ]
-                        [
-                            skopeSliderGroup3.children[0].v_model,
-                            skopeSliderGroup3.children[2].v_model,
-                        ] = [
-                            skopeSlider3.v_model[0],
-                            skopeSlider3.v_model[1],
-                        ]
-
-                    with histogram1.batch_update():
-                        histogram1.data[0].x = list(
-                            self._ds.getXValues()[columns_rules[0]]
-                        )
-                        df_respect1 = self._selection.respectOneRule(0)
-                        histogram1.data[1].x = list(df_respect1[columns_rules[0]])
-                    if (
-                        len(
-                            set(
-                                [
-                                    self._selection.getVSRules()[i][2]
-                                    for i in range(len(self._selection.getVSRules()))
-                                ]
-                            )
-                        )
-                        > 1
-                    ):
-                        with histogram2.batch_update():
-                            histogram2.data[0].x = list(
-                                self._ds.getXValues()[columns_rules[1]]
-                            )
-                            df_respect2 = self._selection.respectOneRule(1)
-                            histogram2.data[1].x = list(df_respect2[columns_rules[1]])
-                    if (
-                        len(
-                            set(
-                                [
-                                    self._selection.getVSRules()[i][2]
-                                    for i in range(len(self._selection.getVSRules()))
-                                ]
-                            )
-                        )
-                        > 2
-                    ):
-                        with histogram3.batch_update():
-                            histogram3.data[0].x = list(
-                                self._ds.getXValues()[columns_rules[2]]
-                            )
-                            df_respect3 = self._selection.respectOneRule(2)
-                            histogram3.data[1].x = list(df_respect3[columns_rules[2]])
-
-                    update_histograms_with_rules(
-                        skopeSlider1.v_model[0], skopeSlider1.v_model[1], 0
-                    )
-
-                    ourVSSkopeText.children[0].children[3].children = [
-                        # str(skope_rules_clf.rules_[0])
-                        # + "\n"
-                        "p = "
-                        + str(self._selection.getESScore()[0])
-                        + "%"
-                        + " r = "
-                        + str(self._selection.getESScore()[1])
-                        + "%"
-                        + " ext. of the tree ="
-                        + str(self._selection.getESScore()[2])
-                    ]
-                    ourESSkopeCard.children = gui_utils.createRuleCard(
-                        self._selection.ruleListToStr(False)
-                    )  # We want ES Rules printed
-                    update_submodels_scores(self._selection.getIndexes())
-
-                    accordionGrp1.children[0].disabled = False
-                    accordionGrp2.children[0].disabled = False
-                    in_accordion3_n.children[0].disabled = False
-
-
-            loadingModelsProgLinear.class_ = "d-none"
-
-            self._save_rules = deepcopy(self._selection.getVSRules())
-
-            changeMarkersColor(None)
+        
 
         def reinitSkopeRules(*b):
             self._selection.setVSRules(self._save_rules)
-            updateSkopeRules(None)
+            update_skope_rules(None)
             update_submodels_scores(None)
 
         reinitSkopeBtn.on_event("click", reinitSkopeRules)
@@ -1686,7 +1663,7 @@ class GUI:
             )
 
         validateRegionBtn.on_event("click", newRegionValidated)
-        validateSkopeBtn.on_event("click", updateSkopeRules)
+        validateSkopeBtn.on_event("click", update_skope_rules)
 
         self._aeVS.getFigureWidget().data[0].on_selection(lassoSelection)
         self._aeES.getFigureWidget().data[0].on_selection(lassoSelection)
@@ -1713,12 +1690,6 @@ class GUI:
             children=[v.Icon(children=["mdi-plus"]), "Add a rule"],
         )
 
-        addAnotherFeatureWgt = v.Select(
-            class_="mr-3 mb-0",
-            explanationsMenuDict=["/"],
-            v_model="/",
-            style_="max-width : 15%",
-        )
 
         addMapBtn = v.Btn(
             class_="ma-4 pa-2 mb-1",
@@ -1776,9 +1747,6 @@ class GUI:
                 for i in range(len(skopeAccordion.children)):
                     skopeAccordion.children[i].disabled = False
 
-        addButtonsGrp = v.Row(
-            children=[addSkopeBtn, addAnotherFeatureWgt, v.Spacer(), addMapBtn]
-        )
 
         # function called when we add a feature to the rules. We instanciate the exact same things than from the previous features
         # (beeswarms, histograms, etc...)
@@ -2037,7 +2005,7 @@ class GUI:
                         ].values
                     )
                 ),
-                fig_size=figureSizeSlider.v_model,
+                self._fig_size=figureSizeSlider.v_model,
             )  # 2371
 
             def newContinuousChange(widget, event, data):
@@ -2298,67 +2266,6 @@ class GUI:
             logger.debug(
                 f"explanationComputationRequested : computation asked for {widget.v_model}"
             )
-
-            # # We set the new value for self._explanationES
-            # if widget.v_model == "SHAP":
-            #     self._explanationES = (ExplanationMethod.SHAP, ExplanationDataset.COMPUTED)
-            # else :
-            #     self._explanationES = (ExplanationMethod.LIME, ExplanationDataset.COMPUTED)
-
-            # self.check_explanation()
-            # self.update_explanation_select()
-            # self.redraw_graph(GUI.ES)
-
-        # TO be connected !!!
-        # ourSHAPProgLinearColumn.children[-1].on_event("click", explanationComputationRequested)
-        # ourLIMEProgLinearColumn.children[-1].on_event("click", explanationComputationRequested)
-
-        topButtonsHBox = widgets.HBox(
-            [
-                dimSwitchRow,
-                v.Layout(
-                    class_="pa-2 ma-2",
-                    elevation="3",
-                    children=[
-                        gui_utils.wrap_in_a_tooltip(
-                            v.Icon(
-                                children=["mdi-format-color-fill"], class_="mt-n5 mr-4"
-                            ),
-                            "Color of the points",
-                        ),
-                        colorChoiceBtnToggle,
-                        resetOpacityBtn,
-                        self._aeES.getExplanationSelect()
-                        # computeMenu,
-                    ],
-                ),
-                v.Layout(
-                    class_="mt-3",
-                    children=[
-                        self._aeVS.getProjectionSelect(),
-                        self._aeES.getProjectionSelect(),
-                    ],
-                ),
-            ],
-            layout=Layout(
-                width="100%",
-                display="flex",
-                flex_flow="row",
-                justify_content="space-around",
-            ),
-        )
-
-        widgets.VBox(
-            [self._aeVS.getFigureWidget(), self._aeES.getFigureWidget()],
-            layout=Layout(width="100%"),
-        )
-
-        beeSwarmCheck = v.Checkbox(
-            v_model=True,
-            label="Show Shapley's beeswarm plots",
-            class_="ma-1 mr-3",
-        )
-
         def beeSwarmCheckChange(*b):
             if not beeSwarmCheck.v_model:
                 for i in range(len(allBeeSwarms_total)):
@@ -2369,41 +2276,7 @@ class GUI:
 
         beeSwarmCheck.on_event("change", beeSwarmCheckChange)
 
-        skopeBtns = v.Layout(
-            class_="d-flex flex-row",
-            children=[
-                validateSkopeBtn,
-                reinitSkopeBtn,
-                v.Spacer(),
-                beeSwarmCheck,
-            ],
-        )
 
-        skopeBtnsGrp = widgets.VBox([skopeBtns, skopeText])
-
-        bouton_magic = v.Btn(
-            class_="ma-3",
-            children=[
-                v.Icon(children=["mdi-creation"], class_="mr-3"),
-                "Magic button",
-            ],
-        )
-
-        magicGUI = v.Layout(
-            class_="d-flex flex-row justify-center align-center",
-            children=[
-                v.Spacer(),
-                bouton_magic,
-                v.Checkbox(v_model=True, label="Demonstration mode", class_="ma-4"),
-                v.TextField(
-                    class_="shrink",
-                    type="number",
-                    label="Time between the steps (ds)",
-                    v_model=10,
-                ),
-                v.Spacer(),
-            ],
-        )
 
         def magicCheckChange(*args):
             if magicGUI.children[2].v_model:
@@ -2443,7 +2316,7 @@ class GUI:
                 if demo:
                     antakiaMethodCard.children[0].v_model = 1
                 time.sleep(tempo)
-                updateSkopeRules(None)
+                update_skope_rules(None)
                 time.sleep(tempo)
                 if demo:
                     antakiaMethodCard.children[0].v_model = 2
@@ -2501,21 +2374,6 @@ class GUI:
                 )
             )
 
-        mapSelectionTxt = v.Card(
-            style_="width: 30%",
-            class_="ma-5",
-            children=[
-                v.CardTitle(children=["Selection on the map"]),
-                v.CardText(
-                    children=[
-                        v.Html(
-                            tag="div",
-                            children=["No selection"],
-                        )
-                    ]
-                ),
-            ],
-        )
 
         def changeMapText(trace, points, selector):
             mapSelectionTxt.children[1].children[0].children = ["Number of entries selected: " + str(len(points.point_inds))]
@@ -2531,97 +2389,6 @@ class GUI:
         )
 
         bouton_magic.on_event("click", magicClustering)
-
-        loadingClustersProgLinear = v.ProgressLinear(
-            indeterminate=True, class_="ma-3", style_="width : 100%"
-        )
-
-        loadingClustersProgLinear.class_ = "d-none"
-
-        tabOneSelectionColumn = v.Col(
-            children=[
-                selectionCard,
-                out_accordion,
-                clusterGrp,
-                loadingClustersProgLinear,
-                clusterResults,
-            ]
-        )
-
-        loadingModelsProgLinear = v.ProgressLinear(
-            indeterminate=True,
-            class_="my-0 mx-15",
-            style_="width: 100%;",
-            color="primary",
-            height="5",
-        )
-
-        loadingModelsProgLinear.class_ = "d-none"
-
-        tabTwoSkopeRulesColumn = v.Col(
-            children=[skopeBtnsGrp, skopeAccordion, addButtonsGrp]
-        )
-        tabThreeSubstitutionVBox = widgets.VBox(
-            [loadingModelsProgLinear, subModelslides]
-        )
-        # allRegionUI = widgets.VBox([self._selection, self._regionsTable])
-        tabFourRegionListVBox = loadingModelsProgLinear # Just want to go further
-
-        antakiaMethodCard = v.Card(
-            class_="w-100 pa-3 ma-3",
-            elevation="3",
-            children=[
-                v.Tabs(
-                    class_="w-100",
-                    v_model="tabs",
-                    children=[
-                        v.Tab(value="one", children=["1. Current selection"]),
-                        v.Tab(value="two", children=["2. Selection adjustment"]),
-                        v.Tab(value="three", children=["3. Choice of the sub-model"]),
-                        v.Tab(value="four", children=["4. Overview of the Regions"]),
-                    ],
-                ),
-                v.CardText(
-                    class_="w-100",
-                    children=[
-                        v.Window(
-                            class_="w-100",
-                            v_model="tabs",
-                            children=[
-                                v.WindowItem(value=0, children=[tabOneSelectionColumn]),
-                                v.WindowItem(
-                                    value=1, children=[tabTwoSkopeRulesColumn]
-                                ),
-                                v.WindowItem(
-                                    value=2, children=[tabThreeSubstitutionVBox]
-                                ),
-                                v.WindowItem(value=3, children=[tabFourRegionListVBox]),
-                            ],
-                        )
-                    ],
-                ),
-            ],
-        )
-
-        widgets.jslink(
-            (antakiaMethodCard.children[0], "v_model"),
-            (antakiaMethodCard.children[1].children[0], "v_model"),
-        )
-
-        ourGUIVBox = widgets.VBox(
-            [
-                menuAppBar,
-                backupsDialog,
-                topButtonsHBox,
-                self._aeVS.getFigureWidget(),
-                self._aeES.getFigureWidget(),
-                antakiaMethodCard,
-                magicGUI,
-            ],
-            layout=Layout(width="100%"),
-        )
-        with self._out:
-            display(ourGUIVBox)
 
     def results(self, number: int = None, item: str = None):
         L_f = []

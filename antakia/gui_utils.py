@@ -25,6 +25,19 @@ handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
 
+def widget_at_address(graph : Widget, address : str) :
+    """ Returns the widget at the given address in the graph.
+        Ex: widget_at_address(graph, "012") returns graph.children[0].children[1].children[2]
+        Implemented recursively.
+    """
+    if len(address) > 1 :
+        return widget_at_address(
+            graph.children[int(address[0])],
+            address[1:]
+        )
+    else :
+        return graph.children[int(address[0])]
+
 
 def add_model_slideItem(group : v.SlideGroup, model: Model):
     """ Adds a SlideItem to a SlideGroup with details about a model
@@ -38,7 +51,7 @@ def add_model_slideItem(group : v.SlideGroup, model: Model):
                 children=[
                     v.Icon(children=["mdi-numeric-1-box"]),
                     v.CardTitle(
-                        children=[model.__class__.__name__]"]
+                        children=[model.__class__.__name__]
                     ),
                 ],
             ),
@@ -51,7 +64,7 @@ def add_model_slideItem(group : v.SlideGroup, model: Model):
     ]
     group.children.append(item)
 
-def wrap_in_a_tooltip(widget, text) -> v.Tooltip:
+def wrap_in_a_tooltip(widget, text):
     """ Allows to add a tooltip to a widget  # noqa: E501
     """
     pass
@@ -67,7 +80,7 @@ def wrap_in_a_tooltip(widget, text) -> v.Tooltip:
         children=[text]
     )
     widget.v_on = 'tooltip.on'
-    return wrapped_widget
+    widget = wrapped_widget
 
 
 def createProgLinear() -> v.VuetifyWidget :
@@ -904,7 +917,56 @@ def create_rule_card(string : str, is_class=False) -> list:
 
 # ----
 
-def 
+def get_beeswarm_values(ds : Dataset, xds : ExplanationDataset, explainationMth : int, var_name : str) -> tuple:
+    X = ds.getXValues(Dataset.CURRENT)
+    y = ds.getYValues(Dataset.PREDICTED)
+    XP = xds.getValues(explainationMth)
+
+    def order_ascending(lst : list):
+        positions = list(range(len(lst)))  # Create a list of initial positions
+        positions.sort(key=lambda x: lst[x])
+        l = []
+        for i in range(len(positions)):
+            l.append(positions.index(i))  # Sort positions by list items
+        return l
+    
+    explain_values_list = [0] * len(XP)
+    es_bin_num = 60
+    keep_index = []
+    keep_Y_value = []
+    for i in range(es_bin_num):
+        keep_index.append([])
+        keep_Y_value.append([])
+
+    scale_list = np.linspace(
+        min(XP[var_name]), max(XP[var_name]), es_bin_num + 1
+    )
+    for i in range(len(Exp)):
+        for j in range(es_bin_num):
+            if (
+                XP[var_name][i] >= scale_list[j]
+                and XP[var_name][i] <= scale_list[j + 1]
+            ):
+                keep_index[j].append(i)
+                keep_Y_value[j].append(y[i])
+                break
+    for i in range(es_bin_num):
+        l = order_ascending(keep_Y_value[i])
+        for j in range(len(keep_index[i])):
+            ii = keep_index[i][j]
+            if l[j] % 2 == 0:
+                explain_values_list[ii] = l[j]
+            else:
+                explain_values_list[ii] = -l[j]
+    explain_marker = dict(
+        size=4,
+        opacity=0.6,
+        color=X[var_name],
+        colorscale="Bluered_r",
+        colorbar=dict(thickness=20, title=var_name),
+    )
+    return [explain_values_list, explain_marker]
+
 
 # ----
 
@@ -1312,7 +1374,7 @@ class RuleVariableRefiner :
 
         
 
-        def get_widget(self) -> v.ExpansionPanels :
+        def get_widget(self) -> v.ExpansionPanels:
             return self._widget
         
         
@@ -1368,8 +1430,6 @@ class RuleVariableRefiner :
                 self._gui.update_histograms_with_rules()
 
         
-
-
         def get_class_selector(self, min : int = 1, max : int = -1, fig_size :int =700) -> v.Layout :
                 valuesList = list(set(self._gui.get_dataset().getVariableValue(self._variable)))
                 widgetList = []
@@ -1706,19 +1766,6 @@ class AntakiaExplorer :
 
     def _getY(self) -> pd.Series :
         return self._ds.getYValues()
-
-
-def widget_at_address(graph : Widget, address : str) :
-    """ Returns the widget at the given address in the graph.
-        Ex: widget_at_address(graph, "012") returns graph.children[0].children[1].children[2]
-        Implemented recursively.
-    """
-    if len(address) > 1 :
-        return widget_at_address(graph.children[int(address[0])])
-    else :
-        return graph.children[int(address[0])]
-        
-
 
 
 def get_splash_graph():
