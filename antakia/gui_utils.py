@@ -15,15 +15,103 @@ import numpy as np
 import pandas as pd
 from ipywidgets import Layout, widgets
 from plotly.graph_objects import FigureWidget, Histogram, Scatter
+import seaborn as sns
 
 from antakia.data import Dataset, DimReducMethod, ExplanationDataset, ExplanationMethod, Model, Variable
 from antakia.utils import confLogger
 from antakia.gui import GUI
+from antakia.potato import Potato
 
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
+
+
+def datatable_from_potatoes(gui: GUI, potatoes: list) -> v.Row:
+    """ Returns a DataTable from a list of potatoes
+    """
+    new_df = []
+    
+    for i in range(len(potatoes)):
+        new_df.append(
+            [
+                i + 1,
+                potatoes[i].size(),
+                str(
+                    round(
+                        potatoes[i].size()
+                        / gui._ds.get_length()
+                        * 100,
+                        2,
+                    )
+                )
+                + "%",
+            ]
+        )
+    new_df = pd.DataFrame(
+        new_df,
+        columns=["Region #", "Number of points", "Percentage of the dataset"],
+    )
+    data = new_df.to_dict("records")
+    columns = [
+        {"text": c, "sortable": False, "value": c} for c in new_df.columns
+    ]
+    datatable = v.DataTable(
+        class_="w-100",
+        style_="width : 100%",
+        show_select=False,
+        single_select=True,
+        v_model=[],
+        headers=columns,
+        explanationsMenuDict=data,
+        item_value="Region #",
+        item_key="Region #",
+        hide_default_footer=True,
+    )
+    all_chips = []
+    all_radio = []
+    size = len(potatoes)
+    coeff = 100
+    start = 0
+    end = (size * coeff - 1) * (1 + 1 / (size - 1))
+    step = (size * coeff - 1) / (size - 1)
+    scale_colors = np.arange(start, end, step)
+    a = 0
+    for i in scale_colors:
+        color = sns.color_palette(
+            "viridis", size * coeff
+        ).as_hex()[round(i)]
+        all_chips.append(v.Chip(class_="rounded-circle", color=color))
+        all_radio.append(v.Radio(class_="mt-4", value=str(a)))
+        a += 1
+    all_radio[-1].class_ = "mt-4 mb-0 pb-0"
+    radio_group = v.RadioGroup(
+        v_model=None,
+        class_="mt-10 ml-7",
+        style_="width : 10%",
+        children=all_radio,
+    )
+    chips_col = v.Col(
+        class_="mt-10 mb-2 ml-0 d-flex flex-column justify-space-between",
+        style_="width : 10%",
+        children=all_chips,
+    )
+    return v.Row(
+        children=[
+            v.Layout(
+                class_="flex-grow-0 flex-shrink-0", children=[radio_group]
+            ),
+            v.Layout(
+                class_="flex-grow-0 flex-shrink-0", children=[chips_col]
+            ),
+            v.Layout(
+                class_="flex-grow-1 flex-shrink-0",
+                children=[datatable],
+            ),
+        ],
+    )
+
 
 def widget_at_address(graph : Widget, address : str) :
     """ Returns the widget at the given address in the graph.
@@ -1357,207 +1445,286 @@ class RuleVariableRefiner :
         )
         # We vire the input event on the skopeSlider (0010001)
         widget_at_address(self._widget, "0010001").on_event("input", skope_rule_changed)
-        # We core the click event on validateSkopeChangeBtn (010020)
+        # We vire the click event on validateSkopeChangeBtn (010020)
         widget_at_address(self._widget, "010020").on_event("click", skope_slider_changed)
 
 
-        def skope_slider_changed(*change):
-            # We retrive the skopeSlider (0010001) min value
-            self._gui.get_selection().getVSRules()[2][0] = float(widget_at_address(self._widget,"0010001").v_model[0])
-            # We retrive the skopeSlider (0010001) max value
-            self._gui.get_selection().getVSRules()[2][4] = float(widget_at_address(self._widget,"0010001").v_model[1])
-            # We redefined ourVSSkopeCard (30500101)
-            widget_at_address(self._gui.get_app_graph(), "30500101").children = create_rule_card()
 
-            self._gui.update_graph_with_rules()
-            self._gui.update_submodels_scores(None)
+    def explain_method_changed(self, widget, event, data):
+        old_method, old_origin = self._gui._explanationES
+        new_method, new_origin = None, None
 
-        
+        match data:
+            case "SHAP (imported)":
+                new_method = ExplanationMethod.SHAP
+                new_origin = ExplanationDataset.IMPORTED
+            case "SHAP (computed)":
+                new_method = ExplanationMethod.SHAP
+                new_origin = ExplanationDataset.COMPUTED
+            case "LIME (imported)":
+                new_method = ExplanationMethod.LIME
+                new_origin = ExplanationDataset.IMPORTED
+            case "LIME (computed)":
+                new_method = ExplanationMethod.LIME
+                new_origin = ExplanationDataset.COMPUTED
 
-        def get_widget(self) -> v.ExpansionPanels:
-            return self._widget
+        self._gui._explanationES = (new_method, new_origin)
+
+        select = widget_at_address(self._widget, "001000")
+
+        # It's up to GUI to update its _explanationSelect
+        self._gui.update_explanation_select()
+
+        self._gui.check_explanation()
+        self._gui.redraw_graph(GUI.ES)
+
+
+
+    def skope_slider_changed(*change):
+        # We retrive the skopeSlider (0010001) min value
+        self._gui.get_selection().getVSRules()[2][0] = float(widget_at_address(self._widget,"0010001").v_model[0])
+        # We retrive the skopeSlider (0010001) max value
+        self._gui.get_selection().getVSRules()[2][4] = float(widget_at_address(self._widget,"0010001").v_model[1])
+        # We redefined ourVSSkopeCard (30500101)
+        widget_at_address(self._gui.get_app_graph(), "30500101").children = create_rule_card()
+
+        self._gui.update_graph_with_rules()
+        self._gui.update_submodels_scores(None)
+
+
+    def get_widget(self) -> v.ExpansionPanels:
+        return self._widget
+
+
+    def redraw_both_graphs(self):
+        # We update the refiner's histogram :
+        with widget_at_address(self._widget, "001001").batch_update():
+            widget_at_address(self._widget, "001001").data[0].x = 
+            self._ds.getFullValues()[self._selection.get_vs_rules()[self._variable.get_col_index][2]]
         
+        # We update the refiner's beeswarm :
+        if widget_at_address(self._widget, "001011").v_model : # TODO Why do we check ?
+            with widget_at_address(self._widget, "001011").batch_update():
+                # TODO to understand
+                # TODO : maybe the refiner could handle its colors itself
+                # y_color = [0] * self._gui._ds.get_length()
+                # if i == rule_index:
+                #     indexs = (
+                #         self._ds.get_full_values()
+                #         .index[
+                #             self._ds.getXValues()[
+                #                 self._selection.getVSRules()[i][2]
+                #             ].between(min, max)
+                #         ]
+                #         .tolist()
+                #     )
+                # else:
+                #     indexs = (
+                #         self._ds.getFullValues().index[
+                #             self._ds.getXValues()[
+                #                 self._selection.getVSRules()[i][2]
+                #             ].between(
+                #                 self._selection.getVSRules()[i][0],
+                #                 self._selection.getVSRules()[i][4],
+                #             )
+                #         ].tolist()
+                #     )
+                # for j in range(
+                #     len(self._xds.getFullValues(self._explanationES[0]))
+                # ):
+                #     if j in total_list:
+                #         y_color[j] = "blue"
+                #     elif j in indexs:
+                #         y_color[j] = "#85afcb"
+                #     else:
+                #         y_color[j] = "grey"
+                # widget_at_address(self._widget, "001011").data[0].marker.color = y_color
         
-        def skope_rule_changed(widget, event, data):
-            # when the value of a slider is modified, the histograms and graphs are modified
-            if widget.__class__.__name__ == "RangeSlider":
-                # We set the text before the slider (0010000) to the min value of the slider
-                widget_at_address(self._widget, "0010000").v_model = widget_at_address(self._widget, "0010001").v_model[0]
-                # We set the text after the slider (0010002) to the min value of the slider
-                widget_at_address(self._widget, "0010002").v_model = widget_at_address(self._widget, "0010001").v_model[1]
+    def skope_rule_changed(widget, event, data):
+        # when the value of a slider is modified, the histograms and graphs are modified
+        if widget.__class__.__name__ == "RangeSlider":
+            # We set the text before the slider (0010000) to the min value of the slider
+            widget_at_address(self._widget, "0010000").v_model = widget_at_address(self._widget, "0010001").v_model[0]
+            # We set the text after the slider (0010002) to the min value of the slider
+            widget_at_address(self._widget, "0010002").v_model = widget_at_address(self._widget, "0010001").v_model[1]
+        else:
+            if (
+                widget_at_address(self._widget, "0010000").v_model == ""
+                or widget_at_address(self._widget, "0010002").v_model == ""
+            ):
+                # If no value, we return
+                return
             else:
-                if (
-                    widget_at_address(self._widget, "0010000").v_model == ""
-                    or widget_at_address(self._widget, "0010002").v_model == ""
-                ):
-                    # If no value, we return
-                    return
+                # Inversely, we set the slider to the values after the texts
+                widget_at_address(self._widget, "0010001").v_model = [
+                    float(widget_at_address(self._widget, "0010000").v_model), # min
+                    float(widget_at_address(self._widget, "0010002").v_model), # max
+                ]
+        
+        new_list = [
+            g
+            for g in list(
+                self._gui.get_dataset().getFullValues()[self._gui.get_selection().getVSRules()[0][2]].values
+            )
+            if g >= widget_at_address(self._widget, "0010001").v_model[0] and g <= widget_at_address(self._widget, "0010001").v_model[1]
+        ]
+
+        # We updat the histogram (001001)
+        with widget_at_address(self._widget, "001001").batch_update():
+            widget_at_address(self._widget, "001001").data[1].x = new_list
+        
+        # TODO : what is _activate_histograms
+        if self._activate_histograms:
+            self._gui.update_histograms_with_rules(widget_at_address(self._widget, "0010001").v_model[0], widget_at_address(self._widget, "0010001").v_model[1], 0)
+
+        # If realTimeUpdateCheck (0010021) is checked :
+        if widget_at_address(self._widget, "0010021").v_model:
+            # We update rules with the skopeSlider (0010001) values  
+            self._selection.getVSRules()[0][0] = float(
+                deepcopy(widget_at_address(self._widget, "0010021").v_model[0]) # min
+            )
+            self._selection.getVSRules()[0][4] = float(
+                deepcopy(widget_at_address(self._widget, "0010021").v_model[1]) # max
+            )
+            widget_at_address(self._gui.get_app_graph(), "30500101").children = create_rule_card(
+                self._selection.ruleListToStr()
+            ) 
+            self._gui.update_histograms_with_rules()
+
+        
+    def get_class_selector(self, min : int = 1, max : int = -1, fig_size :int =700) -> v.Layout :
+            valuesList = list(set(self._gui.get_dataset().getVariableValue(self._variable)))
+            widgetList = []
+            for value in valuesList:
+                if value <= max and value >= min:
+                    inside = True
                 else:
-                    # Inversely, we set the slider to the values after the texts
-                    widget_at_address(self._widget, "0010001").v_model = [
-                        float(widget_at_address(self._widget, "0010000").v_model), # min
-                        float(widget_at_address(self._widget, "0010002").v_model), # max
-                    ]
+                    inside = False
+                widget = v.Checkbox(
+                    class_="ma-4",
+                    v_model=inside,
+                    label=str(value).replace("_", " "),
+                )
+                widgetList.append(widget)
+            row = v.Row(class_ = "ml-6 ma-3", children = widgetList)
+            text = v.Html(tag="h3", children=["Select the values of the feature " + self._variable.getSymbol()])
+            return v.Layout(class_= "d-flex flex-column align-center justify-center", style_="width: "+str(int(fig_size)-70)+"px; height: 303px", children=[v.Spacer(), text, row])
+
+    def real_time_changed(*args):
+        """ If changed, we invert the validate button """
+        widget_at_address(self._widget, "0010020").disabled = not widget_at_address(self._widget, "0010020").disabled
+    
+    # See realTimeUpdateCheck (0010021)
+    widget_at_address(self._widget, "0010021").on_event("change", real_time_changed)
+
+    def beeswarm_color_changed(*args): 
+        """ If changed, we invert the showScake value """
+        # See beeswarm :
+        show_scale = widget_at_address(self._widget, "001011").data[0].marker[showscale]
+        show_scale = widget_at_address(self._widget, "001011").update_traces(marker=dict(showscale=not show_scale))
+    
+    # See bsColorChoice[,v.Switch] (0010101)
+    widget_at_address(self._widget, "0010101").on_event("change", beeswarm_color_changed)
+
+
+    def continuous_check_changed(widget, event, data): 
+        features = [
+            self._selection.getVSRules()[i][2]
+            for i in range(len(self._selection.getVSRules()))
+        ]
+        aSet = []
+        for i in range(len(features)):
+            if features[i] not in aSet:
+                aSet.append(features[i])
+
+        index = features.index(aSet[2])
+        if widget.v_model :
+            # TODO : understand
+            # We define accordion (0010) children as histoCtrl (00100) + list (accordion(0010).children[1])
+            widget_at_address(self._widget, "0010").children = [widget_at_address(self._widget, "00100")] + list(widget_at_address(self._widget, "0010").children[1:])
+            count = 0
+            for i in range(len(self._gui.get_selection().getVSRules())):
+                if (
+                    self._gui.get_selection().getVSRules()[i - count][2]
+                    == self._selection.getVSRules()[index][2]
+                    and i - count != index
+                ):
+                    self._gui.get_selection().getVSRules().pop(i - count)
+                    count += 1
+            # We set skopeSlider (0010001) values
+            self._gui.get_selection().getVSRules()[index][0] = widget_at_address(self._widget, "0010001").v_model[0]
+            self._gui.get_selection().getVSRules()[index][4] = widget_at_address(self._widget, "0010001").v_model[1]
             
-            new_list = [
-                g
-                for g in list(
-                    self._gui.get_dataset().getFullValues()[self._gui.get_selection().getVSRules()[0][2]].values
-                )
-                if g >= widget_at_address(self._widget, "0010001").v_model[0] and g <= widget_at_address(self._widget, "0010001").v_model[1]
-            ]
-
-            # We updat the histogram (001001)
-            with widget_at_address(self._widget, "001001").batch_update():
-                widget_at_address(self._widget, "001001").data[1].x = new_list
-            
-            # TODO : what is _activate_histograms
-            if self._activate_histograms:
-                self._gui.update_histograms_with_rules(widget_at_address(self._widget, "0010001").v_model[0], widget_at_address(self._widget, "0010001").v_model[1], 0)
-
-            # If realTimeUpdateCheck (0010021) is checked :
-            if widget_at_address(self._widget, "0010021").v_model:
-                # We update rules with the skopeSlider (0010001) values  
-                self._selection.getVSRules()[0][0] = float(
-                    deepcopy(widget_at_address(self._widget, "0010021").v_model[0]) # min
-                )
-                self._selection.getVSRules()[0][4] = float(
-                    deepcopy(widget_at_address(self._widget, "0010021").v_model[1]) # max
-                )
-                widget_at_address(self._gui.get_app_graph(), "30500101").children = create_rule_card(
-                    self._selection.ruleListToStr()
-                ) 
-                self._gui.update_histograms_with_rules()
-
-        
-        def get_class_selector(self, min : int = 1, max : int = -1, fig_size :int =700) -> v.Layout :
-                valuesList = list(set(self._gui.get_dataset().getVariableValue(self._variable)))
-                widgetList = []
-                for value in valuesList:
-                    if value <= max and value >= min:
-                        inside = True
-                    else:
-                        inside = False
-                    widget = v.Checkbox(
-                        class_="ma-4",
-                        v_model=inside,
-                        label=str(value).replace("_", " "),
-                    )
-                    widgetList.append(widget)
-                row = v.Row(class_ = "ml-6 ma-3", children = widgetList)
-                text = v.Html(tag="h3", children=["Select the values of the feature " + self._variable.getSymbol()])
-                return v.Layout(class_= "d-flex flex-column align-center justify-center", style_="width: "+str(int(fig_size)-70)+"px; height: 303px", children=[v.Spacer(), text, row])
-
-        def real_time_changed(*args):
-            """ If changed, we invert the validate button """
-            widget_at_address(self._widget, "0010020").disabled = not widget_at_address(self._widget, "0010020").disabled
-        
-        # See realTimeUpdateCheck (0010021)
-        widget_at_address(self._widget, "0010021").on_event("change", real_time_changed)
-
-        def beeswarm_color_changed(*args): 
-            """ If changed, we invert the showScake value """
-            # See beeswarm :
-            show_scale = widget_at_address(self._widget, "001011").data[0].marker[showscale]
-            show_scale = widget_at_address(self._widget, "001011").update_traces(marker=dict(showscale=not show_scale))
-        
-        # See bsColorChoice[,v.Switch] (0010101)
-        widget_at_address(self._widget, "0010101").on_event("change", beeswarm_color_changed)
-
-
-        def continuous_check_changed(widget, event, data): 
-            features = [
-                self._selection.getVSRules()[i][2]
-                for i in range(len(self._selection.getVSRules()))
-            ]
+            self._skope_list = create_rule_card(self._selection.ruleListToStr())
+        else:
+            class_selector = self.get_class_selector()
+            widget_at_address(self._widget, "0010").children = [class_selector] + list(
+                widget_at_address(self._widget, "0010").children[1:]
+            )
             aSet = []
-            for i in range(len(features)):
-                if features[i] not in aSet:
-                    aSet.append(features[i])
-
-            index = features.index(aSet[2])
-            if widget.v_model :
-                # TODO : understand
-                # We define accordion (0010) children as histoCtrl (00100) + list (accordion(0010).children[1])
-                widget_at_address(self._widget, "0010").children = [widget_at_address(self._widget, "00100")] + list(widget_at_address(self._widget, "0010").children[1:])
-                count = 0
-                for i in range(len(self._gui.get_selection().getVSRules())):
-                    if (
-                        self._gui.get_selection().getVSRules()[i - count][2]
-                        == self._selection.getVSRules()[index][2]
-                        and i - count != index
-                    ):
-                        self._gui.get_selection().getVSRules().pop(i - count)
-                        count += 1
-                # We set skopeSlider (0010001) values
-                self._gui.get_selection().getVSRules()[index][0] = widget_at_address(self._widget, "0010001").v_model[0]
-                self._gui.get_selection().getVSRules()[index][4] = widget_at_address(self._widget, "0010001").v_model[1]
-                
-                self._skope_list = create_rule_card(self._selection.ruleListToStr())
-            else:
-                class_selector = self.get_class_selector()
-                widget_at_address(self._widget, "0010").children = [class_selector] + list(
-                    widget_at_address(self._widget, "0010").children[1:]
-                )
-                aSet = []
-                for i in range(len(self.get_class_selector().children[2].children)):
-                    if class_selector.children[2].children[i].v_model:
-                        aSet.append(
-                            int(class_selector.children[2].children[i].label)
-                        )
-                if len(aSet) == 0:
-                    widget.v_model = True
-                    return
-                column = deepcopy(self._gui.get_selection().getVSRules()[index][2])
-                count = 0
-                for i in range(len(self._gui.get_selection().getVSRules())):
-                    if self._gui.get_selection().getVSRules()[i - count][2] == column:
-                        self._gui.get_selection().getVSRules().pop(i - count)
-                        count += 1
-                ascending = 0  
-                for item in aSet:
-                    self._gui.get_selection().getVSRules().insert(
-                        index + ascending, [item - 0.5, "<=", column, "<=", item + 0.5]
+            for i in range(len(self.get_class_selector().children[2].children)):
+                if class_selector.children[2].children[i].v_model:
+                    aSet.append(
+                        int(class_selector.children[2].children[i].label)
                     )
-                    ascending += 1
-                self._skope_list = create_rule_card(self._gui.get_selection().ruleListToStr())
+            if len(aSet) == 0:
+                widget.v_model = True
+                return
+            column = deepcopy(self._gui.get_selection().getVSRules()[index][2])
+            count = 0
+            for i in range(len(self._gui.get_selection().getVSRules())):
+                if self._gui.get_selection().getVSRules()[i - count][2] == column:
+                    self._gui.get_selection().getVSRules().pop(i - count)
+                    count += 1
+            ascending = 0  
+            for item in aSet:
+                self._gui.get_selection().getVSRules().insert(
+                    index + ascending, [item - 0.5, "<=", column, "<=", item + 0.5]
+                )
+                ascending += 1
+            self._skope_list = create_rule_card(self._gui.get_selection().ruleListToStr())
 
-        # We wire the "change" event on the isContinuousChck (001021)
-        widget_at_address(self._widget, "001021").on_event("change", continuous_check_changed)
+    # We wire the "change" event on the isContinuousChck (001021)
+    widget_at_address(self._widget, "001021").on_event("change", continuous_check_changed)
 
 
 
 class AntakiaExplorer :
     """
         An AntakiaExplorer displays a 2D or 3D projection of the dataset, using a scatter plot viesw.
-        An AntakiaExplorer is a ipywidget with a menu to change the dimension reduction ethod.
+        An AntakiaExplorer is a ipywidget with a Select to change the dimension reduction method and a
+        Menu to set its parameters.
+        When the Explorer _is_explain_explorer then it also has a Select to change the explanation method
+        and a Menu to set its parameters.
         It relies on the Plotly JS library to display the scatter plot.
+
+        IMPORTANT : each ipywidget has to be displayed by the parent GUI object.
 
     
     _figure : FigureWidget
-    _projectionSelect : v.Select
-    _projectionSliders : v.Dialog
-    _isExplainExplorer : bool
-    _explanationSelect : v.Select # if _isExplainExplorer is True
-    _explainComputeMenu : v.Menu # if _isExplainExplorer is True
+    _projection_select : v.Select
+    _projection_sliders : v.Dialog
+    _is_explain_explorer : bool
+    _explanation_select : v.Select # if _isExplainExplorer is True
+    _explain_compute_menu : v.Menu # if _isExplainExplorer is True
     _ds : Dataset # even if _explainExplorer we need _ds for the Y values
     _xds : ExplanationDataset # if _isExplainExplorer is True
-    _currentDim : int # May be 2 or 3
-    _currentProjection : int # refers to DimReduction constants
-    _currentExplanation : int # refers to Explanation constants. Only relevant if _isExplainExplorer is True
-    _currentOrigin : int # refers to ExplanationDataset constants. Only relevant if _isExplainExplorer is True
-
-    _sideStr : str
+    _current_dim : int # May be 2 or 3
+    _current_projection : int # refers to DimReduction constants
+    _current_explanation : int # refers to Explanation constants. Only relevant if _isExplainExplorer is True
+    _current_origin : int # refers to ExplanationDataset constants. Only relevant if _isExplainExplorer is True
+    selection_changed = callable # a function that is called when the selection changes
     """
 
-    def __init__(self, ds : Dataset, xds : ExplanationDataset, isExplainExplorer : bool):
+    def __init__(self, ds : Dataset, xds : ExplanationDataset, is_explain_explorer : bool, selection_changed: callable):
         """
         Instantiate a new AntakiaExplorer.
         """ 
-        self._isExplainExplorer = isExplainExplorer
-        if self._isExplainExplorer :
+        self._is_explain_explorer = is_explain_explorer
+        
+        if self._is_explain_explorer :
             self._xds = xds
-            self._explanationSelect = v.Select(
+            self._explanation_select = v.Select(
                 label="Explanation method",
                 items=[
                     {'text': "SHAP (imported)", 'disabled': True },
@@ -1569,7 +1736,9 @@ class AntakiaExplorer :
             style_="width: 150px",
             disabled = False,
             )
-            self._explainComputeMenu = v.Menu(
+            self._explanation_select.on_event("change", self.explain_method_changed)
+
+            self._explain_compute_menu = v.Menu(
                     v_slots=[
                                 {
                                     "name": "activator",
@@ -1674,34 +1843,135 @@ class AntakiaExplorer :
                         close_on_content_click=False,
                         offset_y=True,
                         )
-            self._currentExplanation = ExplanationMethod.SHAP # Shall we set _explanationSelect ?
-            self._currentOrigin = ExplanationDataset.IMPORTED
-            self._sideStr="ES"
-        else :
-            self._sideStr="VS"
+            self._current_explanation = None
+            self._current_origin = None
+
+            tab_list = [v.Tab(children=["SHAP"]), v.Tab(children=["LIME"])]
+            content_list = [
+                v.TabItem(children=[
+                    v.Col(
+                        class_="d-flex flex-column align-center",
+                        children=[
+                                v.Html(
+                                    tag="h3",
+                                    class_="mb-3",
+                                    children=["Compute SHAP values"],
+                                ),
+                                v.ProgressLinear(
+                                    style_="width: 80%",
+                                    v_model=0,
+                                    color="primary",
+                                    height="15",
+                                    striped=True,
+                                ),
+                                v.TextField(
+                                    class_="w-100",
+                                    style_="width: 100%",
+                                    v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                                    readonly=True,
+                                ),
+                                v.Btn(
+                                    children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"],
+                                    class_="ma-2 ml-6 pa-3",
+                                    elevation="3",
+                                    v_model="SHAP",
+                                    color="primary",
+                                ),
+                        ],
+                    )
+                ]),
+                v.TabItem(children=[
+                    v.Col(
+                        class_="d-flex flex-column align-center",
+                        children=[
+                                v.Html(
+                                    tag="h3",
+                                    class_="mb-3",
+                                    children=["Compute LIME values"],
+                                ),
+                                v.ProgressLinear(
+                                    style_="width: 80%",
+                                    v_model=0,
+                                    color="primary",
+                                    height="15",
+                                    striped=True,
+                                ),
+                                v.TextField(
+                                    class_="w-100",
+                                    style_="width: 100%",
+                                    v_model = "0.00% [0/?] - 0m0s (estimated time : /min /s)",
+                                    readonly=True,
+                                ),
+                                v.Btn(
+                                    children=[v.Icon(class_="mr-2", children=["mdi-calculator-variant"]), "Compute values"],
+                                    class_="ma-2 ml-6 pa-3",
+                                    elevation="3",
+                                    v_model="LIME",
+                                    color="primary",
+                                ),
+                        ],
+                    )
+                    ])
+                ]
+            self._explain_compute_menu = v.Menu(
+                v_slots=[
+                {
+                    "name": "activator",
+                    "variable": "props",
+                    "children": v.Btn(
+                        v_on="props.on",
+                        icon=True,
+                        size="x-large",
+                        children=[v.Icon(children=["mdi-timer-sand"], size="large")],
+                        class_="ma-2 pa-3",
+                        elevation="3",
+                    ),
+                }
+                ],
+                children=[
+                    v.Card( 
+                        class_="pa-4",
+                        rounded=True,
+                        children=[
+                            widgets.VBox([ 
+                                v.Tabs(
+                                    v_model=0, 
+                                    children=tab_list + content_list
+                                    )
+                                ],
+                            )
+                            ],
+                        min_width="500",
+                    )
+                ],
+            v_model=False,
+            close_on_content_click=False,
+            offset_y=True,
+            )
+
         self._ds = ds
-        self._projectionSelect = v.Select(
-            label="Projection in the :"+self._sideStr,
+        self._projection_select = v.Select(
+            label="Projection in the :"+ "ES" if self._is_explain_explorer else "VS"
             items=DimReducMethod.getDimReducMethodsAsStrList(),
             style_="width: 150px",
         )
-        self._projectionSliders = widgets.VBox([
-                        v.Slider(
-                            v_model=10, min=5, max=30, step=1, label="Number of neighbours"
-                        ),
-                        v.Html(class_="ml-3", tag="h3", children=["machin"]),
-                        v.Slider(
-                            v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio"
-                        ),
-                        v.Html(class_="ml-3", tag="h3", children=["truc"]),
-                        v.Slider(
-                            v_model=2, min=0.1, max=5, step=0.1, label="FP ratio"
-                        ),
-                        v.Html(class_="ml-3", tag="h3", children=["bidule"]),
-                    ],
-                )
+        self._projection_sliders = widgets.VBox([
+            v.Slider(
+                v_model=10, min=5, max=30, step=1, label="Number of neighbours"
+            ),
+            v.Html(class_="ml-3", tag="h3", children=["machin"]),
+            v.Slider(
+                v_model=0.5, min=0.1, max=0.9, step=0.1, label="MN ratio"
+            ),
+            v.Html(class_="ml-3", tag="h3", children=["truc"]),
+            v.Slider(
+                v_model=2, min=0.1, max=5, step=0.1, label="FP ratio"
+            ),
+            v.Html(class_="ml-3", tag="h3", children=["bidule"]),
+        ],
+    )
 
-        self._currentProjection = None
+        self._current_projection = None
 
         self._markers = dict( 
             color=self._ds.getYValues(Dataset.REGULAR),
@@ -1712,60 +1982,90 @@ class AntakiaExplorer :
             ),
         )
 
-        #  ourESMarkerDict = dict(
-        #     color=self._ds.getYValues(Dataset.REGULAR), 
-        #     colorscale="Viridis")
-
-    #   ourVS3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", colorbar=dict(thickness=20,), size=3,)
-    #     ourES3DMarkerDict = dict(color=self._ds.getYValues(Dataset.REGULAR), colorscale="Viridis", size=3)
-
-
-
         self._figure = FigureWidget(
             data=Scatter(
-                x=self._getX(), 
-                y=self._getY(), 
+                x=self._get_x(), 
+                y=self._get_y(), 
                 mode="markers", 
                 marker=self._markers, 
                 customdata=self._markers["color"], 
                 hovertemplate = '%{customdata:.3f}')
         )
-        self._currentDim = 2
+        self._figure.data[0].on_selection(self.dots_lasso_selected)
 
-    # ---- getter & setters ------
+        self._current_dim = 2
 
-    def isExplainExplorer(self) -> bool :
-        return self._isExplainExplorer
+    # ---- Methods ------
+
+    def is_explain_explorer(self) -> bool :
+        return self._is_explain_explorer
     
-    def getProjectionSelect(self) -> v.Select :
-        return self._projectionSelect   
+    def get_projection_select(self) -> v.Select :
+        return self._projection_select   
 
-    def getProjectionSliders(self) -> widgets.VBox :
-        return self._projectionSliders 
+    def get_projection_sliders(self) -> widgets.VBox :
+        return self._projection_sliders 
 
-    def getExplanationSelect(self) -> v.Select :
-        return self._explanationSelect
+    def get_explanation_select(self) -> v.Select :
+        return self._explanation_select
     
-    def getExplainComputeMenu(self) -> v.Menu :
-        return self._explainComputeMenu
+    def get_explain_compute_menu(self) -> v.Menu :
+        return self._explain_compute_menu
 
-    def getFigureWidget(self)-> widgets.Widget :
+    def get_figure_widget(self)-> widgets.Widget :
         return self._figure
 
-    def setDimension(self, dim : int) : 
-        self._currentDim = dim
-
+    def set_dimension(self, dim : int) : 
+        self._current_dim = dim
     
-    # ----------------  
-    
-    def _getX(self) -> pd.DataFrame :
-        if self._isExplainExplorer :
+    def _get_x(self) -> pd.DataFrame :
+        if self._is_explain_explorer :
             return self._xds.getFullValues(self._currentExplanation, self._currentOrigin)
         else :
             return self._ds.getFullValues()
 
-    def _getY(self) -> pd.Series :
+    def _get_y(self) -> pd.Series :
         return self._ds.getYValues()
+    
+    def redraw(self, opacity_values: pd.Series, color: pd.Series, size: int) :
+        if not self._is_explain_explorer : # We're in the VS
+            projValues = self._ds.getProjValues(self._current_projection, self._current_dim)
+        else :
+            projValues = self._xds.proj_values(self._current_explanation, self._current_projection, self._current_dim)
+        
+        with self._figure.batch_update():
+                self._figure.data[0].marker.opacity = opacity_values
+                self._figure.data[0].marker.color = color
+                self._figure.layout.width = size
+                self._figure.data[0].customdata = color
+                self._figure.data[0].x, self._figure.data[0].y = (projValues[0]), (projValues[1])
+                if self._current_dim == DimReducMethod.DIM_THREE:
+                    self._figure.data[0].z = projValues[2]
+
+    def explanation_select(self):
+        """ Called at init time and when new explanation values are computed """
+        if not self._is_explain_explorer :
+            raise ValueError("This method is only available for AntakiaExplorer with explanations")
+        
+        shapImported = self._xds.isExplanationAvailable(ExplanationMethod.SHAP, ExplanationDataset.IMPORTED)
+        shapComputed = self._xds.isExplanationAvailable(ExplanationMethod.SHAP, ExplanationDataset.COMPUTED)
+        limeImported = self._xds.isExplanationAvailable(ExplanationMethod.LIME, ExplanationDataset.IMPORTED)
+        limeComputed = self._xds.isExplanationAvailable(ExplanationMethod.LIME, ExplanationDataset.COMPUTED)
+
+    def dots_lasso_selected(self, trace, points, selector, *args):
+        """ Called whenever the user selects dots on the scatter plot """
+        # We just use a callback to inform the GUI :
+        self.selection_changed(
+            Potato(self._ds, self._xds, self._explanationES[0], args[0], Potato.LASSO),
+            GUI.VS if not self._is_explain_explorer else GUI.ES
+        )
+    
+    def explain_method_changed(self):
+        self._current_explanation
+        pass
+
+
+# ---------- End of AntakiaExplorer class ----------
 
 
 def get_splash_graph():

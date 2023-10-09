@@ -11,12 +11,19 @@ from sklearn.decomposition import PCA
 import umap
 import pacmap
 
+import mvlearn
+from skrules import SkopeRules
+import sklearn
+import sklearn.cluster
+
 # Imports for the explanations
 import lime
 import lime.lime_tabular
 import shap
+
 import logging
 from logging import getLogger
+from copy import deepcopy
 
 from ipywidgets.widgets.widget import Widget
 
@@ -261,3 +268,96 @@ def compute_projection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dime
     # logger.debug(f"computeProjection: returns a {type(projValues)} with {projValues.shape} ({dimension}D) in {DimReducMethod.getBaseSpaceAsStr(baseSpace)} baseSpace")
     
     return projValues
+
+
+def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, default: bool) -> list:
+    m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
+    a_list = m_kmeans.fit_predict([X, shap_values])
+    clusters_number = 0
+    if default is True:
+        X_train = pd.DataFrame(X.copy())
+        recall_min = 0.8
+        precision_min = 0.8
+        max_ = max(a_list) + 1
+        l_copy = deepcopy(a_list)
+        for i in range(n_clusters):
+            y_train = [1 if x == i else 0 for x in l_copy]
+            indices = [i for i in range(len(y_train)) if y_train[i] == 1]
+            skope_rules_clf = SkopeRules(
+                feature_names=X_train.columns,
+                random_state=42,
+                n_estimators=5,
+                recall_min=recall_min,
+                precision_min=precision_min,
+                max_depth_duplication=0,
+                max_samples=1.0,
+                max_depth=3,
+            )
+            skope_rules_clf.fit(X_train, y_train)
+            if len(skope_rules_clf.rules_) == 0:
+                k = _find_best_k(X, indices, recall_min, precision_min)
+                clusters_number += k
+                # kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
+                agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=k)
+                agglo.fit(X.iloc[indices])
+                labels = np.array(agglo.labels_) + max_
+                max_ += k
+                a_list[indices] = labels
+            else:
+                clusters_number += 1
+        a_list = _reset_list(a_list)
+    a_list = list(np.array(a_list) - min(a_list))
+    return _invert_list(a_list, max(a_list) + 1), a_list
+
+
+def _invert_list(a_list: list, size: int) -> list:
+    newList = [[] for _ in range(size)]
+    for i in range(len(a_list)):
+        newList[a_list[i]].append(i)
+    return newList
+
+
+def _reset_list(a_list: list) -> list:
+    a_list = list(a_list)
+    for i in range(max(a_list) + 1):
+        if a_list.count(i) == 0:
+            a_list = list(np.array(a_list) - 1)
+    return a_list
+
+
+def _find_best_k(X: pd.DataFrame, indices: list, recall_min: float, precision_min: float) -> int:
+    recall_min = 0.7
+    precision_min = 0.7
+    new_X = X.iloc[indices]
+    ind_f = 2
+    for i in range(2, 9):
+        # kmeans = sklearn.cluster.KMeans(n_clusters=i, random_state=9, n_init="auto")
+        agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=i)
+        agglo.fit(new_X)
+        labels = agglo.labels_
+        a = True
+        for j in range(max(labels) + 1):
+            y = []
+            for k in range(len(X)):
+                if k in indices and labels[indices.index(k)] == j:
+                    y.append(1)
+                else:
+                    y.append(0)
+            skope_rules_clf = SkopeRules(
+                feature_names=new_X.columns,
+                random_state=42,
+                n_estimators=5,
+                recall_min=recall_min,
+                precision_min=precision_min,
+                max_depth_duplication=0,
+                max_samples=1.0,
+                max_depth=3,
+            )
+            skope_rules_clf.fit(X, y)
+            if len(skope_rules_clf.rules_) == 0:
+                ind_f = i - 1
+                a = False
+                break
+        if not a:
+            break
+    return 2 if ind_f == 1 else ind_f

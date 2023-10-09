@@ -349,6 +349,9 @@ class Variable:
     """ 
         Describes each X column or Y value
 
+        _col_index : int
+            The index of the column in the dataframe i come from (ds or xds)
+            #TODO : I shoudl code an Abstract class for Dataset and ExplanationDataset
         _symbol : str
             How it should be displayed in the GUI
         _descr : str
@@ -364,7 +367,8 @@ class Variable:
         _lon : bool
     """
 
-    def __init__(self, symbol: str, type: str):
+    def __init__(self, col_index:int, symbol: str, type: str):
+        self._col_index = col_index
         self._symbol = symbol
         self._type = type
 
@@ -376,8 +380,11 @@ class Variable:
         self._lat = False
         self._lon = False
 
-    def getSymbol(self) -> str:
+    def get_symbol(self) -> str:
         return self._symbol
+    
+    def get_col_index(self) -> int:
+        return self._col_index  
 
 
 class Dataset:
@@ -500,7 +507,7 @@ class Dataset:
         return self._variables
 
     def get_var_values(self, variable: Variable) -> pd.Series:
-        return self._X[variable.getSymbol()]
+        return self._X[variable.get_symbol()]
 
     def get_full_values(self, flavour: int = REGULAR) -> pd.DataFrame:
         """
@@ -738,7 +745,7 @@ class ExplanationDataset:
         else:
             raise ValueError(originValue, " is a bad origin type")
 
-    def full_values(self, explainationMethodType: int, origin: int = ANY):
+    def get_full_values(self, explainationMethodType: int, origin: int = ANY):
         """Looks for imported or computed explaned values with no dimension reduction, hence "FullValues"
         Parameters:
         explainationMethodType = see ExplanationMethod integer constants

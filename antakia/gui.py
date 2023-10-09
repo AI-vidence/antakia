@@ -26,7 +26,8 @@ from antakia.compute import (
     DimReducMethod,
     ExplanationMethod,
     computeExplanations,
-    compute_projection
+    compute_projection,
+    auto_cluster
 )
 from antakia.data import (  # noqa: E402
     Dataset,
@@ -39,7 +40,6 @@ from antakia.utils import models_scores_to_str, score
 from antakia.utils import (  # noqa: E402
     confLogger,
     overlapHandler,  # noqa: E402
-    proposeAutoDyadicClustering,
 )
 from antakia.gui_utils import (
     get_app_graph, 
@@ -51,7 +51,7 @@ from antakia.gui_utils import (
     add_model_slideItem,
     RuleVariableRefiner,
     get_beeswarm_values
-    create_rule_card,
+    datatable_from_potatoes
 )
 
 
@@ -83,6 +83,7 @@ class GUI:
     _model : Model
         the model to be explained
     _selection : a Potato object
+    _opacity : a list of two Pandas Series storing the opacity for each observation (VS and ES)
         The `Potato` object containing the current selection.
     _projectionVS : a list [int, int]
         VS current projection as a list, eg. [TSNE, 2]
@@ -95,23 +96,25 @@ class GUI:
     _out : Output Widget
         used in the output cell
     _app_graph : a graph of nested Widgets (widgets.VBox)
+    _ae_vs : AntakiaExplorer for the VS space
+    _ae_es : AntakiaExplorer for the ES space
     _color : Pandas Series : color for each Y point
-    _opacity : float
     _fig_size : int
     _paCMAPparams = dictionnary containing the parameters for the PaCMAP projection
         nested keys are "previous" / "current", then "VS" / "ES", then "n_neighbors" / "MN_ratio" / "FP_ratio"
     
-    _regionColor : # TODO : understand
-    _regionsTable : # TODO : understand
     _regions : list of Potato objects
+    _regions_colors : # TODO : understand
+    _regionsTable : # TODO : understand
+
 
     _save_rules useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
     _otherColumns : to keep track of the columns that are not used in the rules !
     _activate_histograms : to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
-    _dyadicClusteringResult : to keep track  of the entire results from the dyadic-clustering
-    _autoClusterRegionColors: the color of the Regions created by the automatic dyadic clustering
-    _dyadicClusteringLabels :  to keep track of the labels from the automatic-clustering, used for the colors !
-    modelIndex : to know which sub_model is selected by the user.
+    _auto_cluster_regions : a list of Potatoes = result of auto-clustering
+    _auto_cluster_colors: a list of colors for _auto_cluster_regions
+    _auto_cluster_labels :  should be = _auto_cluster_regions[1]
+    _ model_index : to know which sub_model is selected by the user.
     _submodels_scores : to keep track of the scores of the sub-models
     _backups : A list of backups
     
@@ -183,6 +186,7 @@ class GUI:
                 logger.debugg("__init__ : empty explanation dataset")
 
         self._selection = None
+        self._opacity = [pd.Series(), pd.Series()]
 
         if not DimReducMethod.isValidDimReducType(defaultProjection):
             raise ValueError(defaultProjection, " is an invalid projection type")
@@ -196,8 +200,7 @@ class GUI:
         self._out = widgets.Output()  # Ipwidgets output widget
         self._app_graph = None
         self._fig_size = 200
-        self._color = None
-        self._opacity = 1.0
+        self._color = []
         self._paCMAPparams = {
             "previous": {
                 "VS": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
@@ -210,8 +213,8 @@ class GUI:
         }  # A dict ("previous", "currrent") of dict ("VS, "ES") of dict("n_neighbors", "MN_ratio", "FP_ratio")
 
         # ---------- Vrac -------------
-        self._regionColor = None  # a lislt of what ?
-        self._regionsTable = None
+        self._regions_colors = None  # a lislt of what ?
+        self._regions_Table = None
         self._regions = []  # a list of Potato objects
         # TODO : understand the following
         self._save_rules = None  # useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
@@ -221,15 +224,12 @@ class GUI:
         self._activate_histograms = False  # to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
         
         self._histogramBinNum = 50
-        self._auto_colors = (
-            []
-        )  # the color of the Regions created by the automatic dyadic clustering
-        self._dyadicClusteringLabels = None  # to keep track of the labels from the automatic-clustering, used for the colors !
-        self.__dyadicClusteringResult = (
-            None  # to keep track  of the entire results from the dyadic-clustering
-        )
+
+        self._auto_cluster_regions = []
+        self._auto_cluster_colors = []
+    
         self._submodels_scores = None  # to keep track of the scores of the sub-models
-        self.modelIndex = one  # to know which sub_model is selected by the user.
+        self._model_index = None  # to know which sub_model is selected by the user.
 
         self._backups = []
 
@@ -245,6 +245,140 @@ class GUI:
     
     def get_app_graph(self) -> widgets.VBox:
         return self._app_graph
+
+
+
+    def update_selection_table(self):
+        XX = self._ds.getFullValues(Dataset.REGULAR).copy()
+
+        XXmean = (
+            pd.DataFrame(
+                XX.iloc[self._selection.getIndexes(), :]
+                .mean(axis=0)
+                .values.reshape(1, -1),
+                columns=XX.columns,
+            )
+            .round(2)
+            .rename(index={0: "Mean of the selection"})
+        )
+        XXmean_tot = (
+            pd.DataFrame(XX.mean(axis=0).values.reshape(1, -1), columns=XX.columns)
+            .round(2)
+            .rename(index={0: "Mean of the whole dataset"})
+        )
+        XXmean = pd.concat([XXmean, XXmean_tot], axis=0)
+        SHAP_mean = (
+            pd.DataFrame(
+                self._xds.getFullValues(self._explanationES[0])
+                .iloc[self._selection.getIndexes(), :]
+                .mean(axis=0)
+                .values.reshape(1, -1),
+                columns=self._xds.getFullValues(self._explanationES[0]).columns,
+            )
+            .round(2)
+            .rename(index={0: "Mean of the selection"})
+        )
+        SHAP_mean_tot = (
+            pd.DataFrame(
+                self._xds.getFullValues(self._explanationES[0])
+                .mean(axis=0)
+                .values.reshape(1, -1),
+                columns=self._xds.getFullValues(self._explanationES[0]).columns,
+            )
+            .round(2)
+            .rename(index={0: "Mean of the whole dataset"})
+        )
+        SHAP_mean = pd.concat([SHAP_mean, SHAP_mean_tot], axis=0)
+
+        XXmean.insert(
+            loc=0,
+            column=" ",
+            value=["Mean of the selection", "Mean of the whole dataset"],
+        )
+        data = XXmean.to_dict("records")
+        columns = [
+            {"text": c, "sortable": True, "value": c} for c in XXmean.columns
+        ]
+
+        data = XX.iloc[self._selection.getIndexes(), :].round(3).to_dict("records")
+        columns = [{"text": c, "sortable": True, "value": c} for c in XX.columns]
+
+        # We set out_select
+        widget_at_address(self._app_graph, "3041010000").children = [
+            v.Col(
+                class_="d-flex flex-column justify-center align-center",
+                children=[
+                    v.Html(tag="h3", children=["Values Space"]),
+                    v.DataTable(
+                        v_model=[],
+                        show_select=False,
+                        headers=columns.copy(),
+                        explanationsMenuDict=data.copy(),
+                        hide_default_footer=True,
+                        disable_sort=True,
+                    ),
+                    v.Divider(class_="ma-6"),
+                    v.Html(tag="h4", children=["Entire dataset:"], class_="mb-2"),
+                    v.DataTable(
+                        v_model=[],
+                        show_select=False,
+                        headers=columns.copy(),
+                        explanationsMenuDict=data.copy(),
+        ),
+                ],
+            )
+        ]
+
+        SHAP_mean.insert(
+            loc=0,
+            column=" ",
+            value=["Mean of the selection", "Mean of the whole dataset"],
+        )
+        data = SHAP_mean.to_dict("records")
+        columns = [
+            {"text": c, "sortable": True, "value": c} for c in SHAP_mean.columns
+        ]
+
+        out_selec_table_means = v.DataTable(
+            v_model=[],
+            show_select=False,
+            headers=columns.copy(),
+            explanationsMenuDict=data.copy(),
+            hide_default_footer=True,
+            disable_sort=True,
+        )
+
+        data = (
+            self._xds.getFullValues(self._explanationES[0])
+            .iloc[self._selection.getIndexes(), :]
+            .round(3)
+            .to_dict("records")
+        )
+        columns = [
+            {"text": c, "sortable": True, "value": c}
+            for c in self._xds.getFullValues(self._explanationES[0]).columns
+        ]
+
+        out_selec_table = v.DataTable(
+            v_model=[],
+            show_select=False,
+            headers=columns.copy(),
+            explanationsMenuDict=data.copy(),
+        )
+
+        # We set out_selec_SHAP :
+        widget_at_address(self._app_graph, "304101002").children = [
+            v.Col(
+                class_="d-flex flex-column justify-center align-center",
+                children=[
+                    v.Html(tag="h3", children=["Explanatory Space"]),
+                    out_selec_table_means,
+                    v.Divider(class_="ma-6"),
+                    v.Html(tag="h4", children=["Entire dataset:"], class_="mb-2"),
+                    out_selec_table,
+                ],
+            )
+        ]
     
     def update_submodels_scores(self, temp): # when called, temp is always None
             bool_list = [True] * self._ds.get_length()
@@ -390,78 +524,14 @@ class GUI:
                     total_list = [
                         g for g in total_list if g in self._gui.get_selection().getMapIndexes()
                     ]
+
                 for i in range(len(self._selection.getVSRules())):
                     for refiner in widget_at_address(self._app_graph, "30501").children:
-                        # We retrieve the refiner's histogram :
-                        with widget_at_address(refiner.get_widget(), "001001").batch_update():
-                            widget_at_address(refiner.get_widget(), "001001").data[0].x = self._ds.getXValues()[self._selection.getVSRules()[i][2]][total_list]
-                        
-                        # We retrieve the refiner's beeswarm :
-                        if widget_at_address(refiner.get_widget(), "001011").v_model :
-                            with widget_at_address(refiner.get_widget(), "001011").batch_update():
-                                y_color = [0] * len(self._xds.getFullValues(self._explanationES[0]))
-                                if i == rule_index:
-                                    indexs = (
-                                        self._ds.getXValues()
-                                        .index[
-                                            self._ds.getXValues()[
-                                                self._selection.getVSRules()[i][2]
-                                            ].between(min, max)
-                                        ]
-                                        .tolist()
-                                    )
-                                else:
-                                    indexs = (
-                                        self._ds.getFullValues().index[
-                                            self._ds.getXValues()[
-                                                self._selection.getVSRules()[i][2]
-                                            ].between(
-                                                self._selection.getVSRules()[i][0],
-                                                self._selection.getVSRules()[i][4],
-                                            )
-                                        ].tolist()
-                                    )
-                                for j in range(
-                                    len(self._xds.getFullValues(self._explanationES[0]))
-                                ):
-                                    if j in total_list:
-                                        y_color[j] = "blue"
-                                    elif j in indexs:
-                                        y_color[j] = "#85afcb"
-                                    else:
-                                        y_color[j] = "grey"
-                                widget_at_address(refiner.get_widget(), "001011").data[0].marker.color = y_color
-
-    def update_explanation_select(self):
-        """Update the explanationMenduDict widget and only enable items that are available"""
-
-        if self._explanationSelect is not None:
-            shapImported = self._xds.isExplanationAvailable(
-                ExplanationMethod.SHAP, ExplanationDataset.IMPORTED
-            )
-            shapComputed = self._xds.isExplanationAvailable(
-                ExplanationMethod.SHAP, ExplanationDataset.COMPUTED
-            )
-            limeImported = self._xds.isExplanationAvailable(
-                ExplanationMethod.LIME, ExplanationDataset.IMPORTED
-            )
-            limeComputed = self._xds.isExplanationAvailable(
-                ExplanationMethod.LIME, ExplanationDataset.COMPUTED
-            )
-
-            newItems = [deepcopy(a) for a in self._explanationSelect.items]
-
-            newItems = [
-                {"text": "SHAP (imported)", "disabled": not shapImported},
-                {"text": "SHAP (computed)", "disabled": not shapComputed},
-                {"text": "LIME (imported)", "disabled": not limeImported},
-                {"text": "LIME (computed)", "disabled": not limeComputed},
-            ]
-
-            self._explanationSelect.items = newItems
+                        pass
 
     def update_skope_rules(self, *sender):
-        # TODO : We should deal with RuleVariableRefiner
+
+        # Let's use the REFINERS instead
 
         # We retrieve loadingModelsProgLinear (30600)
         widget_at_address(self._app_graph, "30600").class_ = "d-flex"
@@ -703,47 +773,6 @@ class GUI:
                     
                     refiner_index += 1
 
-                # with histogram1.batch_update():
-                #     histogram1.data[0].x = list(
-                #         self._ds.getXValues()[columns_rules[0]]
-                #     )
-                #     df_respect1 = self._selection.respectOneRule(0)
-                #     histogram1.data[1].x = list(df_respect1[columns_rules[0]])
-                # if (
-                #     len(
-                #         set(
-                #             [
-                #                 self._selection.getVSRules()[i][2]
-                #                 for i in range(len(self._selection.getVSRules()))
-                #             ]
-                #         )
-                #     )
-                #     > 1
-                # ):
-                #     with histogram2.batch_update():
-                #         histogram2.data[0].x = list(
-                #             self._ds.getXValues()[columns_rules[1]]
-                #         )
-                #         df_respect2 = self._selection.respectOneRule(1)
-                #         histogram2.data[1].x = list(df_respect2[columns_rules[1]])
-                # if (
-                #     len(
-                #         set(
-                #             [
-                #                 self._selection.getVSRules()[i][2]
-                #                 for i in range(len(self._selection.getVSRules()))
-                #             ]
-                #         )
-                #     )
-                #     > 2
-                # ):
-                #     with histogram3.batch_update():
-                #         histogram3.data[0].x = list(
-                #             self._ds.getXValues()[columns_rules[2]]
-                #         )
-                #         df_respect3 = self._selection.respectOneRule(2)
-                #         histogram3.data[1].x = list(df_respect3[columns_rules[2]])
-
                 widget_at_address(self._app_graph, "30501003").children = [
 
                     "p = "
@@ -905,43 +934,50 @@ class GUI:
 
     def redraw_graph(self, side: int):
         """ Redraws one figure. "side" refers to VS or ES class attributes
+            Called *after* the projection has been updated : no need to re-compute
         """
         if side not in [GUI.VS, GUI.ES]:
             raise ValueError(side, " is an invalid side")
 
-        projValues = figure = projType = dim = None
-
         if self._aeVS is None or self._aeES is None:
-            return -1  # we quit this function
+            raise ValueError("AntakiaExplorer not initialized")
+        
+        temp_ae = self._aeVS if side == GUI.VS else self._aeES
+        temp_ae.redraw_graph(self._color, self.fig_size)
 
-        if side == GUI.VS:
-            sideStr = "VS"
-            dim = self._projectionVS[1]
-            projType = self._projectionVS[0]
-            projValues = self._ds.getProjValues(projType, dim)
-            figure = widget_at_address(self._app_graph, "2001")
-            explainStr = ""
-        else:
-            sideStr = "ES"
-            dim = self._projectionES[1]
-            projType = self._projectionES[0]
-            projValues = self._xds.proj_values(self._explanationES[0], projType, dim)
-            figure = widget_at_address(self._app_graph, "2011")
-            explainStr = f"{ExplanationDataset.origin_by_str(self._explanationES[1])} {ExplanationMethod.explain_method_as_str(self._explanationES[0])} with"
+    def selection_changed(self, new_selection: Potato, side: int):
+        """ Called when the selection of one AntakiaExplorer changes
+        """ 
+        self._selection = new_selection # just created, no need to copy
 
-        if projValues is not None and figure is not None:
-            with figure.batch_update():
-                figure.data[0].marker.opacity = self._opacity
-                figure.data[0].marker.color = self._color
-                figure.data[0].customdata = self._color
-                figure.data[0].x, figure.data[0].y = (projValues[0]), (projValues[1])
-                if dim == DimReducMethod.DIM_THREE:
-                    figure.data[0].z = projValues[2]
-            logger.debug(f"updateFigure({sideStr}) : figure updated")
-        else:
-            logger.debug(
-                f"updateFigure({sideStr}) : don't have the proper proj for {explainStr} {DimReducMethod.dimreducmethod_as_str(projType)} in {dim} dimension"
+        # We set opacity to 10% for the selection
+        new_opacity_serie = pd.Series()
+        for i in range(self._ds.get_length()):
+                if i in self._selection.get_indexes:
+                    new_opacity_serie.append(1)
+                else:
+                    new_opacity_serie.append(0.1)
+        self._opacity[0 if side == GUI.VS else 1] = new_opacity_serie
+
+        self.update_selection_table()
+        self.redraw_graph(side)
+        
+        # We update the info Card
+        selection_txt = "Current selection : \n0 pont selected (0% of the overall data)"
+        if not self._selection.is_empty():
+            selection_txt = \
+            str(self._selection.size()) + \
+            " points selected (" + \
+            str( \
+                round( \
+                    self._selection.size() \
+                    / self._ds.get_length() \
+                    * 100, \
+                    2, \
+                ) \
             )
+        widget_at_address(self._app_graph, "304001").children[selection_txt]
+
 
     def get_selection(self):
         """ Returns the current selection.
@@ -988,13 +1024,27 @@ class GUI:
         widget_at_address(self._app_graph, "12020").layout.visibility = "hidden"
         widget_at_address(self._app_graph, "12120").layout.visibility = "hidden"
 
-        # --------- Two AntakiaExporer ------------
-        widget_at_address(self._app_graph, "200").children[1] = AntakiaExplorer(self._ds, None, False)
-        widget_at_address(self._app_graph, "201").children[1] = AntakiaExplorer(self._ds, self._xds, True)
+        # --------- Two AntakiaExporer ----------
+
+        self._ae_vs = AntakiaExplorer(self._ds, None, False) 
+        self._ae_es = AntakiaExplorer(self._ds, self._xds, True)
+
+        # We add each AntaiaExplorer component to the _app_graph :
+        widget_at_address(self._app_graph, "2001") = self._ae_vs.get_figure_widget()
+        widget_at_address(self._app_graph, "1200") = self._ae_vs.get_projection_select()
+
+        
+        widget_at_address(self._app_graph, "2011") = self._ae_es.get_figure_widget()
+        widget_at_address(self._app_graph, "1200") = self._ae_es.get_projection_select()
+        # Because self._ae_es _is_explain_explorer :
+        widget_at_address(self._app_graph, "113") = self._ae_es.get_explain_select()
+        self._ae_es.get_explain_compute_menu()
+        
+        
 
     
         # --------- Set point color ------------
-        def change_color(*args, opacity: bool = True):
+        def change_color(*args):
             # Allows you to change the color of the dots when you click on the buttons
             choice = self._app_graph.children[1].children[1].children[1].v_model
             self._color = None
@@ -1088,13 +1138,20 @@ class GUI:
 
         # Called when the user clicks on the "add" button and computes the rules
         def reinitSkopeRules(*b):
-            self._selection.setVSRules(self._save_rules)
+            # Why the rules should be saved ?
+            # self._selection.setVSRules(self._save_rules)
+
+            # If called, means the selection is back to a selection :
+            self._selection.setType(Potato.SELECTION)
+
+            # We reset the refiners
             self.update_skope_rules(None)
+
+            # We udpate the scores for the submodels
             self.update_submodels_scores(None)
 
         # We wire the click event on the reinitSkopeBtn (3050001)
         widget_at_address(self._app_graph, "3050001").on_event("click", reinitSkopeRules)
-
 
 
         def cluster_number_changed(*b):
@@ -1119,18 +1176,15 @@ class GUI:
         columns = [{"text": c, "sortable": True, "value": c} for c in new_df.columns]
 
         # We insert the cluster_results_table in our v.Row clusterResults (30442)
-
-        widget_at_address(self._app_graph, "3044")
-
         widget_at_address(self._app_graph, "3044").v.Row(
             children=[
                 v.Layout(
                     class_="flex-grow-0 flex-shrink-0",
                     children=[v.Btn(class_="d-none", elevation=0, disabled=True)],
                 ),
-                v.Layout(
+                v.Layout( 
                     class_="flex-grow-1 flex-shrink-0",
-                    children=[v.DataTable(
+                    children=[v.DataTable( # cluster_results_table
                         class_="w-100",
                         style_="width : 100%",
                         v_model=[],
@@ -1146,355 +1200,109 @@ class GUI:
         )
 
         # Allows you to make dyadic clustering
-        def dynamicClustering(*b):
-            loadingClustersProgLinear.class_ = "d-flex"
-            if clustersNumberCheck.v_model:
-                result = proposeAutoDyadicClustering(
+        def magic_btn_clicked(*b) -> int:
+            # We update our loadingClustersProgLinear (3043)
+            widget_at_address(self._app_graph, "3043").class_ = "d-flex"
+
+            # Depending on clusterCheck (30421) :
+            if widget_at_address(self._app_graph, "30421").v_model:
+                self._auto_cluster_regions = auto_cluster(
                     self._ds.getXValues(Dataset.SCALED),
                     self._xds.getFullValues(self._explanationES[0]),
                     3,
                     True,
                 )
             else:
-                result = proposeAutoDyadicClustering(
+                self._auto_cluster_regions = auto_cluster(
                     self._ds.getXValues(Dataset.SCALED),
                     self._xds.getFullValues(self._explanationES[0]),
-                    clustersSlider.v_model,
+                    # We read clusterSlider (30423) value :
+                    widget_at_address(self._app_graph, "30423").v_model,
                     False,
                 )
-            self._dyadicClusteringResult = result
-            labels = result[1]
-            self._dyadicClusteringLabels = labels
-            with self._leftVSFigure.batch_update():
-                self._leftVSFigure.data[0].marker.color = labels
-                self._leftVSFigure.update_traces(marker=dict(showscale=False))
-            with self._rightESFigure.batch_update():
-                self._rightESFigure.data[0].marker.color = labels
-            with self._leftVSFigure3D.batch_update():
-                self._leftVSFigure3D.data[0].marker.color = labels
-                self._leftVSFigure3D.update_traces(marker=dict(showscale=False))
-            with self._rightESFigure3D.batch_update():
-                self._rightESFigure3D.data[0].marker.color = labels
-            regionsLabels = result[0]
-            new_df = []
-            for i in range(len(regionsLabels)):
-                new_df.append(
-                    [
-                        i + 1,
-                        len(regionsLabels[i]),
-                        str(
-                            round(
-                                len(regionsLabels[i])
-                                / len(self._ds.getXValues())
-                                * 100,
-                                2,
-                            )
-                        )
-                        + "%",
-                    ]
-                )
-            new_df = pd.DataFrame(
-                new_df,
-                columns=["Region #", "Number of points", "Percentage of the dataset"],
-            )
-            data = new_df.to_dict("records")
-            columns = [
-                {"text": c, "sortable": False, "value": c} for c in new_df.columns
-            ]
-            clusterResultsTable = v.DataTable(
-                class_="w-100",
-                style_="width : 100%",
-                show_select=False,
-                single_select=True,
-                v_model=[],
-                headers=columns,
-                explanationsMenuDict=data,
-                item_value="Region #",
-                item_key="Region #",
-                hide_default_footer=True,
-            )
-            all_chips = []
-            all_radio = []
-            N_antakiaStepsCard = len(regionsLabels)
-            Multip = 100
-            debut = 0
-            fin = (N_antakiaStepsCard * Multip - 1) * (1 + 1 / (N_antakiaStepsCard - 1))
-            pas = (N_antakiaStepsCard * Multip - 1) / (N_antakiaStepsCard - 1)
-            scale_colors = np.arange(debut, fin, pas)
-            a = 0
-            for i in scale_colors:
-                color = sns.color_palette(
-                    "viridis", N_antakiaStepsCard * Multip
-                ).as_hex()[round(i)]
-                all_chips.append(v.Chip(class_="rounded-circle", color=color))
-                all_radio.append(v.Radio(class_="mt-4", value=str(a)))
-                a += 1
-            all_radio[-1].class_ = "mt-4 mb-0 pb-0"
-            part_for_radio = v.RadioGroup(
-                v_model=None,
-                class_="mt-10 ml-7",
-                style_="width : 10%",
-                children=all_radio,
-            )
-            part_for_chips = v.Col(
-                class_="mt-10 mb-2 ml-0 d-flex flex-column justify-space-between",
-                style_="width : 10%",
-                children=all_chips,
-            )
-            clusterResults = v.Row(
-                children=[
-                    v.Layout(
-                        class_="flex-grow-0 flex-shrink-0", children=[part_for_radio]
-                    ),
-                    v.Layout(
-                        class_="flex-grow-0 flex-shrink-0", children=[part_for_chips]
-                    ),
-                    v.Layout(
-                        class_="flex-grow-1 flex-shrink-0",
-                        children=[clusterResultsTable],
-                    ),
-                ],
-            )
-            tabOneSelectionColumn.children = tabOneSelectionColumn.children[:-1] + [
-                clusterResults
-            ]
 
-            colorChoiceBtnToggle.v_model = "Clustering auto"
+            self._color = self._auto_cluster_regions[1]
+            self.redraw_both_graphs()
 
-            tabOneSelectionColumn.children[-1].children[0].children[0].on_event(
-                "change", selectedClusterChange
+            # We set our regions accordingly
+            self._regions = self._auto_cluster_regions
+            # We update the GUI tab 1(304) clusterResults(3044) (ie a v.Row)
+            widget_at_address(self._app_graph, "30423").children[4] = self.datatable_from_potatoes(self._regions)
+
+
+            # TODO : understand
+            # tabOneSelectionColumn.children = tabOneSelectionColumn.children[:-1] + [
+            #     clusterResults
+            # ]
+
+            # colorChoiceBtnToggle(111) must be changed :
+            widget_at_address(self._app_graph, "30423").v_model = "auto"
+
+            # We wire a change event on a button above the cluster_results_table DataTable (30420)
+            widget_at_address(self._app_graph, "30420").on_event(
+                "change", cluster_results_table_changed
             )
-            loadingClustersProgLinear.class_ = "d-none"
-            return N_antakiaStepsCard
+
+            # We udpate loadingClustersProgLinear (3043)
+            widget_at_address(self._app_graph, "30440").class_ = "d-none"
+            # TODO : check thart we really expect an int from this function
+            return len(self._auto_cluster_regions)
+        
+        # We wire the click event on the "Magic" findClusterBtn (30451)
+        widget_at_address(self._app_graph, "30451").on_event("click", magic_btn_clicked)
 
         # When we select a region created by the automatic dyadic clustering
-        def selectedClusterChange(widget, event, data):  # 1803
-            result = _dyadicClusteringResult
-            labels = result[1]
-            index = tabOneSelectionColumn.children[-1].children[0].children[0].v_model
+        def cluster_results_table_changed(widget, event, data):  # 1803
+            logger.debug("display_gui/cluster_results_table_changed : what this function is supposed to do ?")
+            # TODO : maybe this event should not be called only for "auto regions"
+
+            labels = self._auto_cluster_regions[1] # ????
+
+            # TODO : I guess tabOneSelectionColumn.children[-1].children[0].children[0] was refering to the DataTable
+            index = widget_at_address(self._app_graph, "304420").v_model
             liste = [i for i, d in enumerate(labels) if d == float(index)]
-            lassoSelection(None, None, None, liste)
-            colorChoiceBtnToggle.v_model = "Clustering auto"
-            changeMarkersColor(opacity=False)
 
-        findClusterBtn.on_event("click", dynamicClustering)
+            widget_at_address(self._app_graph, "30423").v_model = "auto"
+            # We call change_color by hand 
+            # TODO : register change_color on the cluster_results_table instead 
+            change_color()
 
-        # Called as soon as the points are selected (step 1)
-        # TODO : we should type and provide hints fort this fonction
-        def lassoSelection(trace, points, selector, *args):  # 1815
-            if len(args) > 0:
-                passedList = args[0]
-                selectedDots = passedList
-            else:
-                selectedDots = points.point_inds  # ids
-            self._selection = Potato(
-                self._ds, self._xds, self._explanationES[0], selectedDots, Potato.LASSO
-            )
-            if len(selectedDots) == 0:
-                selectionCard.children[0].children[1].children = "0 point !"
-                selectionText.value = startInitialText
-                return
-
-            selectionCard.children[0].children[1].children = (
-                str(len(selectedDots))
-                + " points selected ("
-                + str(round(len(selectedDots) / self._ds.__len__() * 100, 2))
-                + "% of the overall)"
-            )
-            selectionText.value = (
-                initialText
-                + str(len(selectedDots))
-                + " points selected ("
-                + str(
-                    round(
-                        len(selectedDots)
-                        / len(self._ds.getFullValues(Dataset.REGULAR))
-                        * 100,
-                        2,
-                    )
-                )
-                + "% of the overall)"
-            )
-            opa = []  # stands for Opacity
-            for i in range(len(self._rightESFigure.data[0].x)):
-                if i in selectedDots:
-                    opa.append(1)
-                else:
-                    opa.append(0.1)
-
-            with self._leftVSFigure.batch_update():
-                self._leftVSFigure.data[0].marker.opacity = opa
-            with self._rightESFigure.batch_update():
-                self._rightESFigure.data[0].marker.opacity = opa
-
-            # TODO : why duplicate X ?
-            XX = self._ds.getFullValues(Dataset.REGULAR).copy()
-
-            XXmean = (
-                pd.DataFrame(
-                    XX.iloc[self._selection.getIndexes(), :]
-                    .mean(axis=0)
-                    .values.reshape(1, -1),
-                    columns=XX.columns,
-                )
-                .round(2)
-                .rename(index={0: "Mean of the selection"})
-            )
-            XXmean_tot = (
-                pd.DataFrame(XX.mean(axis=0).values.reshape(1, -1), columns=XX.columns)
-                .round(2)
-                .rename(index={0: "Mean of the whole dataset"})
-            )
-            XXmean = pd.concat([XXmean, XXmean_tot], axis=0)
-            SHAP_mean = (
-                pd.DataFrame(
-                    self._xds.getFullValues(self._explanationES[0])
-                    .iloc[self._selection.getIndexes(), :]
-                    .mean(axis=0)
-                    .values.reshape(1, -1),
-                    columns=self._xds.getFullValues(self._explanationES[0]).columns,
-                )
-                .round(2)
-                .rename(index={0: "Mean of the selection"})
-            )
-            SHAP_mean_tot = (
-                pd.DataFrame(
-                    self._xds.getFullValues(self._explanationES[0])
-                    .mean(axis=0)
-                    .values.reshape(1, -1),
-                    columns=self._xds.getFullValues(self._explanationES[0]).columns,
-                )
-                .round(2)
-                .rename(index={0: "Mean of the whole dataset"})
-            )
-            SHAP_mean = pd.concat([SHAP_mean, SHAP_mean_tot], axis=0)
-
-            XXmean.insert(
-                loc=0,
-                column=" ",
-                value=["Mean of the selection", "Mean of the whole dataset"],
-            )
-            data = XXmean.to_dict("records")
-            columns = [
-                {"text": c, "sortable": True, "value": c} for c in XXmean.columns
-            ]
-
-            out_selec_table_means = v.DataTable(
-                v_model=[],
-                show_select=False,
-                headers=columns.copy(),
-                explanationsMenuDict=data.copy(),
-                hide_default_footer=True,
-                disable_sort=True,
-            )
-
-            data = XX.iloc[self._selection.getIndexes(), :].round(3).to_dict("records")
-            columns = [{"text": c, "sortable": True, "value": c} for c in XX.columns]
-
-            out_selec_table = v.DataTable(
-                v_model=[],
-                show_select=False,
-                headers=columns.copy(),
-                explanationsMenuDict=data.copy(),
-            )
-
-            out_selec.children = [
-                v.Col(
-                    class_="d-flex flex-column justify-center align-center",
-                    children=[
-                        v.Html(tag="h3", children=["Values Space"]),
-                        out_selec_table_means,
-                        v.Divider(class_="ma-6"),
-                        v.Html(tag="h4", children=["Entire dataset:"], class_="mb-2"),
-                        out_selec_table,
-                    ],
-                )
-            ]
-
-            SHAP_mean.insert(
-                loc=0,
-                column=" ",
-                value=["Mean of the selection", "Mean of the whole dataset"],
-            )
-            data = SHAP_mean.to_dict("records")
-            columns = [
-                {"text": c, "sortable": True, "value": c} for c in SHAP_mean.columns
-            ]
-
-            out_selec_table_means = v.DataTable(
-                v_model=[],
-                show_select=False,
-                headers=columns.copy(),
-                explanationsMenuDict=data.copy(),
-                hide_default_footer=True,
-                disable_sort=True,
-            )
-
-            data = (
-                self._xds.getFullValues(self._explanationES[0])
-                .iloc[self._selection.getIndexes(), :]
-                .round(3)
-                .to_dict("records")
-            )
-            columns = [
-                {"text": c, "sortable": True, "value": c}
-                for c in self._xds.getFullValues(self._explanationES[0]).columns
-            ]
-
-            out_selec_table = v.DataTable(
-                v_model=[],
-                show_select=False,
-                headers=columns.copy(),
-                explanationsMenuDict=data.copy(),
-            )
-
-            out_selec_SHAP.children = [
-                v.Col(
-                    class_="d-flex flex-column justify-center align-center",
-                    children=[
-                        v.Html(tag="h3", children=["Explanatory Space"]),
-                        out_selec_table_means,
-                        v.Divider(class_="ma-6"),
-                        v.Html(tag="h4", children=["Entire dataset:"], class_="mb-2"),
-                        out_selec_table,
-                    ],
-                )
-            ]
-            # End lasso
 
         # Called when validating a tile to add it to the set of Regions
-        def newRegionValidated(*args):
+        def new_region_validated(*args):
             if len(args) == 0:
                 pass
             elif self._selection in self._regions:
+                # TODO : wez should have an Alert system
                 print("AntakIA WARNING: this region is already in the set of Regions")
             else:
+                # TODO : selection is selection. We should create another potato
                 self._selection.setType(Potato.REGION)
-                if self.modelIndex is None:
-                    modelName = None
-                    modelScore = [1, 1, 1]
+                if self._model_index is None:
+                    model_name = None
+                    model_scores = [1, 1, 1]
                 else:
-                    modelName = self.sub_models[self.modelIndex].__class__.__name__
-                    modelScore = self._subModelsScores[self.modelIndex]
-                if self._selection.getVSRules() is None:
+                    model_name = get_default_submodels[self._model_index].__class__.__name__
+                    model_scores = self._subModelsScores[self._model_index]
+                if self._selection.get_vs_rules() is None:
                     return
 
-                # self._selection.setIndexesWithRules() # TODO not sur wa have to call that
+                # self._selection.setIndexesWithRules() # TODO not sure we have to call that
 
-                newIndexes = deepcopy(self._selection.getIndexes())
-                self._selection.sub_model["name"], self.selection.sub_model["score"] = (
-                    modelName,
-                    modelScore,
+                new_indexes = deepcopy(self._selection.get_indexes())
+                self._selection.get_submodel()["name"], self._selection.get_submodel()["score"] = (
+                    model_name,
+                    model_scores,
                 )
                 # We check that all the points of the new region belong only to it: we will modify the existing tiles
-                self._regions = overlapHandler(self._regions, newIndexes)
-                self._selection.setNewIndexes(newIndexes)
+                self._regions = overlapHandler(self._regions, new_indexes)
+                self._selection.set_new_indexes(new_indexes)
 
             self._regionColor = [0] * self._ds.__len__()
             if self._regions is not None:
-                for i in range(len(self._regionColor)):
+                for i in range(len(self._regions_colors)):
                     for j in range(len(self._regions)):
-                        if i in self._regions[j].getIndexes():
+                        if i in self._regions[j].get_indexes():
                             self._regionColor[i] = j + 1
                             break
 
@@ -1504,7 +1312,7 @@ class GUI:
             score_tot_glob = 0
             autre_toute_somme = 0
             for i in range(len(self._regions)):
-                if self._regions[i].getSubModel()["score"] is None:
+                if self._regions[i].get_submodel()["score"] is None:
                     temp.append(
                         [
                             i + 1,
@@ -1528,20 +1336,20 @@ class GUI:
                             len(self._regions[i]),
                             np.round(
                                 len(self._regions[i])
-                                / len(self._ds.getXValues())
+                                / len(self._ds.getFullValues())
                                 * 100,
                                 2,
                             ),
-                            self._regions[i].getSubModel()["model"],
-                            self._regions[i].getSubModel()["score"][0],
-                            self._regions[i].getSubModel()["score"][1],
-                            str(self._regions[i].getSubModel()["score"][2]) + "%",
+                            self._regions[i].get_submodel()["model"],
+                            self._regions[i].get_submodel()["score"][0],
+                            self._regions[i].get_submodel()["score"][1],
+                            str(self._regions[i].get_submodel()["score"][2]) + "%",
                         ]
                     )
-                    score_tot += self._regions[i].getSubModel()["score"][0] * len(
+                    score_tot += self._regions[i].get_submodel()["score"][0] * len(
                         self._regions[i]
                     )
-                    score_tot_glob += self._regions[i].getSubModel()["score"][1] * len(
+                    score_tot_glob += self._regions[i].get_submodel()["score"][1] * len(
                         self._regions[i]
                     )
                     autre_toute_somme += len(self._regions[i])
@@ -1580,96 +1388,91 @@ class GUI:
                     "Gain in MSE",
                 ],
             )
+            # TODO what shall we do with this dataframe ???
 
-        validateRegionBtn.on_event("click", newRegionValidated)
-        validateSkopeBtn.on_event("click", update_skope_rules)
+        # We wire a click event on validateRegionBtn(307000) : note we created it in app_graph
+        widget_at_address(self._app_graph, "307000").on_event("click", new_region_validated)
 
-        self._aeVS.getFigureWidget().data[0].on_selection(lassoSelection)
-        self._aeES.getFigureWidget().data[0].on_selection(lassoSelection)
-
-        def figureSizeChanged(*args):  # 2121
-            with self._aeVS.getFigureWidget().batch_update():
-                self._aeVS.getFigureWidget().layout.width = int(
-                    figureSizeSlider.v_model
-                )
-            with self._aeES.getFigureWidget().batch_update():
-                self._aeES.getFigureWidget().layout.width = int(
-                    figureSizeSlider.v_model
-                )
-            for i in range(len(allHistograms)):
-                with allHistograms[i].batch_update():
-                    allHistograms[i].layout.width = 0.9 * int(figureSizeSlider.v_model)
-                with allBeeSwarms[i].batch_update():
-                    allBeeSwarms[i].layout.width = 0.9 * int(figureSizeSlider.v_model)
-
-        figureSizeSlider.on_event("input", figureSizeChanged)
-
-        addSkopeBtn = v.Btn(
-            class_="ma-4 pa-2 mb-1",
-            children=[v.Icon(children=["mdi-plus"]), "Add a rule"],
-        )
+        # TODO : strange it appears here no ?
+        # We wire the ckick event on validateSkopeBtn (3050000)
+        widget_at_address(self._app_graph, "3050000").on_event("click", self.update_skope_rules)
 
 
-        addMapBtn = v.Btn(
-            class_="ma-4 pa-2 mb-1",
-            children=[v.Icon(class_="mr-4", children=["mdi-map"]), "Display the map"],
-            color="white",
-            disabled=True,
-        )
 
-        def displayMap(widget, event, data):
-            if widget.color == "white":
-                mapPartLayout.class_ = "d-flex justify-space-around ma-0 pa-0"
-                widget.color = "error"
-                widget.children = [widget.children[0]] + ["Hide the map"]
-                _save_lat_rule = [
-                    self._selection.getVSRules()[i]
-                    for i in range(len(self._selection.getVSRules()))
-                    if self._selection.getVSRules()[i][2] == self._ds.getLatLon([0])
-                ]
-                _save_long_rule = [
-                    self._selection.getVSRules()[i]
-                    for i in range(len(self._selection.getVSRules()))
-                    if self._selection.getVSRules()[i][2] == self._ds.getLatLon([1])
-                ]
-                count = 0
-                for i in range(len(self._selection.getVSRules())):
-                    if (
-                        self._selection.getVSRules()[i - count][2]
-                        == self.atk.dataset.lat
-                        or self._selection.getVSRules()[i - count][2]
-                        == self.atk.dataset.long
-                    ):
-                        self._selection.getVSRules().pop(i - count)
-                        count += 1
-                for i in range(len(skopeAccordion.children)):
-                    if skopeAccordion.children[i].children[0].children[0].children[0][
-                        4:-1
-                    ] in [self._ds.getLatLon([0]), self._ds.getLatLon([1])]:
-                        skopeAccordion.children[i].disabled = True
-                ourVSSkopeCard.children = gui_utils.createRuleCard(
-                    self._selection.ruleListToStr()
-                )
-                update_graph_with_rules()
-            else:
-                self.selection.setIndexesFromMap(None)
-                widget.color = "white"
-                mapPartLayout.class_ = "d-none ma-0 pa-0"
-                widget.children = [widget.children[0]] + ["Display the map"]
-                self._selection.setVSRules(
-                    self._selection.getVSRules() + _save_lat_rule + _save_long_rule
-                )
-                ourVSSkopeCard.children = gui_utils.createRuleCard(
-                    self._selection.ruleListToStr()
-                )
-                update_graph_with_rules()
-                for i in range(len(skopeAccordion.children)):
-                    skopeAccordion.children[i].disabled = False
+        def fig_size_changed(*args):  # 2121
+            # TODO : we should get the slider handle from *args !
+            slider = widget_at_address(self._app_graph, "050100")
+
+            self._fig_size = slider.v_model
+
+            for refiner in widget_at_address(self._app_graph, "30501").children:
+                refiner.redraw_both_graphs()
+
+        # We wire the input event on the figureSizeSlider (050100)
+        widget_at_address(self._app_graph, "050100").on_event("input", fig_size_changed)
+
+        def display_map(widget, event, data):
+            # if widget.color == "white":
+            #     mapPartLayout.class_ = "d-flex justify-space-around ma-0 pa-0"
+            #     widget.color = "error"
+            #     widget.children = [widget.children[0]] + ["Hide the map"]
+            #     _save_lat_rule = [
+            #         self._selection.getVSRules()[i]
+            #         for i in range(len(self._selection.getVSRules()))
+            #         if self._selection.getVSRules()[i][2] == self._ds.getLatLon([0])
+            #     ]
+            #     _save_long_rule = [
+            #         self._selection.getVSRules()[i]
+            #         for i in range(len(self._selection.getVSRules()))
+            #         if self._selection.getVSRules()[i][2] == self._ds.getLatLon([1])
+            #     ]
+            #     count = 0
+            #     for i in range(len(self._selection.getVSRules())):
+            #         if (
+            #             self._selection.getVSRules()[i - count][2]
+            #             == self.atk.dataset.lat
+            #             or self._selection.getVSRules()[i - count][2]
+            #             == self.atk.dataset.long
+            #         ):
+            #             self._selection.getVSRules().pop(i - count)
+            #             count += 1
+            #     for i in range(len(skopeAccordion.children)):
+            #         if skopeAccordion.children[i].children[0].children[0].children[0][
+            #             4:-1
+            #         ] in [self._ds.getLatLon([0]), self._ds.getLatLon([1])]:
+            #             skopeAccordion.children[i].disabled = True
+            #     ourVSSkopeCard.children = gui_utils.createRuleCard(
+            #         self._selection.ruleListToStr()
+            #     )
+            #     update_graph_with_rules()
+            # else:
+            #     self.selection.setIndexesFromMap(None)
+            #     widget.color = "white"
+            #     mapPartLayout.class_ = "d-none ma-0 pa-0"
+            #     widget.children = [widget.children[0]] + ["Display the map"]
+            #     self._selection.setVSRules(
+            #         self._selection.getVSRules() + _save_lat_rule + _save_long_rule
+            #     )
+            #     ourVSSkopeCard.children = gui_utils.createRuleCard(
+            #         self._selection.ruleListToStr()
+            #     )
+            #     update_graph_with_rules()
+            #     for i in range(len(skopeAccordion.children)):
+            #         skopeAccordion.children[i].disabled = False
 
 
         # function called when we add a feature to the rules. We instanciate the exact same things than from the previous features
         # (beeswarms, histograms, etc...)
-        def addSkopeRule(*b):
+        def add_skope_rule(*b):
+
+            # ======================
+            #
+            #   J'en suis là
+            #   La bonne façon de faire est de créer un autre Refiner
+            #   Mais c'est tout sauf prioritaire
+            #
+            # ======================
+
             new_rule = [0] * 5
             column = addAnotherFeatureWgt.v_model
             if self._otherColumns is None:
@@ -1694,7 +1497,7 @@ class GUI:
                 newSkopeSlider,
                 newHistogram,
             ) = gui_utils.createNewFeatureRuleGUI(
-                self, new_rule, column, self._histogramBinNum, figureSizeSlider.v_model
+                self, new_rule, column, self._histogramBinNum, self._fig_size
             )
 
             allHistograms.append(newHistogram)
@@ -1773,7 +1576,7 @@ class GUI:
             new_beeswarm.update_layout(
                 margin=dict(l=0, r=0, t=0, b=0),
                 height=200,
-                width=0.9 * int(figureSizeSlider.v_model),
+                width=0.9 * self._fig_size,
             )
             new_beeswarm.update_yaxes(visible=False, showticklabels=False)
             [new_y, marker] = createBeeswarm(self, _explanationES[0], column)
@@ -1924,7 +1727,8 @@ class GUI:
                         ].values
                     )
                 ),
-                self._fig_size=figureSizeSlider.v_model,
+                # TODO : There's a bug : only a GUI event on the slider can change self._fig_size
+                self._fig_size=figureSizeSlider.v_model, 
             )  # 2371
 
             def newContinuousChange(widget, event, data):
@@ -2102,84 +1906,23 @@ class GUI:
 
         # End addSkopeRule
 
-        newRegionValidated()
+        new_region_validated()
 
-        addSkopeBtn.on_event("click", addSkopeRule)
+        # We wire the click event on addSkopeBtn (305020)
+        widget_at_address(self._app_graph, "305020").on_event("click", add_skope_rule)
 
-        dimReducVSSettingsMenu = gui_utils.createSettingsMenu(
-            self._aeVS.getProjectionSliders(),
-            "Settings of the projection in the Values Space",
-        )
-        dimReducESSettingsMenu = gui_utils.createSettingsMenu(
-            self._aeES.getProjectionSliders(),
-            "Settings of the projection in the Explanations Space",
-        )
+        # -- Opacity button --
+        def reset_opacity(*args):
+            # We reset the opacity values
+            self._opacity = [pd.Series(), pd.Series()]
+            
+            self.redraw_both_graphs()
 
-        widgets.HBox(
-            [
-                self._aeVS.getProjectionSelect(),
-                v.Layout(children=[dimReducVSSettingsMenu]),
-                busyVSHBox,
-            ]
-        )
-        widgets.HBox(
-            [
-                self._aeES.getProjectionSelect(),
-                v.Layout(children=[dimReducESSettingsMenu]),
-                busyESHBox,
-            ]
-        )
+        # We wire the click event on opacityBtn (112)
+        widget_at_address(self._app_graph, "112").on_event("click", reset_opacity)
 
-        resetOpacityBtn = v.Btn(
-            icon=True,
-            children=[v.Icon(children=["mdi-opacity"])],
-            class_="ma-2 ml-6 pa-3",
-            elevation="3",
-        )
+        
 
-        resetOpacityBtn.children = [
-            gui_utils.wrap_in_a_tooltip(
-                resetOpacityBtn.children[0],
-                "Reset the opacity of the points",
-            )
-        ]
-
-        def resetOpacity(*args):
-            with self._leftVSFigure.batch_update():
-                self._leftVSFigure.data[0].marker.opacity = 1
-            with self._rightESFigure.batch_update():
-                self._rightESFigure.data[0].marker.opacity = 1
-
-        resetOpacityBtn.on_event("click", resetOpacity)
-
-        self.update_explanation_select()
-
-        def changeExplanationMethod(widget, event, data):
-            # _explanationSelect has been changed
-
-            oldExplanationMethod, oldOrigin = self._explanationES
-            newExplanationMethod, newOrigin = None, None
-
-            match data:
-                case "SHAP (imported)":
-                    newExplanationMethod = ExplanationMethod.SHAP
-                    newOrigin = ExplanationDataset.IMPORTED
-                case "SHAP (computed)":
-                    newExplanationMethod = ExplanationMethod.SHAP
-                    newOrigin = ExplanationDataset.COMPUTED
-                case "LIME (imported)":
-                    newExplanationMethod = ExplanationMethod.LIME
-                    newOrigin = ExplanationDataset.IMPORTED
-                case "LIME (computed)":
-                    newExplanationMethod = ExplanationMethod.LIME
-                    newOrigin = ExplanationDataset.COMPUTED
-
-            self._explanationES = (newExplanationMethod, newOrigin)
-
-            self.check_explanation()
-            self.redraw_graph(GUI.ES)
-
-        self._aeES.getExplanationSelect().on_event("change", changeExplanationMethod)
 
         def explanationComputationRequested(widget, event, data):
             logger.debug(
@@ -2214,11 +1957,11 @@ class GUI:
                     index = i
             return index
 
-        def magicClustering(*args):
+        def magic_button_pressed(*args):
             demo = magicGUI.children[2].v_model
             if demo is False:
                 antakiaMethodCard.children[0].v_model = 3
-            N_antakiaStepsCard = dynamicClustering(None)
+            N_antakiaStepsCard = magic_btn_clicked(None)
             if demo:
                 tempo = int(magicGUI.children[3].v_model) / 10
                 if tempo < 0:
@@ -2230,7 +1973,7 @@ class GUI:
                 tabOneSelectionColumn.children[-1].children[0].children[
                     0
                 ].v_model = str(i)
-                selectedClusterChange(None, None, None)
+                cluster_results_table_changed(None, None, None)
                 time.sleep(tempo)
                 if demo:
                     antakiaMethodCard.children[0].v_model = 1
@@ -2248,14 +1991,14 @@ class GUI:
                 if demo:
                     antakiaMethodCard.children[0].v_model = 3
                 time.sleep(tempo)
-                newRegionValidated(None)
+                new_region_validated(None)
                 time.sleep(tempo)
                 if i != N_antakiaStepsCard - 1:
                     if demo:
                         antakiaMethodCard.children[0].v_model = 0
                     time.sleep(tempo)
             colorChoiceBtnToggle.v_model = "Regions"
-            changeMarkersColor(None)
+            change_color(None)
 
         #map plotly
         mapWIdget = go.FigureWidget(
@@ -2307,7 +2050,7 @@ class GUI:
             children=[mapWIdget, mapSelectionTxt]
         )
 
-        bouton_magic.on_event("click", magicClustering)
+        bouton_magic.on_event("click", magic_button_pressed)
 
     def results(self, number: int = None, item: str = None):
         L_f = []

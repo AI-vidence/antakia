@@ -4,15 +4,6 @@ Utils module for the antakia package.
 
 import numpy as np
 import pandas as pd
-import sklearn
-import sklearn.cluster
-
-from copy import deepcopy
-
-import mvlearn
-
-from skrules import SkopeRules
-import sklearn.cluster
 
 import json
 import textwrap
@@ -84,98 +75,6 @@ def overlapHandler(ens_potatoes, liste):
     for i in range(len(ens_potatoes)):
         ens_potatoes[i].setIndexes(gliste[i])
     return ens_potatoes
-
-def _inverrtList(aList : list, size : int) -> list:
-    newList = [[] for _ in range(size)]
-    for i in range(len(aList)):
-        newList[aList[i]].append(i)
-    return newList
-
-
-def _restList(l):
-    l = list(l)
-    for i in range(max(l) + 1):
-        if l.count(i) == 0:
-            l = list(np.array(l) - 1)
-    return l
-
-
-def _find_best_k(X, indices, recall_min, precision_min):
-    recall_min = 0.7
-    precision_min = 0.7
-    new_X = X.iloc[indices]
-    ind_f = 2
-    for i in range(2, 9):
-        #kmeans = sklearn.cluster.KMeans(n_clusters=i, random_state=9, n_init="auto")
-        agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=i)
-        agglo.fit(new_X)
-        labels = agglo.labels_
-        a = True
-        for j in range(max(labels) + 1):
-            y = []
-            for k in range(len(X)):
-                if k in indices and labels[indices.index(k)] == j:
-                    y.append(1)
-                else:
-                    y.append(0)
-            skope_rules_clf = SkopeRules(
-                feature_names=new_X.columns,
-                random_state=42,
-                n_estimators=5,
-                recall_min=recall_min,
-                precision_min=precision_min,
-                max_depth_duplication=0,
-                max_samples=1.0,
-                max_depth=3,
-            )
-            skope_rules_clf.fit(X, y)
-            if len(skope_rules_clf.rules_) == 0:
-                ind_f = i - 1
-                a = False
-                break
-        if a == False:
-            break
-    return 2 if ind_f == 1 else ind_f
-
-
-def proposeAutoDyadicClustering (X, SHAP, n_clusters, default):
-    m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
-    l = m_kmeans.fit_predict([X, SHAP])
-    nombre_clusters = 0
-    if default != False:
-        X_train = pd.DataFrame(X.copy())
-        recall_min = 0.8
-        precision_min = 0.8
-        max_ = max(l) + 1
-        l_copy = deepcopy(l)
-        for i in range(n_clusters):
-            y_train = [1 if x == i else 0 for x in l_copy]
-            indices = [i for i in range(len(y_train)) if y_train[i] == 1]
-            skope_rules_clf = SkopeRules(
-                feature_names=X_train.columns,
-                random_state=42,
-                n_estimators=5,
-                recall_min=recall_min,
-                precision_min=precision_min,
-                max_depth_duplication=0,
-                max_samples=1.0,
-                max_depth=3,
-            )
-            skope_rules_clf.fit(X_train, y_train)
-            if len(skope_rules_clf.rules_) == 0:
-                k = _find_best_k(X, indices, recall_min, precision_min)
-                nombre_clusters += k
-                #kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
-                agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=k)
-                agglo.fit(X.iloc[indices])
-                labels = np.array(agglo.labels_) + max_
-                max_ += k
-                l[indices] = labels
-            else :
-                nombre_clusters +=1
-        l = _restList(l)
-    l = list(np.array(l) - min(l))
-    return _inverrtList(l, max(l) + 1), l
 
 
 def create_save(atk, liste, name: str = "Default name"):

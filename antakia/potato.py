@@ -175,6 +175,9 @@ class Potato():
     def setMapIndexes(self, mapIndexes):
         self._mapIndexes = mapIndexes
 
+    def is_empty(self) -> bool:
+        return len(self._indexes) == 0
+
 
     def size(self) -> int:
         """
@@ -259,7 +262,7 @@ class Potato():
         self._yMaskList = yMaskList
 
 
-    def getIndexes(self) -> list:
+    def get_indexes(self) -> list:
         """
         Function that returns the indexes of the potato.
 
@@ -294,7 +297,7 @@ class Potato():
         self._type = Potato.JSON
         self.rulesIdentified = None
 
-    def getVSRules(self):
+    def get_vs_rules(self):
         """
         Function that returns the rules of the potato.
 
@@ -306,7 +309,7 @@ class Potato():
         return self._theVSRules
     
 
-    def setVSRules(self, newRules : list):
+    def set_vs_rules(self, newRules : list):
         """
         Function that sets the rules of the potato.
 
@@ -317,7 +320,7 @@ class Potato():
         """
         self._theVSRules = newRules 
 
-    def getESRsules(self):
+    def get_es_rules(self):
         """
         Function that returns the rules of the potato in the explanation space.
 
@@ -328,7 +331,7 @@ class Potato():
         """
         return self._theESRules
     
-    def getVSScore(self):
+    def get_vs_scores(self):
         """
         Function that returns the score of the potato.
 
@@ -339,7 +342,7 @@ class Potato():
         """
         return self._theVSScores
     
-    def getESScore(self):
+    def get_es_scores(self):
         """
         Function that returns the score of the potato in the explanation space.
 
@@ -379,7 +382,7 @@ class Potato():
         else :
             self._sub_model["score"] = score
 
-    def getSubModel(self):
+    def get_submodel(self):
         """
         Function that returns the sub-model of the potato : a dict "model" and "score".
 
