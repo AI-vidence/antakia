@@ -21,38 +21,33 @@ from antakia.data import DimReducMethod, ExplanationMethod
 import antakia.config as config
 
 # Internal imports
+from antakia.antakia import AntakIA
 from antakia.compute import (
-    DimReducMethod,
-    ExplanationMethod,
-    compute_explanations,
-    compute_projection,
     auto_cluster
 )
-from antakia.data import (  # noqa: E402
-    Dataset,
-    ExplanationDataset,
+from antakia.data import (  
     ExplanationMethod,
+    ProjectedValues
     Model,
 )
-from antakia.potato import *
+from antakia.selection import *
 from antakia.utils import models_scores_to_str, score, confLogger, overlapHandler
 
 from antakia.gui_utils import (
     get_app_graph, 
     get_splash_graph, 
     widget_at_address,
-    BaseAntakiaExplorer,
+    AntakiaExplorer,
     createMenuBar,
     wrap_in_a_tooltip,
     add_model_slideItem,
     RuleVariableRefiner,
     get_beeswarm_values,
-    datatable_from_potatoes
+    datatable_from_Selectiones
 )
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 warnings.simplefilter(action="ignore", category=UserWarning)
-# warnings.simplefilter(action="ignore", category=NumbaDeprecationWarning)
 warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
@@ -64,137 +59,38 @@ class GUI:
     """
     GUI class.
 
-    A GUI instance contains all the data and variables needed to run the interface.
+    The GUI guide the user through the AntakIA process.
+    It stores X, Y and the model to explain.
+    It displays a UI (app_graph) and creates various UI objects, in particular
+    two AntakiaExplorers resposnible to compute or project values in 2 spaces.
+
     The interface is built using ipyvuetify and plotly.
     It heavily relies on the IPyWidgets framework.
-    Note that, chosen explanation and projection (ie. dimension number and dimension reduction) methors are NOT stored
-    in this GUI instance. Instedad, they're managed by the BaseAntakiaExplorer instances.
-    Yet, this GUI implementation enforces the same dimension for both figures.
 
     Instance Attributes
     ---------------------
-    _ds : Dataset
-        dataset, potentially used to train the model
-    _xds : ExplanationDataset
-        explained data (optional)
-    _model : Model
-        the model to be explained
-    _selection : a Potato object
-    _last_skr : a Potato object allowing to reinit the skope rules
+    _atk : the parent AntkIA instance. We access X, Y and model objects through it.
+    _selection : a list of points. Immplemented through a "Selection" object
+    _last_skr : a Selection object allowing to reinit the skope rules
     _opacity : a list of two Pandas Series storing the opacity for each observation (VS and ES)
-        The `Potato` object containing the current selection.
-
-    Widgets:
+        The `Selection` object containing the current selection.
     _out : Output Widget
-        used in the output cell
     _app_graph : a graph of nested Widgets (widgets.VBox)
-    _ae_vs : BaseAntakiaExplorer for the VS space
-    _ae_es : BaseAntakiaExplorer for the ES space
+    _ae_vs : AntakiaExplorer for the VS space
+    _ae_es : AntakiaExplorer for the ES space
     _color : Pandas Series : color for each Y point
     _fig_size : int
     _paCMAPparams = dictionnary containing the parameters for the PaCMAP projection
         nested keys are "previous" / "current", then "VS" / "ES", then "n_neighbors" / "MN_ratio" / "FP_ratio"
-    
-    _regions : list of Potato objects
-    _regions_colors : # TODO : understand
-    _regionsTable : # TODO : understand
-
-
-    _save_rules useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
-    _otherColumns : to keep track of the columns that are not used in the rules !
-    _activate_histograms : to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
-    _auto_cluster_regions : a list of Potatoes = result of auto-clustering
-    _auto_cluster_colors: a list of colors for _auto_cluster_regions
-    _auto_cluster_labels :  should be = _auto_cluster_regions[1]
-    _ model_index : to know which sub_model is selected by the user.
-    _submodels_scores : to keep track of the scores of the sub-models
-    _backups : A list of backups
-    
 
     """
 
-    # Class attributes
-    VS = 0
-    ES = 1
 
-    def __init__(
-        self,
-        ds: Dataset,
-        model: Model,
-        xds: ExplanationDataset = None
-    ):
-        """
-        GUI Class constructor.
+    def __init__(self, antakia: AntakIA):
 
-        Parameters
-        ----------
-        ds : Dataset
-            dataset, potentially used to train the model
-        model : Model
-            trained model to explain
-        xds : ExplainationDataset
-            explained data (optional)
-        defaultProjection : int
-            The default projection to use. See constants in DimReducMethod class
-        dimension : int
-            The default dimension to use. See constants in DimReducMethod class
-        """
-
-        self._ds = ds
-        self._xds = xds
-        self._model = model
-        if model is None:
-            raise ValueError("AntakIA requires a valid model")
-        if self._ds.get_y_values(Dataset.TARGET) is None:
-            raise ValueError("The provided Dataset doesn't contain any Y values")
-        if self._ds.get_y_values(Dataset.PREDICTED) is None:
-            self._ds.set_y_values(
-                self._model.predict(self._ds.get_full_values()), Dataset.PREDICTED
-            )
-
-        if self._xds is None:
-            (
-                self._explanation_es[0],
-                self._explanation_es[1],
-            ) = None
-        else: # an XDS has been provided
-            if self._xds.is_explanation_available(
-                ExplanationMethod.SHAP, ExplanationDataset.IMPORTED
-            ): 
-                self._explanation_es = [
-                    ExplanationMethod.SHAP,
-                    ExplanationDataset.IMPORTED,
-                ]
-                if config.DEFAULT_EXPLANATION_METHOD != ExplanationMethod.SHAP:
-                    # We force DEFAULT_EXPLANATION_METHOD (ie. preferred explanation defined in config.py) to SHAP
-                    config.DEFAULT_EXPLANATION_METHOD = ExplanationMethod.SHAP
-            elif self._xds.is_explanation_available(
-                ExplanationMethod.LIME, ExplanationDataset.IMPORTED
-            ):
-                self._explanation_es = [
-                    ExplanationMethod.LIME,
-                    ExplanationDataset.IMPORTED,
-                ]
-                if config.DEFAULT_EXPLANATION_METHOD != ExplanationMethod.LIME:
-                    # We force DEFAULT_EXPLANATION_METHOD (ie. preferred explanation defined in config.py) to LIME
-                    config.DEFAULT_EXPLANATION_METHOD = ExplanationMethod.LIME
-            else:
-                logger.debugg("__init__ : empty explanation dataset")
-
-        self._selection = self._last_skr = None
-        self._opacity = [pd.Series(), pd.Series()]
-
-        if not DimReducMethod.is_valid_dimreduc_method(config.DEFAULT_VS_PROJECTION) or \
-            not DimReducMethod.is_valid_dimreduc_method(config.DEFAULT_ES_PROJECTION):
-            raise ValueError("Check config.py : problem with default projection")
-
-        if not DimReducMethod.is_valid_dim_number(config.DEFAULT_VS_DIMENSION) or \
-            not DimReducMethod.is_valid_dim_number(config.DEFAULT_ES_DIMENSION):
-            raise ValueError("Check config.py : problem with default dimension")
-
+        self._atk = antakia
         self._out = widgets.Output()  # Ipwidgets output widget
         self._app_graph = None
-        self._ae_vs = self._ae_es = None
         self._fig_size = 200
         self._color = []
         self._paCMAPparams = {
@@ -206,43 +102,7 @@ class GUI:
                 "VS": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
                 "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
             },
-        }  # A dict ("previous", "currrent") of dict ("VS, "ES") of dict("n_neighbors", "MN_ratio", "FP_ratio")
-
-        # ---------- Vrac -------------
-        self._regions_colors = None  # a lislt of what ?
-        self._regions_Table = None
-        self._regions = []  # a list of Potato objects
-        # TODO : understand the following
-        self._save_rules = None  # useful to keep the initial rules from the skope-rules, in order to be able to reset the rules
-        self._otherColumns = (
-            None  # to keep track of the columns that are not used in the rules !
-        )
-        self._activate_histograms = False  # to know if the histograms are activated or not (bug ipywidgets !). If they are activated, we have to update the histograms.
-        
-        self._histogramBinNum = 50
-
-        self._auto_cluster_regions = []
-        self._auto_cluster_colors = []
-    
-        self._submodels_scores = None  # to keep track of the scores of the sub-models
-        self._model_index = None  # to know which sub_model is selected by the user.
-
-        self._backups = []
-
-
-    def get_dataset(self) -> Dataset:
-        return self._ds
-    
-    def get_explanation_dataset(self) -> ExplanationDataset:
-        return self._xds
-    
-    def get_selection(self) -> Potato:
-        return self._selection
-    
-    def get_app_graph(self) -> widgets.VBox:
-        return self._app_graph
-
-
+        } 
 
     def update_selection_table(self):
         XX = self._ds.get_full_values(Dataset.REGULAR).copy()
@@ -482,7 +342,7 @@ class GUI:
     def update_graph_with_rules(self):
         # TODO : understand
 
-        # self._selection.setType(Potato.REFINED_SKR)
+        # self._selection.setType(Selection.REFINED_SKR)
         # newSet = self._selection.set_indexes_with_rules(True)
 
         # y_color_skope = []
@@ -537,7 +397,7 @@ class GUI:
 
         # We restore the current selection to the last skope rules
         self._selection = self._last_skr
-        self._selection.setType(Potato.SKR)
+        self._selection.setType(Selection.SKR)
 
         # We restore the refiner with proper slider values
 
@@ -559,18 +419,18 @@ class GUI:
         # And the compute the rules
         #   - rules are in self._selection
 
-        self._selection.setType(Potato.REFINED_SKR)
+        self._selection.setType(Selection.REFINED_SKR)
 
         if self._selection.is_empty():
             # We now its a firt try
-            self._selection.setType(Potato.SKR)    
+            self._selection.setType(Selection.SKR)    
             # We update the Skope info Cards :
             # We retrieve ourVSSkopeCard (30500101) and ourESSkopeCard (30500111)
             widget_at_address(self._app_graph, "30500101").children = \
                 widget_at_address(self._app_graph, "30500111").children = \
                 [widgets.HTML("Please select points")]
         else :
-            self._selection.setType(Potato.REFINED_SKR)
+            self._selection.setType(Selection.REFINED_SKR)
             if 0 not in self._selection.getYMaskList() or 1 not in self._selection.getYMaskList() :
                 # We update the Skope info Cards :
                 # We retrieve ourVSSkopeCard (30500101) and ourESSkopeCard (30500111)
@@ -848,27 +708,27 @@ class GUI:
             logger.debug(
                 f"check_explanation : we had to compute a new {ExplanationDataset.origin_by_str(self._explanation_es[1])} {ExplanationMethod.explain_method_as_str(self._explanation_es[0])} values"
             )
-            self.redraw_graph(GUI.ES)
+            self.redraw_graph(config.ES)
         else:
             logger.debug("check_explanation : nothing to do")
 
     def check_both_projections(self):
         """ Check that VS and ES figures have their projection computed
         """
-        self.check_projection(GUI.VS)
-        self.check_projection(GUI.ES)
+        self.check_projection(config.VS)
+        self.check_projection(config.ES)
 
     def check_projection(self, side: int):
         """ Check that the figure has its projection computed. "side" refers to VS or ES class attributes
         """
         logger.debug("We are in check_projection")
-        if side not in [GUI.VS, GUI.ES]:
+        if side not in [config.VS, config.ES]:
             raise ValueError(side, " is an invalid side")
 
         baseSpace = projType = dim = X = params = df = side_str = None
 
         # We prepare values before calling computeProjection in a generic way
-        if side == GUI.VS:
+        if side == config.VS:
             baseSpace = DimReducMethod.VS
             X = self._ds.get_full_values(Dataset.REGULAR)
             projType = self._projection_vs[0]
@@ -950,7 +810,7 @@ class GUI:
 
         # We set the new projected values
         if df is not None:
-            if side == GUI.VS:
+            if side == config.VS:
                 self._ds.set_proj_values(projType, dim, df)
             else:
                 self._xds.set_proj_values(self._explanation_es[0], projType, dim, df)
@@ -959,25 +819,25 @@ class GUI:
     def redraw_both_graphs(self):
         """ Redraws both figures
         """
-        self.redraw_graph(GUI.VS)
-        self.redraw_graph(GUI.ES)
+        self.redraw_graph(config.VS)
+        self.redraw_graph(config.ES)
 
     def redraw_graph(self, side: int):
         """ Redraws one figure. "side" refers to VS or ES class attributes
             Called *after* the projection has been updated : no need to re-compute
         """
-        if side not in [GUI.VS, GUI.ES]:
+        if side not in [config.VS, config.ES]:
             raise ValueError(side, " is an invalid side")
 
         if self._ae_vs is None or self._ae_es is None:
-            logger.warning("BaseAntakiaExplorer not initialized yet, cannot redraw graph")
+            logger.warning("AntakiaExplorer not initialized yet, cannot redraw graph")
             return
         
-        temp_ae = self._ae_vs if side == GUI.VS else self._ae_es
+        temp_ae = self._ae_vs if side == config.VS else self._ae_es
         temp_ae.redraw_graph(self._color, self.fig_size)
 
-    def selection_changed(self, new_selection: Potato, side: int):
-        """ Called when the selection of one BaseAntakiaExplorer changes
+    def selection_changed(self, new_selection: Selection, side: int):
+        """ Called when the selection of one AntakiaExplorer changes
         """ 
         self._selection = new_selection # just created, no need to copy
 
@@ -988,7 +848,7 @@ class GUI:
                     new_opacity_serie.append(1)
                 else:
                     new_opacity_serie.append(0.1)
-        self._opacity[0 if side == GUI.VS else 1] = new_opacity_serie
+        self._opacity[0 if side == config.VS else 1] = new_opacity_serie
 
         self.update_selection_table()
         self.redraw_graph(side)
@@ -1020,7 +880,7 @@ class GUI:
         return ""
     
     def new_explain_method_selected(self, old_explain_method, old_explain_origin, new_explain_method, new_explain_origin):
-        """ Called when the explanation of the ES BaseAntakiaExplorer Select changes
+        """ Called when the explanation of the ES AntakiaExplorer Select changes
             This function is provided to the AE as a callback
         """ 
 
@@ -1028,7 +888,7 @@ class GUI:
         self._explanation_es = [new_explain_method, new_explain_origin]
 
         self.check_explanation()
-        self.redraw_graph(GUI.ES)
+        self.redraw_graph(config.ES)
 
 
     def show(self):
@@ -1070,9 +930,9 @@ class GUI:
         widget_at_address(self._app_graph, "12120").hide()
 
         # --------- Two AntakiaExporer ----------
-        self._ae_vs = BaseAntakiaExplorer(self._ds, None, False, self._projection_vs, None, self.selection_changed, None)
+        self._ae_vs = AntakiaExplorer(self._ds, None, False, self._projection_vs, None, self.selection_changed, None)
         # Initial explanation must be provid :
-        self._ae_es = BaseAntakiaExplorer(self._ds, self._xds, True, self._projection_es, self._explanation_es[0], self.selection_changed, self.new_explain_method_selected)
+        self._ae_es = AntakiaExplorer(self._ds, self._xds, True, self._projection_es, self._explanation_es[0], self.selection_changed, self.new_explain_method_selected)
 
         # We add each AntaiaExplorer component to the _app_graph :
         widget_at_address(self._app_graph, "200").children[1] = self._ae_vs.get_figure_widget()
@@ -1155,7 +1015,7 @@ class GUI:
             """
             Called when the switch changes.
             We compute the 3D proj if needed
-            We theh call the BaseAntakiaExplorer to update its figure
+            We theh call the AntakiaExplorer to update its figure
             """
             # We invert the dimension for both graphs
             self._projection_vs[1] = 5 - self._projection_vs[1]
@@ -1204,7 +1064,7 @@ class GUI:
             # self._selection.setVSRules(self._save_rules)
 
             # If called, means the selection is back to a selection :
-            self._selection.setType(Potato.SELECTION)
+            self._selection.setType(Selection.SELECTION)
 
             # We reset the refiners
             self.reinit_skope_rules(None)
@@ -1225,8 +1085,8 @@ class GUI:
                 # TODO : wez should have an Alert system
                 print("AntakIA WARNING: this region is already in the set of Regions")
             else:
-                # TODO : selection is selection. We should create another potato
-                self._selection.setType(Potato.REGION)
+                # TODO : selection is selection. We should create another Selection
+                self._selection.setType(Selection.REGION)
                 if self._model_index is None:
                     model_name = None
                     model_scores = [1, 1, 1]
@@ -1412,7 +1272,7 @@ class GUI:
                     False,
                 )
 
-            # TODO we'll have to change this when Potato will be returned
+            # TODO we'll have to change this when Selection will be returned
             self._color = self._auto_cluster_regions[1]
 
             self.redraw_both_graphs()
@@ -1420,7 +1280,7 @@ class GUI:
             # We set our regions accordingly
             self._regions = self._auto_cluster_regions # just created, no need to copy
             # We update the GUI tab 1(304) clusterResults(3044) (ie a v.Row)
-            widget_at_address(self._app_graph, "30423").children[4] = self.datatable_from_potatoes(self._regions)
+            widget_at_address(self._app_graph, "30423").children[4] = self.datatable_from_Selectiones(self._regions)
 
 
             # TODO : understand
@@ -1507,7 +1367,7 @@ class GUI:
             # TODO : maybe this event should not be called only for "auto regions"
 
             # TODO : this has to do with the color and the current 
-            # auto_cluser() implementation. It should return Potatoes
+            # auto_cluser() implementation. It should return Selectiones
             labels = self._auto_cluster_regions[1]
 
             # TODO : I guess tabOneSelectionColumn.children[-1].children[0].children[0] was refering to the DataTable

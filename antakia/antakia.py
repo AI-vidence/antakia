@@ -7,6 +7,7 @@ from antakia.utils import confLogger
 
 import logging
 from logging import getLogger
+import csv
 
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
@@ -21,69 +22,46 @@ class AntakIA():
 
     Instance attributes
     -------------------
-    __dataset : Dataset 
-        The Datase t object containing data and projected data
-    __explainDataset : ExplanationDataset
-        The ExplanationDataset object containing explained values and projected explained values
-    __model : Model
+    _X : a pd.DataFrame 
+    _variables : a list of Variables
+    _X_exp : a pd.DataFrame
+    _Y : a pd.Series
+    _model : Model
         the model to explain
-    __gui : an instance of the GUI class
+    _gui : an instance of the GUI class
         In charge of the user interface
-    __regions : List
-        The list of the regions defined by the user. Regions are of type Potato.
-    __backups: dict
-        A list of saved regions # TODO to be explained. Rather unclear for me for now
-    __backups_path: str
+    _regions : List of Selection objects
+
 
     """
 
+    def __init__(self, X: pd.DataFrame, y:pd.Series, model: Model, csv_file_name:str=None, explain_method: int = None):
 
-    def __init__(self, dataset: Dataset, model : Model, explainDataset : ExplanationDataset = None, backups: dict = None, backups_path: str = None):
-        '''
-        Constructor of the class AntakIA.
+        if X is None or not isinstance(X, pd.DataFrame):
+            raise ValueError("X must be a pandas DataFrame")
+        if y is None or not isinstance(y, pd.Series):
+            raise ValueError("y must be a pandas Series")
+        if model is None or not isinstance(model, Model):
+            raise ValueError("model must be a Model object")
+        
+        self.X = X
 
-        Parameters
-        ----------
-        dataset : Dataset object
-        model : Model object
-        explainDataset : ExplanationDataset object, defauly to None (no computation yet)
-        backups: dict of backups
-        backups_path: str TODO : expliquer
-        '''
-
-        self._dataset = dataset
+        self.y = y
         self._model = model
-        self._explainDataset = explainDataset # Defaults to None (no computation yet)
-        self._regions = [] #empty list of Potatoes
+
+        self._X_exp = None
+        if csv_file_name is not None :
+            with open(csv_file_name) as csv_file:
+                self._X_exp = pd.read_csv(csv_file)
+
+
+        
+        self._regions = []
         self._gui = None
-        self._backups_path = backups_path
-
-        # TODO : understand ths saves thing
-        if backups is not None:
-            self._backups = backups 
-        elif backups_path is not None:
-            self._backups = utils.loadBackup(self, backups_path)
-        else:
-            self._backups = []
-
-        # TODO : compute Y_pred here
 
   
 
-    def startGUI(self, defaultProjection: int = DimReducMethod.PaCMAP) -> GUI :
-        """
-        Function that instantiates the GUI and calls its display() function.
-        For more information, please see the documentation of the class GUI.
-
-        Parameters
-        ---------
-        defaultProjection : int
-            The default projection to use. The possible values are DimensionalityReduction.PacMAP, PCA, t-SNE and UMAP.
-        sub_models : list #TODO why should they be passed to create the GUI ?
-            The list of the sub_models to choose from for each region. The only constraint is that sub_models must have a predict method.
-        display : bool
-            If True, the interface is displayed. Else, You can access the interface with the attribute gui of the class.
-        """
+    def startGUI(self, ) -> GUI :
         self._gui = GUI(self._dataset, self._model, self._explainDataset)
 
         return self._gui

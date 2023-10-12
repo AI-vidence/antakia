@@ -8,6 +8,10 @@ DEFAULT_VS_DIMENSION = DEFAULT_ES_DIMENSION = DimReducMethod.DIM_TWO
 DEFAULT_VS_PROJECTION = DEFAULT_ES_PROJECTION = DimReducMethod.PaCMAP
 
 
+# Convention :
+VS = 0
+ES = 1
+
 def get_default_submodels():
     """
     Returns a list of surrogates models
