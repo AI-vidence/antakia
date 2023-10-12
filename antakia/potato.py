@@ -92,7 +92,7 @@ class Potato():
 
         # We compute the Y mask list from the indexes
         self._yMaskList = []
-        for i in range(len(self._dataset.getFullValues(Dataset.REGULAR))):
+        for i in range(self._ds.get_length()):
             if i in self._indexes:
                 self._yMaskList.append(1)
             else :
@@ -101,14 +101,14 @@ class Potato():
         self._sub_model = {"model": None, "score": None} # model is a Model object, score an int ?
 
 
-        self._theVSRules : list = []
-        self._theVSScores : Tuple (int, int, int) # ?, recall and precision
+        self._theVSRules: list = []
+        self._theVSScores: tuple(int, int, int) # ?, recall and precision
 
-        self._theESRules : list = []
-        self._theESScores : Tuple (int, int, int) # ?,recall and precision
+        self._theESRules: list = []
+        self._theESScores: tuple(int, int, int) # ?,recall and precision
 
-        self._rulesIdentified : list = []
-        self._mapIndexes : int = 0
+        self._rulesIdentified: list = []
+        self._mapIndexes: int = 0
 
 
     def __str__(self) -> str:
@@ -419,7 +419,7 @@ class Potato():
         return rules_list, scoreTuple
 
 
-    def apply_skope_rules(self, p:float = 0.7, r:float = 0.7): #317
+    def compute_skope_rules(self, p:float = 0.7, r:float = 0.7): #317
         """
         Computes the Skope-rules algorithm for the Potato, in both VS and ES spaces.
 
@@ -477,32 +477,33 @@ class Potato():
 
 
     def set_indexes_with_rules(self) -> list :
-        # TODO : it seems we're dealing with VS rules ? To understand !!
-        solo_features = list(set([self._theVSRules[i][2] for i in range(len(self._theVSRules))]))
-        number_features_rules = []
-        for i in range(len(solo_features)):
-            number_features_rules.append([])
-        for i in range(len(self._theVSRules)):
-            number_features_rules[solo_features.index(self._theVSRules[i][2])].append(self._theVSRules[i])
+        # TODO : understand
+        # solo_features = list(set([self._theVSRules[i][2] for i in range(len(self._theVSRules))]))
+        # number_features_rules = []
+        # for i in range(len(solo_features)):
+        #     number_features_rules.append([])
+        # for i in range(len(self._theVSRules)):
+        #     number_features_rules[solo_features.index(self._theVSRules[i][2])].append(self._theVSRules[i])
 
-        new_indexes = self._indexes
-        for i in range(len(number_features_rules)):
-            temp_new_indexes = []
-            for j in range(len(number_features_rules[i])):
-                X_temp = self.atk.dataset.X[
-                    (self.atk.dataset.X[number_features_rules[i][j][2]] >= number_features_rules[i][j][0])
-                    & (self.atk.dataset.X[number_features_rules[i][j][2]] <= number_features_rules[i][j][4])
-                ].index
-                temp_new_indexes = list(temp_new_indexes) + list(X_temp)
-                temp_new_indexes = list(set(temp_new_indexes))
-            new_indexes = [g for g in new_indexes if g in temp_new_indexes]
+        # new_indexes = self._indexes
+        # for i in range(len(number_features_rules)):
+        #     temp_new_indexes = []
+        #     for j in range(len(number_features_rules[i])):
+        #         X_temp = self.atk.dataset.X[
+        #             (self.atk.dataset.X[number_features_rules[i][j][2]] >= number_features_rules[i][j][0])
+        #             & (self.atk.dataset.X[number_features_rules[i][j][2]] <= number_features_rules[i][j][4])
+        #         ].index
+        #         temp_new_indexes = list(temp_new_indexes) + list(X_temp)
+        #         temp_new_indexes = list(set(temp_new_indexes))
+        #     new_indexes = [g for g in new_indexes if g in temp_new_indexes]
 
-        # TODO : I don't understand this map thing
-        if self._mapIndexes is not None:
-            new_indexes = [g for g in new_indexes if g in self._mapIndexes]
+        # # TODO : I don't understand this map thing
+        # if self._mapIndexes is not None:
+        #     new_indexes = [g for g in new_indexes if g in self._mapIndexes]
 
-        self.set_new_indexes(new_indexes)
-        return new_indexes
+        # self.set_new_indexes(new_indexes)
+        # return new_indexes
+        return None
 
 
     def reveal_intervals(self):

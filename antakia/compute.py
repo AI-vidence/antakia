@@ -28,7 +28,7 @@ from copy import deepcopy
 from ipywidgets.widgets.widget import Widget
 
 from antakia.data import Dataset, ExplanationDataset, LongTask, ExplanationMethod, DimReducMethod, Model
-from antakia.utils import confLogger, simpleType
+from antakia.utils import confLogger
 
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
@@ -52,28 +52,28 @@ class SHAPExplanation(ExplanationMethod):
         logger.debug(f"SHAPExplanation.compute : starting ...")
         time_init = time.time()
     
-        # explainer = shap.Explainer(self.getModel().predict)
-        explainer = shap.Explainer(self.getModel().predict, self.getX())
-        # valuesSHAP = pd.DataFrame().reindex_like(self.getX())
-        self.setProgress(0)
-        valuesSHAP = explainer(self.getX())
-        self.setProgress(100)
+        # explainer = shap.Explainer(self.get_model().predict)
+        explainer = shap.Explainer(self.get_model().predict, self.get_X())
+        # valuesSHAP = pd.DataFrame().reindex_like(self.get_X())
+        self.set_progress(0)
+        values_shap = explainer(self.get_X())
+        self.set_progress(100)
 
-        # colNames = list(self.getX().columns)
+        # colNames = list(self.get_X().columns)
         # for i in range(len(colNames)):
         #     colNames[i] = colNames[i] + "_shap"
 
-        # X = self.getX()
+        # X = self.get_X()
 
         # for i in range(len(X)):
         #     shap_value = explainer(X[i : i + 1], max_evals=1400) 
         #     valuesSHAP.iloc[i] = shap_value.values
         #     p = int(100*(i/len(X)))
         #     logger.debug("SHAPExplanation.compute : progress is {p}%")
-        #     self.setProgress(p)
+        #     self.set_progress(p)
 
         # valuesSHAP.columns = colNames
-        df = pd.DataFrame.from_records(valuesSHAP.values)
+        df = pd.DataFrame.from_records(values_shap.values)
         logger.debug(f"SHAPExplanation.compute : returns a {type(df)} with {df.shape}")
         return df
     
@@ -94,46 +94,46 @@ class LIMExplanation(ExplanationMethod):
         time_init = time.time()
 
         # TODO : It seems we defined class_name in order to work with California housing dataset. We should find a way to generalize this.
-        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.getX()), feature_names=self.getX().columns, class_names=['price'], verbose=False, mode='regression')
+        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.get_X()), feature_names=self.get_X().columns, class_names=['price'], verbose=False, mode='regression')
 
-        N = len(self.getX().shape[0])
-        valuesLIME = pd.DataFrame(np.zeros((N, self.getX().shape[-1])))
+        N = len(self.get_X().shape[0])
+        values_lime = pd.DataFrame(np.zeros((N, self.get_X().shape[-1])))
         
         for j in range(N):
             l = []
             exp = explainer.explain_instance(
-                self.getX().values[j], _model.predict
+                self.get_X().values[j], self._model.predict
             )
             l = []
-            taille = self.getX().shape[-1]
-            for ii in range(taille):
+            size = self.get_X().shape[-1]
+            for ii in range(size):
                 exp_map = exp.as_map()[0]
-                l.extend(exp_map[ii][1] for jj in range(taille) if ii == exp_map[jj][0])
+                l.extend(exp_map[ii][1] for jj in range(size) if ii == exp_map[jj][0])
             
-            valuesLIME.iloc[j] = pd.Series(l)
-            _progress += 100 / len(self.getX())
-            self.setProgress()
-        j = list(self.getX().columns)
+            values_lime.iloc[j] = pd.Series(l)
+            self._progress += 100 / len(self.get_X())
+            self.set_progress()
+        j = list(self.get_X().columns)
         for i in range(len(j)): 
             j[i] = j[i] + "_lime"
-        valuesLIME.columns = j
-        logger.debug(f"LIMExplanation.compute : returns a {type(valuesLIME)} with {valuesLIME.shape}")
-        return valuesLIME
+        values_lime.columns = j
+        logger.debug(f"LIMExplanation.compute : returns a {type(values_lime)} with {values_lime.shape}")
+        return values_lime
 
     @staticmethod
-    def getExplanationType() -> int:
+    def get_explanation_method() -> int:
         return ExplanationMethod.LIME
 # --------------------------------------------------------------------------
 
-def computeExplanations(X:pd.DataFrame, model : Model, explainationType:int) -> pd.DataFrame:
+def compute_explanations(X:pd.DataFrame, model : Model, explanation_method:int) -> pd.DataFrame:
     """ Generaic method to compute explanations, SHAP or LIME
     """
-    if explainationType == ExplanationMethod.SHAP :
+    if explanation_method == ExplanationMethod.SHAP :
         return SHAPExplanation(X, model).compute()
-    elif explainationType == ExplanationMethod.LIME :
+    elif explanation_method == ExplanationMethod.LIME :
         return LIMExplanation(X, model).compute()
     else :
-        raise ValueError(f"This explanation type {explainationType} is not valid!")
+        raise ValueError(f"This explanation method {explanation_method} is not valid!")
 
 
 # ===========================================================
@@ -145,18 +145,17 @@ class PCADimReduc(DimReducMethod):
     """
     PCA computation class.
     """
-    def __init__(self, baseSpace : int, X:pd.DataFrame, X_all:pd.DataFrame, dimension : int = 2):
-        DimReducMethod.__init__(self, baseSpace, DimReducMethod.PCA, dimension, X)
+    def __init__(self, base_space : int, X:pd.DataFrame, X_all:pd.DataFrame, dimension : int = 2):
+        DimReducMethod.__init__(self, base_space, DimReducMethod.PCA, dimension, X)
 
     def compute(self) -> pd.DataFrame:
-        self.setProgress(0)
-        pca = PCA(n_components=self.getDimension())
-        pca.fit(self.getX())
-        X_pca = pca.transform(self.getX())
+        self.set_progress(0)
+        pca = PCA(n_components=self.get_dimension())
+        pca.fit(self.get_X())
+        X_pca = pca.transform(self.get_X())
         X_pca = pd.DataFrame(X_pca)
-        # TODO : we need to iterated over the dataset in order to setProgress messages to the GUI
-        self.setProgress(100)
-        logger.debug(f"PCADimReduc.compute : returns a {simpleType(X_pca)}")
+        # TODO : we need to iterated over the dataset in order to set_progress messages to the GUI
+        self.set_progress(100)
         return X_pca
 
     
@@ -169,12 +168,11 @@ class TSNEDimReduc(DimReducMethod):
         DimReducMethod.__init__(self, baseSpace, DimReducMethod.TSNE, dimension, X)
     
     def compute(self) -> pd.DataFrame:
-        self.setProgress(0)
-        tsne = TSNE(n_components=self.getDimension())
-        X_tsne = tsne.fit_transform(self.getX())
+        self.set_progress(0)
+        tsne = TSNE(n_components=self.get_dimension())
+        X_tsne = tsne.fit_transform(self.get_X())
         X_tsne = pd.DataFrame(X_tsne)
-        self.setProgress(100)
-        logger.debug(f"TSNEDimReduc.compute : returns a {simpleType(X_tsne)}")
+        self.set_progress(100)
         return X_tsne
     
 class UMAPDimReduc(DimReducMethod):
@@ -185,59 +183,57 @@ class UMAPDimReduc(DimReducMethod):
         DimReducMethod.__init__(self, baseSpace, DimReducMethod.UMAP, dimension, X)
 
     def compute(self) -> pd.DataFrame:
-        self.setProgress(0)
-        reducer = umap.UMAP(n_components=self.getDimension())
-        embedding = reducer.fit_transform(self.getX())
+        self.set_progress(0)
+        reducer = umap.UMAP(n_components=self.get_dimension())
+        embedding = reducer.fit_transform(self.get_X())
         embedding = pd.DataFrame(embedding)
-        self.setProgress(100)
-        logger.debug(f"UMAPDimReduc.compute : returns a {simpleType(embedding)}")
+        self.set_progress(100)
         return embedding
 
 class PaCMAPDimReduc(DimReducMethod):
     """
     PaCMAP computation class.
 
-    __paramDict : dict, 
+    _param_dict : dict, 
         Paramters for the PaCMAP algorithm
         Keys : "neighbours", "MN_ratio", "FP_ratio"
     """
 
-    def __init__(self, baseSpace : int, X:pd.DataFrame, dimension : int = 2, **kwargs):
+    def __init__(self, base_space: int, X:pd.DataFrame, dimension: int = 2, **kwargs):
         self._paramDict = dict()
         if kwargs is not None :
             if "neighbours" in kwargs:
-                    self._paramDict.update({"neighbours": kwargs["neighbours"]})
+                    self._param_dict.update({"neighbours": kwargs["neighbours"]})
             if "MN_ratio" in kwargs :
-                    self._paramDict.update({"MN_ratio": kwargs["MN_ratio"]})
+                    self._param_dict.update({"MN_ratio": kwargs["MN_ratio"]})
             if "FP_ratio" in kwargs :
-                    self._paramDict.update({"FP_ratio": kwargs["FP_ratio"]})
-        DimReducMethod.__init__(self, baseSpace, DimReducMethod.PaCMAP, dimension, X)
+                    self._param_dict.update({"FP_ratio": kwargs["FP_ratio"]})
+        DimReducMethod.__init__(self, base_space, DimReducMethod.PaCMAP, dimension, X)
 
     
     def compute(self, *args) -> pd.DataFrame :
         # compute fonction allows to define parmameters for the PaCMAP algorithm
-        self.setProgress(0)
+        self.set_progress(0)
         if len(args) == 3 :
-                self._paramDict.update({"neighbours": args[0]})
-                self._paramDict.update({"MN_ratio": args[1]})
-                self._paramDict.update({"FP_ratio": args[2]})
+                self._param_dict.update({"neighbours": args[0]})
+                self._param_dict.update({"MN_ratio": args[1]})
+                self._param_dict.update({"FP_ratio": args[2]})
                 reducer = pacmap.PaCMAP(
-                    n_components=self.getDimension(),
-                    n_neighbors=self._paramDict["neighbours"],
-                    MN_ratio=self._paramDict["MN_ratio"],
-                    FP_ratio=self._paramDict["FP_ratio"],
+                    n_components=self.get_dimension(),
+                    n_neighbors=self._param_dict["neighbours"],
+                    MN_ratio=self._param_dict["MN_ratio"],
+                    FP_ratio=self._param_dict["FP_ratio"],
                     random_state=9,
                 )
         else :
             reducer = pacmap.PaCMAP(
-                    n_components=self.getDimension(),  
+                    n_components=self.get_dimension(),  
                     random_state=9,
                 )
 
-        embedding = reducer.fit_transform(self.getX(), init="pca")
+        embedding = reducer.fit_transform(self.get_X(), init="pca")
         embedding = pd.DataFrame(embedding)
-        self.setProgress(100)
-        logger.debug(f"PaCMAPDimReduc.compute : returns a {simpleType(embedding)} with params={self._paramDict}")
+        self.set_progress(100)
         return embedding
 
 
@@ -245,7 +241,7 @@ class PaCMAPDimReduc(DimReducMethod):
 
 def compute_projection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dimension : int, **kwargs) -> pd.DataFrame:
     
-    if not DimReducMethod.isValidDimReducType(dimReducMethod) or not DimReducMethod.isValidDimNumber(dimension):
+    if not DimReducMethod.is_valid_dimreduc_method(dimReducMethod) or not DimReducMethod.is_valid_dim_number(dimension):
         raise ValueError("Cannot compute proj method #", dimReducMethod, " in ", dimension, " dimensions")
 
     projValues = None
@@ -271,6 +267,7 @@ def compute_projection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dime
 
 
 def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, default: bool) -> list:
+    # TODO : we must return a list of Potato
     m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
     a_list = m_kmeans.fit_predict([X, shap_values])
     clusters_number = 0

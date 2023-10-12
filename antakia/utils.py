@@ -15,10 +15,10 @@ from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
 
 
-def simpleType(o) -> str:
-    if isinstance(o, pd.DataFrame) : return "Dataframe " + str(o.shape)
-    elif isinstance(o, pd.Series) :  return "Series " + str(o.shape)
-    else : return type(o)
+# def simpleType(o) -> str:
+#     if isinstance(o, pd.DataFrame) : return "Dataframe " + str(o.shape)
+#     elif isinstance(o, pd.Series) :  return "Series " + str(o.shape)
+#     else : return type(o)
 
 class OutputWidgetHandler(logging.Handler):
     """Custom logging handler sending logs to an output widget"""

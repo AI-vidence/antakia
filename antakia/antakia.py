@@ -1,11 +1,5 @@
 import pandas as pd
 
-
-from sklearn.ensemble import RandomForestRegressor
-from sklearn import linear_model
-from sklearn import ensemble
-
-
 from antakia.data import Dataset, ExplanationDataset, ExplanationMethod, Model, DimReducMethod
 from antakia.potato import Potato
 from antakia.gui import GUI
@@ -74,13 +68,7 @@ class AntakIA():
 
         # TODO : compute Y_pred here
 
-
-    @staticmethod
-    def get_default_submodels() :
-        """ Returns a list of explanable models
-        """
-        return [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
-
+  
 
     def startGUI(self, defaultProjection: int = DimReducMethod.PaCMAP) -> GUI :
         """
