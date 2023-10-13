@@ -15,12 +15,9 @@ from IPython.display import display
 
 from ipywidgets import Layout, widgets
 
-
-from antakia.data import DimReducMethod, ExplanationMethod
-
-import antakia.config as config
-
 # Internal imports
+from antakia.data import DimReducMethod, ExplanationMethod
+import antakia.config as config
 from antakia.antakia import AntakIA
 from antakia.compute import (
     auto_cluster
@@ -28,16 +25,15 @@ from antakia.compute import (
 from antakia.data import (  
     ExplanationMethod,
     ProjectedValues
-    Model,
+    Model
 )
 from antakia.selection import *
 from antakia.utils import models_scores_to_str, score, confLogger, overlapHandler
-
 from antakia.gui_utils import (
     get_app_graph, 
     get_splash_graph, 
     widget_at_address,
-    AntakiaExplorer,
+    HighDimExplorer,
     createMenuBar,
     wrap_in_a_tooltip,
     add_model_slideItem,
@@ -62,38 +58,46 @@ class GUI:
     The GUI guide the user through the AntakIA process.
     It stores X, Y and the model to explain.
     It displays a UI (app_graph) and creates various UI objects, in particular
-    two AntakiaExplorers resposnible to compute or project values in 2 spaces.
+    two HighDimExplorers resposnible to compute or project values in 2 spaces.
 
     The interface is built using ipyvuetify and plotly.
     It heavily relies on the IPyWidgets framework.
 
     Instance Attributes
     ---------------------
-    _atk : the parent AntkIA instance. We access X, Y and model objects through it.
-    _selection : a list of points. Immplemented through a "Selection" object
-    _last_skr : a Selection object allowing to reinit the skope rules
-    _opacity : a list of two Pandas Series storing the opacity for each observation (VS and ES)
+    atk : the parent AntkIA instance. We access X, Y and model objects through it.
+    selection : a list of points. Immplemented through a "Selection" object
+    last_skr : a Selection object allowing to reinit the skope rules
+    opacity : a list of two Pandas Series storing the opacity for each observation (VS and ES)
         The `Selection` object containing the current selection.
-    _out : Output Widget
-    _app_graph : a graph of nested Widgets (widgets.VBox)
-    _ae_vs : AntakiaExplorer for the VS space
-    _ae_es : AntakiaExplorer for the ES space
-    _color : Pandas Series : color for each Y point
-    _fig_size : int
-    _paCMAPparams = dictionnary containing the parameters for the PaCMAP projection
+    out : Output Widget
+    app_graph : a graph of nested Widgets (widgets.VBox)
+    ae_vs : HighDimExplorer for the VS space
+    ae_es : HighDimExplorer for the ES space
+    color : Pandas Series : color for each Y point
+    fig_size : int
+    pacmap_pparams = dictionnary containing the parameters for the PaCMAP projection
         nested keys are "previous" / "current", then "VS" / "ES", then "n_neighbors" / "MN_ratio" / "FP_ratio"
 
     """
 
-
     def __init__(self, antakia: AntakIA):
+        self.atk = antakia
 
-        self._atk = antakia
-        self._out = widgets.Output()  # Ipwidgets output widget
-        self._app_graph = None
+        self.out = widgets.Output()  # Ipwidgets output widget
+        self.app_graph = get_app_graph()
+        self.ae_vs = HighDimExplorer(self, self.atk, "Values space", [self.atk.X], ["Values"], config.DEFAULT_VS_PROJECTION, config.DEFAULT_VS_DIMENSION, self.selection_changed)
+        explain_values_labels = ["SHAP imported", "SHAP computed", "LIME imported", "LIME computed"]
+        if self.atk.X_exp is not None:
+            if self.atk.exp_method == ExplanationMethod.SHAP:
+                self.ae_es = HighDimExplorer(self.atk, "Explanations space", [self.atk.X_exp, None, None, None], explain_values_labels, config.DEFAULT_VS_PROJECTION, config.DEFAULT_VS_DIMENSION, self.selection_changed, self.new_explain_method_selected)
+            else:
+                self.ae_es = HighDimExplorer(self.atk, "Explanations space", [None, None, self.atk.X_exp, None], explain_values_labels, config.DEFAULT_VS_PROJECTION, config.DEFAULT_VS_DIMENSION, self.selection_changed, self.new_explain_method_selected)
+        else:
+            self.ae_es = HighDimExplorer(self.atk, "Explanations space", [None, None, None, None], explain_values_labels, config.DEFAULT_VS_PROJECTION, config.DEFAULT_VS_DIMENSION, self.selection_changed, self.new_explain_method_selected)
         self._fig_size = 200
         self._color = []
-        self._paCMAPparams = {
+        self._pacmap_params = {
             "previous": {
                 "VS": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
                 "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
@@ -752,39 +756,39 @@ class GUI:
         if projType == DimReducMethod.PaCMAP:
             params = {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2}
             if (
-                self._paCMAPparams["current"][side_str]["n_neighbors"]
-                != self._paCMAPparams["previous"][side_str]["n_neighbors"]
+                self._pacmap_params["current"][side_str]["n_neighbors"]
+                != self._pacmap_params["previous"][side_str]["n_neighbors"]
             ):
-                params["n_neighbors"] = self._paCMAPparams["current"][side_str][
+                params["n_neighbors"] = self._pacmap_params["current"][side_str][
                     "n_neighbors"
                 ]
-                self._paCMAPparams["previous"][side_str]["n_neighbors"] = params[
+                self._pacmap_params["previous"][side_str]["n_neighbors"] = params[
                     "n_neighbors"
                 ]  # We store the new "previous" value
                 newPacMAPParams = True
             if (
-                self._paCMAPparams["current"][side_str]["MN_ratio"]
-                != self._paCMAPparams["previous"][side_str]["MN_ratio"]
+                self._pacmap_params["current"][side_str]["MN_ratio"]
+                != self._pacmap_params["previous"][side_str]["MN_ratio"]
             ):
-                params["MN_ratio"] = self._paCMAPparams["current"][side_str]["MN_ratio"]
-                self._paCMAPparams["previous"][side_str]["MN_ratio"] = params[
+                params["MN_ratio"] = self._pacmap_params["current"][side_str]["MN_ratio"]
+                self._pacmap_params["previous"][side_str]["MN_ratio"] = params[
                     "MN_ratio"
                 ]  # We store the new "previous" value
                 newPacMAPParams = True
             if (
-                self._paCMAPparams["current"][side_str]["FP_ratio"]
-                != self._paCMAPparams["previous"][side_str]["FP_ratio"]
+                self._pacmap_params["current"][side_str]["FP_ratio"]
+                != self._pacmap_params["previous"][side_str]["FP_ratio"]
             ):
-                params["FP_ratio"] = self._paCMAPparams["current"][side_str]["FP_ratio"]
-                self._paCMAPparams["previous"][side_str]["FP_ratio"] = params[
+                params["FP_ratio"] = self._pacmap_params["current"][side_str]["FP_ratio"]
+                self._pacmap_params["previous"][side_str]["FP_ratio"] = params[
                     "FP_ratio"
                 ]  # We store the new "previous" value
                 newPacMAPParams = True
             logger.debug(
-                f"check_projection({side_str}) : previous params = {self._paCMAPparams['previous'][side_str]['n_neighbors']}, {self._paCMAPparams['previous'][side_str]['MN_ratio']}, {self._paCMAPparams['previous'][side_str]['FP_ratio']}"
+                f"check_projection({side_str}) : previous params = {self._pacmap_params['previous'][side_str]['n_neighbors']}, {self._pacmap_params['previous'][side_str]['MN_ratio']}, {self._pacmap_params['previous'][side_str]['FP_ratio']}"
             )
             logger.debug(
-                f"check_projection({side_str}) : current params = {self._paCMAPparams['current'][side_str]['n_neighbors']}, {self._paCMAPparams['current'][side_str]['MN_ratio']}, {self._paCMAPparams['current'][side_str]['FP_ratio']}"
+                f"check_projection({side_str}) : current params = {self._pacmap_params['current'][side_str]['n_neighbors']}, {self._pacmap_params['current'][side_str]['MN_ratio']}, {self._pacmap_params['current'][side_str]['FP_ratio']}"
             )
 
         if newPacMAPParams:
@@ -830,14 +834,14 @@ class GUI:
             raise ValueError(side, " is an invalid side")
 
         if self._ae_vs is None or self._ae_es is None:
-            logger.warning("AntakiaExplorer not initialized yet, cannot redraw graph")
+            logger.warning("HighDimExplorer not initialized yet, cannot redraw graph")
             return
         
         temp_ae = self._ae_vs if side == config.VS else self._ae_es
         temp_ae.redraw_graph(self._color, self.fig_size)
 
     def selection_changed(self, new_selection: Selection, side: int):
-        """ Called when the selection of one AntakiaExplorer changes
+        """ Called when the selection of one HighDimExplorer changes
         """ 
         self._selection = new_selection # just created, no need to copy
 
@@ -880,7 +884,7 @@ class GUI:
         return ""
     
     def new_explain_method_selected(self, old_explain_method, old_explain_origin, new_explain_method, new_explain_origin):
-        """ Called when the explanation of the ES AntakiaExplorer Select changes
+        """ Called when the explanation of the ES HighDimExplorer Select changes
             This function is provided to the AE as a callback
         """ 
 
@@ -930,9 +934,9 @@ class GUI:
         widget_at_address(self._app_graph, "12120").hide()
 
         # --------- Two AntakiaExporer ----------
-        self._ae_vs = AntakiaExplorer(self._ds, None, False, self._projection_vs, None, self.selection_changed, None)
+        self._ae_vs = HighDimExplorer(self._ds, None, False, self._projection_vs, None, self.selection_changed, None)
         # Initial explanation must be provid :
-        self._ae_es = AntakiaExplorer(self._ds, self._xds, True, self._projection_es, self._explanation_es[0], self.selection_changed, self.new_explain_method_selected)
+        self._ae_es = HighDimExplorer(self._ds, self._xds, True, self._projection_es, self._explanation_es[0], self.selection_changed, self.new_explain_method_selected)
 
         # We add each AntaiaExplorer component to the _app_graph :
         widget_at_address(self._app_graph, "200").children[1] = self._ae_vs.get_figure_widget()
@@ -1015,7 +1019,7 @@ class GUI:
             """
             Called when the switch changes.
             We compute the 3D proj if needed
-            We theh call the AntakiaExplorer to update its figure
+            We theh call the HighDimExplorer to update its figure
             """
             # We invert the dimension for both graphs
             self._projection_vs[1] = 5 - self._projection_vs[1]

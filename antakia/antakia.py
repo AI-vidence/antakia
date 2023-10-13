@@ -1,6 +1,6 @@
 import pandas as pd
 
-from antakia.data import Dataset, ExplanationDataset, ExplanationMethod, Model, DimReducMethod
+from antakia.data import Dataset, ExplanationDataset, ExplanationMethod, Model, Variable
 from antakia.potato import Potato
 from antakia.gui import GUI
 from antakia.utils import confLogger
@@ -22,15 +22,15 @@ class AntakIA():
 
     Instance attributes
     -------------------
-    _X : a pd.DataFrame 
-    _variables : a list of Variables
-    _X_exp : a pd.DataFrame
-    _Y : a pd.Series
-    _model : Model
+    X : a pd.DataFrame 
+    variables : a list of Variables
+    X_exp : a pd.DataFrame
+    exp_method : an int, ExplanationMethod
+    Y : a pd.Series
+    model : Model
         the model to explain
-    _gui : an instance of the GUI class
-        In charge of the user interface
-    _regions : List of Selection objects
+
+    regions : List of Selection objects
 
 
     """
@@ -45,106 +45,18 @@ class AntakIA():
             raise ValueError("model must be a Model object")
         
         self.X = X
-
+        self.variables = Variable.guess_variables(X)
         self.y = y
-        self._model = model
+        self.model = model
 
-        self._X_exp = None
+        self.X_exp = None
+        self.exp_method = explain_method
         if csv_file_name is not None :
             with open(csv_file_name) as csv_file:
-                self._X_exp = pd.read_csv(csv_file)
+                self.X_exp = pd.read_csv(csv_file)
+                # TODO : we should check coherecne between X and X_exp
 
+        self.regions = []
 
-        
-        self._regions = []
-        self._gui = None
-
-  
-
-    def startGUI(self, ) -> GUI :
-        self._gui = GUI(self._dataset, self._model, self._explainDataset)
-
-        return self._gui
-
-# ========= Getters  ===========
-
-    def getGUI(self) -> GUI:
-        """
-        Function that returns the GUI object.
-
-        Returns
-        -------
-        GUI object
-            The GUI object.
-        """
-        return self._gui
-
-    def getRegions(self) -> list:
-        """
-        Function that returns the list of the regions computed by the user.
-
-        Returns
-        -------
-        list
-            The list of the regions computed. A region is a list of AntakIA objects, named `Potato`.
-        """
-        return self._regions
-    
-    def resetRegions(self):
-        """
-        Function that resets the list of the regions computed by the user.
-        """
-        self._regions = []
-    
-    def getBackups(self) -> list:
-        """
-        Function that returns the list of the saves.
-
-        Returns
-        -------
-        list
-            The list of the saves. A save is a list of regions.
-        """
-        return self._backups
-
-    
-    def getDataset(self) -> Dataset:
-        """
-        Returns the Dataset object containing the data and their projected values.
-
-        Returns
-        -------
-        Dataset object
-            The Dataset object.
-        """
-        return self._dataset
-    
-    def getExplainationDataset(self) -> ExplanationDataset:
-        """
-        Returns the ExplanationDataset object containing the explained data and their projected values.
-
-        Returns
-        -------
-        ExplanationDataset object
-            The ExplanationDataset object.
-        """
-        return self._explainDataset
-
-    def newRegion(self, potato: Potato):
-        """
-        Function that adds a region to the list of regions.
-
-        Parameters
-        ---------
-        potato : Potato object
-            The Potato object to add to the list of regions.
-        """
-        self.regions.append(potato)
-
-    def getModel(self) -> Model :
-        return self._model
-
-    def getSubModels(self) -> list:
-        return self._sub_models 
-
-
+    def startGUI(self)-> GUI:
+        return GUI(self)

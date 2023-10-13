@@ -389,10 +389,15 @@ class Variable:
         """
         Returns a list of Variable objects, one for each column in X.
         """
-        var_list = []
+        variables = []
         for col in X.columns:
-            var_list.append(Variable(col, col, "unknown"))
-        return var_list
+            var = Variable(col.title, col.dtype)
+            if col.title in ["latitude", "Latitude", "Lat", "lat"]:
+                var._lat = True
+            if col.title in ["longitude", "Longitude", "Long", "long"]:
+                var._lon = True
+            variables.append(var)
+        return variables
 
 class ProjectedValues():
     """
