@@ -27,7 +27,7 @@ from copy import deepcopy
 
 from ipywidgets.widgets.widget import Widget
 
-from antakia.data import Dataset, ExplanationDataset, LongTask, ExplanationMethod, DimReducMethod, Model
+from antakia.data import LongTask, ExplanationMethod, DimReducMethod
 from antakia.utils import confLogger
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class SHAPExplanation(ExplanationMethod):
     SHAP computation class.
     """
 
-    def __init__(self, X:pd.DataFrame, model:Model):
+    def __init__(self, X:pd.DataFrame, model):
         super().__init__(ExplanationMethod.SHAP, X, model)
 
     def compute(self) -> pd.DataFrame :
@@ -86,7 +86,7 @@ class LIMExplanation(ExplanationMethod):
     LIME computation class.
     """
     
-    def __init__(self, X:pd.DataFrame, model:Model):
+    def __init__(self, X:pd.DataFrame, model):
         super().__init__(ExplanationMethod.LIME, X, model)
 
     def compute(self) -> pd.DataFrame :
@@ -125,7 +125,7 @@ class LIMExplanation(ExplanationMethod):
         return ExplanationMethod.LIME
 # --------------------------------------------------------------------------
 
-def compute_explanations(X:pd.DataFrame, model : Model, explanation_method:int) -> pd.DataFrame:
+def compute_explanations(X:pd.DataFrame, model, explanation_method:int) -> pd.DataFrame:
     """ Generaic method to compute explanations, SHAP or LIME
     """
     if explanation_method == ExplanationMethod.SHAP :
@@ -145,8 +145,8 @@ class PCADimReduc(DimReducMethod):
     """
     PCA computation class.
     """
-    def __init__(self, base_space : int, X:pd.DataFrame, X_all:pd.DataFrame, dimension : int = 2):
-        DimReducMethod.__init__(self, base_space, DimReducMethod.PCA, dimension, X)
+    def __init__(self, X:pd.DataFrame,dimension : int = 2):
+        DimReducMethod.__init__(self, DimReducMethod.PCA, dimension, X)
 
     def compute(self) -> pd.DataFrame:
         self.set_progress(0)
@@ -164,8 +164,8 @@ class TSNEDimReduc(DimReducMethod):
     T-SNE computation class.
     """
 
-    def __init__(self, baseSpace : int, X:pd.DataFrame,  dimension : int = 2):
-        DimReducMethod.__init__(self, baseSpace, DimReducMethod.TSNE, dimension, X)
+    def __init__(self, X:pd.DataFrame,  dimension : int = 2):
+        DimReducMethod.__init__(self, DimReducMethod.TSNE, dimension, X)
     
     def compute(self) -> pd.DataFrame:
         self.set_progress(0)
@@ -179,8 +179,8 @@ class UMAPDimReduc(DimReducMethod):
     """
     UMAP computation class.
     """
-    def __init__(self, baseSpace : int, X:pd.DataFrame, dimension : int = 2):
-        DimReducMethod.__init__(self, baseSpace, DimReducMethod.UMAP, dimension, X)
+    def __init__(self, X:pd.DataFrame, dimension : int = 2):
+        DimReducMethod.__init__(self, DimReducMethod.UMAP, dimension, X)
 
     def compute(self) -> pd.DataFrame:
         self.set_progress(0)
@@ -199,7 +199,7 @@ class PaCMAPDimReduc(DimReducMethod):
         Keys : "neighbours", "MN_ratio", "FP_ratio"
     """
 
-    def __init__(self, base_space: int, X:pd.DataFrame, dimension: int = 2, **kwargs):
+    def __init__(self, bX:pd.DataFrame, dimension: int = 2, **kwargs):
         self._paramDict = dict()
         if kwargs is not None :
             if "neighbours" in kwargs:
@@ -208,7 +208,7 @@ class PaCMAPDimReduc(DimReducMethod):
                     self._param_dict.update({"MN_ratio": kwargs["MN_ratio"]})
             if "FP_ratio" in kwargs :
                     self._param_dict.update({"FP_ratio": kwargs["FP_ratio"]})
-        DimReducMethod.__init__(self, base_space, DimReducMethod.PaCMAP, dimension, X)
+        DimReducMethod.__init__(self, DimReducMethod.PaCMAP, dimension, X)
 
     
     def compute(self, *args) -> pd.DataFrame :
@@ -239,31 +239,27 @@ class PaCMAPDimReduc(DimReducMethod):
 
 # --------------------------------------------------------------------------
 
-def compute_projection(baseSpace : int, X:pd.DataFrame, dimReducMethod:int, dimension : int, **kwargs) -> pd.DataFrame:
+def compute_projection(X: pd.DataFrame, dimreduc_method:int, dimension : int, **kwargs) -> pd.DataFrame:
     
-    if not DimReducMethod.is_valid_dimreduc_method(dimReducMethod) or not DimReducMethod.is_valid_dim_number(dimension):
-        raise ValueError("Cannot compute proj method #", dimReducMethod, " in ", dimension, " dimensions")
+    if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(dimension):
+        raise ValueError("Cannot compute proj method #", dimreduc_method, " in ", dimension, " dimensions")
 
-    projValues = None
+    proj_values = None
 
-    if dimReducMethod == DimReducMethod.PCA :    
-        projValues =  PCADimReduc(baseSpace, X, dimension).compute()
-    elif dimReducMethod == DimReducMethod.TSNE :
-        projValues =  TSNEDimReduc(baseSpace, X, dimension).compute()
-    elif dimReducMethod == DimReducMethod.UMAP :
-        projValues =  UMAPDimReduc(baseSpace, X, dimension).compute()
-    elif dimReducMethod == DimReducMethod.PaCMAP :
+    if dimreduc_method == DimReducMethod.PCA :    
+        proj_values =  PCADimReduc(X, dimension).compute()
+    elif dimreduc_method == DimReducMethod.TSNE :
+        proj_values =  TSNEDimReduc(X, dimension).compute()
+    elif dimreduc_method == DimReducMethod.UMAP :
+        proj_values =  UMAPDimReduc(X, dimension).compute()
+    elif dimreduc_method == DimReducMethod.PaCMAP :
         if kwargs is None or len(kwargs) == 0 :
-            projValues =  PaCMAPDimReduc(baseSpace, X, dimension).compute()
+            proj_values =  PaCMAPDimReduc(X, dimension).compute()
         else : 
             logger.debug(f"computeProjection: PaCMAPDimReduc with kwargs {kwargs}")
-            projValues =  PaCMAPDimReduc(baseSpace, X, dimension, **kwargs).compute()
-    else :
-        raise ValueError(f"This projection type {dimReducMethod} is not valid!")
+            proj_values =  PaCMAPDimReduc(X, dimension, **kwargs).compute()
 
-    # logger.debug(f"computeProjection: returns a {type(projValues)} with {projValues.shape} ({dimension}D) in {DimReducMethod.getBaseSpaceAsStr(baseSpace)} baseSpace")
-    
-    return projValues
+    return proj_values
 
 
 def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, default: bool) -> list:

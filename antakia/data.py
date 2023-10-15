@@ -13,19 +13,8 @@ handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
 
-
-class Model(ABC):
-    """
-    Describes a model AntakIA can use, ie. it implements predict and score methods.
-    """
-    @abstractmethod
-    def predict(self, x: pd.DataFrame) -> pd.Series:
-        pass
-
-    @abstractmethod
-    def score(self, X: pd.DataFrame, y: pd.Series) -> float:
-        pass
-
+def is_valid_model(model) -> bool:
+    return callable(getattr(model, "score")) and callable(getattr(model, "predict"))
 
 class LongTask(ABC):
     """
@@ -108,19 +97,20 @@ class ExplanationMethod(LongTask):
     Abstract class (see Long Task) to compute explaination values for the Explanation Space (ES)
 
     Attributes
-    _model : Model to explain
+    _model : the model to explain
     _explanation_method : SHAP or LIME
     """
 
     # Class attributes
-    SHAP = 0
-    LIME = 1
+    NONE = 0 # no explanation, ie: original values
+    SHAP = 1
+    LIME = 2
 
     def __init__(
         self,
         explanation_method: int,
         X: pd.DataFrame,
-        model: Model = None
+        model= None
     ):
         # TODO : do wee need X_all ?
         super().__init__(LongTask.EXPLANATION, X)
@@ -139,7 +129,7 @@ class ExplanationMethod(LongTask):
         """
         self._progress = progress
 
-    def get_model(self) -> Model:
+    def get_model(self):
         return self._model
 
     @staticmethod
@@ -147,7 +137,8 @@ class ExplanationMethod(LongTask):
         """
         Returns True if this is a valid explanation method.
         """
-        return method == ExplanationMethod.SHAP or method == ExplanationMethod.LIME
+        return method == ExplanationMethod.SHAP or method == ExplanationMethod.LIME or method == ExplanationMethod.NONE 
+    
 
     def get_topic(self) -> str:
         """Required by pubssub.
@@ -172,7 +163,6 @@ class ExplanationMethod(LongTask):
             raise ValueError(method, " is a bad explanation method")
 
 class DimReducMethod(LongTask):
-    # TODO : do we need XAll ?
     """
     Class that allows to reduce the dimensionality of the data.
 
@@ -185,31 +175,19 @@ class DimReducMethod(LongTask):
     _base_space : int
     """
     # Class attributes methods
-
-    VS = 0
-    ES = 1  # Shoud not be allowed
-    ES_SHAP = 3
-    ES_LIME = 4
-
     PCA = 1
     TSNE = 2
     UMAP = 3
     PaCMAP = 4
 
-    DIM_TWO = 2
-    DIM_THREE = 3
-
     def __init__(
-        self, base_space: int, dimreduc_method: int, dimension: int, X: pd.DataFrame
+        self, dimreduc_method: int, dimension: int, X: pd.DataFrame
     ):
         """
         Constructor for the DimReducMethod class.
 
         Parameters
         ----------
-        base_space : int
-            Can be : VS, ES.SHAP or ES.LIME
-            We store it here (not in implementation class)
         dimreduc_method : int
             Dimension reduction methods among DimReducMethod.PCA, DimReducMethod.TSNE, DimReducMethod.UMAP or DimReducMethod.PaCMAP
             We store it here (not in implementation class)
@@ -219,24 +197,10 @@ class DimReducMethod(LongTask):
         X : pd.DataFrame
             Stored in LongTask instance
         """
-        assert base_space is not DimReducMethod.ES
-        self.base_space = base_space
         self._dimreduc_method = dimreduc_method
         self._dimension = dimension
 
         LongTask.__init__(self, LongTask.DIMENSIONALITY_REDUCTION, X)
-
-    def get_base_space(self) -> int:
-        return self.base_space
-
-    @staticmethod
-    def es_base_space(explain_method: int) -> int:
-        if explain_method == ExplanationMethod.SHAP:
-            return DimReducMethod.ES_SHAP
-        elif explain_method == ExplanationMethod.LIME:
-            return DimReducMethod.ES_LIME
-        else:
-            raise ValueError(explain_method, " is a bad explaination method")
 
     def get_dimreduc_method(self) -> int:
         return self._dimreduc_method
@@ -259,17 +223,6 @@ class DimReducMethod(LongTask):
             + "/"
             + DimReducMethod.getDimensionAsStr(self.get_dimension())
         )
-
-    @staticmethod
-    def base_space_as_str(base_space: int) -> str:
-        if baseSpace == DimReducMethod.VS:
-            return "VS"
-        elif baseSpace == DimReducMethod.ES_SHAP:
-            return "ES_SHAP"
-        elif baseSpace == DimReducMethod.ES_LIME:
-            return "ES_LIME"
-        else:
-            raise ValueError(base_space, " is a bad base space")
 
     @staticmethod
     def dimreduc_method_as_str(method: int) -> str:
@@ -340,7 +293,7 @@ class DimReducMethod(LongTask):
         """
         Returns True if dim is a valid dimension number.
         """
-        return dim == DimReducMethod.DIM_TWO or dim == DimReducMethod.DIM_THREE
+        return dim == 2 or dim == 3
 
 
 # ================================================
@@ -366,35 +319,29 @@ class Variable:
     """
 
     def __init__(self, col_index:int, symbol: str, type: str):
-        self._col_index = col_index
-        self._symbol = symbol
-        self._type = type
+        self.col_index = col_index
+        self.symbol = symbol
+        self.type = type
 
-        self._descr = None
-        self._sensible = False
-        self._continuous = False
-        self._explained = False
-        self._explain_method = None
-        self._lat = False
-        self._lon = False
-
-    def get_symbol(self) -> str:
-        return self._symbol
-    
-    def get_col_index(self) -> int:
-        return self._col_index  
-
+        self.descr = None
+        self.sensible = False
+        self.continuous = False
+        self.explained = False
+        self.explain_method = None
+        self.lat = False
+        self.lon = False
+        
     @staticmethod
-    def guess_var_list(X: pd.DataFrame) -> list:
+    def guess_variables(X: pd.DataFrame) -> list:
         """
         Returns a list of Variable objects, one for each column in X.
         """
         variables = []
-        for col in X.columns:
-            var = Variable(col.title, col.dtype)
-            if col.title in ["latitude", "Latitude", "Lat", "lat"]:
+        for i in range(len(X.columns)):
+            var = Variable(i, X.columns[i], X.dtypes[X.columns[i]])
+            if X.columns[i] in ["latitude", "Latitude", "Lat", "lat"]:
                 var._lat = True
-            if col.title in ["longitude", "Longitude", "Long", "long"]:
+            if X.columns[i] in ["longitude", "Longitude", "Long", "long"]:
                 var._lon = True
             variables.append(var)
         return variables
@@ -405,7 +352,7 @@ class ProjectedValues():
     
     Instance attributes
     ------------------
-    _X  : pandas.Dataframe
+    X  : pandas.Dataframe
         The dataframe to be used by AntakIA
     _X_proj : a dict with four values :
         - key DimReducMethod.PCA : a dict with :
@@ -431,28 +378,15 @@ class ProjectedValues():
         X : pandas.Dataframe
             The dataframe provided by the user.
         """
-        self._X = X
+        self.X = X
         self._X_proj = {}
 
 
     def __str__(self):
-        return f"ProjectedValues object with {self._X.shape[0]} obs and {self._X.shape[1]} variables"
+        return f"ProjectedValues object with {self.X.shape[0]} obs and {self.X.shape[1]} variables"
     
     def get_length(self) -> int:
-        return self._X.shape[0]
-
-    def get_full_values(self) -> pd.DataFrame:
-        """
-        Returns X, non projected ("full") values.
-        """
-        return self._X
-
-    def set_full_values(self, values:pd.DataFrame):
-        """
-        Sets X, non projected ("full") values.
-        """
-        self._X = values
-
+        return self.X.shape[0]
 
     def get_proj_values(self, dimreduc_method: int, dimension: int) -> pd.DataFrame:
         """Returns de projected X values using a dimensionality reduction method and target dimension (2 or 3)

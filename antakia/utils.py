@@ -23,9 +23,9 @@ import ipyvuetify as v
 class OutputWidgetHandler(logging.Handler):
     """Custom logging handler sending logs to an output widget"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, height:int, *args, **kwargs):
         super(OutputWidgetHandler, self).__init__(*args, **kwargs)
-        layout = {"width": "100%", "height": "160px", "border": "1px solid black", "overflow_y" : "auto"}
+        layout = {"width": "100%", "height": str(height)+"px", "border": "1px solid black", "overflow_y" : "auto"}
         self.out = widgets.Output(layout=layout)
 
     def emit(self, record):
@@ -46,8 +46,8 @@ class OutputWidgetHandler(logging.Handler):
         """Clear the current logs"""
         self.out.clear_output()
 
-def confLogger(logger : Logger) -> Handler:
-    handler = OutputWidgetHandler()
+def confLogger(logger : Logger, height:int =160) -> Handler:
+    handler = OutputWidgetHandler(height)
     handler.setFormatter(logging.Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)

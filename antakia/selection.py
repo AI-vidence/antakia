@@ -11,7 +11,7 @@ from skrules import SkopeRules
 import json as JSON
 from copy import deepcopy
 
-from antakia.data import DimReducMethod, ExplanationMethod, Model, Dataset, ExplanationDataset
+from antakia.data import DimReducMethod, ExplanationMethod
 
 class Selection():
     """
@@ -223,6 +223,7 @@ class Selection():
     #         self._sub_model["score"] = score
 
     def get_submodel(self):
+        pass
     #     """
     #     Function that returns the sub-model of the Selection : a dict "model" and "score".
 
@@ -260,6 +261,7 @@ class Selection():
 
 
     def compute_skope_rules(self, p:float = 0.7, r:float = 0.7): #317
+        pass
         """
         Computes the Skope-rules algorithm for the Selection, in both VS and ES spaces.
 
@@ -270,49 +272,7 @@ class Selection():
         r : float 
             The minimum recall of the rules, defaults to 0.7
         """
-        
-        # We reintialize our Y mask list
-        self._ymask_list = np.zeros(self._dataset.__len__())
-        # We set it to 1 whenever the index is in the Selection
-        self._ymask_list[self._indexes] = 1
-
-        # We fit the classifier on the whole Dataset
-        vs_skr_classifier = SkopeRules(
-            feature_names=self._dataset.getFullValues(Dataset.REGULAR).columns,
-            random_state=42,
-            n_estimators=5,
-            recall_min=r, # the only value we set
-            precision_min=p, # the only value we set
-            max_depth_duplication=0,
-            max_samples=1.0,
-            max_depth=3,
-        )
-        vs_skr_classifier.fit(self._dataset.getFullValues(Dataset.REGULAR)()[self._ymask_list])
-
-        # Idem for ES space : we fit the classifier on the whole ExplainaitionsDataset
-        es_skr_classifier = SkopeRules(
-            feature_names=self._explanations.getFullValues(self.explain_method).columns,
-            random_state=42,
-            n_estimators=5,
-            recall_min=r,
-            precision_min=p,
-            max_depth_duplication=0,
-            max_samples=1.0,
-            max_depth=3,
-        )
-        es_skr_classifier.fit(self._explanations.getFullValues(self.explain_method), self._ymask_list)
-
-        if vs_skr_classifier.rules_ == [] or es_skr_classifier.rules_ == []:
-            self._theVSRules, self._theESRules = [], []
-            self._theVSScores, self._theESScores = 0, 0
-            self._rulesIdentified = False
-        else :
-            self._theVSRules, self._theVSScores = Selection.get_clean_rules_and_score(vs_skr_classifier.rules_, self._dataset.getFullValues(Dataset.REGULAR))
-            self._theESRules, self._theESScores = Selection.get_clean_rules_and_score(es_skr_classifier.rules_, self._explanations.getFullValues(self._explanationMethod))
-            self.reveal_intervals()
-            self.set_indexes_with_rules()
-            self._rulesIdentified = True
-            self._type = Selection.SKR
+        s
 
 
 
