@@ -133,6 +133,8 @@ class GUI:
         self.selection = None
         self.opacity = pd.Series()
 
+        # Various inits 
+        get_widget_at_address(app_widget,"3041").disabled = True
 
     def __repr__(self) -> str:
         return "Hello i'm the GUI !"
@@ -153,13 +155,13 @@ class GUI:
         self.vs_hde.redraw()
 
         # We trigger ES explain computation if needed :
-        if self.es_hde._pv_list[0] is None:
+        if self.es_hde.pv_list[0] is None:
             # We compute default explanations :
             index = 1 if config.DEFAULT_EXPLANATION_METHOD == ExplanationMethod.SHAP else 3
             get_widget_at_address(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X_list[0].shape}"
-            self.es_hde._pv_list[0] = ProjectedValues(self.new_values_wanted(index, self.update_splash_screen))
+            self.es_hde.pv_list[0] = ProjectedValues(self.new_values_wanted(index, self.update_splash_screen))
         else:
-            get_widget_at_address(splash_widget, "120").v_model = f"{self.labels_list[self.es_hde._current_pv]}"
+            get_widget_at_address(splash_widget, "120").v_model = f"{self.labels_list[self.es_hde.current_pv]}"
 
         # We trigger ES proj computation :
         self.es_hde.compute_projected_dots_2D3D_if_needed(self.update_splash_screen)
@@ -219,30 +221,40 @@ class GUI:
             callback
             )
 
-    def selection_changed(self, new_selection: Selection):
+    
+    def selection_changed(self, caller:HighDimExplorer, new_selection: Selection):
         """ Called when the selection of one HighDimExplorer changes
         """
+        # We update the GUI
 
-        before = 0 if self.selection is None else len(self.selection)     
+        selection_status_str = ""
 
-        logger.debug(f"selection_changed: before {before}, now {len(new_selection.get_indexes())}")
-        # self.selection = new_selection # just created, no need to copy
+        if new_selection.is_empty():
+            selection_status_str = f"No point selected. Use the 'lasso' tool to select points on one of the two graphs"
+            get_widget_at_address(app_widget,"3041").disabled = True
+        else : 
+            selection_status_str = f"Current selection : {new_selection.get_size()} point selected {round(100*new_selection.get_size())/len(self.X_list[0])}% of the  dataset"
+            get_widget_at_address(app_widget,"3041").disabled = False
 
-        # # We set opacity to 10% for the selection
-        # new_opacity_serie = pd.Series()
-        # for i in range(len(self.X_list[0])):
-        #         if i in self.selection.get_indexes():
-        #             new_opacity_serie.append(1)
-        #         else:
-        #             new_opacity_serie.append(0.1)
-        # # self._opacity[0 if side == config.VS else 1] = new_opacity_serie
-
-        # self.update_selection_table()
-        # # self.redraw_graph(side)
+            change_widget(app_widget,"3041010000", v.DataTable(
+                    v_model=[],
+                    show_select=False,
+                    headers=[{"text": column, "sortable": True, "value": column } for column in self.X_list[0].columns],
+                    items=self.X_list[0].iloc[new_selection.indexes].to_dict("records"),
+                    hide_default_footer=False,
+                    disable_sort=False,
+                )
+            )
+        change_widget(app_widget,"3040010", selection_status_str)
         
-        # We update the info Card
-        selection_txt = f"Current selection : {len(new_selection.get_indexes())} point selected {round(100*len(new_selection.get_indexes())/len(self.X_list[0]))}% of the  dataset"
-        change_widget(app_widget,"3040010", selection_txt) 
+        # We syncrhonize selection between the two HighDimExplorers 
+        if caller == self.vs_hde:
+            self.es_hde.set_selection(new_selection)
+        else:
+            self.vs_hde.set_selection(new_selection)
+
+        # We store the new selection
+        self.selection = new_selection
 
     def show_app(self):
         logger.debug(f"show: entering ...")
@@ -258,7 +270,6 @@ class GUI:
         change_widget(app_widget, "1210", self.es_hde.get_projection_select())
         change_widget(app_widget, "12120", self.es_hde.get_projection_prog_circ())
         change_widget(app_widget, "1211000", self.es_hde.get_proj_params_menu())
-        
         change_widget(app_widget, "113", self.es_hde.get_values_select())
         change_widget(app_widget, "114", self.es_hde.get_compute_menu())
 

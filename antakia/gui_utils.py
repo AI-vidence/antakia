@@ -190,8 +190,8 @@ class HighDimExplorer :
         Attributes are mostly privates (underscorred) since they are not meant to be used outside of the class.
 
         Attributes :
-        _pv_list: list # a list of one or several ProjectedValues (PV)
-        _current_pv : int, stores the index of current PV in the _pv_list
+        pv_list: list # a list of one or several ProjectedValues (PV)
+        current_pv : int, stores the index of current PV in the _pv_list
         _y : pd.Series
         _pacmap_params : dictionnary containing the parameters for the PaCMAP projection
             nested keys are "previous" / "current", then "VS" / "ES", then "n_neighbors" / "MN_ratio" / "FP_ratio"
@@ -239,19 +239,19 @@ class HighDimExplorer :
         if not (len(dataframes_list) == len(labels_list) == len(is_computable_list)) :
             raise ValueError(f"HDE.init: values_list, labels_list and is_computable_list must have the same length")
 
-        self._pv_list = []
+        self.pv_list = []
         for index, values in enumerate(dataframes_list):
             if values is not None:
-                self._pv_list.append(ProjectedValues(values))
+                self.pv_list.append(ProjectedValues(values))
             else:
-                self._pv_list.append(None)
+                self.pv_list.append(None)
         self._y = y
         
         
-        self._current_pv = 0
-        for i in range(len(self._pv_list)):
-            if self._pv_list[i] is not None :
-                self._current_pv = i
+        self.current_pv = 0
+        for i in range(len(self.pv_list)):
+            if self.pv_list[i] is not None :
+                self.current_pv = i
                 break
         
         self._projection_select = v.Select(
@@ -299,14 +299,14 @@ class HighDimExplorer :
             },
         }
 
-        if len(self._pv_list) == 1:
+        if len(self.pv_list) == 1:
             self._values_select = None
             self._compute_menu = None
         else:
             # The rest of __init__ is specific to the multi-dataframe case :
             select_items = []
-            for i in range(len(self._pv_list)):
-                select_items.append({'text': labels_list[i], 'disabled': self._pv_list[i] is None})
+            for i in range(len(self.pv_list)):
+                select_items.append({'text': labels_list[i], 'disabled': self.pv_list[i] is None})
 
             self._values_select = v.Select(
                 label="Explanation method",
@@ -399,7 +399,7 @@ class HighDimExplorer :
         #  Now we can init figures 2 and 3D
         self.fig_size = fig_size
 
-        if len(self._pv_list) == 1:
+        if len(self.pv_list) == 1:
             html_text = "<h3>Values Space<h3>"
             our_marker=dict(
                     color=self._y,
@@ -415,7 +415,7 @@ class HighDimExplorer :
                     color=self._y,
                     colorscale="Viridis"
                 )
-        if self._pv_list[self._current_pv] is None or self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(),2) is None:
+        if self.pv_list[self.current_pv] is None or self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(),2) is None:
             self._figure_2D = FigureWidget(
                 data=Scatter(
                     x=None,
@@ -429,8 +429,8 @@ class HighDimExplorer :
         else:
             self._figure_2D = FigureWidget(
                 data=Scatter(
-                    x=self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), 2)[0],
-                    y=self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), 2)[1],
+                    x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[0],
+                    y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[1],
                     mode="markers", 
                     marker=our_marker,
                     customdata=self._y, 
@@ -458,7 +458,7 @@ class HighDimExplorer :
                             ),
                     )
 
-        if self._pv_list[self._current_pv] is None or self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(),3) is None:
+        if self.pv_list[self.current_pv] is None or self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(),3) is None:
             self._figure_3D = FigureWidget(
                 data=Scatter3d(
                     x=None,
@@ -473,9 +473,9 @@ class HighDimExplorer :
         else:
             self._figure_3D = FigureWidget(
                 data=Scatter3d(
-                    x=self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), 3)[0],
-                    y=self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), 3)[1],
-                    z=self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), 3)[2],
+                    x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)[0],
+                    y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)[1],
+                    z=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)[2],
                     mode="markers", 
                     marker= our_marker,
                     customdata=self._y, 
@@ -498,16 +498,16 @@ class HighDimExplorer :
     def compute_projected_dots_2D3D_if_needed(self, callback: callable = None):
         """
         If check if our projs (2 and 3D), are computed.
-        Note : we only computes the values for _pv_list[self._current_pv]
+        Note : we only computes the values for _pv_list[self.current_pv]
         If needed, we compute them and store them in the PV
         The callback function may by GUI.update_splash_screen or HDE.update_progress_circular
         depending of the context.
         """
-        if self._pv_list[self._current_pv] is None:
+        if self.pv_list[self.current_pv] is None:
             projected_dots_2D = projected_dots_3D = None
         else:
-            projected_dots_2D = self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), 2)
-            projected_dots_3D = self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), 3)
+            projected_dots_2D = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)
+            projected_dots_3D = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)
         
 
         if projected_dots_2D is not None and projected_dots_3D is not None:
@@ -515,13 +515,13 @@ class HighDimExplorer :
             pass
         else:
             if projected_dots_2D is None:
-                projected_dots_2D = compute.compute_projection(self._pv_list[self._current_pv].X, self._get_projection_method(), 2, callback)
+                projected_dots_2D = compute.compute_projection(self.pv_list[self.current_pv].X, self._get_projection_method(), 2, callback)
             
             if projected_dots_3D is None:
-                projected_dots_3D = compute.compute_projection(self._pv_list[self._current_pv].X, self._get_projection_method(), 3, callback)
+                projected_dots_3D = compute.compute_projection(self.pv_list[self.current_pv].X, self._get_projection_method(), 3, callback)
 
-            self._pv_list[self._current_pv].set_proj_values(self._get_projection_method(), 2, projected_dots_2D)
-            self._pv_list[self._current_pv].set_proj_values(self._get_projection_method(), 3, projected_dots_3D)
+            self.pv_list[self.current_pv].set_proj_values(self._get_projection_method(), 2, projected_dots_2D)
+            self.pv_list[self.current_pv].set_proj_values(self._get_projection_method(), 3, projected_dots_3D)
     
     def update_progress_circular(self, caller: DimReducMethod, progress: int, duration:float):
         """
@@ -567,8 +567,8 @@ class HighDimExplorer :
         """
         # Remember : impossible items ine thee Select are disabled = we have the desired values
         chosen_pv_index = self._label_to_int(data)
-        chosen_pv = self._pv_list[chosen_pv_index]
-        self._current_pv = chosen_pv_index
+        chosen_pv = self.pv_list[chosen_pv_index]
+        self.current_pv = chosen_pv_index
         self.redraw()
     
 
@@ -623,10 +623,10 @@ class HighDimExplorer :
             color = fig.data[0].marker.color
         
         with fig.batch_update():
-                fig.data[0].x = self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[0]
-                fig.data[0].y = self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[1]
+                fig.data[0].x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[0]
+                fig.data[0].y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[1]
                 if isinstance(fig, Scatter3d):
-                    fig.data[0].z = self._pv_list[self._current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[2]
+                    fig.data[0].z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[2]
                 fig.data[0].marker.opacity = opacity_values
                 fig.data[0].marker.color = color
                 fig.layout.width = self.fig_size
@@ -635,11 +635,27 @@ class HighDimExplorer :
 
     def dots_lasso_selected(self, trace, points, selector, *args):
         """ Called whenever the user selects dots on the scatter plot """
-        logger.debug(f"HDE.dots_lasso_selected: points = {trace['selectedpoints']}")
-        # We inform GUI 
-        self.selection_changed(
-            Selection(trace['selectedpoints'], Selection.LASSO)
-        )
+        self.selection_changed(self, Selection(list(trace['selectedpoints']), Selection.LASSO))
+
+    
+    def set_selection(self, new_selection:Selection):
+        """
+        Called by tne UI when a new selection occured on the other HDE
+        """
+        self._figure_2D.data[0]['selectedpoints']= new_selection.indexes
+
+        # # We set opacity to 10% for the selection
+        # new_opacity_serie = pd.Series()
+        # for i in range(len(self.X_list[0])):
+        #         if i in self.selection.get_indexes():
+        #             new_opacity_serie.append(1)
+        #         else:
+        #             new_opacity_serie.append(0.1)
+        # # self._opacity[0 if side == config.VS else 1] = new_opacity_serie
+
+        # self.update_selection_table()
+        # # self.redraw_graph(side)
+
 
     def get_projection_select(self):
         return self._projection_select
@@ -692,7 +708,7 @@ class HighDimExplorer :
         """
         For debug purposes only. Not very reliable.
         """
-        return "VS" if len(self._pv_list) == 1 else "ES"
+        return "VS" if len(self.pv_list) == 1 else "ES"
     
     def _label_to_int(self, label : str) -> int :
         """
@@ -1505,7 +1521,8 @@ app_widget = widgets.VBox(
                                         children=[
                                             v.ExpansionPanel( # 304 10
                                                 children=[
-                                                    v.ExpansionPanelHeader(children=["Data selected"]), # 304 100
+                                                    v.ExpansionPanelHeader( # 304 100
+                                                        children=["Data selected"]), #304 100 0
                                                     v.ExpansionPanelContent( # 304 101
                                                         children=[
                                                         v.Alert( # out_selec_all # 304 101 0
@@ -1517,26 +1534,14 @@ app_widget = widgets.VBox(
                                                                     class_="d-flex flex-row justify-space-between",
                                                                     children=[
                                                                         v.Layout( # out_selec # 304 101 000
-                                                                            style_="min-width: 47%; max-width: 47%",
+                                                                            style_="min-width: 100%; max-width: 94%",
                                                                             children=[
-                                                                                v.Html( # out_selec # 
+                                                                                v.Html( # out_selec # 304 101 000 0
                                                                                     tag="h4",
-                                                                                    children=["Select points on the figure to see their values ​​here"],
+                                                                                    children=["Select points on the figure to see their values ​​here"], # 304 101 000 00
                                                                                 )
                                                                             ],
-                                                                        ),
-                                                                        v.Divider(class_="ma-2", vertical=True), # 304 101 001
-                                                                        v.Layout( # out_selec_SHAP # 304 101 002
-                                                                            style_="min-width: 47%; max-width: 47%",
-                                                                            children=[
-                                                                                v.Html( # 304 101 002 0
-                                                                                    tag="h4",
-                                                                                    children=[
-                                                                                        "Select points on the figure to see their SHAP values ​​here"
-                                                                                    ],
-                                                                                )
-                                                                            ],
-                                                                        ),
+                                                                        )
                                                                     ],
                                                                 ),
                                                             ],
