@@ -1,35 +1,33 @@
 import pandas as pd
 import numpy as np
-import threading
-import time
-from pubsub import pub
-from typing import Tuple
-
-# Imports for the dimensionality reduction
 from sklearn.manifold import TSNE
 from sklearn.decomposition import PCA
+
+# umpa fires NumbaDeprecationWarning warning, so :
+import warnings
+from numba.core.errors import NumbaDeprecationWarning
+warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=UserWarning)
+
 import umap
 import pacmap
+import lime
+import lime.lime_tabular
+import shap
+from copy import deepcopy, copy
+
 
 import mvlearn
 from skrules import SkopeRules
 import sklearn
 import sklearn.cluster
 
-# Imports for the explanations
-import lime
-import lime.lime_tabular
-import shap
-
-import logging
-from logging import getLogger
-from copy import deepcopy
-
 from ipywidgets.widgets.widget import Widget
 
 from antakia.data import LongTask, ExplanationMethod, DimReducMethod
 from antakia.utils import confLogger
-
+import logging
+from logging import getLogger
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
 handler.clear_logs()
@@ -45,93 +43,64 @@ class SHAPExplanation(ExplanationMethod):
     SHAP computation class.
     """
 
-    def __init__(self, X:pd.DataFrame, model):
-        super().__init__(ExplanationMethod.SHAP, X, model)
+    def __init__(self, X:pd.DataFrame, model, progress_updated: callable = None):
+        super().__init__(ExplanationMethod.SHAP, X, model, progress_updated)
 
     def compute(self) -> pd.DataFrame :
-        logger.debug(f"SHAPExplanation.compute : starting ...")
-        time_init = time.time()
-    
-        # explainer = shap.Explainer(self.get_model().predict)
-        explainer = shap.Explainer(self.get_model().predict, self.get_X())
-        # valuesSHAP = pd.DataFrame().reindex_like(self.get_X())
-        self.set_progress(0)
-        values_shap = explainer(self.get_X())
-        self.set_progress(100)
-
-        # colNames = list(self.get_X().columns)
-        # for i in range(len(colNames)):
-        #     colNames[i] = colNames[i] + "_shap"
-
-        # X = self.get_X()
-
-        # for i in range(len(X)):
-        #     shap_value = explainer(X[i : i + 1], max_evals=1400) 
-        #     valuesSHAP.iloc[i] = shap_value.values
-        #     p = int(100*(i/len(X)))
-        #     logger.debug("SHAPExplanation.compute : progress is {p}%")
-        #     self.set_progress(p)
-
-        # valuesSHAP.columns = colNames
-        df = pd.DataFrame.from_records(values_shap.values)
-        logger.debug(f"SHAPExplanation.compute : returns a {type(df)} with {df.shape}")
-        return df
-    
-    @staticmethod
-    def getExplanationType() -> int:
-        return ExplanationMethod.SHAP
+        #TOPO split this !!
+        self.publish_progress(0)
+        explainer = shap.Explainer(self.model.predict, self.X)
+        shap_values = explainer(self.X)
+        self.publish_progress(100)
+        return pd.DataFrame(shap_values)
 
 class LIMExplanation(ExplanationMethod):
     """
     LIME computation class.
     """
     
-    def __init__(self, X:pd.DataFrame, model):
-        super().__init__(ExplanationMethod.LIME, X, model)
+    def __init__(self, X:pd.DataFrame, model, progress_updated: callable = None):
+        super().__init__(ExplanationMethod.LIME, X, model, progress_updated)
 
     def compute(self) -> pd.DataFrame :
-        logger.debug(f"LIMEExplanation.compute : starting ...")
-        time_init = time.time()
+        self.publish_progress(0)
 
         # TODO : It seems we defined class_name in order to work with California housing dataset. We should find a way to generalize this.
-        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.get_X()), feature_names=self.get_X().columns, class_names=['price'], verbose=False, mode='regression')
+        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.get_X()), feature_names=self.X.columns, class_names=['price'], verbose=False, mode='regression')
 
         N = len(self.get_X().shape[0])
-        values_lime = pd.DataFrame(np.zeros((N, self.get_X().shape[-1])))
+        values_lime = pd.DataFrame(np.zeros((N, self.X.shape[-1])))
         
         for j in range(N):
             l = []
             exp = explainer.explain_instance(
-                self.get_X().values[j], self._model.predict
+                self.X.values[j], self.model.predict
             )
             l = []
-            size = self.get_X().shape[-1]
+            size = self.X.shape[-1]
             for ii in range(size):
                 exp_map = exp.as_map()[0]
                 l.extend(exp_map[ii][1] for jj in range(size) if ii == exp_map[jj][0])
             
             values_lime.iloc[j] = pd.Series(l)
-            self._progress += 100 / len(self.get_X())
-            self.set_progress()
-        j = list(self.get_X().columns)
+            self.progress += 100 / len(self.X)
+            self.publish_progress()
+        j = list(self.X.columns)
         for i in range(len(j)): 
             j[i] = j[i] + "_lime"
         values_lime.columns = j
-        logger.debug(f"LIMExplanation.compute : returns a {type(values_lime)} with {values_lime.shape}")
+        self.publish_progress(100)
         return values_lime
 
-    @staticmethod
-    def get_explanation_method() -> int:
-        return ExplanationMethod.LIME
 # --------------------------------------------------------------------------
 
-def compute_explanations(X:pd.DataFrame, model, explanation_method:int) -> pd.DataFrame:
-    """ Generaic method to compute explanations, SHAP or LIME
+def compute_explanations(X:pd.DataFrame, model, explanation_method:int, callback:callable) -> pd.DataFrame:
+    """ Generic method to compute explanations, SHAP or LIME
     """
     if explanation_method == ExplanationMethod.SHAP :
-        return SHAPExplanation(X, model).compute()
+        return SHAPExplanation(X, model, callback).compute()
     elif explanation_method == ExplanationMethod.LIME :
-        return LIMExplanation(X, model).compute()
+        return LIMExplanation(X, model, callback).compute()
     else :
         raise ValueError(f"This explanation method {explanation_method} is not valid!")
 
@@ -145,17 +114,18 @@ class PCADimReduc(DimReducMethod):
     """
     PCA computation class.
     """
-    def __init__(self, X:pd.DataFrame,dimension : int = 2):
-        DimReducMethod.__init__(self, DimReducMethod.PCA, dimension, X)
+    def __init__(self, X:pd.DataFrame, dimension: int = 2, callback : callable = None):
+        DimReducMethod.__init__(self, DimReducMethod.PCA, dimension, X, callback)
 
     def compute(self) -> pd.DataFrame:
-        self.set_progress(0)
+        self.publish_progress(0)
+
         pca = PCA(n_components=self.get_dimension())
-        pca.fit(self.get_X())
-        X_pca = pca.transform(self.get_X())
+        pca.fit(self.X)
+        X_pca = pca.transform(self.X)
         X_pca = pd.DataFrame(X_pca)
-        # TODO : we need to iterated over the dataset in order to set_progress messages to the GUI
-        self.set_progress(100)
+
+        self.publish_progress(100)
         return X_pca
 
     
@@ -164,30 +134,34 @@ class TSNEDimReduc(DimReducMethod):
     T-SNE computation class.
     """
 
-    def __init__(self, X:pd.DataFrame,  dimension : int = 2):
-        DimReducMethod.__init__(self, DimReducMethod.TSNE, dimension, X)
+    def __init__(self, X:pd.DataFrame,  dimension : int = 2, callback : callable = None):
+        DimReducMethod.__init__(self, DimReducMethod.TSNE, dimension, X, callback)
     
     def compute(self) -> pd.DataFrame:
-        self.set_progress(0)
+        self.publish_progress(0)
+
         tsne = TSNE(n_components=self.get_dimension())
-        X_tsne = tsne.fit_transform(self.get_X())
+        X_tsne = tsne.fit_transform(self.X)
         X_tsne = pd.DataFrame(X_tsne)
-        self.set_progress(100)
+
+        self.publish_progress(100)
         return X_tsne
     
 class UMAPDimReduc(DimReducMethod):
     """
     UMAP computation class.
     """
-    def __init__(self, X:pd.DataFrame, dimension : int = 2):
-        DimReducMethod.__init__(self, DimReducMethod.UMAP, dimension, X)
+    def __init__(self, X:pd.DataFrame, dimension : int = 2, callback : callable = None):
+        DimReducMethod.__init__(self, DimReducMethod.UMAP, dimension, X, callback)
 
     def compute(self) -> pd.DataFrame:
-        self.set_progress(0)
+        self.publish_progress(0)
+
         reducer = umap.UMAP(n_components=self.get_dimension())
-        embedding = reducer.fit_transform(self.get_X())
+        embedding = reducer.fit_transform(self.X)
         embedding = pd.DataFrame(embedding)
-        self.set_progress(100)
+
+        self.publish_progress(100)
         return embedding
 
 class PaCMAPDimReduc(DimReducMethod):
@@ -199,7 +173,7 @@ class PaCMAPDimReduc(DimReducMethod):
         Keys : "neighbours", "MN_ratio", "FP_ratio"
     """
 
-    def __init__(self, bX:pd.DataFrame, dimension: int = 2, **kwargs):
+    def __init__(self, X:pd.DataFrame, dimension: int = 2, callback:callable = None, **kwargs):
         self._paramDict = dict()
         if kwargs is not None :
             if "neighbours" in kwargs:
@@ -208,12 +182,13 @@ class PaCMAPDimReduc(DimReducMethod):
                     self._param_dict.update({"MN_ratio": kwargs["MN_ratio"]})
             if "FP_ratio" in kwargs :
                     self._param_dict.update({"FP_ratio": kwargs["FP_ratio"]})
-        DimReducMethod.__init__(self, DimReducMethod.PaCMAP, dimension, X)
+        DimReducMethod.__init__(self, DimReducMethod.PaCMAP, dimension, X, callback)
 
     
     def compute(self, *args) -> pd.DataFrame :
+        logger.debug(f"PaCMAPDimReduc.compute : args={args}, me={self}, dim={self.get_dimension()} ")
+        self.publish_progress(0)
         # compute fonction allows to define parmameters for the PaCMAP algorithm
-        self.set_progress(0)
         if len(args) == 3 :
                 self._param_dict.update({"neighbours": args[0]})
                 self._param_dict.update({"MN_ratio": args[1]})
@@ -227,19 +202,20 @@ class PaCMAPDimReduc(DimReducMethod):
                 )
         else :
             reducer = pacmap.PaCMAP(
-                    n_components=self.get_dimension(),  
+                    n_components=self.get_dimension(), 
                     random_state=9,
                 )
 
-        embedding = reducer.fit_transform(self.get_X(), init="pca")
+        embedding = reducer.fit_transform(self.X, init="pca")
         embedding = pd.DataFrame(embedding)
-        self.set_progress(100)
+
+        self.publish_progress(100)
         return embedding
 
 
 # --------------------------------------------------------------------------
 
-def compute_projection(X: pd.DataFrame, dimreduc_method:int, dimension : int, **kwargs) -> pd.DataFrame:
+def compute_projection(X: pd.DataFrame, dimreduc_method:int, dimension : int, callback: callable= None, **kwargs) -> pd.DataFrame:
     
     if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(dimension):
         raise ValueError("Cannot compute proj method #", dimreduc_method, " in ", dimension, " dimensions")
@@ -247,17 +223,17 @@ def compute_projection(X: pd.DataFrame, dimreduc_method:int, dimension : int, **
     proj_values = None
 
     if dimreduc_method == DimReducMethod.PCA :    
-        proj_values =  PCADimReduc(X, dimension).compute()
+        proj_values =  PCADimReduc(X, dimension, callback).compute()
     elif dimreduc_method == DimReducMethod.TSNE :
-        proj_values =  TSNEDimReduc(X, dimension).compute()
+        proj_values =  TSNEDimReduc(X, dimension, callback).compute()
     elif dimreduc_method == DimReducMethod.UMAP :
-        proj_values =  UMAPDimReduc(X, dimension).compute()
+        proj_values =  UMAPDimReduc(X, dimension, callback).compute()
     elif dimreduc_method == DimReducMethod.PaCMAP :
         if kwargs is None or len(kwargs) == 0 :
-            proj_values =  PaCMAPDimReduc(X, dimension).compute()
-        else : 
-            logger.debug(f"computeProjection: PaCMAPDimReduc with kwargs {kwargs}")
-            proj_values =  PaCMAPDimReduc(X, dimension, **kwargs).compute()
+            proj_values =  PaCMAPDimReduc(X, dimension, callback).compute()
+        else: 
+            logger.debug(f"compute_projection: PaCMAPDimReduc with kwargs {kwargs}")
+            proj_values =  PaCMAPDimReduc(X, dimension, callback, **kwargs).compute()
 
     return proj_values
 

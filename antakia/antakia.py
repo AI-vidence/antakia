@@ -3,7 +3,6 @@ import pandas as pd
 from antakia.data import ExplanationMethod, Variable, is_valid_model
 from antakia.gui import GUI
 from antakia.utils import confLogger
-import csv
 
 import logging
 from logging import getLogger
@@ -25,8 +24,6 @@ class AntakIA():
     y : a pd.Series
     Y_pred : a pd.Series
     variables : a list of Variables, describing X_list[0]
-    
-
     model : Model
         the model to explain
 
@@ -81,4 +78,4 @@ class AntakIA():
         self.regions = []
 
     def startGUI(self)-> GUI:
-        return GUI(self.X_list, self.X_method_list, self.y, self.model)
+        return GUI(self.X_list, self.X_method_list, self.y, self.model).show_splash_screen()

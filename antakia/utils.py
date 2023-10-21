@@ -5,22 +5,20 @@ Utils module for the antakia package.
 import numpy as np
 import pandas as pd
 
-import json
+import inspect
 import textwrap
-import logging
-from logging import Logger, Handler
+from logging import Logger, Handler, Formatter, DEBUG
+
 
 import ipywidgets as widgets
 from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
 
 
-# def simpleType(o) -> str:
-#     if isinstance(o, pd.DataFrame) : return "Dataframe " + str(o.shape)
-#     elif isinstance(o, pd.Series) :  return "Series " + str(o.shape)
-#     else : return type(o)
 
-class OutputWidgetHandler(logging.Handler):
+# ---------------------------------------------------------------------
+
+class OutputWidgetHandler(Handler):
     """Custom logging handler sending logs to an output widget"""
 
     def __init__(self, height:int, *args, **kwargs):
@@ -48,9 +46,9 @@ class OutputWidgetHandler(logging.Handler):
 
 def confLogger(logger : Logger, height:int =160) -> Handler:
     handler = OutputWidgetHandler(height)
-    handler.setFormatter(logging.Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))
+    handler.setFormatter(Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))
     logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(DEBUG)
     return handler
 
 def wrapRepr(widget : Widget, size : int = 200) -> str:
@@ -174,3 +172,4 @@ def models_scores_to_str(X: pd.DataFrame, y: pd.Series, models: list) -> list:
         l.append(models[i])
         list.append(l)
     return list
+

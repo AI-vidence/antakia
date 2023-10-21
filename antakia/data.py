@@ -3,6 +3,8 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 
+import time
+
 # TODO : these references to IPython should be removed in favor of a new scheme (see Wiki)
 from sklearn.preprocessing import StandardScaler
 
@@ -22,67 +24,24 @@ class LongTask(ABC):
 
     Attributes
     ----------
-    _longTaskType : int
-        Can be LongTask.EXPLAINATION or LongTask.DIMENSIONALITY_REDUCTION
-    _X : dataframe
-    _progress : int
-        The progress of the long task, between 0 and 100.
+    X : dataframe
+    progress_updated : an optional callback function to call when progress is updated
+    start_time : float
+    progress:int
     """
 
-    # Class attributes : LongTask types
-    EXPLANATION = 1
-    DIMENSIONALITY_REDUCTION = 2
-
-    def __init__(self, type: int, X: pd.DataFrame):
-        if not LongTask.is_valid_longtask_type(type):
-            raise ValueError(type, " is a bad long task type")
+    def __init__(self, X: pd.DataFrame, progress_updated:callable = None):
         if X is None:
             raise ValueError("You must provide a dataframe for a LongTask")
-        self._longtask_type = type
-        self._X = X
-        self._progress = 0
+        self.X = X
+        self.progress_updated = progress_updated
+        self.start_time = time.time()
+        self.progress = 0
 
-    def get_X(self) -> pd.DataFrame:
-        return self._X
-
-    def get_progress(self) -> int:
-        logger.debug(f"LongTask.getProgress : returning {self._progress}")
-        return self._progress
-
-    def set_progress(self, progress: int):
-        """
-        Method to send the progress of the long task.
-
-        Parameters
-        ----------
-        progress : int
-            An integer between 0 and 100.
-        """
-        self._progress
-
-    @abstractmethod
-    def get_topic(self) -> str:
-        """Required by pubssub.
-        Identifier for the long task being computed.
-
-        Returns:
-            str: a Topic for pubsub
-        """
-        pass
-
-    def __call__(self):
-        logger.debug("LongTask.__call__ : I'm going to upadte the subscriber")
-        self.set_progress(self._progress)
-
-    @staticmethod
-    def is_valid_longtask_type(type: int) -> bool:
-        """
-        Returns True if the type is a valid LongTask type.
-        """
-        return type == LongTask.EXPLANATION or type == LongTask.DIMENSIONALITY_REDUCTION
-
-    def get_longtask_type(self) -> int:
-        return self._longtask_type
+    
+    def publish_progress(self, progress: int):
+        self.progress = progress # its seems LIME requires it
+        self.progress_updated(self, progress, time.time() - self.start_time)
 
     @abstractmethod
     def compute(self) -> pd.DataFrame:
@@ -91,14 +50,15 @@ class LongTask(ABC):
         """
         pass
 
+# -----
 
 class ExplanationMethod(LongTask):
     """
     Abstract class (see Long Task) to compute explaination values for the Explanation Space (ES)
 
     Attributes
-    _model : the model to explain
-    _explanation_method : SHAP or LIME
+    model : the model to explain
+    explanation_method : SHAP or LIME
     """
 
     # Class attributes
@@ -110,44 +70,22 @@ class ExplanationMethod(LongTask):
         self,
         explanation_method: int,
         X: pd.DataFrame,
-        model= None
+        model= None,
+        progress_updated:callable = None,
     ):
         # TODO : do wee need X_all ?
-        super().__init__(LongTask.EXPLANATION, X)
-        self._model = model
-        self._explanation_method = explanation_method
-
-    # Overloading the setProgress
-    def set_progress(self, progress: int):
-        """
-        Method to send the progress of the long task.
-
-        Parameters
-        ----------
-        progress : int
-            An integer between 0 and 100.
-        """
-        self._progress = progress
-
-    def get_model(self):
-        return self._model
+        if not ExplanationMethod.is_valid_explanation_method(explanation_method):
+            raise ValueError(explanation_method, " is a bad explanation method")
+        self.explanation_method = explanation_method
+        super().__init__(X, progress_updated)
+        self.model = model
 
     @staticmethod
     def is_valid_explanation_method(method: int) -> bool:
         """
         Returns True if this is a valid explanation method.
         """
-        return method == ExplanationMethod.SHAP or method == ExplanationMethod.LIME or method == ExplanationMethod.NONE 
-    
-
-    def get_topic(self) -> str:
-        """Required by pubssub.
-        Identifier for the long task being computed.
-
-        Returns:
-            str: a Topic for pubsub
-        """
-        return ExplanationMethod.explain_method_as_str(self.explanation_method)
+        return method == ExplanationMethod.SHAP or method == ExplanationMethod.LIME or method == ExplanationMethod.NONE
 
     @staticmethod
     def explanation_methods_as_list() -> list:
@@ -161,6 +99,17 @@ class ExplanationMethod(LongTask):
             return "LIME"
         else:
             raise ValueError(method, " is a bad explanation method")
+        
+    @staticmethod
+    def explain_method_as_int(method: str) -> int:
+        if method.upper() == "SHAP":
+            return ExplanationMethod.SHAP
+        elif method.upper() == "LIME":
+            return ExplanationMethod.LIME
+        else:
+            raise ValueError(method, " is a bad explanation method")
+
+# -----
 
 class DimReducMethod(LongTask):
     """
@@ -168,11 +117,10 @@ class DimReducMethod(LongTask):
 
     Attributes
     ----------
-    _dimreduc_method : int, can be PCA, TSNE etc.
-    _dimension : int
+    dimreduc_method : int, can be PCA, TSNE etc.
+    dimension : int
         Dimension reduction methods require a dimension parameter
         We store it in the abstract class
-    _base_space : int
     """
     # Class attributes methods
     PCA = 1
@@ -181,7 +129,7 @@ class DimReducMethod(LongTask):
     PaCMAP = 4
 
     def __init__(
-        self, dimreduc_method: int, dimension: int, X: pd.DataFrame
+        self, dimreduc_method: int, dimension: int, X: pd.DataFrame, progress_updated : callable = None
     ):
         """
         Constructor for the DimReducMethod class.
@@ -196,33 +144,18 @@ class DimReducMethod(LongTask):
             We store it here (not in implementation class)
         X : pd.DataFrame
             Stored in LongTask instance
+        progress_updated : callable
+            Stored in LongTask instance
         """
-        self._dimreduc_method = dimreduc_method
-        self._dimension = dimension
-
-        LongTask.__init__(self, LongTask.DIMENSIONALITY_REDUCTION, X)
-
-    def get_dimreduc_method(self) -> int:
-        return self._dimreduc_method
-
-    def get_dimension(self) -> int:
-        return self._dimension
-
-    def get_topic(self) -> str:
-        """Required by pubssub.
-        Identifier for the long task being computed.
-
-        Returns:
-            str: a Topic for pubsub
-        """
-        # Should look like "VS/PCA/2D" or "ES.SHAP/t-SNE/3D"
-        return (
-            DimReducMethod.base_space_as_str(self.get_base_space())
-            + "/"
-            + DimReducMethod.dimreducmethod_as_str(self.get_dimreduc_method())
-            + "/"
-            + DimReducMethod.getDimensionAsStr(self.get_dimension())
-        )
+        if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
+            raise ValueError(dimreduc_method, " is a Bbad dimensionality reduction method")
+        if not DimReducMethod.is_valid_dim_number(dimension):
+            raise ValueError(dimension, " is a bad dimension number")
+        
+        self.dimreduc_method = dimreduc_method
+        self.dimension = dimension
+        # IMPORTANT : we set the topic as for ex 'PCA/2' or 't-SNE/3' -> subscribers have to follow this scheme
+        LongTask.__init__(self, X, progress_updated)
 
     @staticmethod
     def dimreduc_method_as_str(method: int) -> str:
@@ -269,9 +202,9 @@ class DimReducMethod(LongTask):
 
     @staticmethod
     def dimension_as_str(dim) -> str:
-        if dim == DimReducMethod.DIM_TWO:
+        if dim == 2:
             return "2D"
-        elif dim == DimReducMethod.DIM_THREE:
+        elif dim == 3:
             return "3D"
         else:
             raise ValueError(dim, " is a bad dimension")
@@ -294,6 +227,10 @@ class DimReducMethod(LongTask):
         Returns True if dim is a valid dimension number.
         """
         return dim == 2 or dim == 3
+    
+
+    def get_dimension(self)->int:
+        return self.dimension
 
 
 # ================================================
@@ -401,23 +338,20 @@ class ProjectedValues():
         if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
             raise ValueError("Bad dimensionality reduction method")
         if not DimReducMethod.is_valid_dim_number(dimension):
-            raise ValueError("Bad dimension number")
+            raise ValueError(dimension," is a bad dimension number")
 
-        df = None
-
-        if dimreduc_method not in self._X_proj:
-            df = None
-        elif dimension not in self._X_proj[dimreduc_method]:
-            df = None
-        else:
-            df = self._X_proj[dimreduc_method][dimension]
-        return df
+        if dimreduc_method not in self._X_proj or dimension not in self._X_proj[dimreduc_method] or self._X_proj[dimreduc_method][dimension] is None:
+            # ProjectedValues is a "datastore", its role is not trigger projection computations
+            return None
+        else :
+            return self._X_proj[dimreduc_method][dimension]
     
-    def is_available(self, dimreduc_method: int, dimension: int)->bool :
+    def is_available(self, dimreduc_method: int, dimension: int) ->bool :
         return self.get_proj_values(dimreduc_method, dimension) is not None
 
     def set_proj_values(
         self, dimreduc_method: int, dimension: int, values: pd.DataFrame
+
     ):
         """Set X_proj alues for this dimensionality reduction and  dimension."""
 
@@ -436,9 +370,6 @@ class ProjectedValues():
                 dimension
             ] = {}  # We create a new dict for this dimension
 
-        logger.debug(
-            f"DS.setProjValues : I set new values for {DimReducMethod.dimreduc_method_as_str(dimreduc_method)} in {dimension}D proj"
-        )
         self._X_proj[dimreduc_method][dimension] = values
 
     def get_shape(self):

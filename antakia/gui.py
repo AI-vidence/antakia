@@ -1,45 +1,38 @@
-import logging
-import time
-
-# Warnings imports
-import warnings
 from copy import deepcopy
 from importlib.resources import files
 
-import ipyvuetify as v
+
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-import seaborn as sns
-from IPython.display import display
 
+import plotly.graph_objects as go
+import ipyvuetify as v
+from IPython.display import display
 from ipywidgets import Layout, widgets
 
-# Internal imports
-from antakia.data import DimReducMethod, ExplanationMethod, Variable
+
+from antakia.data import DimReducMethod, ExplanationMethod, Variable, LongTask
 import antakia.config as config
-import antakia.antakia as antakia
 from antakia.compute import (
-    auto_cluster
+    auto_cluster, compute_explanations
 )
 from antakia.data import (  
     ExplanationMethod,
     ProjectedValues
 )
+import antakia.config as config
 from antakia.selection import Selection
 from antakia.utils import confLogger, overlapHandler
 from antakia.gui_utils import (
     HighDimExplorer,
     RuleVariableRefiner,
-    WidgetGraph,
-    get_app_graph,
-    get_splash_graph
+    get_widget_at_address,
+    change_widget,
+    splash_widget,
+    app_widget
 )
 
-warnings.simplefilter(action="ignore", category=FutureWarning)
-warnings.simplefilter(action="ignore", category=UserWarning)
-warnings.filterwarnings("ignore")
-
+import logging
 logger = logging.getLogger(__name__)
 handler = confLogger(logger)
 handler.clear_logs()
@@ -59,17 +52,17 @@ class GUI:
 
     Instance Attributes
     ---------------------
-    X_list
-    X_method_list
-    y
+    X_list : a list of one or more Pandas DataFrame
+    X_method_list : a list of int, each int being an ExplanationMethod constant
+    y : Pandas Series
+    y_pred : Pandas Series, calculated at initialization with the model
+    model : a model
     variables : a list of Variable
     selection : a list of points. Immplemented via a "Selection" object
     last_skr : a Selection object allowing to reinit the skope rules
     opacity : a list of two Pandas Series storing the opacity for each observation (VS and ES)
         The `Selection` object containing the current selection.
-    out : Output Widget
-    app_graph : a WidgetGraph of nested Widgets 
-    vs_hde : HighDimExplorer for the VS and ES space
+    vs_hde, es_hde : HighDimExplorer for the VS and ES space
     ref1, ref2, ref3 : RuleVariableRefiner
     color : Pandas Series : color for each Y point
     fig_size : int
@@ -77,20 +70,17 @@ class GUI:
 
     """
 
-    def __init__(self, X_list, X_method_list : list, y: pd.Series, model):
+    def __init__(self, X_list, X_method_list: list, y: pd.Series, model):
         self.X_list = X_list
+        self.Y_pred = model.predict(X_list[0])
         self.X_method_list = X_method_list
         self.y = y
+        self.model = model
+
+        self.fig_size = config.INIT_FIG_WIDTH
         self.variables = Variable.guess_variables(X_list[0])
 
-        # For now, we assume atk has one or two Xs (if explainations are provided)
-        assert X_list is not None and len(X_list) <=2
-        assert X_method_list is not None and X_method_list[0] == ExplanationMethod.NONE
-
-        self.out = widgets.Output()  # Ipwidgets output widget
-        self.app_graph = get_app_graph()
-
-        # We create our VS HDE :
+        # We create our VS HDE
         self.vs_hde = HighDimExplorer(
             "Values space",
             [X_list[0]],
@@ -99,165 +89,211 @@ class GUI:
             y,
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,
-            self.selection_changed,
-            self.new_values_wanted)
+            self.fig_size,
+            40, # border size
+            self.selection_changed)
         
         # We create our ES HDE :
-        labels_list = ["SHAP imported", "SHAP computed", "LIME imported", "LIME computed"]
-        # We put atk.Xs in the right slots
-        values_list = [
-            X_list[1] if (X_method_list[1] == ExplanationMethod.SHAP) else None,
-            None,
-            X_list[1] if (X_method_list[1] == ExplanationMethod.LIME) else None,
-            None]
-        is_computable_list = [False, True, False, True]
+        self.labels_list = ["SHAP imported", "SHAP computed", "LIME imported", "LIME computed"]
+        temp_is_computable_list = [False, True, False, True]
+        # We put our dataframes in the right slots :
+        # Remember : X_list[0] carries the original X values X_list[>=1] carry the explanations
+        if len(X_list) == 1:
+
+            temp_dataframes_list = [None, None, None, None]
+
+        elif len(X_list) == 2:
+            if X_method_list[1] == ExplanationMethod.SHAP:
+                temp_dataframes_list = [X_list[1], None, None, None]
+            elif X_method_list[1] == ExplanationMethod.LIME:
+                temp_dataframes_list = [None, None, X_list[1], None]
+            else:
+                raise ValueError("X_method_list[1] must be SHAP or LIME")
+        else:
+            raise NotImplementedError(f"We only support initialization with 1 set of explanations (LIME or SHAP), not more")
+
         self.es_hde = HighDimExplorer(
             "Explanations space", 
-            values_list,
-            labels_list,
-            is_computable_list,
+            temp_dataframes_list,
+            self.labels_list,
+            temp_is_computable_list,
             y,
-            config.DEFAULT_VS_PROJECTION, 
-            config.DEFAULT_VS_DIMENSION, 
+            config.DEFAULT_ES_PROJECTION, 
+            config.DEFAULT_ES_DIMENSION, 
+            self.fig_size,
+            40, # border size
             self.selection_changed, 
             self.new_values_wanted)
 
         self.ref1 = RuleVariableRefiner(self.variables[0], self.update_skope_rules)
         self.ref2 = RuleVariableRefiner(self.variables[1], self.update_skope_rules)
         self.ref3 = RuleVariableRefiner(self.variables[2], self.update_skope_rules)
-        self.fig_size = 200
+
         self.color = []
         self.selection = None
         self.opacity = pd.Series()
 
+
+    def __repr__(self) -> str:
+        return "Hello i'm the GUI !"
+        
+    def show_splash_screen(self):
+        """ Displays the splash screen and updates it during the first computations.
+            If end is Trie, it displays the GUI after
+        """
+        get_widget_at_address(splash_widget, "110").color = "light blue"
+        get_widget_at_address(splash_widget, "110").v_model = 100
+        get_widget_at_address(splash_widget, "210").color = "light blue"
+        get_widget_at_address(splash_widget, "210").v_model = 100
+        display(splash_widget)
+        
+        # We trigger VS proj computation :
+        get_widget_at_address(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X_list[0].shape} x 4"
+        self.vs_hde.compute_projected_dots_2D3D_if_needed(self.update_splash_screen)
+        self.vs_hde.redraw()
+
+        # We trigger ES explain computation if needed :
+        if self.es_hde._pv_list[0] is None:
+            # We compute default explanations :
+            index = 1 if config.DEFAULT_EXPLANATION_METHOD == ExplanationMethod.SHAP else 3
+            get_widget_at_address(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X_list[0].shape}"
+            self.es_hde._pv_list[0] = ProjectedValues(self.new_values_wanted(index, self.update_splash_screen))
+        else:
+            get_widget_at_address(splash_widget, "120").v_model = f"{self.labels_list[self.es_hde._current_pv]}"
+
+        # We trigger ES proj computation :
+        self.es_hde.compute_projected_dots_2D3D_if_needed(self.update_splash_screen)
+        self.es_hde.redraw()
+        
+        splash_widget.close()
+        self.show_app()
+
+    def update_splash_screen(self, caller: LongTask, progress: int, duration:float):
+        """ Its role as a callback is to update the 2 progress bars of the splash screen"""
+        
+        if isinstance(caller, ExplanationMethod):
+            # It's an explanation
+            progress_linear = get_widget_at_address(splash_widget, "110")
+            number = 1
+        else:  # It's a projection
+            progress_linear = get_widget_at_address(splash_widget, "210")
+            number = 4 # (VS/ES) x (2D/3D)
+        
+        if progress_linear.color == "light blue":
+            progress_linear.color = "blue"
+            progress_linear.v_model = 0
+
+        progress_linear.v_model = round(progress/number)
+
+        if progress_linear.v_model == 100:
+            progress_linear.color = "light blue"
+
     def update_skope_rules(self):
         return None
-        
 
-    def new_values_wanted(self, new_values_index:int)-> pd.DataFrame:
-        # Here we know ["SHAP imported", "SHAP computed", "LIME imported", "LIME computed"] were transmitted :
+    def new_values_wanted(self, new_values_index:int, callback:callable=None)-> pd.DataFrame:
+        """
+        Called either by :
+        - the splash screen
+        - the ES HighDimExplorer (HDE) when the user wants to compute new explain values
+        callback is a HDE function to update the progress linear
+        """
+        
         desired_explain_method = None
         if new_values_index == 1:
             desired_explain_method = ExplanationMethod.SHAP
         elif new_values_index == 3:
             desired_explain_method = ExplanationMethod.LIME
         else:
-            raise ValueError("new_values_index can only be 1 or 3")
+            raise ValueError("new_values_index can only be 1 or 3 for now")
+        
+        if desired_explain_method in self.X_method_list:
+            raise ValueError("This explain method was already provided")
 
-        if len(self.atk.X_method_list) > 1:
-            if self.atk.X_method_list[1] == desired_explain_method:
-                raise ValueError("This explain method was already provided")
+        logger.debug(f"new_values_wanted: i will compute {'SHAP' if desired_explain_method==ExplanationMethod.SHAP else 'LIME'} ")
 
-        return compute.compute_explanations(
-            self.atk.X_list[0],
-            self.atk.model, 
-            desired_explain_method
+        return compute_explanations(
+            self.X_list[0],
+            self.model, 
+            desired_explain_method,
+            callback
             )
 
-
-    def selection_changed(self, new_selection: Selection, side: int):
+    def selection_changed(self, new_selection: Selection):
         """ Called when the selection of one HighDimExplorer changes
-        """ 
-        self.selection = new_selection # just created, no need to copy
+        """
 
-        # We set opacity to 10% for the selection
-        new_opacity_serie = pd.Series()
-        for i in range(self._ds.get_length()):
-                if i in self.selection.get_indexes:
-                    new_opacity_serie.append(1)
-                else:
-                    new_opacity_serie.append(0.1)
-        self._opacity[0 if side == config.VS else 1] = new_opacity_serie
+        before = 0 if self.selection is None else len(self.selection)     
 
-        self.update_selection_table()
-        self.redraw_graph(side)
+        logger.debug(f"selection_changed: before {before}, now {len(new_selection.get_indexes())}")
+        # self.selection = new_selection # just created, no need to copy
+
+        # # We set opacity to 10% for the selection
+        # new_opacity_serie = pd.Series()
+        # for i in range(len(self.X_list[0])):
+        #         if i in self.selection.get_indexes():
+        #             new_opacity_serie.append(1)
+        #         else:
+        #             new_opacity_serie.append(0.1)
+        # # self._opacity[0 if side == config.VS else 1] = new_opacity_serie
+
+        # self.update_selection_table()
+        # # self.redraw_graph(side)
         
         # We update the info Card
-        selection_txt = "Current selection : \n0 pont selected (0% of the overall data)"
-        if not self.selection.is_empty():
-            selection_txt = \
-            str(self.selection.size()) + \
-            " points selected (" + \
-            str( \
-                round( \
-                    self.selection.size() \
-                    / self._ds.get_length() \
-                    * 100, \
-                    2, \
-                ) \
-            )
-        self.app_graph.get_widget_at_address("304001").children[selection_txt]
+        selection_txt = f"Current selection : {len(new_selection.get_indexes())} point selected {round(100*len(new_selection.get_indexes())/len(self.X_list[0]))}% of the  dataset"
+        change_widget(app_widget,"3040010", selection_txt) 
 
-    def __repr__(self):
-        self.show()
-        return ""
-
-    def show(self):
-        splash = get_splash_graph()
-        # We display the splash screen
-        display(splash.get_widget)
-
-        splash.get_widget_at_address("120").v_model = "Values space ... "
-        splash.get_widget_at_address("22").v_model = (
-            "Default dimension reduction : "
-            + DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)
-            + " in "
-            + str(config.DEFAULT_VS_DIMENSION) 
-            + " dimensions ..."
-        )
-
-        # We remove the Splahs screen
-        self.out.clear_output(wait=True)
-        splash.hide()
-        splash.destroy()
-
-        # ------------- Main app  -----------------
-
-        # We hide the 2 Progress Circular widgets (used to tell when a computation is in progress)
-        self.app_graph.get_widget_at_address("12020").hide()
-        self.app_graph.get_widget_at_address("12120").hide()
+    def show_app(self):
+        logger.debug(f"show: entering ...")
 
         # --------- Two HighDimExplorers ----------
-        # We add each HighDimExplorer component to the app_graph :
-        self.app_graph.change_widget("2001", self.vs_hde.get_figure_widget())
-        self.app_graph.change_widget("1200", self.vs_hde.get_projection_select())
 
-        self.app_graph.change_widget("2011", self.es_hde.get_figure_widget())
-        self.app_graph.change_widget("1210", self.es_hde.get_projection_select())
-        # Because self.es_hde _is_explain_explorer :
-        self.app_graph.change_widget("113", self.es_hde.get_values_select())
-        self.es_hde.get_explain_compute_menu()
-        # --------- Set colorChoiceBtnToggle ------------
+        # We attach each HighDimExplorers component to the app_graph :
+        change_widget(app_widget, "200", self.vs_hde.get_Figure_VBox())
+        change_widget(app_widget, "1200", self.vs_hde.get_projection_select())
+        change_widget(app_widget, "12020", self.vs_hde.get_projection_prog_circ())
+        change_widget(app_widget, "1201000", self.vs_hde.get_proj_params_menu())
+        change_widget(app_widget, "201", self.es_hde.get_Figure_VBox())
+        change_widget(app_widget, "1210", self.es_hde.get_projection_select())
+        change_widget(app_widget, "12120", self.es_hde.get_projection_prog_circ())
+        change_widget(app_widget, "1211000", self.es_hde.get_proj_params_menu())
+        
+        change_widget(app_widget, "113", self.es_hde.get_values_select())
+        change_widget(app_widget, "114", self.es_hde.get_compute_menu())
+
+        
+        # --------- ColorChoiceBtnToggle ------------
         def change_color(*args):
             """
                 Called with the user clicks on the colorChoiceBtnToggle
                 Allows change the color of the dots
             """
             # TODO : read the choice from the event, not from the GUI
-            choice = self.app_graph.get_widget_at_address("111").v_model
+            choice = get_widget_at_address(app_widget,"111").v_model
 
             self.color = None
             if choice == "y":
-                self.color = self.atk.y
+                self.color = self.y
             elif choice == "y^":
-                self.color = self.atk.y_pred
+                self.color = self.y_pred
             elif choice == "current selection":
-                self.color = ["grey"] * len(self.atk.y)
+                self.color = ["grey"] * len(self.y)
                 for i in range(len(self.selection.get_indexes())):
                     self.color[self.selection.get_indexes()[i]] = "blue"
             elif choice == "residual":
-                self.color = self.atk.y - self.atk.y_pred
+                self.color = self.y - self.y_pred
                 self.color = [abs(i) for i in self.color]
             elif choice == "regions":
-                self.color = [0] * len(self.atk.y)
-                for i in range(len(self.atk.y)):
+                self.color = [0] * len(self.y)
+                for i in range(len(self.y)):
                     for j in range(len(self.regions)):
                         if i in self.regions[j].get_indexes():
                             self.color[i] = j + 1
             elif choice == "not selected":
-                self.color = ["red"] * len(self.atk.X_list[0])
+                self.color = ["red"] * len(self.X_list[0])
                 if len(self.regions) > 0:
-                    for i in range(len(self.atk.X_list[0])):
+                    for i in range(len(self.X_list[0])):
                         for j in range(len(self.regions)):
                             if i in self.regions[j].get_indexes():
                                 self.color[i] = "grey"
@@ -266,7 +302,7 @@ class GUI:
 
 
         # Set "change" event on the Button Toggle used to chose color
-        self.app_graph.get_widget_at_address("111").on_event("change", change_color)
+        get_widget_at_address(app_widget, "111").on_event("change", change_color)
 
         # ------- Dimension Switch ----------
 
@@ -276,17 +312,17 @@ class GUI:
             We call the HighDimExplorer to update its figure and, enventually,
             compute its proj
             """
-            self.vs_hde.set_dimension(widget.v_model)
-            self.es_hde.set_dimension(widget.v_model)
-        self.app_graph.get_widget_at_address("102").on_event("change", switch_dimension)
+            self.vs_hde.set_dimension(3 if data else 2)
+            self.es_hde.set_dimension(3 if data else 2)
+        get_widget_at_address(app_widget, "102").on_event("change", switch_dimension)
 
         # ---- Tab 2 : refinement ----
 
-        # ----------- Refiners ------------
-        # Let's create 3 RuleVariableRefiner  :
-        self.app_graph.change_widget("305010", self.ref1.get_widget_graph().get_widget())
-        self.app_graph.change_widget("305011", self.ref2.get_widget_graph().get_widget())
-        self.app_graph.change_widget("305012", self.ref3.get_widget_graph().get_widget())
+        # ----------- RuleVariableRefiners ------------
+        # Let's attach 3 RuleVariableRefiner to our app_graph :
+        change_widget(app_widget, "305010", self.ref1.root_widget)
+        change_widget(app_widget, "305011", self.ref2.root_widget)
+        change_widget(app_widget, "305012", self.ref3.root_widget)
 
         # -----------  reinitSkopeBtn Btn ------------
         def reinitSkopeRules(*b):
@@ -303,7 +339,7 @@ class GUI:
             self.update_submodels_scores(None)
 
         # We wire the click event on the reinitSkopeBtn (3050001)
-        self.app_graph.get_widget_at_address("3050001").on_event("click", reinitSkopeRules)
+        get_widget_at_address(app_widget, "3050001").on_event("click", reinitSkopeRules)
 
         # ---------- cluster and regions  ------------
 
@@ -429,31 +465,31 @@ class GUI:
             )
             # TODO what shall we do with this dataframe ???
 
-        # We wire a click event on validateRegionBtn(307000) : note we created it in app_graph
-        self.app_graph.get_widget_at_address("307000").on_event("click", new_region_validated)
+        # We wire a click event on validateRegionBtn(307000)
+        get_widget_at_address(app_widget, "307000").on_event("click", new_region_validated)
         def cluster_number_changed(*b):
             # TODO : read the slider from the event, not from the GUI
             # We set clustersSliderTxt to the current clustersSlider value
 
-            self.app_graph.change_widget("304230", "Number of clusters " + str(self.app_graph.get_widget_at_address("30422").v_model))
+            change_widget(app_widget, "304230", "Number of clusters " + str(get_widget_at_address(app_widget,"30422").v_model))
 
         # We wire the input event on the clustersSlider (30422)
-        self.app_graph.get_widget_at_address("30422").on_event("input", cluster_number_changed)
+        get_widget_at_address(app_widget,"30422").on_event("input", cluster_number_changed)
 
         def cluster_check_changed(*b):
             # TODO : read the slider from the event, not from the GUI
             # TODO : what is this clusterCheck ?
             # clusterSlider(30422) visibility is linked to clusterCheck(30421)
-            self.app_graph.get_widget_at_address("30422").disabled = self.app_graph.get_widget_at_address("30421").v_model
+            get_widget_at_address(app_widget,"30422").disabled = get_widget_at_address(app_widget,"30421").v_model
 
-        self.app_graph.get_widget_at_address("30421").on_event("change", cluster_check_changed)
+        get_widget_at_address(app_widget,"30421").on_event("change", cluster_check_changed)
 
         # Let's create an empty / dummy cluster_results_table :
         new_df = pd.DataFrame([], columns=["Region #", "Number of points"])
         columns = [{"text": c, "sortable": True, "value": c} for c in new_df.columns]
 
         # We insert the cluster_results_table
-        self.app_graph.change_widget("304410", v.Row(
+        change_widget(app_widget, "304410", v.Row(
             children=[
                 v.Layout(
                     class_="flex-grow-0 flex-shrink-0",
@@ -481,10 +517,10 @@ class GUI:
         def magic_btn_clicked(*b) -> int:
             # TODO : why ??
             # We update our loadingClustersProgLinear (3043)
-            self.app_graph.get_widget_at_address("3043").class_ = "d-flex"
+            get_widget_at_address(app_widget,"3043").class_ = "d-flex"
 
             # Depending on clusterCheck (30421) :
-            if self.app_graph.get_widget_at_address("30421").v_model:
+            if get_widget_at_address(app_widget,"30421").v_model:
                 self._auto_cluster_regions = auto_cluster(
                     self._ds.get_full_values(Dataset.SCALED),
                     self._xds.get_full_values(self._explanation_es[0]),
@@ -496,7 +532,7 @@ class GUI:
                     self._ds.get_full_values(Dataset.SCALED),
                     self._xds.get_full_values(self._explanation_es[0]),
                     # We read clusterSlider (30423) value :
-                    self.app_graph.get_widget_at_address("30423").v_model,
+                    get_widget_at_address(app_widget,"30423").v_model,
                     False,
                 )
 
@@ -508,7 +544,7 @@ class GUI:
             # We set our regions accordingly
             self.regions = self._auto_cluster_regions # just created, no need to copy
             # We update the GUI tab 1(304) clusterResults(3044) (ie a v.Row)
-            self.app_graph.change_widget("304234", self.datatable_from_Selectiones(self.regions))
+            change_widget(app_widget, "304234", self.datatable_from_Selectiones(self.regions))
 
 
             # TODO : understand
@@ -517,21 +553,21 @@ class GUI:
             # ]
 
             # colorChoiceBtnToggle(111) must be changed :
-            self.app_graph.get_widget_at_address("30423").v_model = "auto"
+            get_widget_at_address(app_widget,"30423").v_model = "auto"
 
             # We wire a change event on a button above the cluster_results_table DataTable (30420)
-            self.app_graph.get_widget_at_address("30420").on_event(
+            get_widget_at_address(app_widget,"30420").on_event(
                 "change", cluster_results_table_changed
             )
 
             # We udpate loadingClustersProgLinear (3043)
-            self.app_graph.get_widget_at_address("30440").class_ = "d-none"
+            get_widget_at_address(app_widget,"30440").class_ = "d-none"
 
             # TODO : check if we really expect an int from this function
             return len(self._auto_cluster_regions)
         
         # We wire the click event on the "Magic" findClusterBtn (30451)
-        self.app_graph.get_widget_at_address("30451").on_event("click", magic_btn_clicked)
+        get_widget_at_address(app_widget,"30451").on_event("click", magic_btn_clicked)
 
         def cluster_results_table_changed(widget, event, data):  # 1803
             """
@@ -544,10 +580,10 @@ class GUI:
             labels = self._auto_cluster_regions[1]
 
             # TODO : I guess tabOneSelectionColumn.children[-1].children[0].children[0] was refering to the DataTable
-            index = self.app_graph.get_widget_at_address("304420").v_model
+            index = get_widget_at_address(app_widget,"304420").v_model
             liste = [i for i, d in enumerate(labels) if d == float(index)]
 
-            self.app_graph.get_widget_at_address("30423").v_model = "auto"
+            get_widget_at_address(app_widget,"30423").v_model = "auto"
             # We call change_color by hand 
             # TODO : register change_color on the cluster_results_table instead 
             change_color()
@@ -555,18 +591,18 @@ class GUI:
 
         
         def magic_checkbox_changed(widget, event, data):
-            textField = self.app_graph.get_widget_at_address("30453")
+            textField = get_widget_at_address(app_widget,"30453")
             if widget.v_model:
                 textField.disabled = False
             else:
                 textField.disabled = True
 
         # We wire a change event on magicCheckBox (or "demonstration mode" chekcbox)
-        self.app_graph.get_widget_at_address("30452").on_event("change", magic_checkbox_changed)
+        get_widget_at_address(app_widget,"30452").on_event("change", magic_checkbox_changed)
 
         # TODO : strange it appears here no ?
         # We wire the ckick event on validateSkopeBtn (3050000)
-        self.app_graph.get_widget_at_address("3050000").on_event("click", self.update_skope_rules)
+        get_widget_at_address(app_widget,"3050000").on_event("click", self.update_skope_rules)
 
 
         # -------- figure size ------ 
@@ -581,10 +617,10 @@ class GUI:
             self.es_hde.redraw()
 
         # We wire the input event on the figureSizeSlider (050100)
-        self.app_graph.get_widget_at_address("050100").on_event("input", fig_size_changed)
+        get_widget_at_address(app_widget,"050100").on_event("input", fig_size_changed)
 
         # We wire the click event on addSkopeBtn (305020)
-        self.app_graph.get_widget_at_address("305020").on_event("click", self.update_skope_rules)
+        get_widget_at_address(app_widget,"305020").on_event("click", self.update_skope_rules)
 
         # -- Opacity button --
         def reset_opacity(*args):
@@ -594,19 +630,19 @@ class GUI:
             self.redraw_both_graphs()
 
         # We wire the click event on opacityBtn (112)
-        self.app_graph.get_widget_at_address("112").on_event("click", reset_opacity)
+        get_widget_at_address(app_widget,"112").on_event("click", reset_opacity)
 
         # -- Show beeswarms Checkbox --
 
         def show_beeswarms_check_changed(widget, event, data):
             # TODO : read the beeSwarmCheck from the event, not from the GUI
     
-            refiners_list = self.app_graph.get_widget_at_address("30501").children
+            refiners_list = get_widget_at_address(app_widget,"30501").children
 
             for refiner in refiners_list:
                 refiner.hide_beeswarm(widget.v_model)
         
         # We wire the change event on beeSwarmCheck (3050003)
-        self.app_graph.get_widget_at_address("3050003").on_event("change", show_beeswarms_check_changed)
+        get_widget_at_address(app_widget,"3050003").on_event("change", show_beeswarms_check_changed)
 
-        display(self.app_graph.get_widget())
+        display(app_widget)

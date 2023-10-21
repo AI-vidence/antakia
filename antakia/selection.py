@@ -20,12 +20,11 @@ class Selection():
 
     Attributes
     ----------
-    _indexes : list
+    indexes : list
         The list of the indexes of the points
-    _X : pandas dataframe
-        A reference to the dataset of __atk.
-    _type : int
+    type : int
         The type of the Selection.
+    ymask_list : ???
     """
 
     # Class constants
@@ -37,7 +36,7 @@ class Selection():
     REGION=4 # validated / to be stored in Regions
     JSON=5 # imported from JSON
 
-    def __init__(self,  X: pd.DataFrame, indexes:list, type:int) :
+    def __init__(self, indexes:list, type:int) :
         """
         Constructor of the class Selection.
 
@@ -50,12 +49,11 @@ class Selection():
             May be UNKNOWN, LASSO, SKR, REFINED_SKR, REGION or JSON.
         """
 
-        self.X = X
-        if not ExplanationMethod.isValidExplanationType(explain_method):
-            raise ValueError(explain_method, " is, not a valid explanation method")
-        
-        self._indexes = indexes
-        self._type = type
+        if indexes is None:
+            self.indexes = []
+        else:
+            self.indexes = indexes
+        self.type = type
 
         # if json_path is not None and indexes != []:
         #     raise ValueError("You can't provide a list and a json file")
@@ -71,31 +69,19 @@ class Selection():
         #     self._indexes = indexes
 
         # We compute the Y mask list from the indexes
-        self._ymask_list = []
-        for i in range(self._ds.get_length()):
-            if i in self._indexes:
-                self._ymask_list.append(1)
-            else :
-                self._ymask_list.append(0)
+        # self.ymask_list = []
+        # for i in range(len(self.X)):
+        #     if i in self._indexes:
+        #         self.ymask_list.append(1)
+        #     else :
+        #         self.ymask_list.append(0)
 
 
 
 
     def is_empty(self) -> bool:
-        return len(self._indexes) == 0
+        return len(self.indexes) == 0
 
-
-    def size(self) -> int:
-        """
-        Function that returns the shape of the Selection.
-
-        Returns
-        -------
-        tuple
-            The shape of the Selection.
-        """
-        return len(self._indexes) # TODO : we're supposed to return the shape of the data, not the number of points  
-    
     @staticmethod
     def is_valid_type(type:int) -> bool:
         """
@@ -148,7 +134,7 @@ class Selection():
         """
         if not Selection.is_valid_type(type):
             raise ValueError("You must provide a valid Selection type")
-        self._type = type
+        self.type = type
 
     def get_type(self) -> int :
         """
@@ -159,13 +145,13 @@ class Selection():
         int
             The type of the Selection.
         """
-        return self._type
+        return self.type
 
     def get_ymask_list(self) -> list:
-        return self._ymask_list
+        return self.ymask_list
 
     def setYLMaskList(self, y_mmask_list : list) -> None:
-        self._ymask_list = y_mmask_list
+        self.ymask_list = y_mmask_list
 
 
     def get_indexes(self) -> list:
@@ -177,7 +163,7 @@ class Selection():
         list
             The indexes of the Selection.
         """
-        return self._indexes
+        return self.indexes
     
     
     def set_new_indexes(self, indexes:list) -> None :
@@ -189,17 +175,18 @@ class Selection():
         indexes : list
             The new indexes of the Selection.
         """
-        self._indexes = indexes
+        self.indexes = indexes
 
 
     def set_indexes_with_json(self, json_path:str) -> None:
-        if json_path[-5:] != ".json":
-            json_path += ".json"
-        fileObject = open(json_path, "r")
-        jsonContent = fileObject.read()
-        self._indexes = JSON.loads(jsonContent)
+        return None
+        # if json_path[-5:] != ".json":
+        #     json_path += ".json"
+        # fileObject = open(json_path, "r")
+        # jsonContent = fileObject.read()
+        # self. = JSON.loads(jsonContent)
 
-        self._type = Selection.JSON
+        # self.type = Selection.JSON
 
 
 
@@ -311,7 +298,7 @@ class Selection():
         Function that checks if there are duplicates in the rules.
         A duplicate is a rule that has the same feature as another rule, but with a different threshold.
         """
-        features = [self._theVSRules[i][2] for i in range(len(self.rules))]
+        features = [self.theVSRules[i][2] for i in range(len(self.rules))]
         features_alone = list(set(features))
         if len(features) == len(features_alone):
             return
@@ -319,20 +306,20 @@ class Selection():
             for feature in features:
                 if features.count(feature) > 1:
                     a=0
-                    for i in range(len(self._theVSRules)):
+                    for i in range(len(self.theVSRules)):
                         min_feature = -10e99
                         max_feature = 10e99
-                        if self._theVSRules[i-a][2] == feature:
-                            if self._theVSRules[i-a][0] > min_feature:
+                        if self.theVSRules[i-a][2] == feature:
+                            if self.theVSRules[i-a][0] > min_feature:
                                 min_feature = self.rules[i-a][0]
-                            if self._theVSRules[i-a][4] < max_feature:
-                                max_feature = self._theVSRules[i-a][4]
-                            self._theVSRules.pop(i-a)
+                            if self.theVSRules[i-a][4] < max_feature:
+                                max_feature = self.theVSRules[i-a][4]
+                            self.theVSRules.pop(i-a)
                             a+=1
-                    self._theVSRules.append([min_feature, "<=", feature, "<=", max_feature])
+                    self.theVSRules.append([min_feature, "<=", feature, "<=", max_feature])
 
         # Same for ES
-        features = [self._theESRules[i][2] for i in range(len(self._theESRules))]
+        features = [self.theESRules[i][2] for i in range(len(self.theESRules))]
         features_alone = list(set(features))
         if len(features) == len(features_alone):
             return
@@ -340,17 +327,17 @@ class Selection():
             for feature in features:
                 if features.count(feature) > 1:
                     a=0
-                    for i in range(len(self._theESRules)):
+                    for i in range(len(self.theESRules)):
                         min_feature = -10e99
                         max_feature = 10e99
-                        if self._theESRules[i-a][2] == feature:
-                            if self._theESRules[i-a][0] > min_feature:
-                                min_feature = self._theESRules[i-a][0]
-                            if self._theESRules[i-a][4] < max_feature:
-                                max_feature = self._theESRules[i-a][4]
-                            self._theESRules.pop(i-a)
+                        if self.theESRules[i-a][2] == feature:
+                            if self.theESRules[i-a][0] > min_feature:
+                                min_feature = self.theESRules[i-a][0]
+                            if self.theESRules[i-a][4] < max_feature:
+                                max_feature = self.theESRules[i-a][4]
+                            self.theESRules.pop(i-a)
                             a+=1
-                    self._theESRules.append([min_feature, "<=", feature, "<=", max_feature])
+                    self.theESRules.append([min_feature, "<=", feature, "<=", max_feature])
 
     def prettyPrint(self, table, ch1="-", ch2="|", ch3="+"):
         le_max = 0
@@ -394,7 +381,7 @@ class Selection():
         Function that prints the rules of the Selection.
         Note that we use VS Rules only
         """
-        if self._theVSRules is None:
+        if self.theVSRules is None:
             print("No rules")
         else :
             self.prettyPrint(self.rules, ch3 = '-', ch2=" ")
@@ -413,8 +400,8 @@ class Selection():
         pandas dataframe
             The dataframe containing the points of the dataset that respect only one rule of the list of rules.
         """
-        rules = self._theVSRules
-        df = deepcopy(self._dataset.getFullValues(Dataset.REGULAR))
+        rules = self.theVSRules
+        df = deepcopy(self.X)
         rule1 = "df.loc[" + str(rules[index][0]) + rules[index][1] + "df['" + rules[index][2] + "']]"
         rule2 = "df.loc[" + "df['" + rules[index][2] + "']" + rules[index][3] + str(rules[index][4]) + "]"
         df = eval(rule1)
@@ -430,7 +417,7 @@ class Selection():
         json
             The Selection in the form of a json file.
         """
-        return {"indexes": self._indexes, "type": self._type, "VSrules": self._theVSRules, "VSScore": self._theVSScores, "ESrules": self._theESRules, "ESScore": self._theESScores, "sub_model": self.__sub_models, "success": self._rulesIdentified}
+        return {"indexes": self.indexes, "type": self.type, "VSrules": self.theVSRules, "VSScore": self.theVSScores, "ESrules": self.theESRules, "ESScore": self.theESScores, "sub_model": self.sub_models, "success": self.rulesIdentified}
     
 def SelectionFromJson(atk, json:dict) -> Selection:
     """
