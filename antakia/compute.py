@@ -186,7 +186,6 @@ class PaCMAPDimReduc(DimReducMethod):
 
     
     def compute(self, *args) -> pd.DataFrame :
-        logger.debug(f"PaCMAPDimReduc.compute : args={args}, me={self}, dim={self.get_dimension()} ")
         self.publish_progress(0)
         # compute fonction allows to define parmameters for the PaCMAP algorithm
         if len(args) == 3 :

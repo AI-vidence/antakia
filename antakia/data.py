@@ -18,6 +18,8 @@ handler.show_logs()
 def is_valid_model(model) -> bool:
     return callable(getattr(model, "score")) and callable(getattr(model, "predict"))
 
+
+
 class LongTask(ABC):
     """
     Abstract class to compute long tasks, often in a separate thread.
@@ -239,20 +241,20 @@ class Variable:
     """ 
         Describes each X column or Y value
 
-        _col_index : int
+        col_index : int
             The index of the column in the dataframe i come from (ds or xds)
             #TODO : I shoudl code an Abstract class for Dataset and ExplanationDataset
-        _symbol : str
+        symbol : str
             How it should be displayed in the GUI
-        _descr : str
+        descr : str
             A description of the variable
-        _type : str
+        type : str
             The type of the variable
-        _sensible : bool
+        sensible : bool
             Wether the variable is sensible or not
-        _contiuous : bool
-        _lat : bool
-        _lon : bool
+        contiuous : bool
+        lat : bool
+        lon : bool
     """
 
     def __init__(self, col_index:int, symbol: str, type: str):
@@ -275,13 +277,52 @@ class Variable:
         """
         variables = []
         for i in range(len(X.columns)):
+            X.columns[i].replace("_", " ")
             var = Variable(i, X.columns[i], X.dtypes[X.columns[i]])
             if X.columns[i] in ["latitude", "Latitude", "Lat", "lat"]:
-                var._lat = True
+                var.lat = True
             if X.columns[i] in ["longitude", "Longitude", "Long", "long"]:
-                var._lon = True
+                var.lon = True
+            
             variables.append(var)
         return variables
+    
+
+    def __str__(self):
+        """
+            Displays the variable as a string 
+        """
+        text = f"{self.symbol}, col#:{self.col_index}, type:{self.type}"
+        if self.descr is not None:
+            text += f", descr:{self.descr}"
+        if self.sensible:
+            text += ", sensible"
+        if self.continuous:
+            text += ", continuous"
+        if self.lat:
+            text += ", is lat"
+        if self.lon:
+            text += ", is lon"
+        return text
+
+def vars_to_string(variables:list) -> str:
+    text = ""
+    for i in range(len(variables)):
+        var = variables[i]
+        text += str(i) + ") " +  var.__str__() + "\n"
+    return text
+
+def vars_to_sym_list(variables:list) -> list:
+    symbols = []
+    for var in variables:
+        symbols.append(var.symbol)
+    return symbols
+
+def var_from_symbol(variables:list, token:str) -> Variable:
+        for var in variables:
+            if var.symbol == token:
+                return var
+        return None
 
 class ProjectedValues():
     """

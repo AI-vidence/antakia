@@ -72,7 +72,7 @@ class GUI:
 
     def __init__(self, X_list, X_method_list: list, y: pd.Series, model):
         self.X_list = X_list
-        self.Y_pred = model.predict(X_list[0])
+        self.y_pred = model.predict(X_list[0])
         self.X_method_list = X_method_list
         self.y = y
         self.model = model
@@ -125,20 +125,29 @@ class GUI:
             self.selection_changed, 
             self.new_values_wanted)
 
-        self.ref1 = RuleVariableRefiner(self.variables[0], self.update_skope_rules)
-        self.ref2 = RuleVariableRefiner(self.variables[1], self.update_skope_rules)
-        self.ref3 = RuleVariableRefiner(self.variables[2], self.update_skope_rules)
+        self.ref1 = RuleVariableRefiner(self.variables[0], self.refiner_rules_changed)
+        self.ref2 = RuleVariableRefiner(self.variables[1], self.refiner_rules_changed)
+        self.ref3 = RuleVariableRefiner(self.variables[2], self.refiner_rules_changed)
 
         self.color = []
         self.selection = None
         self.opacity = pd.Series()
 
         # Various inits 
+        # No selection, so the datatable is not visible :
         get_widget_at_address(app_widget,"3041").disabled = True
+        # No selection, so the tabs 2, 3 and 4 are not avaiable
+        get_widget_at_address(app_widget,"301").disabled = True
+        get_widget_at_address(app_widget,"302").disabled = True
+        get_widget_at_address(app_widget,"303").disabled = True
+        
 
     def __repr__(self) -> str:
         return "Hello i'm the GUI !"
-        
+
+    def refiner_rules_changed(self, refiner:RuleVariableRefiner):
+        pass
+
     def show_splash_screen(self):
         """ Displays the splash screen and updates it during the first computations.
             If end is Trie, it displays the GUI after
@@ -190,9 +199,6 @@ class GUI:
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
 
-    def update_skope_rules(self):
-        return None
-
     def new_values_wanted(self, new_values_index:int, callback:callable=None)-> pd.DataFrame:
         """
         Called either by :
@@ -227,15 +233,21 @@ class GUI:
         """
         # We update the GUI
 
+        logger.debug(f"Entering selection_changed ... caller = {caller} and new_selection = {new_selection}")
+        
         selection_status_str = ""
 
         if new_selection.is_empty():
             selection_status_str = f"No point selected. Use the 'lasso' tool to select points on one of the two graphs"
+            # We disable the datatable :
             get_widget_at_address(app_widget,"3041").disabled = True
+            # We disable the SkopeButton
+            get_widget_at_address(app_widget,"3050000").disabled = True
+            
         else : 
             selection_status_str = f"Current selection : {new_selection.get_size()} point selected {round(100*new_selection.get_size())/len(self.X_list[0])}% of the  dataset"
             get_widget_at_address(app_widget,"3041").disabled = False
-
+            # TODO : format the cells, remove digits
             change_widget(app_widget,"3041010000", v.DataTable(
                     v_model=[],
                     show_select=False,
@@ -245,6 +257,11 @@ class GUI:
                     disable_sort=False,
                 )
             )
+            # We "open" tab2 "refinement" :
+            get_widget_at_address(app_widget,"301").disabled = False
+            # We enable the SkopeButton
+            get_widget_at_address(app_widget,"3050000").disabled = False
+
         change_widget(app_widget,"3040010", selection_status_str)
         
         # We syncrhonize selection between the two HighDimExplorers 
@@ -257,7 +274,8 @@ class GUI:
         self.selection = new_selection
 
     def show_app(self):
-        logger.debug(f"show: entering ...")
+
+        logger.debug(f"Entering show_app ...")
 
         # --------- Two HighDimExplorers ----------
 
@@ -335,22 +353,6 @@ class GUI:
         change_widget(app_widget, "305011", self.ref2.root_widget)
         change_widget(app_widget, "305012", self.ref3.root_widget)
 
-        # -----------  reinitSkopeBtn Btn ------------
-        def reinitSkopeRules(*b):
-            # Why the rules should be saved ?
-            # self.selection.setVSRules(self._save_rules)
-
-            # If called, means the selection is back to a selection :
-            self.selection.setType(Selection.SELECTION)
-
-            # We reset the refiners
-            self.reinit_skope_rules(None)
-
-            # We udpate the scores for the submodels
-            self.update_submodels_scores(None)
-
-        # We wire the click event on the reinitSkopeBtn (3050001)
-        get_widget_at_address(app_widget, "3050001").on_event("click", reinitSkopeRules)
 
         # ---------- cluster and regions  ------------
 
@@ -611,9 +613,37 @@ class GUI:
         # We wire a change event on magicCheckBox (or "demonstration mode" chekcbox)
         get_widget_at_address(app_widget,"30452").on_event("change", magic_checkbox_changed)
 
-        # TODO : strange it appears here no ?
-        # We wire the ckick event on validateSkopeBtn (3050000)
-        get_widget_at_address(app_widget,"3050000").on_event("click", self.update_skope_rules)
+        # =============== Skope rules ===============
+
+        def compute_skope_rules(widget, event, data):
+            # if clicked, selection can't be empty
+            # Let's disable the button during computation:
+            get_widget_at_address(app_widget,"3050000").disabled = True
+            
+            self.selection.compute_skope_rules(self.vs_hde.get_current_X(), self.es_hde.get_current_X(), self.y, self.variables)
+            
+            get_widget_at_address(app_widget,"3050000").disabled = False
+
+
+        # We wire the ckick event on the skope-rules buttonn (3050000)
+        get_widget_at_address(app_widget,"3050000").on_event("click", compute_skope_rules)
+
+        def reinitSkopeRules(*b):
+            pass
+            # Why the rules should be saved ?
+            # self.selection.setVSRules(self._save_rules)
+
+            # If called, means the selection is back to a selection :
+            # self.selection.setType(Selection.SELECTION)
+
+            # We reset the refiners
+            # self.reinit_skope_rules(None)
+
+            # We udpate the scores for the submodels
+            # self.update_submodels_scores(None)
+
+        # We wire the click event on the reinitSkopeBtn (3050001)
+        get_widget_at_address(app_widget, "3050001").on_event("click", reinitSkopeRules)
 
 
         # -------- figure size ------ 
@@ -631,7 +661,7 @@ class GUI:
         get_widget_at_address(app_widget,"050100").on_event("input", fig_size_changed)
 
         # We wire the click event on addSkopeBtn (305020)
-        get_widget_at_address(app_widget,"305020").on_event("click", self.update_skope_rules)
+        get_widget_at_address(app_widget,"305020").on_event("click", None)
 
         # -- Opacity button --
         def reset_opacity(*args):

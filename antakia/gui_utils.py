@@ -12,7 +12,7 @@ import seaborn as sns
 from antakia.data import ExplanationMethod, DimReducMethod, Variable, ProjectedValues
 import antakia.compute as compute
 from antakia.utils import confLogger
-from antakia.selection import Selection
+from antakia.selection import Selection, Rules
 import antakia.config as config
 
 from copy import deepcopy, copy
@@ -88,10 +88,9 @@ def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
 def create_rule_card(object) -> list:
     return None
 
-
 def datatable_from_Selection(sel: list, length: int) -> v.Row:
 
-    """ Returns a DataTable from a list of Selectiones
+    """ Returns a DataTable from a list of Selections
     """
     new_df = []
     
@@ -228,7 +227,7 @@ class HighDimExplorer :
                 if len(label_list) = 1, the widget is not created, and the label is ignord
             is_computable_list : list of bool. Indicates wich dataframes are computable from the compute_menu
             init_proj, init_dim : int, int, used to initialize widgets
-        """ 
+        """
         if init_dim not in [2, 3]:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
@@ -491,9 +490,11 @@ class HighDimExplorer :
             )
         self._figure_3D.update_layout(dragmode="lasso")
         
-        logger.debug(f"HDE.init: {space_name} initialized")
 
     # ---- Methods ------
+
+    def __str__(self)-> str:
+        return "HighDimExplorer : values space (VS)" if len(self.pv_list) == 1 else "HighDimExplorer : explanations space (ES)"
 
     def compute_projected_dots_2D3D_if_needed(self, callback: callable = None):
         """
@@ -708,6 +709,7 @@ class HighDimExplorer :
         """
         For debug purposes only. Not very reliable.
         """
+        # TODO : remove
         return "VS" if len(self.pv_list) == 1 else "ES"
     
     def _label_to_int(self, label : str) -> int :
@@ -715,6 +717,10 @@ class HighDimExplorer :
             Returns the index of a PV in the Select items
         """
         return self._values_select.items.index(label) 
+
+    def get_current_X(self)-> pd.DataFrame:
+        return self.pv_list[self.current_pv].X
+
 
 
 class RuleVariableRefiner :
@@ -726,15 +732,14 @@ class RuleVariableRefiner :
 
         _widget : the WidgetGraph of nested widgets that make up the RuleVariableRefiner
         _variable : the variable that is being refined
-        _skope_list : a List of v.CardText that contains the rules that are being refined
-        skope_changed : callable of the GUI parent
+        _rules : [Rules for VS, Rules for ES]
+        refiner_rules_changed : callable of the GUI parent
     """
 
-    def __init__(self, variable : Variable, skope_changed : callable, skope_list: list = None) :
-        self.skope_changed = skope_changed
+    def __init__(self, variable : Variable, refiner_rules_changed : callable, rules: Rules = None):
+        self.refiner_rules_changed = refiner_rules_changed
         self.selection = None # fix
         self._variable  = variable
-        self._skope_list = skope_list
         self.root_widget = v.ExpansionPanels( # accordionGrp
             class_="ma-2 mb-1",
             children=[
