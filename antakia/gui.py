@@ -60,12 +60,9 @@ class GUI:
     variables : a list of Variable
     selection : a list of points. Immplemented via a "Selection" object
     last_skr : a Selection object allowing to reinit the skope rules
-    opacity : a list of two Pandas Series storing the opacity for each observation (VS and ES)
-        The `Selection` object containing the current selection.
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
     ref1, ref2, ref3 : RuleVariableRefiner
     color : Pandas Series : color for each Y point
-    fig_size : int
     labels_list : the list of labels for the ES HDE
 
     """
@@ -77,7 +74,6 @@ class GUI:
         self.y = y
         self.model = model
 
-        self.fig_size = config.INIT_FIG_WIDTH
         self.variables = Variable.guess_variables(X_list[0])
 
         # We create our VS HDE
@@ -89,7 +85,7 @@ class GUI:
             y,
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,
-            self.fig_size,
+            config.INIT_FIG_WIDTH / 2,
             40, # border size
             self.selection_changed)
         
@@ -119,11 +115,12 @@ class GUI:
             temp_is_computable_list,
             y,
             config.DEFAULT_ES_PROJECTION, 
-            config.DEFAULT_ES_DIMENSION, 
-            self.fig_size,
+            config.DEFAULT_VS_DIMENSION, # We use the same dimension as the VS HDE for now
+            config.INIT_FIG_WIDTH / 2,
             40, # border size
             self.selection_changed, 
             self.new_values_wanted)
+        
 
         self.ref1 = RuleVariableRefiner(self.variables[0], self.refiner_rules_changed)
         self.ref2 = RuleVariableRefiner(self.variables[1], self.refiner_rules_changed)
@@ -131,7 +128,6 @@ class GUI:
 
         self.color = []
         self.selection = None
-        self.opacity = pd.Series()
 
         # Various inits 
         # No selection, so the datatable is not visible :
@@ -150,7 +146,6 @@ class GUI:
 
     def show_splash_screen(self):
         """ Displays the splash screen and updates it during the first computations.
-            If end is Trie, it displays the GUI after
         """
         get_widget_at_address(splash_widget, "110").color = "light blue"
         get_widget_at_address(splash_widget, "110").v_model = 100
@@ -160,8 +155,8 @@ class GUI:
         
         # We trigger VS proj computation :
         get_widget_at_address(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X_list[0].shape} x 4"
-        self.vs_hde.compute_projected_dots_2D3D_if_needed(self.update_splash_screen)
-        self.vs_hde.redraw()
+        self.vs_hde.compute_projs(self.update_splash_screen)
+
 
         # We trigger ES explain computation if needed :
         if self.es_hde.pv_list[0] is None:
@@ -172,9 +167,8 @@ class GUI:
         else:
             get_widget_at_address(splash_widget, "120").v_model = f"{self.labels_list[self.es_hde.current_pv]}"
 
-        # We trigger ES proj computation :
-        self.es_hde.compute_projected_dots_2D3D_if_needed(self.update_splash_screen)
-        self.es_hde.redraw()
+        # THen we trigger ES proj computation :
+        self.es_hde.compute_projs(self.update_splash_screen)
         
         splash_widget.close()
         self.show_app()
@@ -231,9 +225,10 @@ class GUI:
     def selection_changed(self, caller:HighDimExplorer, new_selection: Selection):
         """ Called when the selection of one HighDimExplorer changes
         """
-        # We update the GUI
-
-        logger.debug(f"Entering selection_changed ... caller = {caller} and new_selection = {new_selection}")
+        if caller == self.vs_hde:
+            logger.debug(f"show_app: selection_changed: new_selection on VS = {new_selection}")
+        else:
+            logger.debug(f"show_app: selection_changed: new_selection on ES = {new_selection}")
         
         selection_status_str = ""
 
@@ -244,7 +239,7 @@ class GUI:
             # We disable the SkopeButton
             get_widget_at_address(app_widget,"3050000").disabled = True
             
-        else : 
+        else: 
             selection_status_str = f"Current selection : {new_selection.get_size()} point selected {round(100*new_selection.get_size())/len(self.X_list[0])}% of the  dataset"
             get_widget_at_address(app_widget,"3041").disabled = False
             # TODO : format the cells, remove digits
@@ -264,32 +259,34 @@ class GUI:
 
         change_widget(app_widget,"3040010", selection_status_str)
         
-        # We syncrhonize selection between the two HighDimExplorers 
+        # We syncrhonize selection between the two HighDimExplorers
         if caller == self.vs_hde:
-            self.es_hde.set_selection(new_selection)
+            other_hde = self.es_hde
+            other_hde_address = "201"
         else:
-            self.vs_hde.set_selection(new_selection)
+            other_hde = self.vs_hde
+            other_hde_address = "200"
+
+        other_hde.set_selection(new_selection)
+        change_widget(app_widget, other_hde_address, other_hde.get_Figure_VBox())
 
         # We store the new selection
         self.selection = new_selection
 
     def show_app(self):
-
-        logger.debug(f"Entering show_app ...")
-
         # --------- Two HighDimExplorers ----------
 
         # We attach each HighDimExplorers component to the app_graph :
-        change_widget(app_widget, "200", self.vs_hde.get_Figure_VBox())
+        change_widget(app_widget, "2001", self.vs_hde.container)
         change_widget(app_widget, "1200", self.vs_hde.get_projection_select())
         change_widget(app_widget, "12020", self.vs_hde.get_projection_prog_circ())
         change_widget(app_widget, "1201000", self.vs_hde.get_proj_params_menu())
-        change_widget(app_widget, "201", self.es_hde.get_Figure_VBox())
+        change_widget(app_widget, "2011", self.es_hde.container)
         change_widget(app_widget, "1210", self.es_hde.get_projection_select())
         change_widget(app_widget, "12120", self.es_hde.get_projection_prog_circ())
         change_widget(app_widget, "1211000", self.es_hde.get_proj_params_menu())
-        change_widget(app_widget, "113", self.es_hde.get_values_select())
-        change_widget(app_widget, "114", self.es_hde.get_compute_menu())
+        change_widget(app_widget, "111", self.es_hde.get_values_select())
+        change_widget(app_widget, "112", self.es_hde.get_compute_menu())
 
         
         # --------- ColorChoiceBtnToggle ------------
@@ -299,7 +296,7 @@ class GUI:
                 Allows change the color of the dots
             """
             # TODO : read the choice from the event, not from the GUI
-            choice = get_widget_at_address(app_widget,"111").v_model
+            choice = get_widget_at_address(app_widget,"110").v_model
 
             self.color = None
             if choice == "y":
@@ -307,31 +304,38 @@ class GUI:
             elif choice == "y^":
                 self.color = self.y_pred
             elif choice == "current selection":
-                self.color = ["grey"] * len(self.y)
-                for i in range(len(self.selection.get_indexes())):
-                    self.color[self.selection.get_indexes()[i]] = "blue"
+                logger.debug(f"change_color: we ignore 'current selection' choice with grey and blue")
+                # self.color = ["grey"] * len(self.y)
+                # for i in range(len(self.selection.indexes)):
+                #     self.color[self.selection.indexes[i]] = "blue"
             elif choice == "residual":
                 self.color = self.y - self.y_pred
                 self.color = [abs(i) for i in self.color]
             elif choice == "regions":
-                self.color = [0] * len(self.y)
-                for i in range(len(self.y)):
-                    for j in range(len(self.regions)):
-                        if i in self.regions[j].get_indexes():
-                            self.color[i] = j + 1
+                logger.debug(f"change_color: we ignore 'regions' choice")
+                # self.color = [0] * len(self.y)
+                # for i in range(len(self.y)):
+                #     for j in range(len(self.regions)):
+                #         if i in self.regions[j].get_indexes():
+                #             self.color[i] = j + 1
             elif choice == "not selected":
-                self.color = ["red"] * len(self.X_list[0])
-                if len(self.regions) > 0:
-                    for i in range(len(self.X_list[0])):
-                        for j in range(len(self.regions)):
-                            if i in self.regions[j].get_indexes():
-                                self.color[i] = "grey"
+                logger.debug(f"change_color: we ignore 'not selected' choice")
+                # self.color = ["red"] * len(self.X_list[0])
+                # if len(self.regions) > 0:
+                #     for i in range(len(self.X_list[0])):
+                #         for j in range(len(self.regions)):
+                #             if i in self.regions[j].get_indexes():
+                #                 self.color[i] = "grey"
             elif choice == "auto":
-                self.color = None # TODO
+                logger.debug(f"change_color: we ignore 'auto' choice")
+                # self.color = None # TODO
+
+            self.vs_hde.redraw(self.color)
+            self.es_hde.redraw(self.color)
 
 
         # Set "change" event on the Button Toggle used to chose color
-        get_widget_at_address(app_widget, "111").on_event("change", change_color)
+        get_widget_at_address(app_widget, "110").on_event("change", change_color)
 
         # ------- Dimension Switch ----------
 
@@ -343,6 +347,9 @@ class GUI:
             """
             self.vs_hde.set_dimension(3 if data else 2)
             self.es_hde.set_dimension(3 if data else 2)
+
+
+        get_widget_at_address(app_widget, "102").v_model == config.DEFAULT_VS_DIMENSION
         get_widget_at_address(app_widget, "102").on_event("change", switch_dimension)
 
         # ---- Tab 2 : refinement ----
@@ -650,28 +657,20 @@ class GUI:
         def fig_size_changed(widget, event, data):  # 2121
             """ Called when the figureSizeSlider changed"""
 
-            self._fig_size = widget.v_model
+            # logger.debug(f"fig_size_changed: widget={widget}, event={event}, data={data}")
 
-            self.vs_hde.set_fig_size(self._fig_size/2)
-            self.es_hde.set_fig_size(self._fig_size/2)
+            self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model/2)
+
             self.vs_hde.redraw()
             self.es_hde.redraw()
 
         # We wire the input event on the figureSizeSlider (050100)
-        get_widget_at_address(app_widget,"050100").on_event("input", fig_size_changed)
+        get_widget_at_address(app_widget,"04000").on_event("input", fig_size_changed)
+        # We set the init value to default :
+        get_widget_at_address(app_widget,"04000").v_model=config.INIT_FIG_WIDTH
 
         # We wire the click event on addSkopeBtn (305020)
         get_widget_at_address(app_widget,"305020").on_event("click", None)
-
-        # -- Opacity button --
-        def reset_opacity(*args):
-            # We reset the opacity values
-            self._opacity = [pd.Series(), pd.Series()]
-            
-            self.redraw_both_graphs()
-
-        # We wire the click event on opacityBtn (112)
-        get_widget_at_address(app_widget,"112").on_event("click", reset_opacity)
 
         # -- Show beeswarms Checkbox --
 

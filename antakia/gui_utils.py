@@ -174,7 +174,6 @@ def datatable_from_Selection(sel: list, length: int) -> v.Row:
     )
 
 
-
 class HighDimExplorer :
     """
         An HighDimExplorer displays one or several high dim Dataframes on a scatter plot.
@@ -205,9 +204,9 @@ class HighDimExplorer :
         _compute_menu : v.Menu
             None if len(_pv_list) = 1
             Triggers the provision of other dataframes
-        _figure_2D and _figure_3D : FigureWidget
+        figure_2D and figure_3D : FigureWidget
             Plotly scatter plot
-        _VBoxGraph : the WidgetGraph that contains a VBox and the figure
+        container : a thin v.Container wrapper around the current Figure. Allows us to swap between 2D and 3D figures alone (without GUI)
         _projection_select : v.Select, with mutliple dimreduc methods
         _progress_circular : v.ProgressCircular, used to display the progress of the computation
         _projection_slider_VBoxes : dict of VBox,  parameters for dimreduc methods
@@ -397,10 +396,53 @@ class HighDimExplorer :
 
         #  Now we can init figures 2 and 3D
         self.fig_size = fig_size
+            
+        self.figure_2D = self.create_figure(2)
+        self.figure_3D = self.create_figure(3)
+
+        self.container = v.Container(
+                children=[ 
+                    self.figure_2D if self._current_dim == 2 else self.figure_3D
+                ]
+        )
+
+        
+
+    # ---- Methods ------
+
+    def __str__(self)-> str:
+        return "HighDimExplorer : values space (VS)" if len(self.pv_list) == 1 else "HighDimExplorer : explanations space (ES)"
+    
+    def check(self)-> str:
+        """
+        Debug info
+        """
+        text = self._get_space_name() + ", in (" + DimReducMethod.dimreduc_method_as_str(self._get_projection_method()) + ", " + str(self._current_dim) + ") projection\n"
+        
+        text += str(len(self.pv_list)) + " PVs. PV[0]'s is " + str(self.pv_list[0]) + "\n"
+        text += "_figure_2D has its len(x) = " + str(len(self.figure_2D.data[0].x)) + ", len(y) = " + str(len(self.figure_2D.data[0].y)) + "\n"
+        text += "_figure_3D has its len(x) = " + str(len(self.figure_3D.data[0].x)) + ", len(y) = " + str(len(self.figure_3D.data[0].y)) + ", len (z) = " + str(len(self.figure_3D.data[0].z)) + "\n"
+        return text
+
+
+    def create_figure(self, dim:int) -> FigureWidget:
+        """
+        Called by __init__ and by set_selection
+        Builds and  returns the FigureWidget for the given dimension
+        """
+
+        x = y = z = [0,1,2] # nicer to look at than None
+
+        if self.pv_list[self.current_pv] is not None:
+            proj_values = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)
+            if proj_values is not None:
+                x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
+                y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
+                if dim == 3:
+                    z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
 
         if len(self.pv_list) == 1:
-            html_text = "<h3>Values Space<h3>"
-            our_marker=dict(
+            hde_marker=dict(
                     color=self._y,
                     colorscale="Viridis",
                     colorbar=dict( # only VS marker has a colorbar
@@ -409,94 +451,52 @@ class HighDimExplorer :
                         ),
                 )
         else:
-            html_text = "<h3>Explanations Space<h3>"
-            our_marker=dict(
+            hde_marker=dict(
                     color=self._y,
                     colorscale="Viridis"
                 )
-        if self.pv_list[self.current_pv] is None or self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(),2) is None:
-            self._figure_2D = FigureWidget(
-                data=Scatter(
-                    x=None,
-                    y=None,
-                    mode="markers", 
-                    marker=our_marker,
-                    customdata=self._y, 
-                    hovertemplate='%{customdata:.3f}'
-                )
-            )
-        else:
-            self._figure_2D = FigureWidget(
-                data=Scatter(
-                    x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[0],
-                    y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[1],
-                    mode="markers", 
-                    marker=our_marker,
-                    customdata=self._y, 
-                    hovertemplate='%{customdata:.3f}'
-                )
-            )
-        self._figure_2D._config = self._figure_2D._config | {"displaylogo": False}
-        self._figure_2D.update_layout(
-            margin=dict(
-                t=0
-                ), 
-            width=self.fig_size
-            )
-        self._figure_2D.update_layout(dragmode="lasso")
-        self._figure_2D.data[0].on_selection(self.dots_lasso_selected)
-
-        # We use a WidgetGraph : it will be easier to swap figures
-        self._VBox_widget = widgets.VBox(
-                            [
-                                widgets.HTML(html_text),
-                                self._figure_2D, # We init HDE in 2D
-                            ],
-                            layout=Layout(
-                                display="flex", align_items="center", margin="0px 0px 0px 0px"
-                            ),
+        if dim == 2:
+            fig = FigureWidget(
+                    data=Scatter(
+                        x=x,
+                        y=y,
+                        mode="markers", 
+                        marker=hde_marker,
+                        customdata=self._y, 
+                        hovertemplate='%{customdata:.3f}'
                     )
-
-        if self.pv_list[self.current_pv] is None or self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(),3) is None:
-            self._figure_3D = FigureWidget(
-                data=Scatter3d(
-                    x=None,
-                    y=None,
-                    z=None,
-                    mode="markers", 
-                    marker=our_marker,
-                    customdata=self._y, 
-                    hovertemplate='%{customdata:.3f}'
                 )
-            )
+            fig.data[0].on_selection(self._selection_event)
+            fig.data[0].on_deselect(self._deselection_event)
+            fig.update_layout(dragmode="lasso") # selection only in 2D
+            fig.update_traces(
+                selected={'marker':{'opacity':1.0}}, 
+                unselected={'marker':{'opacity':0.1}},
+                selector=dict(type='scatter')
+                )
         else:
-            self._figure_3D = FigureWidget(
+            fig = FigureWidget(
                 data=Scatter3d(
-                    x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)[0],
-                    y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)[1],
-                    z=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)[2],
+                    x=x,
+                    y=y,
+                    z=z,
                     mode="markers", 
-                    marker= our_marker,
+                    marker= hde_marker,
                     customdata=self._y, 
                     hovertemplate='%{customdata:.3f}'
                 )
             )
-        self._figure_3D._config = self._figure_3D._config | {"displaylogo": False}
-        self._figure_3D.update_layout(
-            margin=dict(
-                t=0
-                ), 
-            width=self.fig_size
-            )
-        self._figure_3D.update_layout(dragmode="lasso")
-        
 
-    # ---- Methods ------
+        fig.update_layout(
+                margin=dict(t=0),
+                width=self.fig_size
+                )
+        fig._config = fig._config | {"displaylogo": False}
 
-    def __str__(self)-> str:
-        return "HighDimExplorer : values space (VS)" if len(self.pv_list) == 1 else "HighDimExplorer : explanations space (ES)"
+        return fig
 
-    def compute_projected_dots_2D3D_if_needed(self, callback: callable = None):
+
+    def compute_projs(self, callback: callable = None):
         """
         If check if our projs (2 and 3D), are computed.
         Note : we only computes the values for _pv_list[self.current_pv]
@@ -504,25 +504,32 @@ class HighDimExplorer :
         The callback function may by GUI.update_splash_screen or HDE.update_progress_circular
         depending of the context.
         """
+
         if self.pv_list[self.current_pv] is None:
             projected_dots_2D = projected_dots_3D = None
         else:
             projected_dots_2D = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)
             projected_dots_3D = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 3)
-        
 
-        if projected_dots_2D is not None and projected_dots_3D is not None:
-            # Nothing to compute
-            pass
-        else:
-            if projected_dots_2D is None:
-                projected_dots_2D = compute.compute_projection(self.pv_list[self.current_pv].X, self._get_projection_method(), 2, callback)
+        if projected_dots_2D is None:
+            self.pv_list[self.current_pv].set_proj_values(
+                self._get_projection_method(), 2, 
+                compute.compute_projection(
+                    self.pv_list[self.current_pv].X, 
+                    self._get_projection_method(), 2, 
+                    callback)
+            )
+
+            self._redraw_figure(self.figure_2D)
             
-            if projected_dots_3D is None:
-                projected_dots_3D = compute.compute_projection(self.pv_list[self.current_pv].X, self._get_projection_method(), 3, callback)
-
-            self.pv_list[self.current_pv].set_proj_values(self._get_projection_method(), 2, projected_dots_2D)
-            self.pv_list[self.current_pv].set_proj_values(self._get_projection_method(), 3, projected_dots_3D)
+        if projected_dots_3D is None:
+            self.pv_list[self.current_pv].set_proj_values(
+                self._get_projection_method(), 3, 
+                compute.compute_projection(
+                    self.pv_list[self.current_pv].X, 
+                    self._get_projection_method(), 3, 
+                    callback))
+            self._redraw_figure(self.figure_3D)
     
     def update_progress_circular(self, caller: DimReducMethod, progress: int, duration:float):
         """
@@ -531,12 +538,18 @@ class HighDimExplorer :
         """
         if self._progress_circular.color == "grey":
             self._progress_circular.color = "blue"
-            self._progress_circular.v_model = 0
+            # Since we don't have fine-grained progress, we set it to 'indeterminate'
+            self._progress_circular.indeterminate = True
+            # But i still need to store total progress in v_model :
+            self._progress_circular.v_model = 0  
+            # We lock it during computation :
             self._projection_select.disabled = True
 
+        # Strange sicen we're in 'indeterminate' mode, but i need it, cf supra
         self._progress_circular.v_model = self._progress_circular.v_model + round(progress / 2)
 
         if self._progress_circular.v_model == 100:
+            self._progress_circular.indeterminate = False
             self._progress_circular.color = "grey"
             self._projection_select.disabled = False
 
@@ -545,9 +558,9 @@ class HighDimExplorer :
             Called when the user changes the projection method
             If needed, we compute the new projection
         """
-        # TODO : proj_select gets frozen / unaccessible while computing :
-        self.compute_projected_dots_2D3D_if_needed(self.update_progress_circular) # to ensure we got the values
-        # TODO : proj_select gets released
+        self._projection_select.disabled = True
+        self.compute_projs(self.update_progress_circular) # to ensure we got the values
+        self._projection_select.disabled = False
         self.redraw()
 
 
@@ -580,9 +593,9 @@ class HighDimExplorer :
         """
         progress_linear = None
         if method == ExplanationMethod.SHAP:
-            progress_linear = WidgetGraph(self.new_compute_menu).get_widget_at_address("000201")
+            progress_linear = get_widget_at_address(self._compute_menu,"000201")
         else:
-            progress_linear = WidgetGraph(self.new_compute_menu).get_widget_at_address("000301")
+            progress_linear = get_widget_at_address(self._compute_menu,"000301")
         
         progress_linear.v_model = progress
 
@@ -590,73 +603,76 @@ class HighDimExplorer :
         if progress == 100:
             tab = None
             if method == ExplanationMethod.SHAP:
-                tab = WidgetGraph(self.new_compute_menu).get_widget_at_address("0000")
+                tab = get_widget_at_address(self._compute_menu,"0000")
             else:
-                tab = WidgetGraph(self.new_compute_menu).get_widget_at_address("0001")
+                tab = get_widget_at_address(self._compute_menu,"0001")
             tab.disabled = True
 
     def set_dimension(self, dim : int) :
         # Dimension is stored in the instance variable _current_dim
         """
-        At init, dim is 2
-        At runtime, GUI calls this function, we swap the figures in our VBox
+        At runtime, GUI calls this function and swap our 2 and 3D figures
         """
         self._current_dim = dim
-        new_figure = self._figure_2D if dim == 2 else self._figure_3D
-        change_widget(self._VBox_widget,"1", new_figure)
+        self.container.children = [self.figure_2D] if dim == 2 else [self.figure_3D]
         
 
-    def _get_projection_method(self) -> int :
+    def _get_projection_method(self) -> int:
         # proj is stored in the proj Select widget
         """
         Returns the current projection method
         """
         return DimReducMethod.dimreduc_method_as_int(self._projection_select.v_model)
 
-    def redraw(self, opacity_values: pd.Series = None, color: pd.Series = None):
-        self._redraw_just_one(self._figure_2D)
-        self._redraw_just_one(self._figure_3D)
+    def redraw(self, color: pd.Series = None, opacity_values: pd.Series = None):
+        """
+            Redraws the 2D and 3D figures. FigureWidgets are not recreated.
+        """
+        self._redraw_figure(self.figure_2D, color)
+        self._redraw_figure(self.figure_3D, color)
 
-    def _redraw_just_one(self, fig: FigureWidget, opacity_values:pd.Series = None, color:pd.Series = None):
-        if opacity_values is None:
-            opacity_values = fig.data[0].marker.opacity
-        if color is None:
-            color = fig.data[0].marker.color
-        
+    def _redraw_figure(self, fig: FigureWidget, color:pd.Series = None, opacity_values:pd.Series = None):
+
+        dim = 2 if fig == self.figure_2D else 3 # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
+
         with fig.batch_update():
-                fig.data[0].x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[0]
-                fig.data[0].y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[1]
-                if isinstance(fig, Scatter3d):
-                    fig.data[0].z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), self._current_dim)[2]
-                fig.data[0].marker.opacity = opacity_values
-                fig.data[0].marker.color = color
+                fig.data[0].x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
+                fig.data[0].y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
+                if fig == self.figure_3D:
+                    fig.data[0].z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
                 fig.layout.width = self.fig_size
+                if color is not None : fig.data[0].marker.color = color
+                if opacity_values is not None : fig.data[0].marker.opacity = opacity_values
                 fig.data[0].customdata = color
 
-
-    def dots_lasso_selected(self, trace, points, selector, *args):
+    def _selection_event(self, trace, points, selector, *args):
         """ Called whenever the user selects dots on the scatter plot """
-        self.selection_changed(self, Selection(list(trace['selectedpoints']), Selection.LASSO))
+        # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
+        if self.figure_2D.data[0]['selectedpoints'] is not None and len(self.figure_2D.data[0]['selectedpoints']) > 0:
+            self.selection_changed(self, Selection(list(trace['selectedpoints']), Selection.LASSO))
+
+    def _deselection_event(self, trace, points, append:bool = False):
+        """ Called on deselection"""
+        self.selection_changed(self, Selection([], Selection.LASSO))
+
+    def _scatter_clicked(self, trace, points, selector, *args):
+        logger.debug(f"HDE._scatter_clicked : {self._get_space_name()} entering ... ")
 
     
     def set_selection(self, new_selection:Selection):
         """
         Called by tne UI when a new selection occured on the other HDE
         """
-        self._figure_2D.data[0]['selectedpoints']= new_selection.indexes
+        # I destroy and recreate the graph
+        # TODO : improve this
+        self.create_figure()
 
-        # # We set opacity to 10% for the selection
-        # new_opacity_serie = pd.Series()
-        # for i in range(len(self.X_list[0])):
-        #         if i in self.selection.get_indexes():
-        #             new_opacity_serie.append(1)
-        #         else:
-        #             new_opacity_serie.append(0.1)
-        # # self._opacity[0 if side == config.VS else 1] = new_opacity_serie
-
-        # self.update_selection_table()
-        # # self.redraw_graph(side)
-
+        if new_selection is not None and len(new_selection.indexes) > 0: 
+            # We set the new selection
+            self.figure_2D.update_traces(selectedpoints=new_selection.indexes)
+        else:
+            # No selection
+            self.figure_2D.update_traces(selectedpoints=None)
 
     def get_projection_select(self):
         return self._projection_select
@@ -702,9 +718,6 @@ class HighDimExplorer :
                     offset_y=True,
                 )
     
-    def get_Figure_VBox(self):
-        return self._VBox_widget
-    
     def _get_space_name(self) -> str:
         """
         For debug purposes only. Not very reliable.
@@ -716,7 +729,7 @@ class HighDimExplorer :
         """
             Returns the index of a PV in the Select items
         """
-        return self._values_select.items.index(label) 
+        return [item['text'] for item in self._values_select.items].index(label)
 
     def get_current_X(self)-> pd.DataFrame:
         return self.pv_list[self.current_pv].X
@@ -730,7 +743,7 @@ class RuleVariableRefiner :
         The user can use the slider to change the rule.
 
 
-        _widget : the WidgetGraph of nested widgets that make up the RuleVariableRefiner
+        root_widget : the root widget of nested widgets that make up the RuleVariableRefiner
         _variable : the variable that is being refined
         _rules : [Rules for VS, Rules for ES]
         refiner_rules_changed : callable of the GUI parent
@@ -1177,7 +1190,7 @@ app_widget = widgets.VBox(
                 children=[
                     v.Layout(
                         children=[
-                            widgets.Image(
+                            widgets.Image( # 010
                                 value=open(files("antakia.assets").joinpath("logo_ai-vidence.png"), "rb").read(), 
                                 height=str(864 / 20) + "px", 
                                 width=str(3839 / 20) + "px"
@@ -1186,44 +1199,48 @@ app_widget = widgets.VBox(
                         class_="mt-1",
                     ),
                     v.Html(tag="h2", children=["AntakIA"], class_="ml-3"), # 01
-                    v.Spacer(),
-                    v.Btn( # backupBtn # 03 
-                        icon=True, children=[v.Icon(children=["mdi-content-save"])], elevation=0
+                    v.Spacer(), # 02
+                    v.Btn( # backupBtn # 03
+                        icon=True, children=[v.Icon(children=["mdi-content-save"])], elevation=0, disabled=True
                     ),
-                    v.Btn( # settingsBtn # 04
-                        icon=True, children=[v.Icon(children=["mdi-tune"])], elevation=0
-                    ),
-                    v.Dialog( # 05
+                    v.Menu(  # 04
+                        v_slots=[
+                        {
+                            "name": "activator",
+                            "variable": "props",
+                            "children": v.Btn(
+                                v_on="props.on",
+                                icon=True,
+                                size="x-large",
+                                children=[v.Icon(children=["mdi-tune"])],
+                                class_="ma-2 pa-3",
+                                elevation="0",
+                            ),
+                        }
+                        ],
                         children=[
-                            v.Card( # 050
+                            v.Card( # 040
+                                class_="pa-4",
+                                rounded=True,
                                 children=[
-                                    v.CardTitle( # 050 0
-                                        children=[
-                                            v.Icon(class_="mr-5", children=["mdi-cogs"]),
-                                            "Settings",
+                                    widgets.VBox( # 040 0
+                                        [
+                                        v.Slider( # 040 0O
+                                            v_model=400, 
+                                            min=100, 
+                                            max=3000,
+                                            step=10, 
+                                            label="Figure width"
+                                        )
                                         ]
-                                    ),
-                                    v.CardText( # 050 1
-                                        children=[
-                                        v.Row( # 050 10
-                                            children=[
-                                                v.Slider( # figureSizeSlider # 050 100
-                                                    style_="width:20%",
-                                                    v_model=700,
-                                                    min=200,
-                                                    max=1200,
-                                                    label="With of both scattered plots (in pixels)",
-                                                ), 
-                                            widgets.IntText(
-                                                value="700", disabled=True, layout=Layout(width="40%")
-                                            )
-                                            ],
-                                            ),
-                                        ]
-                                        ),
-                                        ]
-                                    ),
-                                ]
+                                    )
+                                    ],
+                                min_width="500",
+                            )
+                        ],
+                        v_model=False,
+                        close_on_content_click=False,
+                        offset_y=True,
                     ),
                     v.Btn( # gotoWebBtn # 06
                         icon=True, children=[v.Icon(children=["mdi-web"])], elevation=0
@@ -1250,59 +1267,50 @@ app_widget = widgets.VBox(
                         class_="pa-2 ma-2",
                         elevation="3",
                             children=[
-                                    v.Icon( # 110
-                                        children=["mdi-format-color-fill"], class_="mt-n5 mr-4"
-                                    ),
-                                    v.BtnToggle( # colorChoiceBtnToggle # 111
+                                    v.BtnToggle( # colorChoiceBtnToggle # 110
                                         mandatory=True,
                                         v_model="Y",
                                         children=[
-                                            v.Btn( # 1110
+                                            v.Btn( # 1100
                                                 icon=True,
                                                 children=[v.Icon(children=["mdi-alpha-y-circle-outline"])],
                                                 value="y",
                                                 v_model=True,
                                             ),
-                                            v.Btn( # 1111
+                                            v.Btn( # 1101
                                                 icon=True,
                                                 children=[v.Icon(children=["mdi-alpha-y-circle"])],
                                                 value="y^",
                                                 v_model=True,
                                             ),
-                                            v.Btn( # app_graph.children[1].children[1].children[1].children[2]
+                                            v.Btn( # 1102
                                                 icon=True,
-                                                children=[v.Icon(children=["mdi-minus-box-multiple"])],
+                                                children=[v.Icon(children=["mdi-delta"])],
                                                 value="residual",
                                             ),
-                                            v.Btn( # app_graph.children[1].children[1].children[1].children[3]
-                                                icon=True,
-                                                children=[v.Icon(children="mdi-lasso")],
-                                                value="current selection",
-                                            ),
-                                            v.Btn( # app_graph.children[1].children[1].children[1].children[4]
-                                                icon=True,
-                                                children=[v.Icon(children=["mdi-ungroup"])],
-                                                value="regions",
-                                            ),
-                                            v.Btn( # app_graph.children[1].children[1].children[1].children[5]
-                                                icon=True,
-                                                children=[v.Icon(children=["mdi-select-off"])],
-                                                value="not selected",
-                                            ),
-                                            v.Btn( # app_graph.children[1].children[1].children[1].children[6]
-                                                icon=True,
-                                                children=[v.Icon(children=["mdi-star"])],
-                                                value="auto",
-                                            ),
+                                            # v.Btn( # 1103
+                                            #     icon=True,
+                                            #     children=[v.Icon(children="mdi-lasso")],
+                                            #     value="current selection",
+                                            # ),
+                                            # v.Btn( # 1104
+                                            #     icon=True,
+                                            #     children=[v.Icon(children=["mdi-ungroup"])],
+                                            #     value="regions",
+                                            # ),
+                                            # v.Btn( # 1105
+                                            #     icon=True,
+                                            #     children=[v.Icon(children=["mdi-select-off"])],
+                                            #     value="not selected",
+                                            # ),
+                                            # v.Btn( # 1106
+                                            #     icon=True,
+                                            #     children=[v.Icon(children=["mdi-star"])],
+                                            #     value="auto",
+                                            # ),
                                         ],
                                     ),
-                                    v.Btn( # opacityBtn # 112
-                                        icon=True,
-                                        children=[v.Icon(children=["mdi-opacity"])],
-                                        class_="ma-2 ml-6 pa-3",
-                                        elevation="3",
-                                    ),
-                                    v.Select( # explanationSelect # 113
+                                    v.Select( # explanationSelect # 111
                                         label="Explanation method",
                                         items=[
                                             {'text': "SHAP (imported)", 'disabled': True },
@@ -1314,7 +1322,7 @@ app_widget = widgets.VBox(
                                         style_="width: 150px",
                                         disabled = False,
                                     ),
-                                    v.Btn( # computeMenuBtnBtn # 114
+                                    v.Btn( # computeMenuBtnBtn # 112
                                         icon=True,
                                         children=[v.Icon(children=["mdi-opacity"])],
                                         class_="ma-2 ml-6 pa-3",
@@ -1466,8 +1474,11 @@ app_widget = widgets.VBox(
                     widgets.VBox( # 200
                             [
                                 widgets.HTML("<h3>Values Space<h3>"), # 2000
-                                widgets.Text(value='A FigureWidget will be inserted here by the app'), # 2001
-                                
+                                v.Container( # 2001
+                                    children=[ 
+                                        FigureWidget([Scatter(mode="markers")]), # 20010
+                                    ]
+                                )
                             ],
                             layout=Layout(
                                 display="flex", align_items="center", margin="0px 0px 0px 0px"
@@ -1476,7 +1487,11 @@ app_widget = widgets.VBox(
                     widgets.VBox( #  #201
                             [
                                 widgets.HTML("<h3>Explanations Space<h3>"),  # 201 0
-                                widgets.Text(value='A FigureWidget will be inserted here by the app'), # 2011
+                                v.Container( # 201 1
+                                    children=[ 
+                                        FigureWidget([Scatter(mode="markers")]), # 201 10
+                                    ]
+                                )
                             ],
                             layout=Layout(
                                 display="flex", align_items="center", margin="0px 0px 0px 0px"

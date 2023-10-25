@@ -361,7 +361,12 @@ class ProjectedValues():
 
 
     def __str__(self):
-        return f"ProjectedValues object with {self.X.shape[0]} obs and {self.X.shape[1]} variables"
+        text = f"X's shape : {self.X.shape}"
+        for proj_method in DimReducMethod.dimreduc_methods_as_list():
+            for dim in [2,3]:
+                if self.is_available(proj_method, dim):
+                    text += f"\n{DimReducMethod.dimreduc_method_as_str(proj_method)}/{DimReducMethod.dimension_as_str(dim)} : {self.get_proj_values(proj_method, dim).shape}"
+        return text
     
     def get_length(self) -> int:
         return self.X.shape[0]
