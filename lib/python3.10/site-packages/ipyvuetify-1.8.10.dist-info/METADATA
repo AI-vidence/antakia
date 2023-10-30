@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: ipyvuetify
+Version: 1.8.10
+Summary: Jupyter widgets based on vuetify UI components
+Home-page: https://github.com/widgetti/ipyvuetify
+Author: Mario Buikhuizen, Maarten Breddels
+Author-email: mbuikhuizen@gmail.com, maartenbreddels@gmail.com
+Keywords: ipython,jupyter,widgets
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: IPython
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Multimedia :: Graphics
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+License-File: LICENSE
+Requires-Dist: ipyvue (<2,>=1.7)
+
+Jupyter widgets based on vuetify UI components

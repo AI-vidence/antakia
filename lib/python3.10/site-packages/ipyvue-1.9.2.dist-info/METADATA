@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: ipyvue
+Version: 1.9.2
+Summary: Jupyter widgets base for Vue libraries
+Home-page: https://github.com/widgetto/ipyvue
+Author: Mario Buikhuizen, Maarten Breddels
+Author-email: mbuikhuizen@gmail.com, maartenbreddels@gmail.com
+Keywords: ipython,jupyter,widgets
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: IPython
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Multimedia :: Graphics
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+License-File: LICENSE
+Requires-Dist: ipywidgets (>=7.0.0)
+Provides-Extra: dev
+Requires-Dist: pre-commit ; extra == 'dev'
+Provides-Extra: test
+Requires-Dist: solara[pytest] ; extra == 'test'
+
+Jupyter widgets base for Vue libraries

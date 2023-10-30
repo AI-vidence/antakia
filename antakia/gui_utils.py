@@ -12,7 +12,7 @@ import seaborn as sns
 from antakia.data import ExplanationMethod, DimReducMethod, Variable, ProjectedValues
 import antakia.compute as compute
 from antakia.utils import confLogger
-from antakia.selection import Selection, Rules
+from antakia.rules import Rule
 import antakia.config as config
 
 from copy import deepcopy, copy
@@ -206,6 +206,7 @@ class HighDimExplorer :
             Triggers the provision of other dataframes
         figure_2D and figure_3D : FigureWidget
             Plotly scatter plot
+        _selection_disabled : bool
         container : a thin v.Container wrapper around the current Figure. Allows us to swap between 2D and 3D figures alone (without GUI)
         _projection_select : v.Select, with mutliple dimreduc methods
         _progress_circular : v.ProgressCircular, used to display the progress of the computation
@@ -245,7 +246,6 @@ class HighDimExplorer :
                 self.pv_list.append(None)
         self._y = y
         
-        
         self.current_pv = 0
         for i in range(len(self.pv_list)):
             if self.pv_list[i] is not None :
@@ -266,7 +266,6 @@ class HighDimExplorer :
         if init_proj not in DimReducMethod.dimreduc_methods_as_list() :
             raise ValueError(f"HDE.init: {init_proj} is not a valid projection method code")
         self._projection_select.v_model = DimReducMethod.dimreduc_method_as_str(init_proj)
-
 
         self._projection_slider_VBoxes = {}
         # We know PaCMAP uses these parameters :
@@ -396,7 +395,8 @@ class HighDimExplorer :
 
         #  Now we can init figures 2 and 3D
         self.fig_size = fig_size
-            
+        self._selection_disabled = False
+
         self.figure_2D = self.create_figure(2)
         self.figure_3D = self.create_figure(3)
 
@@ -412,6 +412,54 @@ class HighDimExplorer :
 
     def __str__(self)-> str:
         return "HighDimExplorer : values space (VS)" if len(self.pv_list) == 1 else "HighDimExplorer : explanations space (ES)"
+    
+    def display_rules(self, df_ids_list:list):
+        # We add a second trace (Scatter) to the figure to display the rules
+        if df_ids_list is None or len(df_ids_list) == 0:
+            logger.debug(f"HDE.{'VS' if len(self.pv_list) == 1 else 'ES'}.display_rules : index is empty")
+            # We remove the 'rule trace' if exists
+            if len(self.figure_2D.data) > 1:
+                if self.figure_2D.data[1] is not None:
+                    # It seems impossible to remove a trace from a figure once created
+                    # So we hide or update&show this 'rule_trace'
+                    self.figure_2D.data[1].visible = False
+                    logger.debug(f"HDE.{'VS' if len(self.pv_list) == 1 else 'ES'}.display_rules : existing rule scatter made invisible")
+            else:
+                logger.debug(f"HDE.display_rules : no rule scatter to remove. Returning")
+                return
+        else:
+            # Let's create a color scale with rule postives in blue and the rest in grey
+            colors = ["grey"]*self.pv_list[self.current_pv].get_length()
+            # IMPORTANT : we convert df_ids to row_ids (dataframe may not be indexed by row !!)
+            row_ids_list= Rule.indexes_to_rows(self.pv_list[self.current_pv].X, df_ids_list)
+            for row_id in row_ids_list:
+                colors[row_id] = "blue"
+
+            if len(self.figure_2D.data) == 1:
+                # We need to add a 'rule_trace'
+                logger.debug(f"HDE.{'VS' if len(self.pv_list) == 1 else 'ES'}.display_rules : adding a new rule trace")
+                self.figure_2D.add_trace(Scatter(
+                        x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[0],
+                        y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[1],
+                        mode="markers", 
+                        marker=dict(
+                            color=colors,
+                            ),
+                    ))
+
+            elif len(self.figure_2D.data) == 2:
+                # We replace the existing 'rule_trace'
+                logger.debug(f"HDE.{'VS' if len(self.pv_list) == 1 else 'ES'}.display_rules : replacing previous rule trace")
+                
+                with self.figure_2D.batch_update():
+                    self.figure_2D.data[1].x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[0]
+                    self.figure_2D.data[1].y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), 2)[1]
+                    self.figure_2D.layout.width = self.fig_size
+                    self.figure_2D.data[1].marker.color = colors
+
+                self.figure_2D.data[1].visible = True # in case it was hidden
+            else:
+                raise ValueError(f"HDE.{'VS' if len(self.pv_list) == 1 else 'ES'}.display_rules : to be debugged : the figure has {len(self.figure_2D.data)} traces, not 1 or 2")
     
     def check(self)-> str:
         """
@@ -468,7 +516,7 @@ class HighDimExplorer :
                 )
             fig.data[0].on_selection(self._selection_event)
             fig.data[0].on_deselect(self._deselection_event)
-            fig.update_layout(dragmode="lasso") # selection only in 2D
+            fig.update_layout(dragmode=False if self._selection_disabled else "lasso")
             fig.update_traces(
                 selected={'marker':{'opacity':1.0}}, 
                 unselected={'marker':{'opacity':0.1}},
@@ -494,6 +542,10 @@ class HighDimExplorer :
         fig._config = fig._config | {"displaylogo": False}
 
         return fig
+
+    def set_selection_disabled(self, mode: bool):
+        self._selection_disabled = mode
+        self.figure_2D.update_layout(dragmode=False if self._selection_disabled else "lasso") 
 
 
     def compute_projs(self, callback: callable = None):
@@ -648,32 +700,40 @@ class HighDimExplorer :
     def _selection_event(self, trace, points, selector, *args):
         """ Called whenever the user selects dots on the scatter plot """
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
+        # We convert Plotly 'selectedpoints' in our Dataframe indexes
         if self.figure_2D.data[0]['selectedpoints'] is not None and len(self.figure_2D.data[0]['selectedpoints']) > 0:
-            self.selection_changed(self, Selection(list(trace['selectedpoints']), Selection.LASSO))
+            # Note that if a selection is done on the ES HDE, it will have the explained values as X
+            self.selection_changed(self, Rule.rows_to_indexes(self.get_current_X(), list(trace['selectedpoints'])))
 
     def _deselection_event(self, trace, points, append:bool = False):
         """ Called on deselection"""
-        self.selection_changed(self, Selection([], Selection.LASSO))
+        self.selection_changed(self, [])
 
     def _scatter_clicked(self, trace, points, selector, *args):
         logger.debug(f"HDE._scatter_clicked : {self._get_space_name()} entering ... ")
 
     
-    def set_selection(self, new_selection:Selection):
+    def set_selection(self, new_selection_indexes:list):
         """
         Called by tne UI when a new selection occured on the other HDE
         """
-        # I destroy and recreate the graph
-        # TODO : improve this
-        self.create_figure()
+        # If We alread have selected point, we create another figure # TODO : improve
+        if self.figure_2D.data[0]['selectedpoints'] is not None and len(self.figure_2D.data[0]['selectedpoints']) > 0:
+            self.figure_2D = self.create_figure(2)
+            # And I add the newly created figure to our container :
+            if self._current_dim == 2:
+                self.container.children = [self.figure_2D]
 
-        if new_selection is not None and len(new_selection.indexes) > 0: 
+        if new_selection_indexes is not None and len(new_selection_indexes) > 0: 
             # We set the new selection
-            self.figure_2D.update_traces(selectedpoints=new_selection.indexes)
+            # Our app "speaks" in Dataframe indexes. So we convert them in Plotly row numbers
+            self.figure_2D.update_traces(selectedpoints=Rule.indexes_to_rows(self.get_current_X(), new_selection_indexes))
         else:
             # No selection
             self.figure_2D.update_traces(selectedpoints=None)
 
+
+        
     def get_projection_select(self):
         return self._projection_select
     
@@ -725,6 +785,9 @@ class HighDimExplorer :
         # TODO : remove
         return "VS" if len(self.pv_list) == 1 else "ES"
     
+    def is_value_space(self) -> bool:
+        return len(self.pv_list) == 1
+    
     def _label_to_int(self, label : str) -> int :
         """
             Returns the index of a PV in the Select items
@@ -734,146 +797,225 @@ class HighDimExplorer :
     def get_current_X(self)-> pd.DataFrame:
         return self.pv_list[self.current_pv].X
 
-
-
-class RuleVariableRefiner :
+class RuleWidget:
     """
-        A RuleVariableRefiner is a piece of GUI (accordionGrp) that allows the user to refine a rule by selecting a variable and values for this variable.
-        It displays the distribution for this variable as well as a beswarm of the explained values.
-        The user can use the slider to change the rule.
+    A piece of UI handled by a RulesExplorer
+    It allows the user to modify one rule
 
-
-        root_widget : the root widget of nested widgets that make up the RuleVariableRefiner
-        _variable : the variable that is being refined
-        _rules : [Rules for VS, Rules for ES]
-        refiner_rules_changed : callable of the GUI parent
+    Attributes :
+    rule : Rule
+    values_space : bool
+    expansion_panel_widget : its widget representation
     """
 
-    def __init__(self, variable : Variable, refiner_rules_changed : callable, rules: Rules = None):
-        self.refiner_rules_changed = refiner_rules_changed
-        self.selection = None # fix
-        self._variable  = variable
-        self.root_widget = v.ExpansionPanels( # accordionGrp
-            class_="ma-2 mb-1",
-            children=[
-                v.ExpansionPanel( # 0
-                    disabled = False,
-                    children=[
-                        v.ExpansionPanelHeader( # 00
-                            children=
-                            ["X1"]
-                            ),
-                        v.ExpansionPanelContent( # 01
-                            children=[
-                                widgets.HBox( # accordion # 010 
-                                    [ 
-                                        widgets.VBox( # histoCtrl # 010 0
-                                            [   
-                                                v.Layout( # skopeSliderGroup # 010 00 
-                                                    children=[
-                                                        v.TextField( # 010 000 
-                                                            style_="max-width:100px",
-                                                            v_model=1, # min value of the slider
-                                                            hide_details=True,
-                                                            type="number",
-                                                            density="compact",
-                                                        ),
-                                                        v.RangeSlider( # skopeSlider # 010 001
-                                                            class_="ma-3",
-                                                            v_model=[-1, 1],
-                                                            min=-10e10,
-                                                            max=10e10,
-                                                            step=0.01,
-                                                        )                                                                    
-                                                        ,
-                                                        v.TextField(  # 010 002
-                                                            style_="max-width:100px",
-                                                            v_model=5, # max value of the slider
-                                                            hide_details=True,
-                                                            type="number",
-                                                            density="compact",
-                                                            step="0.1",
-                                                        ),
-                                                    ],
-                                                ),
-                                                FigureWidget( # histogram # 010 01
-                                                    data=[ 
-                                                        Histogram(
-                                                            x=pd.DataFrame(np.random.randint(0,100,size=(100, 4)), columns=list('ABCD')),
-                                                            bingroup=1, 
-                                                            nbinsx=50, 
-                                                            marker_color="grey"
-                                                            )
-                                                    ]
-                                                ),
-                                                widgets.HBox( # validateSkopeChangeBtnAndCheck  # 010 02
-                                                    [
-                                                        v.Btn( # validateSkopeChangeBtn # 010 020
-                                                            class_="ma-3",
-                                                            children=[
-                                                                v.Icon(class_="mr-2", children=["mdi-check"]),
-                                                                "Validate the changes",
-                                                            ],
-                                                        ), 
-                                                        v.Checkbox(  # realTimeUpdateCheck # 010 021
-                                                                v_model=False, label="Real-time updates on the figures", class_="ma-3"
-                                                            )
-                                                    ]
-                                                )
-                                            ] # end VBox # 010 0
-                                        ),
-                                        widgets.VBox( # beeswarmGrp #010 1
-                                            [
-                                                v.Row( # bs1ColorChoice # 010 10
-                                                    class_="pt-3 mt-0 ml-4",
-                                                    children=[
-                                                        "Value of Xi",
-                                                        v.Switch( # 010 100
-                                                            class_="ml-3 mr-2 mt-0 pt-0",
-                                                            v_model=False,
-                                                            label="",
-                                                        ),
-                                                        "Current selection",
-                                                    ],
-                                                ),
-                                                FigureWidget( # beeswarm # 010 11
-                                                    data=[Scatter(
-                                                        x=pd.DataFrame(np.random.randint(0,100,size=(100, 4)), columns=list('ABCD')), 
-                                                        y=[0] * 100, 
-                                                        mode="markers")]
-                                                )
-                                            ],
-                                            layout=Layout(margin = "0px 0px 0px 20px")
-                                            ), 
-                                        v.Col( # rightSide # 010 2
+    def __init__(self, rule : Rule, X:pd.DataFrame, values_space:bool):
+        self.rule = rule
+        self.X = X
+        self.values_space = values_space
+
+        if self.values_space :
+            self.expansion_panel_widget = v.ExpansionPanel(
+                                            disabled = False,
                                             children=[
-                                                v.Btn( # deleteSkopeBtn # 010 20
-                                                    class_="ma-2 ml-4 pa-1",
-                                                    elevation="3",
-                                                    icon=True,
-                                                    children=[v.Icon(children=["mdi-delete"])],
-                                                    disabled=True,
-                                                ),
-                                                v.Checkbox( # isContinuousChck # 010 21
-                                                    v_model=True, 
-                                                    label="is continuous?"
-                                                    )
+                                                v.ExpansionPanelHeader( # 0
+                                                    children=
+                                                    ["X1"] # 00
+                                                    ),
+                                                v.ExpansionPanelContent(
+                                                    children=[
+                                                        widgets.VBox(
+                                                                    [   
+                                                                        v.Layout( 
+                                                                            children=[
+                                                                                v.TextField( 
+                                                                                    style_="max-width:100px",
+                                                                                    v_model=1,
+                                                                                    hide_details=True,
+                                                                                    type="number",
+                                                                                    density="compact",
+                                                                                ),
+                                                                                v.RangeSlider(
+                                                                                    class_="ma-3",
+                                                                                    v_model=[-1, 1],
+                                                                                    min=-10e10,
+                                                                                    max=10e10,
+                                                                                    step=0.01,
+                                                                                )                                                                    
+                                                                                ,
+                                                                                v.TextField(
+                                                                                    style_="max-width:100px",
+                                                                                    v_model=5, 
+                                                                                    hide_details=True,
+                                                                                    type="number",
+                                                                                    density="compact",
+                                                                                    step="0.1",
+                                                                                ),
+                                                                            ],
+                                                                        ),
+                                                                        FigureWidget( 
+                                                                            data=[ 
+                                                                                Histogram(
+                                                                                    x=pd.DataFrame(np.random.randint(0,100,size=(100, 4)), columns=list('ABCD')),
+                                                                                    bingroup=1, 
+                                                                                    nbinsx=50, 
+                                                                                    marker_color="grey"
+                                                                                    )
+                                                                            ]
+                                                                        ),
+                                                                        widgets.HBox( 
+                                                                            [
+                                                                                v.Btn( 
+                                                                                    class_="ma-3",
+                                                                                    children=[
+                                                                                        v.Icon(class_="mr-2", children=["mdi-check"]),
+                                                                                        "Validate the changes",
+                                                                                    ],
+                                                                                ), 
+                                                                                v.Checkbox( 
+                                                                                        v_model=False, label="Real-time updates on the figures", class_="ma-3"
+                                                                                    )
+                                                                            ]
+                                                                        )
+                                                                    ] 
+                                                            ) #  VBox
+                                                        ] # ExpansionPanelContent.children
+                                                ) # ExpansionPanelContent
+                                        ] # ExpansionPanel.children
+                                    )  # ExpansionPanelContent
+        else:
+            self.expansion_panel_widget = v.ExpansionPanel(
+                                            disabled = False,
+                                            children=[
+                                            v.ExpansionPanelHeader( #0
+                                                children=
+                                                ["X1"] #00
+                                            ),
+                                            v.ExpansionPanelContent(
+                                                children=[
+                                                        widgets.VBox(
+                                                            [
+                                                                v.Row(
+                                                                    class_="pt-3 mt-0 ml-4",
+                                                                    children=[
+                                                                        "Value of Xi",
+                                                                        v.Switch(
+                                                                            class_="ml-3 mr-2 mt-0 pt-0",
+                                                                            v_model=False,
+                                                                            label="",
+                                                                        ),
+                                                                        "Current selection",
+                                                                    ],
+                                                                ),
+                                                                FigureWidget(
+                                                                    data=[Scatter(
+                                                                        x=pd.DataFrame(np.random.randint(0,100,size=(100, 4)), columns=list('ABCD')), 
+                                                                        y=[0] * 100, 
+                                                                        mode="markers")]
+                                                                )
+                                                            ],
+                                                            layout=Layout(margin = "0px 0px 0px 20px")
+                                                        )
                                                 ],
-                                            class_="d-flex flex-column align-center justify-center",
+                                                layout=Layout(align_explanationsMenuDict="center"),
+                                            )
+                                            ]      
                                         )
-                                    ],
-                                    layout=Layout(align_explanationsMenuDict="center"),
-                                ) # End HBox 010
-                                ]               
-                        ), # End ExpansionPanelContent 01
-                    ]
-                ), # End ExpansionPanel 0 
-            ] 
-        )
-        # We vire the input event on the skopeSlider (010001)
-        get_widget_at_address(self.root_widget, "010001").on_event("input", self.skope_rule_changed)
-        # We vire the click event on validateSkopeChangeBtn (010020)
-        get_widget_at_address(self.root_widget,"010020").on_event("click", self.skope_slider_changed)
+            
+        change_widget(self.expansion_panel_widget, "00", self.rule.variable.symbol)
+        # TODO : populate our figure !!
+        logger.debug(f"RW.init: we're in the {'VS' if values_space else 'ES'} RW for the rule {rule}")
+    # TODO wire event on sliders
+
+    
+
+class RulesWidget :
+    """
+        A RulesWidget is a piece of GUI that allows the user to refine a set of rules.
+        The user can use the slider to change the rules.
+        There are 2 RW : VS and ES slides
+
+        rules_db : a dict of list :
+            [[rules_list, scores]]], so that at iteration i we have :
+            [i][0] : the list of rules
+            [i][1] : the list of scores
+        current_index : int refers to rules_db
+
+        X : pd.DataFrame, values or explanations Dataframe depending on the context
+        variables : list of Variable
+        is_value_space : bool
+        
+        rules_updated : callable of the GUI parent
+        vbox_wiget : its widget representation
+    """
+
+    def __init__(self, X:pd.DataFrame, variables: list, values_space : bool, rules_list: list, score_list: list, rules_updated : callable):
+        """"
+        rules : initial lost of Rule
+        rules_updated : callback for the GUI
+        """
+        self.X = X
+        self.variables = variables
+        self.is_value_space = values_space
+        self.rules_updated = rules_updated
+        self.vbox_widget = copy(get_widget_at_address(app_widget,"305010" if values_space else "305011"))
+
+
+        self.rules_db = {}
+        self.rules_db[0]= [rules_list, score_list]
+        self.current_index = 0
+
+        self._update_card()
+        self._set_rule_widgets(rules_list)
+
+        self.rules_updated(self, Rule.rules_to_indexes(self.get_current_rule_list(),self.X, self.variables))
+
+    def dump_db(self) -> str:
+        """
+        For debug purposes
+        """
+        txt = ""
+        for i in range(len(self.rules_db)):
+            rules_list = self.rules_db[i][0]
+            scores_list = self.rules_db[i][1]
+            txt = txt + f"({i}) : {len(rules_list)} rules:\n"
+            for rule in rules_list:
+                txt = txt + f"    {rule}\n"
+            txt = txt + f"   scores = {scores_list}\n"
+    
+        return txt
+
+    def get_current_rule_list(self):
+        return self.rules_db[self.current_index][0]
+    
+    def get_current_score_list(self):
+        return self.rules_db[self.current_index][1] 
+
+    def _set_rule_widgets(self, rules_list):
+        """
+        Ensure our vbox_wigdet has one RuleWidget per rule below the v.Card
+        """
+        rule_widget_list = []
+        for rule in rules_list:
+            rule_widget_list.append(RuleWidget(rule, self.X, self.is_value_space))
+
+        # get_widget_at_address(self.vbox_widget, "1") = v.ExpansionPanels where we plug RuleWidgets.expansion_panel_widget
+        get_widget_at_address(self.vbox_widget, "1").children = [rw.expansion_panel_widget for rw in rule_widget_list]
+
+    def _update_card(self):
+        # We set the scores
+        if self.get_current_score_list() is None or len(self.get_current_score_list()) == 0:
+            scores_txt = f"Precision : -1, recall : -1, f1_score : -1"
+        else:
+            scores_txt = f"Precision : {self.get_current_score_list()['precision']}, recall : {self.get_current_score_list()['recall']}, f1_score : {self.get_current_score_list()['f1']}"
+        
+        change_widget(self.vbox_widget, "0030", scores_txt)
+
+        # We set the rules expressions (min < var < max)
+        rules_txt = ""
+        for rule in self.get_current_rule_list():
+            rules_txt += rule.__repr__() + " \n"
+
+        change_widget(self.vbox_widget, "0100", rules_txt)
 
     def hide_beeswarm(self, hide : bool):
         # We retrieve the beeswarmGrp (VBox)
@@ -887,12 +1029,12 @@ class RuleVariableRefiner :
     def redraw_both_graphs(self):
         # We update the refiner's histogram :
         with get_widget_at_address(self.root_widget,"01001").batch_update():
-            get_widget_at_address(self.root_widget,"01001").data[0].x = \
+            get_widget_at_address(self.vbox_widget,"01001").data[0].x = \
                 self._ds.get_full_values()[self._selection.get_vs_rules()[self._variable.get_col_index][2]]
         
         # We update the refiner's beeswarm :
         # get_widget_at_address(self.root_widget,"01011").v_model : # TODO Why do we check ?
-            with get_widget_at_address(self.root_widget,"01011").batch_update():
+            with get_widget_at_address(self.vbox_widget,"01011").batch_update():
                 pass
                 # TODO to understand
                 # TODO : maybe the refiner could handle its colors itself
@@ -1070,25 +1212,25 @@ class RuleVariableRefiner :
         get_widget_at_address(self.root_widget,"01021").on_event("change", continuous_check_changed)
 
 
-def update_skr_infocards(selection: Selection, side: int, widget: Widget):
+def update_skr_infocards(selection_indexes: list, side: int, widget: Widget):
     """ Sets a message + indicates the scores of the sub_models
         Do not set the rules themselves
     """
 
-    if selection.is_empty():
+    if selection_indexes.is_empty():
             temp_card_children = [widgets.HTML("Please select points")]
     else :
-        if 0 not in selection.getYMaskList() or 1 not in selection.getYMaskList() :
+        if 0 not in selection_indexes.getYMaskList() or 1 not in selection_indexes.getYMaskList() :
                 temp_card_children = [widgets.HTML("You can't choose everything/nothing !")]
         else:
             # If no rule for one of the two, nothing is displayed
-            if not selection.has_rules_defined():
+            if not selection_indexes.has_rules_defined():
                     temp_card_children = [widgets.HTML("No rule found")]
             else:
                 if side == config.VS :
-                    scores = selection.getVSScore()
+                    scores = selection_indexes.getVSScore()
                 else :
-                    scores = selection.getESScore()
+                    scores = selection_indexes.getESScore()
                 temp_text_children= \
                     "p = " + str(scores[0]) + "% " \
                     + "r = " + str(scores[1]) + "% " \
@@ -1155,7 +1297,7 @@ splash_widget = v.Layout(
                         ),
                         v.Col( # 21
                             class_="mt-3", 
-                               children=[
+                                children=[
                                     v.ProgressLinear( # 210
                                         style_="width: 80%",
                                         class_="py-0 mx-5",
@@ -1180,6 +1322,16 @@ splash_widget = v.Layout(
                 ), 
             ]
         )
+
+dummy_df = pd.DataFrame(
+    {
+    'Variable': ['Population', 'MedInc', 'Latitude', 'Longitude'],
+    'Unit': ['people', 'k€', '° N', '° W'],
+    'Desc': ['People living in the block', 'Median income', '-', '-'],
+    'Critical ?': [False, True, False, False],
+    'Rule': ['Population ≤ 2 309', 'MedInc ∈ [3.172, 5.031⟧', 'Latitude ≥ 37.935', 'Longitude > 0.559']
+    }
+)
 
 app_widget = widgets.VBox(
         [
@@ -1556,10 +1708,14 @@ app_widget = widgets.VBox(
                                                                         v.Layout( # out_selec # 304 101 000
                                                                             style_="min-width: 100%; max-width: 94%",
                                                                             children=[
-                                                                                v.Html( # out_selec # 304 101 000 0
-                                                                                    tag="h4",
-                                                                                    children=["Select points on the figure to see their values ​​here"], # 304 101 000 00
-                                                                                )
+                                                                                v.DataTable( # 304 410
+                                                                                    v_model=[],
+                                                                                    show_select=False,
+                                                                                    headers=[{"text": column, "sortable": True, "value": column } for column in dummy_df.columns],
+                                                                                    items=dummy_df.to_dict("records"),
+                                                                                    hide_default_footer=False,
+                                                                                    disable_sort=False,
+                                                                            )
                                                                             ],
                                                                         )
                                                                     ],
@@ -1612,7 +1768,14 @@ app_widget = widgets.VBox(
                                             v.Layout(  # 304 41
                                                 class_="flex-grow-1 flex-shrink-0",
                                                 children=[ 
-                                                    widgets.Text(value='A v.DataTable will be inserted here by the app'), # A v.DataTable is inserted here by the app. Will be : # cluster_results_table # 304 410
+                                                    v.DataTable( # 304 410
+                                                        v_model=[],
+                                                        show_select=False,
+                                                        headers=[{"text": column, "sortable": True, "value": column } for column in dummy_df.columns],
+                                                        items=dummy_df.to_dict("records"),
+                                                        hide_default_footer=False,
+                                                        disable_sort=False,
+                                                    )
                                                     ],
                                             ),
                                         ],
@@ -1663,102 +1826,97 @@ app_widget = widgets.VBox(
                                                                 v.Icon(class_="mr-2", children=["mdi-skip-backward"]),
                                                                 "Come back to the initial rules",
                                                             ],
-                                                        ),
-                                                        v.Spacer(), # 305 000 2
-                                                        v.Checkbox( # beeSwarmCheck # 305 000 3
-                                                            v_model=True,
-                                                            label="Show Shapley's beeswarm plots",
-                                                            class_="ma-1 mr-3",
                                                         )
-                                                        ,
                                                     ],
                                                 ),
-                                                v.Layout( # skopeText # skopeBtns # 305 001
-                                                    class_="d-flex flex-row",
-                                                    children=[
-                                                        v.Card( # ourVSSkopeText # skopeBtns # 305 001 0
-                                                            style_="width: 50%;",
-                                                            class_="ma-3",
-                                                            children=[
-                                                                v.Row(  # 30500100
-                                                                    class_="ml-4",
-                                                                    children=[
-                                                                        v.Icon(children=["mdi-target"]), # 305 010 00
-                                                                        v.CardTitle(children=["Rules applied to the Values Space"]), # 305 010 01
-                                                                        v.Spacer(), # 305 010 02
-                                                                        v.Html( # 305 010 03
-                                                                            class_="mr-5 mt-5 font-italic",
-                                                                            tag="p",
-                                                                            children=["precision = /"],
-                                                                        ),
-                                                                    ],
-                                                                ),
-                                                                v.Card( # ourVSSkopeCard # 305 001 01
-                                                                    class_="mx-4 mt-0",
-                                                                    elevation=0,
-                                                                    children=[
-                                                                        v.CardText(
-                                                                            children=[
-                                                                                v.Row(
-                                                                                    class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
-                                                                                    children=[
-                                                                                        "Waiting for the skope-rules to be applied...",
-                                                                                    ],
+                                                ]
+                                            ),
+                                            widgets.HBox( # 305 01
+                                                [
+                                                widgets.VBox( # placeholder for the VS RulesWidget # 305 010
+                                                        [
+                                                            v.Card( 
+                                                                # style_="width: 50%;",
+                                                                # class_="ma-3",
+                                                                children=[
+                                                                    v.Row(
+                                                                        class_="ml-4",
+                                                                        children=[
+                                                                            v.Icon(children=["mdi-target"]), 
+                                                                            v.CardTitle(
+                                                                                children=["Rules applied to the Values Space"]
                                                                                 )
-                                                                            ]
-                                                                        )
-                                                                    ],
-                                                                )
-                                                            ],
-                                                        ),
-                                                        v.Card( # ourESSkopeText # 305 001 1
-                                                            style_="width: 50%;",
-                                                            class_="ma-3",
-                                                            children=[
-                                                                v.Row( # 305 001 10
-                                                                    class_="ml-4",
-                                                                    children=[
-                                                                        v.Icon(children=["mdi-target"]), # 305 001 100
-                                                                        v.CardTitle(children=["Rules applied on the Explanatory Space"]), 
-                                                                        v.Spacer(),
-                                                                        v.Html( # 305 001 103
-                                                                            class_="mr-5 mt-5 font-italic",
-                                                                            tag="p",
-                                                                            children=["precision = /"],
+                                                                        ]
                                                                         ),
-                                                                    ],
-                                                                ),
-                                                                v.Card( # ourESSkopeCard # 305 001 11
-                                                                    class_="mx-4 mt-0",
-                                                                    elevation=0,
-                                                                    # style_="width: 100%;",
-                                                                    children=[
-                                                                        v.CardText(
-                                                                            children=[
-                                                                                v.Row(
-                                                                                    class_="font-weight-black text-h5 mx-10 px-10 d-flex flex-row justify-space-around",
-                                                                                    children=[
-                                                                                        "Waiting for the Skope-rules to be applied...",
-                                                                                    ],
+                                                                    v.Card( 
+                                                                        # class_="mx-4 mt-0",
+                                                                        elevation=10,
+                                                                        children=[ 
+                                                                            v.CardText( 
+                                                                                children=[
+                                                                                    v.Row( 
+                                                                                        children=[
+                                                                                        v.DataTable( # 304 410
+                                                                                                        v_model=[],
+                                                                                                        show_select=False,
+                                                                                                        headers=[{"text": column, "sortable": False, "value": column } for column in dummy_df.columns],
+                                                                                                        items=dummy_df.to_dict("records"),
+                                                                                                        hide_default_footer=True,
+                                                                                                        disable_sort=True,
+                                                                                                    ),
+                                                                                        ]
+                                                                                    )
+                                                                                ]
+                                                                            )
+                                                                        ],
+                                                                    )
+                                                                ],
+                                                            ),
+                                                        ]
+                                                    ),
+                                                    widgets.VBox( # placeholder for the ES RulesWidget
+                                                        [
+                                                            v.Card( 
+                                                                # style_="width: 50%;",
+                                                                # class_="ma-3",
+                                                                children=[
+                                                                    v.Row(
+                                                                        class_="ml-4",
+                                                                        children=[
+                                                                            v.Icon(children=["mdi-target"]), 
+                                                                            v.CardTitle(
+                                                                                children=["Rules applied to the Values Space"]
                                                                                 )
-                                                                            ]
+                                                                        ]
                                                                         ),
-                                                                    ],
-                                                                ),
-                                                            ],
-                                                        )
-                                                    ]
-                                                ) # End v.Layout / skopeText
-                                            ]
-                                            ), # End VBox / skopeBtnsGrp
-                                            widgets.VBox( # skopeAccordion # 305 01
-                                                children=[ # RuleVariableRefiner objects are inserted here by the app
-                                                    widgets.Text(value='A RuleVariableRefiner will be inserted here by the app'),
-                                                    widgets.Text(value='A RuleVariableRefiner will be inserted here by the app'),
-                                                    widgets.Text(value='A RuleVariableRefiner will be inserted here by the app'), 
-                                                ],
-                                                layout=Layout(width="100%", height="auto"),
-                                            ), # End of VBox 30501
+                                                                    v.Card( 
+                                                                        # class_="mx-4 mt-0",
+                                                                        elevation=10,
+                                                                        children=[ 
+                                                                            v.CardText( 
+                                                                                children=[
+                                                                                    v.Row( 
+                                                                                        children=[
+                                                                                        v.DataTable( # 304 410
+                                                                                                        v_model=[],
+                                                                                                        show_select=False,
+                                                                                                        headers=[{"text": column, "sortable": False, "value": column } for column in dummy_df.columns],
+                                                                                                        items=dummy_df.to_dict("records"),
+                                                                                                        hide_default_footer=True,
+                                                                                                        disable_sort=True,
+                                                                                                    ),
+                                                                                        ]
+                                                                                    )
+                                                                                ]
+                                                                            )
+                                                                        ],
+                                                                    )
+                                                                ],
+                                                            ),
+                                                        ]
+                                                    )
+                                                ]
+                                            ),
                                             v.Row( #addButtonsGrp # 305 02
                                                 children=[
                                                     v.Btn( # addSkopeBtn # 305 020
@@ -1858,4 +2016,3 @@ app_widget = widgets.VBox(
             )
         ]
     )
-

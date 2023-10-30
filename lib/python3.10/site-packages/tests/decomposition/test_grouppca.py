@@ -1,0 +1,251 @@
+# MIT License
+
+# Copyright (c) [2020] [Pierre Ablin and Hugo Richard]
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+import numpy as np
+import pytest
+from sklearn.utils._testing import assert_allclose
+from mvlearn.decomposition.grouppca import GroupPCA
+
+
+@pytest.mark.parametrize("n_components", [None, 1, 3, 9])
+@pytest.mark.parametrize(
+    "n_individual_components", ["auto", None, 3, [2, 3, 4]]
+)
+@pytest.mark.parametrize("multiview_output", [True, False])
+def test_pca(n_components, n_individual_components, multiview_output):
+    gpca = GroupPCA(
+        n_components=n_components,
+        n_individual_components=n_individual_components,
+        multiview_output=multiview_output,
+    )
+    n_samples = 100
+    n_features = [6, 4, 5]
+    rng = np.random.RandomState(0)
+    Xs = [
+        rng.multivariate_normal(np.zeros(p), np.eye(p), size=n_samples)
+        for p in n_features
+    ]
+    # check the shape of fit.transform
+    X_r = gpca.fit(Xs).transform(Xs)
+    if multiview_output:
+        assert len(X_r) == 3
+        for X in X_r:
+            assert X.shape[0] == n_samples
+            if n_components is not None:
+                assert X.shape[1] == n_components
+    else:
+        assert X_r.shape[0] == n_samples
+        if n_components is not None:
+            assert X_r.shape[1] == n_components
+
+    # check the equivalence of fit.transform and fit_transform
+    X_r2 = gpca.fit_transform(Xs)
+    X_r = gpca.transform(Xs)
+    assert_allclose(X_r, X_r2)
+
+
+@pytest.mark.parametrize("n_individual_components", [None, 20, [10, 15, 20]])
+@pytest.mark.parametrize("prewhiten", [True, False])
+@pytest.mark.parametrize("multiview_output", [True, False])
+def test_whitening(n_individual_components, prewhiten, multiview_output):
+    # Check that PCA output has unit-variance
+    rng = np.random.RandomState(0)
+    n_samples = 100
+    n_features = 80
+    n_components = 30
+    rank = 50
+
+    # some low rank data with correlated features
+    X = np.dot(
+        rng.randn(n_samples, rank),
+        np.dot(
+            np.diag(np.linspace(10.0, 1.0, rank)), rng.randn(rank, n_features)
+        ),
+    )
+    # the component-wise variance of the first 50 features is 3 times the
+    # mean component-wise variance of the remaining 30 features
+    X[:, :50] *= 3
+    assert X.shape == (n_samples, n_features)
+    # the component-wise variance is thus highly varying:
+    assert X.std(axis=0).std() > 43.8
+    Xs = np.array_split(X, 3, axis=1)
+    print([x.shape for x in Xs])
+    Xs_ = Xs.copy()  # make sure we keep an original across iterations.
+    gpca = GroupPCA(
+        n_components=n_components,
+        whiten=True,
+        prewhiten=prewhiten,
+        random_state=0,
+        n_individual_components=n_individual_components,
+        multiview_output=multiview_output,
+    )
+    # test fit_transform
+    X_whitened = gpca.fit_transform(Xs_)
+    X_whitened2 = gpca.transform(Xs_)
+    assert_allclose(X_whitened, X_whitened2, rtol=5e-4)
+    if multiview_output:
+        assert len(X_whitened) == 3
+        for X in X_whitened:
+            assert X.shape == (n_samples, n_components)
+    else:
+        assert X_whitened.shape == (n_samples, n_components)
+        assert_allclose(X_whitened.std(ddof=1, axis=0), np.ones(n_components))
+
+    Xs_ = Xs.copy()
+    gpca = GroupPCA(
+        n_components=n_components,
+        whiten=False,
+        prewhiten=prewhiten,
+        n_individual_components=n_individual_components,
+        multiview_output=multiview_output,
+        random_state=rng,
+    ).fit(Xs)
+    X_unwhitened = gpca.transform(Xs_)
+    if multiview_output:
+        assert len(X_unwhitened) == 3
+        for X in X_unwhitened:
+            assert X.shape == (n_samples, n_components)
+    else:
+        assert X_unwhitened.shape == (n_samples, n_components)
+
+
+@pytest.mark.parametrize("prewhiten", [False, True])
+@pytest.mark.parametrize("whiten", [False, True])
+@pytest.mark.parametrize("n_individual_components", [None, 2, [2, 2]])
+@pytest.mark.parametrize("multiview_output", [True, False])
+def test_grouppca_inverse(
+    n_individual_components, prewhiten, whiten, multiview_output
+):
+    # Test that the projection of data can be inverted
+    rng = np.random.RandomState(0)
+    n, p = 50, 3
+    X = rng.randn(n, p)  # spherical data
+    X[:, 1] *= 0.00001  # make middle component relatively small
+    X += [5, 4, 3]  # make a large mean
+
+    X2 = np.copy(X)
+    X2[:, 1] += rng.randn(n) * 0.00001
+
+    Xs = [X, X2]
+
+    gpca = GroupPCA(
+        n_components=2,
+        prewhiten=prewhiten,
+        whiten=whiten,
+        n_individual_components=n_individual_components,
+        multiview_output=multiview_output,
+    ).fit(Xs)
+    Y = gpca.transform(Xs)
+    Y_inverse = gpca.inverse_transform(Y)
+    assert len(Y_inverse) == len(Xs)
+    for X, X_estimated in zip(Xs, Y_inverse):
+        assert_allclose(X, X_estimated, atol=1e-4)
+
+
+@pytest.mark.parametrize("prewhiten", [False, True])
+@pytest.mark.parametrize("whiten", [False, True])
+@pytest.mark.parametrize("n_individual_components", [None, 2, [2, 2, 2]])
+@pytest.mark.parametrize("multiview_output", [True, False])
+@pytest.mark.parametrize(
+    "index", [1, 2, [0, 1], [1, 2], [0, 2], [0, 1, 2], None]
+)
+@pytest.mark.parametrize(
+    "inverse_index", [1, 2, [0, 1], [1, 2], [0, 2], [0, 1, 2], None]
+)
+def test_grouppca_inverse_index(
+    n_individual_components,
+    prewhiten,
+    whiten,
+    multiview_output,
+    index,
+    inverse_index,
+):
+    # Test that the projection of data can be inverted
+    rng = np.random.RandomState(0)
+    n, p = 50, 3
+    X = rng.randn(n, p)  # spherical data
+    X[:, 1] *= 0.00001  # make middle component relatively small
+    X += [5, 4, 3]  # make a large mean
+
+    X2 = np.copy(X)
+    X2[:, 1] += rng.randn(n) * 0.00001
+    X2 = X2.dot(rng.rand(p, p))
+
+    X3 = np.copy(X)
+    X3[:, 1] += rng.randn(n) * 0.00001
+    X3 = X3.dot(rng.rand(p, p))
+
+    Xs = [X, X2, X3]
+    gpca = GroupPCA(
+        n_components=2,
+        prewhiten=prewhiten,
+        whiten=whiten,
+        n_individual_components=n_individual_components,
+        multiview_output=multiview_output,
+    ).fit(Xs)
+    if index is not None:
+        index_ = np.atleast_1d(index)
+        Xs_transform = [Xs[i] for i in index_]
+        len_index = len(index_)
+    else:
+        len_index = 3
+        Xs_transform = np.copy(Xs)
+
+    if inverse_index is not None:
+        inverse_index_ = np.atleast_1d(inverse_index)
+        Xs_inverse = [Xs[i] for i in inverse_index_]
+        len_inverse_index = len(inverse_index_)
+    else:
+        len_inverse_index = 3
+        Xs_inverse = np.copy(Xs)
+
+    Y = gpca.transform(Xs_transform, index=index)
+    if multiview_output and len_index != len_inverse_index:
+        with pytest.raises(AssertionError):
+            Y_inverse = gpca.inverse_transform(Y, index=inverse_index)
+    elif multiview_output and index != inverse_index:
+        pass
+    else:
+        Y_inverse = gpca.inverse_transform(Y, index=inverse_index)
+        for X, X_estimated in zip(Xs_inverse, Y_inverse):
+            assert_allclose(X, X_estimated, atol=1e-4)
+
+
+def test_grouppca_deterministic_output():
+    n_samples = 100
+    n_features = [6, 4, 5]
+    rng = np.random.RandomState(0)
+    Xs = [
+        rng.multivariate_normal(np.zeros(p), np.eye(p), size=n_samples)
+        for p in n_features
+    ]
+    transformed_X = np.zeros((20, 2))
+    for i in range(20):
+        pca = GroupPCA(
+            n_components=2,
+            n_individual_components=3,
+            multiview_output=False,
+            random_state=rng,
+        )
+        transformed_X[i, :] = pca.fit_transform(Xs)[0]
+    assert_allclose(
+        transformed_X, np.tile(transformed_X[0, :], 20).reshape(20, 2)
+    )

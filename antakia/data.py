@@ -263,7 +263,7 @@ class Variable:
         self.type = type
 
         self.descr = None
-        self.sensible = False
+        self.critical = False
         self.continuous = False
         self.explained = False
         self.explain_method = None
@@ -288,15 +288,15 @@ class Variable:
         return variables
     
 
-    def __str__(self):
+    def __repr__(self):
         """
             Displays the variable as a string 
         """
         text = f"{self.symbol}, col#:{self.col_index}, type:{self.type}"
         if self.descr is not None:
             text += f", descr:{self.descr}"
-        if self.sensible:
-            text += ", sensible"
+        if self.critical:
+            text += ", critical"
         if self.continuous:
             text += ", continuous"
         if self.lat:

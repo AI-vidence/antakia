@@ -56,7 +56,6 @@ class AntakIA():
                         raise ValueError(method[i], " is not a valide ExplanationMethod code")
             else:
                 raise ValueError("Since your provided a list of X, you must provide a list of methods of the same size")
-            
         else:
             self.X_list = [X]
             if isinstance(method, int) and method == ExplanationMethod.NONE:
@@ -65,6 +64,11 @@ class AntakIA():
                 raise ValueError("bad explain method provided")
 
         self.variables = Variable.guess_variables(X[0])
+        if len(self.X_list) > 1:
+            # We ensure columns are the same for all X
+            for df in self.X_list[1:]:
+                df.columns = self.X_list[0].columns
+
         self.model = model
         self.y = y
         self.Y_pred = model.predict(X[0])
@@ -77,5 +81,5 @@ class AntakIA():
 
         self.regions = []
 
-    def startGUI(self)-> GUI:
+    def start_gui(self)-> GUI:
         return GUI(self.X_list, self.X_method_list, self.y, self.model).show_splash_screen()

@@ -1,0 +1,48 @@
+from traitlets import (
+    Unicode, Enum, Instance, Union, Float, Int, List, Tuple, Dict,
+    Undefined, Bool, Any
+)
+
+from .VuetifyWidget import VuetifyWidget
+
+
+class ChipGroup(VuetifyWidget):
+
+    _model_name = Unicode('ChipGroupModel').tag(sync=True)
+
+    active_class = Unicode(None, allow_none=True).tag(sync=True)
+
+    center_active = Bool(None, allow_none=True).tag(sync=True)
+
+    color = Unicode(None, allow_none=True).tag(sync=True)
+
+    column = Bool(None, allow_none=True).tag(sync=True)
+
+    dark = Bool(None, allow_none=True).tag(sync=True)
+
+    light = Bool(None, allow_none=True).tag(sync=True)
+
+    mandatory = Bool(None, allow_none=True).tag(sync=True)
+
+    max = Union([
+        Float(),
+        Unicode()
+    ], default_value=None, allow_none=True).tag(sync=True)
+
+    mobile_break_point = Union([
+        Float(),
+        Unicode()
+    ], default_value=None, allow_none=True).tag(sync=True)
+
+    multiple = Bool(None, allow_none=True).tag(sync=True)
+
+    next_icon = Unicode(None, allow_none=True).tag(sync=True)
+
+    prev_icon = Unicode(None, allow_none=True).tag(sync=True)
+
+    show_arrows = Bool(None, allow_none=True).tag(sync=True)
+
+    value = Any(None, allow_none=True).tag(sync=True)
+
+
+__all__ = ['ChipGroup']

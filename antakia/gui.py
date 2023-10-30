@@ -21,11 +21,11 @@ from antakia.data import (
     ProjectedValues
 )
 import antakia.config as config
-from antakia.selection import Selection
+from antakia.rules import Rule
 from antakia.utils import confLogger, overlapHandler
 from antakia.gui_utils import (
     HighDimExplorer,
-    RuleVariableRefiner,
+    RulesWidget,
     get_widget_at_address,
     change_widget,
     splash_widget,
@@ -58,12 +58,11 @@ class GUI:
     y_pred : Pandas Series, calculated at initialization with the model
     model : a model
     variables : a list of Variable
-    selection : a list of points. Immplemented via a "Selection" object
-    last_skr : a Selection object allowing to reinit the skope rules
+    selection_ids : a list of a pd.DataFrame indexes, corresponding to the current selected points
+        IMPORTANT : a dataframe index may differ from the row number
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
-    ref1, ref2, ref3 : RuleVariableRefiner
+    vs_rules_wgt, es_rules_wgt : RulesWidget
     color : Pandas Series : color for each Y point
-    labels_list : the list of labels for the ES HDE
 
     """
 
@@ -88,6 +87,8 @@ class GUI:
             config.INIT_FIG_WIDTH / 2,
             40, # border size
             self.selection_changed)
+        
+        self.vs_rules_wgt = self.es_rules_wgt = None
         
         # We create our ES HDE :
         self.labels_list = ["SHAP imported", "SHAP computed", "LIME imported", "LIME computed"]
@@ -122,12 +123,8 @@ class GUI:
             self.new_values_wanted)
         
 
-        self.ref1 = RuleVariableRefiner(self.variables[0], self.refiner_rules_changed)
-        self.ref2 = RuleVariableRefiner(self.variables[1], self.refiner_rules_changed)
-        self.ref3 = RuleVariableRefiner(self.variables[2], self.refiner_rules_changed)
-
         self.color = []
-        self.selection = None
+        self.selection_ids = []
 
         # Various inits 
         # No selection, so the datatable is not visible :
@@ -140,9 +137,6 @@ class GUI:
 
     def __repr__(self) -> str:
         return "Hello i'm the GUI !"
-
-    def refiner_rules_changed(self, refiner:RuleVariableRefiner):
-        pass
 
     def show_splash_screen(self):
         """ Displays the splash screen and updates it during the first computations.
@@ -222,17 +216,13 @@ class GUI:
             )
 
     
-    def selection_changed(self, caller:HighDimExplorer, new_selection: Selection):
+    def selection_changed(self, caller:HighDimExplorer, new_selection_indexes: list):
         """ Called when the selection of one HighDimExplorer changes
         """
-        if caller == self.vs_hde:
-            logger.debug(f"show_app: selection_changed: new_selection on VS = {new_selection}")
-        else:
-            logger.debug(f"show_app: selection_changed: new_selection on ES = {new_selection}")
         
         selection_status_str = ""
 
-        if new_selection.is_empty():
+        if len(new_selection_indexes)==0:
             selection_status_str = f"No point selected. Use the 'lasso' tool to select points on one of the two graphs"
             # We disable the datatable :
             get_widget_at_address(app_widget,"3041").disabled = True
@@ -240,19 +230,21 @@ class GUI:
             get_widget_at_address(app_widget,"3050000").disabled = True
             
         else: 
-            selection_status_str = f"Current selection : {new_selection.get_size()} point selected {round(100*new_selection.get_size())/len(self.X_list[0])}% of the  dataset"
+            selection_status_str = f"Current selection : {len(new_selection_indexes)} point selected {round(100*len(new_selection_indexes)/len(self.X_list[0]))}% of the  dataset"
             get_widget_at_address(app_widget,"3041").disabled = False
             # TODO : format the cells, remove digits
             change_widget(app_widget,"3041010000", v.DataTable(
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column } for column in self.X_list[0].columns],
-                    items=self.X_list[0].iloc[new_selection.indexes].to_dict("records"),
+                    # IMPORTANT note : df.loc(index_ids) and df.iloc(row_ids)
+                    items=self.X_list[0].loc[new_selection_indexes].to_dict("records"),
                     hide_default_footer=False,
                     disable_sort=False,
                 )
             )
-            # We "open" tab2 "refinement" :
+            # Navigation
+            # We open tab2 "refinement"
             get_widget_at_address(app_widget,"301").disabled = False
             # We enable the SkopeButton
             get_widget_at_address(app_widget,"3050000").disabled = False
@@ -260,18 +252,11 @@ class GUI:
         change_widget(app_widget,"3040010", selection_status_str)
         
         # We syncrhonize selection between the two HighDimExplorers
-        if caller == self.vs_hde:
-            other_hde = self.es_hde
-            other_hde_address = "201"
-        else:
-            other_hde = self.vs_hde
-            other_hde_address = "200"
-
-        other_hde.set_selection(new_selection)
-        change_widget(app_widget, other_hde_address, other_hde.get_Figure_VBox())
+        other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
+        other_hde.set_selection(new_selection_indexes)
 
         # We store the new selection
-        self.selection = new_selection
+        self.selection_ids = new_selection_indexes
 
     def show_app(self):
         # --------- Two HighDimExplorers ----------
@@ -354,136 +339,130 @@ class GUI:
 
         # ---- Tab 2 : refinement ----
 
-        # ----------- RuleVariableRefiners ------------
-        # Let's attach 3 RuleVariableRefiner to our app_graph :
-        change_widget(app_widget, "305010", self.ref1.root_widget)
-        change_widget(app_widget, "305011", self.ref2.root_widget)
-        change_widget(app_widget, "305012", self.ref3.root_widget)
-
-
         # ---------- cluster and regions  ------------
 
         # Called when validating a tile to add it to the set of Regions
         def new_region_validated(*args):
-            if len(args) == 0:
-                pass
-            elif self.selection in self.regions:
-                # TODO : wez should have an Alert system
-                print("AntakIA WARNING: this region is already in the set of Regions")
-            else:
-                # TODO : selection is selection. We should create another Selection
-                self.selection.set_type(Selection.REGION)
-                if self._model_index is None:
-                    model_name = None
-                    model_scores = [1, 1, 1]
-                else:
-                    model_name = config.get_default_submodels[self._model_index].__class__.__name__
-                    # model_scores = self._subModelsScores[self._model_index]
-                if self.selection.get_vs_rules() is None:
-                    return
+            pass
+            # if len(args) == 0:
+            #     pass
+            # elif self.selection in self.regions:
+            #     # TODO : wez should have an Alert system
+            #     print("AntakIA WARNING: this region is already in the set of Regions")
+            # else:
+            #     # TODO : selection is selection. We should create another Selection
+            #     # self.selection.set_type(Selection.REGION)
+            #     if self._model_index is None:
+            #         model_name = None
+            #         model_scores = [1, 1, 1]
+            #     else:
+            #         model_name = config.get_default_submodels[self._model_index].__class__.__name__
+            #         # model_scores = self._subModelsScores[self._model_index]
+            #     # if self.selection.get_vs_rules() is None:
+            #         return
 
-                # self.selection.setIndexesWithRules() # TODO not sure we have to call that
+            #     # self.selection.setIndexesWithRules() # TODO not sure we have to call that
 
-                new_indexes = deepcopy(self.selection.get_indexes())
-                self.selection.get_submodel()["name"], self.selection.get_submodel()["score"] = (
-                    model_name,
-                    model_scores,
-                )
-                # We check that all the points of the new region belong only to it: we will modify the existing tiles
-                self.regions = overlapHandler(self.regions, new_indexes)
-                self.selection.set_new_indexes(new_indexes)
+            #     # new_indexes = deepcopy(self.selection.get_indexes())
+            #     self.selection.get_submodel()["name"], self.selection.get_submodel()["score"] = (
+            #         model_name,
+            #         model_scores,
+            #     )
+            #     # We check that all the points of the new region belong only to it: we will modify the existing tiles
+            #     self.regions = overlapHandler(self.regions, new_indexes)
+            #     self.selection.set_new_indexes(new_indexes)
 
-            self._regionColor = [0] * self._ds.__len__()
-            if self.regions is not None:
-                for i in range(len(self.regions_colors)):
-                    for j in range(len(self.regions)):
-                        if i in self.regions[j].get_indexes():
-                            self._regionColor[i] = j + 1
-                            break
+            # self._regionColor = [0] * self._ds.__len__()
+            # if self.regions is not None:
+            #     for i in range(len(self.regions_colors)):
+            #         for j in range(len(self.regions)):
+            #             if i in self.regions[j].get_indexes():
+            #                 self._regionColor[i] = j + 1
+            #                 break
 
-            toute_somme = 0
-            temp = []
-            score_tot = 0
-            score_tot_glob = 0
-            autre_toute_somme = 0
-            for i in range(len(self.regions)):
-                if self.regions[i].get_submodel()["score"] is None:
-                    temp.append(
-                        [
-                            i + 1,
-                            len(self.regions[i]),
-                            np.round(
-                                len(self.regions[i])
-                                / len(self.atk.y)
-                                * 100,
-                                2,
-                            ),
-                            "/",
-                            "/",
-                            "/",
-                            "/",
-                        ]
-                    )
-                else:
-                    temp.append(
-                        [
-                            i + 1,
-                            len(self.regions[i]),
-                            np.round(
-                                len(self.regions[i])
-                                / len(self._ds.get_full_values())
-                                * 100,
-                                2,
-                            ),
-                            self.regions[i].get_submodel()["model"],
-                            self.regions[i].get_submodel()["score"][0],
-                            self.regions[i].get_submodel()["score"][1],
-                            str(self.regions[i].get_submodel()["score"][2]) + "%",
-                        ]
-                    )
-                    score_tot += self.regions[i].get_submodel()["score"][0] * len(
-                        self.regions[i]
-                    )
-                    score_tot_glob += self.regions[i].get_submodel()["score"][1] * len(
-                        self.regions[i]
-                    )
-                    autre_toute_somme += len(self.regions[i])
-                toute_somme += len(self.regions[i])
-            if autre_toute_somme == 0:
-                score_tot = "/"
-                score_tot_glob = "/"
-                percent = "/"
-            else:
-                score_tot = round(score_tot / autre_toute_somme, 3)
-                score_tot_glob = round(score_tot_glob / autre_toute_somme, 3)
-                percent = (
-                    str(round(100 * (score_tot_glob - score_tot) / score_tot_glob, 1))
-                    + "%"
-                )
-            temp.append(
-                [
-                    "Total",
-                    toute_somme,
-                    np.round(toute_somme / len(self._ds) * 100, 2),
-                    "/",
-                    score_tot,
-                    score_tot_glob,
-                    percent,
-                ]
-            )
-            pd.DataFrame(
-                temp,
-                columns=[
-                    "Region #",
-                    "Number of points",
-                    "% of the dataset",
-                    "Model",
-                    "Score of the sub-model (MSE)",
-                    "Score of the global model (MSE)",
-                    "Gain in MSE",
-                ],
-            )
-            # TODO what shall we do with this dataframe ???
+            # toute_somme = 0
+            # temp = []
+            # score_tot = 0
+            # score_tot_glob = 0
+            # autre_toute_somme = 0
+            # for i in range(len(self.regions)):
+            #     if self.regions[i].get_submodel()["score"] is None:
+            #         temp.append(
+            #             [
+            #                 i + 1,
+            #                 len(self.regions[i]),
+            #                 np.round(
+            #                     len(self.regions[i])
+            #                     / len(self.atk.y)
+            #                     * 100,
+            #                     2,
+            #                 ),
+            #                 "/",
+            #                 "/",
+            #                 "/",
+            #                 "/",
+            #             ]
+            #         )
+            #     else:
+            #         temp.append(
+            #             [
+            #                 i + 1,
+            #                 len(self.regions[i]),
+            #                 np.round(
+            #                     len(self.regions[i])
+            #                     / len(self._ds.get_full_values())
+            #                     * 100,
+            #                     2,
+            #                 ),
+            #                 self.regions[i].get_submodel()["model"],
+            #                 self.regions[i].get_submodel()["score"][0],
+            #                 self.regions[i].get_submodel()["score"][1],
+            #                 str(self.regions[i].get_submodel()["score"][2]) + "%",
+            #             ]
+            #         )
+            #         score_tot += self.regions[i].get_submodel()["score"][0] * len(
+            #             self.regions[i]
+            #         )
+            #         score_tot_glob += self.regions[i].get_submodel()["score"][1] * len(
+            #             self.regions[i]
+            #         )
+            #         autre_toute_somme += len(self.regions[i])
+            #     toute_somme += len(self.regions[i])
+            # if autre_toute_somme == 0:
+            #     score_tot = "/"
+            #     score_tot_glob = "/"
+            #     percent = "/"
+            # else:
+            #     score_tot = round(score_tot / autre_toute_somme, 3)
+            #     score_tot_glob = round(score_tot_glob / autre_toute_somme, 3)
+            #     percent = (
+            #         str(round(100 * (score_tot_glob - score_tot) / score_tot_glob, 1))
+            #         + "%"
+            #     )
+            # temp.append(
+            #     [
+            #         "Total",
+            #         toute_somme,
+            #         np.round(toute_somme / len(self._ds) * 100, 2),
+            #         "/",
+            #         score_tot,
+            #         score_tot_glob,
+            #         percent,
+            #     ]
+            # )
+            # pd.DataFrame(
+            #     temp,
+            #     columns=[
+            #         "Region #",
+            #         "Number of points",
+            #         "% of the dataset",
+            #         "Model",
+            #         "Score of the sub-model (MSE)",
+            #         "Score of the global model (MSE)",
+            #         "Gain in MSE",
+            #     ],
+            # )
+            # # TODO what shall we do with this dataframe ???
 
         # We wire a click event on validateRegionBtn(307000)
         get_widget_at_address(app_widget, "307000").on_event("click", new_region_validated)
@@ -564,7 +543,7 @@ class GUI:
             # We set our regions accordingly
             self.regions = self._auto_cluster_regions # just created, no need to copy
             # We update the GUI tab 1(304) clusterResults(3044) (ie a v.Row)
-            change_widget(app_widget, "304234", self.datatable_from_Selectiones(self.regions))
+            # change_widget(app_widget, "304234", self.datatable_from_Selectiones(self.regions))
 
 
             # TODO : understand
@@ -622,18 +601,61 @@ class GUI:
 
         # =============== Skope rules ===============
 
-        def compute_skope_rules(widget, event, data):
+        def compute_rules(widget, event, data):
             # if clicked, selection can't be empty
             # Let's disable the button during computation:
             get_widget_at_address(app_widget,"3050000").disabled = True
             
-            self.selection.compute_skope_rules(self.vs_hde.get_current_X(), self.es_hde.get_current_X(), self.y, self.variables)
+            # We try fo find Skope Rules on "VS" side :
+            vs_rules_list, vs_score_list = Rule.compute_rules(self.selection_ids, self.vs_hde.get_current_X(), True, self.variables)
+            if len(vs_rules_list) > 0:
+                logger.debug(f"compute_rules: VS rules found : {vs_rules_list}, {vs_score_list}")
+                self.vs_rules_wgt = RulesWidget(self.vs_hde.get_current_X(), self.variables, True, vs_rules_list, vs_score_list, rules_updated)
+                change_widget(app_widget,"305010", self.vs_rules_wgt.vbox_widget)
+            else:
+                logger.debug(f"compute_rules: no VS rules found")
             
+            # We try fo find Skope Rules on "ES" side :
+            es_rules_list, es_score_list = Rule.compute_rules(self.selection_ids, self.es_hde.get_current_X(), False, self.variables)
+            if len(es_rules_list) > 0:
+                logger.debug(f"compute_rules: ES rules found : {es_rules_list}, {es_score_list}")
+                self.es_rules_wgt = RulesWidget(self.es_hde.get_current_X(), self.variables, False, es_rules_list, es_score_list, rules_updated)
+                change_widget(app_widget,"305011", self.es_rules_wgt.vbox_widget)
+            else:
+                logger.debug(f"compute_rules: no ES rules found")
+
             get_widget_at_address(app_widget,"3050000").disabled = False
 
-
         # We wire the ckick event on the skope-rules buttonn (3050000)
-        get_widget_at_address(app_widget,"3050000").on_event("click", compute_skope_rules)
+        get_widget_at_address(app_widget,"3050000").on_event("click", compute_rules)
+
+
+        def rules_updated(rules_widget: RulesWidget, df_indexes: list):
+            """
+            Called by a RulesWidget upond (skope) rule creation or when the user updates the rules via a RulesWidget
+            The function asks the HDEs to display the rules result ()
+            """
+            # Navigation :
+            # We make HDE figures non selectable :
+            self.vs_hde.set_selection_disabled(True)
+            self.es_hde.set_selection_disabled(True)
+            # We disable tab 1 :
+            get_widget_at_address(app_widget,"300").disabled = True
+
+
+            logger.debug(f"rules_updated: received from {'VS RsW' if rules_widget.is_value_space else 'ES RsW'} : {rules_widget.get_current_rule_list()} rules to display")
+
+            # We make sure we're in 2D :
+            get_widget_at_address(app_widget, "102").v_model == 2 # Switch button
+            self.vs_hde.set_dimension(2)
+            self.es_hde.set_dimension(2)
+
+            
+            
+
+            # We sent to the proper HDE the rules_indexes to render :
+            self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
+
 
         def reinitSkopeRules(*b):
             pass
@@ -656,11 +678,7 @@ class GUI:
         # -------- figure size ------ 
         def fig_size_changed(widget, event, data):  # 2121
             """ Called when the figureSizeSlider changed"""
-
-            # logger.debug(f"fig_size_changed: widget={widget}, event={event}, data={data}")
-
             self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model/2)
-
             self.vs_hde.redraw()
             self.es_hde.redraw()
 
@@ -683,6 +701,6 @@ class GUI:
                 refiner.hide_beeswarm(widget.v_model)
         
         # We wire the change event on beeSwarmCheck (3050003)
-        get_widget_at_address(app_widget,"3050003").on_event("change", show_beeswarms_check_changed)
+        # get_widget_at_address(app_widget,"3050003").on_event("change", show_beeswarms_check_changed)
 
         display(app_widget)
