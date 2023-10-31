@@ -32,21 +32,34 @@ class Rule():
 
     Interval rules are "combined rules", ie. they were 2 rules when genrated by SKR
 
+    The 'create_categorical_rule' method of the module makes it easier to instantiate a categorical rule: it only needs a variable anda  list of allowed categorical values
+
     variable : Variable
     min : float
     operator_min : int # index in operators
     operator_max : int # index in operators
     max : float
+    cat_values: list # list of values for categorical variables
     """
 
     OPERATORS = ["<", "<=", "=", ">=", ">"]
 
-    def __init__(self, min: float, operator_min_str: str, variable: Variable, operator_max_str: str, max: float):
+    def __init__(self, min: float, operator_min_str: str, variable: Variable, operator_max_str: str, max: float, cat_values: list = None):
         self.min = min
         self.operator_min = self.OPERATORS.index(operator_min_str)
         self.variable = variable
         self.operator_max = self.OPERATORS.index(operator_max_str)
         self.max = max
+        self.cat_values = cat_values
+
+    def is_categorical_rule(self) -> bool:
+        return not self.variable.is_continuous
+
+    def is_interval_rule(self) -> bool:
+        return self.min is not None and self.max is not None
+    
+    def is_inner_interval_rule(self) -> bool:
+        return ((self.operator_min == 0 or self.operator_min == 1) and (self.operator_max == 0 or self.operator_max == 1)) or ((self.operator_min == 3 or self.operator_min == 4) and (self.operator_max == 3 or self.operator_max == 4))
 
     def __repr__(self) -> str:
         txt = ""
@@ -61,7 +74,7 @@ class Rule():
             txt += ">" if self.operator_min == 0 else "\u2265" # geater (or equal) than
             txt += " " + str(self.min)
         else:
-            if ((self.operator_min == 0 or self.operator_min == 1) and (self.operator_max == 0 or self.operator_max == 1)) or ((self.operator_min == 3 or self.operator_min == 4) and (self.operator_max == 3 or self.operator_max == 4)):
+            if self.is_inner_interval_rule():
                 # Rule type 3 : the rule is of the form : variable included in [min, max] interval, or min < variable < max
                 if config.USE_INTERVALS_FOR_RULES:
                     txt = self.variable.symbol + " \u2208 " # element of
@@ -87,8 +100,7 @@ class Rule():
                     txt += " " + self.variable.symbol + " "
                     txt += ">" if self.operator_max == 0 else "\u2265" # greater (or equal) than
                     txt += " " + str(self.max)
-                    
-        logger.debug(f"__repr__ = {txt}")
+
         return txt
 
     def get_matching_indexes(self, X: pd.DataFrame) -> list:
@@ -100,7 +112,7 @@ class Rule():
 
         query_var = "df['" + self.variable.symbol + "']"
 
-        if self.min is None or self.max is None:
+        if not self.is_interval_rule():
             if self.min is None:
                 # Rule type 1
                 query = "df.loc[" + query_var + " "
@@ -111,39 +123,29 @@ class Rule():
                 query = "df.loc[" + " " + query_var + " "
                 query += ">" if self.operator_min == 0 else ">="
                 query += " " + str(self.min) + "]"
-            logger.debug(f"gmi: query = {query} for simple rule : {self}")
             df = eval(query)
-            logger.debug(f"gmi: df now = {len(df)} for simple rule : {self}")
         else:
             # We have an interval rule -> 2 queries
-            if ((self.operator_min == 0 or self.operator_min == 1) and (self.operator_max == 0 or self.operator_max == 1)) or ((self.operator_min == 3 or self.operator_min == 4) and (self.operator_max == 3 or self.operator_max == 4)):
+            if self.is_inner_interval_rule():
                 # Rule type 3 
                 min_query = "df.loc[" + query_var
                 min_query += ">" if self.operator_min == 0 else ">="
                 min_query += " " + str(self.min) + "]"
-                logger.debug(f"gmi: min_query = {min_query} for inside interval rule : {self}")
                 df = eval(min_query)
-                logger.debug(f"gmi: df now = {len(df)} after min_query ")
                 max_query = "df.loc[" + query_var
                 max_query += "<" if self.operator_max == 0 else "<="
                 max_query += " " + str(self.max) + "]"
-                logger.debug(f"gmi: max_query = {max_query} for inside interval rule : {self}")
                 df = eval(max_query)
-                logger.debug(f"gmi: df now = {len(df)} after max_query ")
             else: 
                 # Rule type 4
                 min_query = "df.loc[" + query_var
                 min_query += "<" if self.operator_min == 0 else "<="
                 min_query += " " + str(self.min) + "]"
-                logger.debug(f"gmi: min_query = {min_query} for outside interval rule : {self}")
                 df = eval(min_query)
-                logger.debug(f"gmi: df now = {len(df)} after min_query ")
                 max_query = "df.loc[" + query_var
                 max_query += ">" if self.operator_max == 0 else ">="
                 max_query += " " + str(self.max) + "]"
-                logger.debug(f"gmi: max_query = {max_query} for outside interval rule : {self}")
                 df = eval(max_query)
-                logger.debug(f"gmi: df now = {len(df)} after max_query ")
         return df.index.tolist() if df is not None else []
 
 
@@ -175,7 +177,6 @@ class Rule():
                 min_ = max(rule1.min, rule2.min)
                 max_ = min(rule1.max, rule2.max)
                 rule3 = [Rule(min_, "<=", rule1.variable, "<=", max_)]
-                logger.debug(f"combined rule = {rule3}")
                 return rule3
             else:
                 # No overlap, no combination possible
@@ -257,8 +258,6 @@ class Rule():
         recall for SKR binary classifer : defaults to 0.7
         """
 
-        logger.debug(f"compute_rules({'VS' if values_space else 'ES'}): entering with {len(df_indexes)} indexes")
-
         y_train = np.zeros(len(base_space_df))
         y_train[Rule.indexes_to_rows(base_space_df, df_indexes)] = 1  # our target
 
@@ -316,3 +315,30 @@ class Rule():
                 raise KeyError(f"Index {index} not found in DataFrame")
 
         return row_ids_list
+
+    @staticmethod
+    def rules_to_records(rule_list: list) -> str:
+        """""
+        Returns a string rep compatible with the v.DataTable  widget
+        """
+        def rule_to_record(rule: Rule) -> str:
+            txt = "{"
+            txt += f"'Variable': '{rule.variable.symbol}', "
+            txt += f"'Unit': '{rule.variable.unit}', "
+            txt += f"'Desc': '{rule.variable.descr}', "
+            txt += f"'Critical': '{rule.variable.critical}', "
+            txt += f"'Rule': '{rule}', "
+            txt += "}"
+            return txt
+
+        txt = "["
+        for rule in rule_list:
+            txt += rule_to_record(rule) + "," 
+        txt += "]"
+        return txt
+    
+def create_categorical_rule(variable: Variable, cat_values: list) -> Rule:
+    """
+    Creates a categorical rule for the given variable and list of values
+    """
+    return Rule(None, None, variable, None, None, cat_values)

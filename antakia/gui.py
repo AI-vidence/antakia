@@ -219,7 +219,6 @@ class GUI:
     def selection_changed(self, caller:HighDimExplorer, new_selection_indexes: list):
         """ Called when the selection of one HighDimExplorer changes
         """
-        
         selection_status_str = ""
 
         if len(new_selection_indexes)==0:
@@ -231,13 +230,14 @@ class GUI:
             
         else: 
             selection_status_str = f"Current selection : {len(new_selection_indexes)} point selected {round(100*len(new_selection_indexes)/len(self.X_list[0]))}% of the  dataset"
+            # We show the datatable :
             get_widget_at_address(app_widget,"3041").disabled = False
             # TODO : format the cells, remove digits
             change_widget(app_widget,"3041010000", v.DataTable(
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column } for column in self.X_list[0].columns],
-                    # IMPORTANT note : df.loc(index_ids) and df.iloc(row_ids)
+                    # IMPORTANT note : df.loc(index_ids) vs df.iloc(row_ids)
                     items=self.X_list[0].loc[new_selection_indexes].to_dict("records"),
                     hide_default_footer=False,
                     disable_sort=False,
@@ -249,6 +249,7 @@ class GUI:
             # We enable the SkopeButton
             get_widget_at_address(app_widget,"3050000").disabled = False
 
+        # logger.debug(f"selection_changed: app_widget = {app_widget.id()}")
         change_widget(app_widget,"3040010", selection_status_str)
         
         # We syncrhonize selection between the two HighDimExplorers
@@ -259,6 +260,9 @@ class GUI:
         self.selection_ids = new_selection_indexes
 
     def show_app(self):
+
+        # logger.debug(f"show_app: app_widget = {app_widget.id()}")
+
         # --------- Two HighDimExplorers ----------
 
         # We attach each HighDimExplorers component to the app_graph :
@@ -344,125 +348,7 @@ class GUI:
         # Called when validating a tile to add it to the set of Regions
         def new_region_validated(*args):
             pass
-            # if len(args) == 0:
-            #     pass
-            # elif self.selection in self.regions:
-            #     # TODO : wez should have an Alert system
-            #     print("AntakIA WARNING: this region is already in the set of Regions")
-            # else:
-            #     # TODO : selection is selection. We should create another Selection
-            #     # self.selection.set_type(Selection.REGION)
-            #     if self._model_index is None:
-            #         model_name = None
-            #         model_scores = [1, 1, 1]
-            #     else:
-            #         model_name = config.get_default_submodels[self._model_index].__class__.__name__
-            #         # model_scores = self._subModelsScores[self._model_index]
-            #     # if self.selection.get_vs_rules() is None:
-            #         return
-
-            #     # self.selection.setIndexesWithRules() # TODO not sure we have to call that
-
-            #     # new_indexes = deepcopy(self.selection.get_indexes())
-            #     self.selection.get_submodel()["name"], self.selection.get_submodel()["score"] = (
-            #         model_name,
-            #         model_scores,
-            #     )
-            #     # We check that all the points of the new region belong only to it: we will modify the existing tiles
-            #     self.regions = overlapHandler(self.regions, new_indexes)
-            #     self.selection.set_new_indexes(new_indexes)
-
-            # self._regionColor = [0] * self._ds.__len__()
-            # if self.regions is not None:
-            #     for i in range(len(self.regions_colors)):
-            #         for j in range(len(self.regions)):
-            #             if i in self.regions[j].get_indexes():
-            #                 self._regionColor[i] = j + 1
-            #                 break
-
-            # toute_somme = 0
-            # temp = []
-            # score_tot = 0
-            # score_tot_glob = 0
-            # autre_toute_somme = 0
-            # for i in range(len(self.regions)):
-            #     if self.regions[i].get_submodel()["score"] is None:
-            #         temp.append(
-            #             [
-            #                 i + 1,
-            #                 len(self.regions[i]),
-            #                 np.round(
-            #                     len(self.regions[i])
-            #                     / len(self.atk.y)
-            #                     * 100,
-            #                     2,
-            #                 ),
-            #                 "/",
-            #                 "/",
-            #                 "/",
-            #                 "/",
-            #             ]
-            #         )
-            #     else:
-            #         temp.append(
-            #             [
-            #                 i + 1,
-            #                 len(self.regions[i]),
-            #                 np.round(
-            #                     len(self.regions[i])
-            #                     / len(self._ds.get_full_values())
-            #                     * 100,
-            #                     2,
-            #                 ),
-            #                 self.regions[i].get_submodel()["model"],
-            #                 self.regions[i].get_submodel()["score"][0],
-            #                 self.regions[i].get_submodel()["score"][1],
-            #                 str(self.regions[i].get_submodel()["score"][2]) + "%",
-            #             ]
-            #         )
-            #         score_tot += self.regions[i].get_submodel()["score"][0] * len(
-            #             self.regions[i]
-            #         )
-            #         score_tot_glob += self.regions[i].get_submodel()["score"][1] * len(
-            #             self.regions[i]
-            #         )
-            #         autre_toute_somme += len(self.regions[i])
-            #     toute_somme += len(self.regions[i])
-            # if autre_toute_somme == 0:
-            #     score_tot = "/"
-            #     score_tot_glob = "/"
-            #     percent = "/"
-            # else:
-            #     score_tot = round(score_tot / autre_toute_somme, 3)
-            #     score_tot_glob = round(score_tot_glob / autre_toute_somme, 3)
-            #     percent = (
-            #         str(round(100 * (score_tot_glob - score_tot) / score_tot_glob, 1))
-            #         + "%"
-            #     )
-            # temp.append(
-            #     [
-            #         "Total",
-            #         toute_somme,
-            #         np.round(toute_somme / len(self._ds) * 100, 2),
-            #         "/",
-            #         score_tot,
-            #         score_tot_glob,
-            #         percent,
-            #     ]
-            # )
-            # pd.DataFrame(
-            #     temp,
-            #     columns=[
-            #         "Region #",
-            #         "Number of points",
-            #         "% of the dataset",
-            #         "Model",
-            #         "Score of the sub-model (MSE)",
-            #         "Score of the global model (MSE)",
-            #         "Gain in MSE",
-            #     ],
-            # )
-            # # TODO what shall we do with this dataframe ???
+            
 
         # We wire a click event on validateRegionBtn(307000)
         get_widget_at_address(app_widget, "307000").on_event("click", new_region_validated)

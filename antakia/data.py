@@ -261,11 +261,10 @@ class Variable:
         self.col_index = col_index
         self.symbol = symbol
         self.type = type
-
+        self.unit = None
         self.descr = None
         self.critical = False
         self.continuous = False
-        self.explained = False
         self.explain_method = None
         self.lat = False
         self.lon = False
@@ -283,10 +282,15 @@ class Variable:
                 var.lat = True
             if X.columns[i] in ["longitude", "Longitude", "Long", "long"]:
                 var.lon = True
-            
+            var.continuous = Variable.is_continuous(X[X.columns[i]])
             variables.append(var)
         return variables
     
+    @staticmethod
+    def is_continuous(serie: pd.Series) -> bool:
+        id_first_true = (serie > 0).idxmax()
+        id_last_true = (serie > 0)[::-1].idxmax()
+        return all((serie > 0).loc[id_first_true:id_last_true] == True)
 
     def __repr__(self):
         """
@@ -295,6 +299,8 @@ class Variable:
         text = f"{self.symbol}, col#:{self.col_index}, type:{self.type}"
         if self.descr is not None:
             text += f", descr:{self.descr}"
+        if self.unit is not None:
+            text += f", unit:{self.unit}"
         if self.critical:
             text += ", critical"
         if self.continuous:
