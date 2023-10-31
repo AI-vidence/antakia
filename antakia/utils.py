@@ -5,7 +5,6 @@ Utils module for the antakia package.
 import numpy as np
 import pandas as pd
 
-import inspect
 import textwrap
 from logging import Logger, Handler, Formatter, DEBUG
 
@@ -13,7 +12,7 @@ from logging import Logger, Handler, Formatter, DEBUG
 import ipywidgets as widgets
 from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
-
+from IPython.display import display
 
 
 # ---------------------------------------------------------------------
