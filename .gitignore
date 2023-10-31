@@ -9,7 +9,9 @@ share/
 pyvenv.cfg
 
 # VSCode
-.code-workspace
+.vscode/
+*.code-workspace
+.idea/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
