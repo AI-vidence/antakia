@@ -30,64 +30,71 @@ def get_widget_at_address(root_widget: Widget, address: str) -> Widget:
     """
     Returns a sub widget of root_widget. Address is a sequence of childhood ranks as a string
     Return sub_widget may be modified, it's still the same sub_widget of the root_widget
+    get_widget_at_address(root_widget, '0') returns root_widgetn first child
     TODO : allow childhood rank > 9
     """
     try:
         int(address)
     except ValueError:
-        raise ValueError(address, " must be a string composed of digits")
+        raise ValueError(address, "must be a string composed of digits")
 
     if len(address) > 1:
         try:
-            return get_widget_at_address(
-                root_widget.children[int(address[0])], address[1:]
-            )
+            return get_widget_at_address(root_widget.children[int(address[0])], address[1:])
         except IndexError:
-            raise IndexError(f"Nothing found @{address} in this {type(root_widget)}")
+            raise IndexError(f"Nothing found @{address} in this {root_widget.__class__.__name__}")
     else:
         return root_widget.children[int(address[0])]
 
 
-def _get_parent(widget: Widget, address: str) -> Widget:
-    return get_widget_at_address(widget, address[:-1])
+def _get_parent(root_widget: Widget, address: str) -> Widget:
+    return get_widget_at_address(root_widget, address[:-1])
+
+
+def is_ipyvuetify(widget: Widget) -> bool:
+    return widget.__module__.split('.')[0] == 'ipyvuetify'
 
 
 def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
     """
     Substitutes a sub_widget in a root_widget.
-    Address is a sequence of childhood ranks as a string
+    Address is a sequence of childhood ranks as a string, root_widget first child address is  '0'
     The root_widget is altered but the object remains the same
     """
-
 
     if len(address) > 1:
         parent_widget = _get_parent(root_widget, address)
 
         # Because ipywidgets store their children in a tuple (vs list):
-        if isinstance(parent_widget, Widget):
-            parent_children = copy(list(parent_widget.children))
+        if is_ipyvuetify(parent_widget):
+            parent_children_clone = copy(parent_widget.children)
         else:
-            parent_children = copy(parent_widget.children)
+            parent_children_clone = copy(list(parent_widget.children))
+
 
         try:
-            parent_children[int(address[-1])] = sub_widget
+            parent_children_clone[int(address[-1])] = sub_widget
         except IndexError:
             raise IndexError(f"Nothing found @{address} in this {type(root_widget)}")
 
-        if isinstance(parent_widget, Widget):
-            parent_children = tuple(parent_children)
-        try:
-            parent_widget.children = parent_children
-        except TraitError:
-            raise TraitError(
-                f"{type(parent_widget)} cannot have for children {parent_children}"
-            )
-
+        if is_ipyvuetify(parent_widget):
+            try:        
+                parent_widget.children = parent_children_clone
+            except TraitError:
+                raise TraitError(
+                    f"{type(parent_widget)} cannot have for children {parent_children_clone}"
+                )
+        else:
+            parent_widget.children = tuple(parent_children_clone)
+        
         change_widget(root_widget, address[:-1], parent_widget)
     else:
-        parent_children = copy(list(root_widget.children))
-        parent_children[int(address[-1])] = sub_widget
-        root_widget.children = tuple(parent_children)
+        parent_children_clone = copy(list(root_widget.children))
+        parent_children_clone[int(address)] = sub_widget
+        if is_ipyvuetify(root_widget):
+            root_widget.children = tuple(parent_children_clone)
+        else:
+            root_widget.children = parent_children_clone
 
 
 def create_rule_card(object) -> list:
@@ -423,12 +430,12 @@ class HighDimExplorer:
         self.fig_size = fig_size
         self._selection_disabled = False
 
-        self.figure_2D = self.create_figure(2)
-        self.figure_3D = self.create_figure(3)
+        self.container = v.Container()
 
-        self.container = v.Container(
-            children=[self.figure_2D if self._current_dim == 2 else self.figure_3D]
-        )
+        self.create_figure(2)
+        self.create_figure(3)
+
+        
 
     # ---- Methods ------
 
@@ -534,7 +541,7 @@ class HighDimExplorer:
         Builds and  returns the FigureWidget for the given dimension
         """
 
-        x = y = z = [0, 1, 2]  # nicer to look at than None
+        x = y = z = [0, 1, 2]  # dummy data
 
         if self.pv_list[self.current_pv] is not None:
             proj_values = self.pv_list[self.current_pv].get_proj_values(
@@ -598,7 +605,13 @@ class HighDimExplorer:
         fig.update_layout(margin=dict(t=0), width=self.fig_size)
         fig._config = fig._config | {"displaylogo": False}
 
-        return fig
+        if dim == 2:
+            self.figure_2D = fig
+        else:
+            self.figure_3D = fig
+        
+        self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
+        
 
     def set_selection_disabled(self, mode: bool):
         self._selection_disabled = mode
@@ -1009,29 +1022,29 @@ class RulesWidget:
         score_list: list,
         rules_updated: callable,
     ):
-        """ "
+        """ 
         rules : initial lost of Rule
         rules_updated : callback for the GUI
         """
+
         self.X = X
         self.variables = variables
         self.is_value_space = values_space
         self.rules_updated = rules_updated
-        self.vbox_widget = copy(
-            get_widget_at_address(app_widget, "305010" if values_space else "305011")
-        )
+        self.vbox_widget = get_widget_at_address(app_widget, "305010" if values_space else "305011")
 
         self.rules_db = {}
         self.rules_db[0] = [rules_list, score_list]
         self.current_index = 0
 
-        self._update_card()
-        self._set_rule_widgets(rules_list)
+        if rules_list is not None:  # We're not an empty RsW
+            self._update_card()
+            self._set_rule_widgets(rules_list)
 
-        self.rules_updated(
-            self,
-            Rule.rules_to_indexes(self.get_current_rule_list(), self.X, self.variables),
-        )
+            self.rules_updated(
+                self,
+                Rule.rules_to_indexes(self.get_current_rule_list(), self.X, self.variables),
+            )
 
     def dump_db(self) -> str:
         """
@@ -1266,6 +1279,63 @@ def update_skr_infocards(selection_indexes: list, side: int, widget: Widget):
     get_widget_at_address(widget, "30500101").children = temp_card_children
     get_widget_at_address(widget, "30500101").children = temp_text_children
 
+def create_empty_ruleswidget(values_space:bool)-> RulesWidget:
+    empty_rsw = RulesWidget(None, None, None, None, None, None)
+    empty_rsw.vbox_widget = get_widget_at_address(app_widget, "305010" if values_space else "305011")
+    change_widget(empty_rsw.vbox_widget, "0100", "Rule scores will be displayed here")
+    change_widget(empty_rsw.vbox_widget, "011", v.Html( # 305 010 010
+            class_="ml-3 light-grey", 
+            tag="h3", 
+            children=[
+                "Rule will be described here"
+                ]
+            ))
+    change_widget(empty_rsw.vbox_widget, "1", v.ExpansionPanels(
+        children=[
+                v.ExpansionPanel(
+                    children=[
+                        v.ExpansionPanelHeader(
+                            class_="font-weight-bold blue lighten-4",
+                            children=[
+                                "Variable"
+                            ]
+                        ),
+                        v.ExpansionPanelContent(
+                            children=[
+                                v.Col(
+                                    class_="ma-3 pa-3",
+                                    children=[
+                                        v.Spacer(), 
+                                        v.RangeSlider(
+                                            class_="ma-3",
+                                            v_model=[
+                                                -1,
+                                                1,
+                                            ],
+                                            min=-5,
+                                            max=5,
+                                            step=1,
+                                            thumb_label="always",
+                                        ),
+                                    ],
+                                ),
+                                v.Html(
+                                    class_="ml-3 light-grey", 
+                                    tag="h3", 
+                                    children=[
+                                        
+                                        "Histogram will be displayed here" if values_space else "Beeswarm will be displayed here"
+                                        ]
+                                    ),
+                            ]
+                        ),
+                    ]
+                )
+            ]
+        )
+    )
+    return empty_rsw
+
 
 # Static UI elements
 
@@ -1392,7 +1462,10 @@ app_widget = widgets.VBox(
                     ],
                     class_="mt-1",
                 ),
-                v.Html(tag="h2", children=["AntakIA"], class_="ml-3"),  # 01
+                v.Html( # 01
+                    tag="h2", 
+                    children=["AntakIA"], # 010
+                    class_="ml-3"),  
                 v.Spacer(),  # 02
                 v.Btn(  # backupBtn # 03
                     icon=True,
@@ -1487,26 +1560,6 @@ app_widget = widgets.VBox(
                                     children=[v.Icon(children=["mdi-delta"])],
                                     value="residual",
                                 ),
-                                # v.Btn( # 1103
-                                #     icon=True,
-                                #     children=[v.Icon(children="mdi-lasso")],
-                                #     value="current selection",
-                                # ),
-                                # v.Btn( # 1104
-                                #     icon=True,
-                                #     children=[v.Icon(children=["mdi-ungroup"])],
-                                #     value="regions",
-                                # ),
-                                # v.Btn( # 1105
-                                #     icon=True,
-                                #     children=[v.Icon(children=["mdi-select-off"])],
-                                #     value="not selected",
-                                # ),
-                                # v.Btn( # 1106
-                                #     icon=True,
-                                #     children=[v.Icon(children=["mdi-star"])],
-                                #     value="auto",
-                                # ),
                             ],
                         ),
                         v.Select(  # explanationSelect # 111
@@ -1523,7 +1576,12 @@ app_widget = widgets.VBox(
                         ),
                         v.Btn(  # computeMenuBtnBtn # 112
                             icon=True,
-                            children=[v.Icon(children=["mdi-opacity"])],
+                            children=[
+                                v.Icon(  # 112 0
+                                    children=[
+                                        "mdi-opacity"  # 112 00
+                                        ])
+                                ],
                             class_="ma-2 ml-6 pa-3",
                             elevation="3",
                         ),
@@ -1743,7 +1801,7 @@ app_widget = widgets.VBox(
                         widgets.VBox(  # 200
                             [
                                 widgets.HTML("<h3>Values Space<h3>"),  # 2000
-                                v.Container(  # 2001
+                                v.Container(  # 2001 # placeholder for vs_hde.figure_widget
                                     children=[
                                         FigureWidget(
                                             [Scatter(mode="markers")]
@@ -2017,13 +2075,13 @@ app_widget = widgets.VBox(
                                                                 v.Col( # 305 010 01
                                                                     elevation=10,
                                                                     children=[ 
-                                                                        v.Html(
+                                                                        v.Html( # 305 010 010
                                                                             class_="ml-3", 
                                                                             tag="p", 
                                                                             children=[
-                                                                                "Precision = 0.3, Recall = 0.8, F1 = 22"
+                                                                                "Precision = 0.3, Recall = 0.8, F1 = 22" # 305 010 010 0
                                                                                 ]
-                                                                            ), # 305 010 010
+                                                                            ), 
                                                                             v.DataTable( # 305 010 011
                                                                                     v_model=[],
                                                                                     show_select=False,

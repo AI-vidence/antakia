@@ -28,6 +28,7 @@ from antakia.gui_utils import (
     RulesWidget,
     get_widget_at_address,
     change_widget,
+    create_empty_ruleswidget,
     splash_widget,
     app_widget
 )
@@ -165,10 +166,17 @@ class GUI:
         self.es_hde.compute_projs(self.update_splash_screen)
         
         splash_widget.close()
+
+        # We clean tab2 by setting empty RulesWidgets, on both sides :
+        change_widget(app_widget,"305010", create_empty_ruleswidget(True).vbox_widget)
+        change_widget(app_widget,"305010", create_empty_ruleswidget(False).vbox_widget)
+
         self.show_app()
 
     def update_splash_screen(self, caller: LongTask, progress: int, duration:float):
-        """ Its role as a callback is to update the 2 progress bars of the splash screen"""
+        """ 
+       Updates prorfess p$-abr progress bars of the splash screen
+        """
         
         if isinstance(caller, ExplanationMethod):
             # It's an explanation
@@ -249,7 +257,6 @@ class GUI:
             # We enable the SkopeButton
             get_widget_at_address(app_widget,"3050000").disabled = False
 
-        # logger.debug(f"selection_changed: app_widget = {app_widget.id()}")
         change_widget(app_widget,"3040010", selection_status_str)
         
         # We syncrhonize selection between the two HighDimExplorers
@@ -266,7 +273,7 @@ class GUI:
         # --------- Two HighDimExplorers ----------
 
         # We attach each HighDimExplorers component to the app_graph :
-        change_widget(app_widget, "2001", self.vs_hde.container)
+        change_widget(app_widget, "2001", self.vs_hde.container),
         change_widget(app_widget, "1200", self.vs_hde.get_projection_select())
         change_widget(app_widget, "12020", self.vs_hde.get_projection_prog_circ())
         change_widget(app_widget, "1201000", self.vs_hde.get_proj_params_menu())
