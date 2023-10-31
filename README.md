@@ -23,11 +23,27 @@ git add .gitattributes
 
 Reference : [see Git-LFS website](https://git-lfs.com)
 
+> [!IMPORTANT] 
+Install your antakia env in IPython, in order to select it from Jupyter :
+
+```
+python -m ipykernel install --user --name antakia --display-name "Antakia"
+```
+
 Finally, launch Jupyter server from `antakia` folder :
 ```
 jupyter notebook
 ```
 and open the notebook .ipynb file in `example` folder.
+
+### Troubleshooting 
+
+If your get JS errors in your notebook / see broken link icons for each widget / see this kind of errors `404 GET /static/jupyterlab-plotly.js` or other missing JS library :
+* try to remove your local `etc/` folder in antakia folder
+* try `jupyter lab` instead of `jupyter notebook`
+* probably useless but worth trying : `jupyter nbextension enable --py widgetsnbextension`
+* try to `pip install --force-reinstall` ipywidgets widgetsnbextension
+ 
 
 ## Install and run with Docker
 
