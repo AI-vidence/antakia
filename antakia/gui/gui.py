@@ -22,16 +22,15 @@ from antakia.data import (
 )
 import antakia.config as config
 from antakia.rules import Rule
-from antakia.utils import confLogger, overlapHandler
-from antakia.gui_utils import (
-    HighDimExplorer,
-    RulesWidget,
-    get_widget_at_address,
+from antakia.utils import confLogger
+from antakia.gui.widgets import (
+    get_widget,
     change_widget,
-    create_empty_ruleswidget,
     splash_widget,
     app_widget
 )
+from antakia.gui.highdimexplorer import HighDimExplorer
+from antakia.gui.ruleswidget import RulesWidget
 
 import logging
 logger = logging.getLogger(__name__)
@@ -67,14 +66,14 @@ class GUI:
 
     """
 
-    def __init__(self, X_list, X_method_list: list, y: pd.Series, model):
+    def __init__(self, X_list, X_method_list: list, y: pd.Series, model, variables: list=None):
         self.X_list = X_list
         self.y_pred = model.predict(X_list[0])
         self.X_method_list = X_method_list
         self.y = y
         self.model = model
 
-        self.variables = Variable.guess_variables(X_list[0])
+        self.variables = variables
 
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
@@ -122,34 +121,36 @@ class GUI:
             40, # border size
             self.selection_changed, 
             self.new_values_wanted)
-        
+
+        self.vs_rules_wgt = RulesWidget(self.X_list[0], self.variables, True, self.rules_updated)
+        self.es_rules_wgt = RulesWidget(self.X_list[0], self.variables, False, self.rules_updated)
 
         self.color = []
         self.selection_ids = []
 
         # Various inits 
         # No selection, so the datatable is not visible :
-        get_widget_at_address(app_widget,"3041").disabled = True
+        get_widget(app_widget,"3041").disabled = True
         # No selection, so the tabs 2, 3 and 4 are not avaiable
-        get_widget_at_address(app_widget,"301").disabled = True
-        get_widget_at_address(app_widget,"302").disabled = True
-        get_widget_at_address(app_widget,"303").disabled = True
+        get_widget(app_widget,"301").disabled = True
+        get_widget(app_widget,"302").disabled = True
+        get_widget(app_widget,"303").disabled = True
         
 
     def __repr__(self) -> str:
-        return "Hello i'm the GUI !"
+        return "AntakIA's GUI"
 
     def show_splash_screen(self):
         """ Displays the splash screen and updates it during the first computations.
         """
-        get_widget_at_address(splash_widget, "110").color = "light blue"
-        get_widget_at_address(splash_widget, "110").v_model = 100
-        get_widget_at_address(splash_widget, "210").color = "light blue"
-        get_widget_at_address(splash_widget, "210").v_model = 100
+        get_widget(splash_widget, "110").color = "light blue"
+        get_widget(splash_widget, "110").v_model = 100
+        get_widget(splash_widget, "210").color = "light blue"
+        get_widget(splash_widget, "210").v_model = 100
         display(splash_widget)
         
         # We trigger VS proj computation :
-        get_widget_at_address(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X_list[0].shape} x 4"
+        get_widget(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X_list[0].shape} x 4"
         self.vs_hde.compute_projs(self.update_splash_screen)
 
 
@@ -157,33 +158,29 @@ class GUI:
         if self.es_hde.pv_list[0] is None:
             # We compute default explanations :
             index = 1 if config.DEFAULT_EXPLANATION_METHOD == ExplanationMethod.SHAP else 3
-            get_widget_at_address(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X_list[0].shape}"
+            get_widget(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X_list[0].shape}"
             self.es_hde.pv_list[0] = ProjectedValues(self.new_values_wanted(index, self.update_splash_screen))
         else:
-            get_widget_at_address(splash_widget, "120").v_model = f"{self.labels_list[self.es_hde.current_pv]}"
+            get_widget(splash_widget, "120").v_model = f"{self.labels_list[self.es_hde.current_pv]}"
 
         # THen we trigger ES proj computation :
         self.es_hde.compute_projs(self.update_splash_screen)
         
         splash_widget.close()
 
-        # We clean tab2 by setting empty RulesWidgets, on both sides :
-        change_widget(app_widget,"305010", create_empty_ruleswidget(True).vbox_widget)
-        change_widget(app_widget,"305010", create_empty_ruleswidget(False).vbox_widget)
-
         self.show_app()
 
     def update_splash_screen(self, caller: LongTask, progress: int, duration:float):
         """ 
-       Updates prorfess p$-abr progress bars of the splash screen
+        Updates prorfess p$-abr progress bars of the splash screen
         """
         
         if isinstance(caller, ExplanationMethod):
             # It's an explanation
-            progress_linear = get_widget_at_address(splash_widget, "110")
+            progress_linear = get_widget(splash_widget, "110")
             number = 1
         else:  # It's a projection
-            progress_linear = get_widget_at_address(splash_widget, "210")
+            progress_linear = get_widget(splash_widget, "210")
             number = 4 # (VS/ES) x (2D/3D)
         
         if progress_linear.color == "light blue":
@@ -232,14 +229,15 @@ class GUI:
         if len(new_selection_indexes)==0:
             selection_status_str = f"No point selected. Use the 'lasso' tool to select points on one of the two graphs"
             # We disable the datatable :
-            get_widget_at_address(app_widget,"3041").disabled = True
+            get_widget(app_widget,"3041").disabled = True
             # We disable the SkopeButton
-            get_widget_at_address(app_widget,"3050000").disabled = True
+            get_widget(app_widget,"3050000").disabled = True
             
         else: 
             selection_status_str = f"Current selection : {len(new_selection_indexes)} point selected {round(100*len(new_selection_indexes)/len(self.X_list[0]))}% of the  dataset"
+            
             # We show the datatable :
-            get_widget_at_address(app_widget,"3041").disabled = False
+            get_widget(app_widget,"3041").disabled = False
             # TODO : format the cells, remove digits
             change_widget(app_widget,"3041010000", v.DataTable(
                     v_model=[],
@@ -251,11 +249,12 @@ class GUI:
                     disable_sort=False,
                 )
             )
+
             # Navigation
             # We open tab2 "refinement"
-            get_widget_at_address(app_widget,"301").disabled = False
+            get_widget(app_widget,"301").disabled = False
             # We enable the SkopeButton
-            get_widget_at_address(app_widget,"3050000").disabled = False
+            get_widget(app_widget,"3050000").disabled = False
 
         change_widget(app_widget,"3040010", selection_status_str)
         
@@ -266,13 +265,34 @@ class GUI:
         # We store the new selection
         self.selection_ids = new_selection_indexes
 
+    def rules_updated(self, rules_widget: RulesWidget, df_indexes: list):
+        """
+        Called by a RulesWidget upond (skope) rule creation or when the user updates the rules via a RulesWidget
+        The function asks the HDEs to display the rules result ()
+        """
+        logger.debug(f"rules_updated: from {'VS' if rules_widget.is_value_space else 'ES'} with {len(df_indexes)} indexes")
+        # Navigation :
+        # We make HDE figures non selectable :
+        self.vs_hde.set_selection_disabled(True)
+        self.es_hde.set_selection_disabled(True)
+        # We disable tab 1 :
+        get_widget(app_widget,"300").disabled = True
+
+        # We make sure we're in 2D :
+        get_widget(app_widget, "102").v_model == 2 # Switch button
+        self.vs_hde.set_dimension(2)
+        self.es_hde.set_dimension(2)
+
+        # We sent to the proper HDE the rules_indexes to render :
+        self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
+
     def show_app(self):
 
         # logger.debug(f"show_app: app_widget = {app_widget.id()}")
 
         # --------- Two HighDimExplorers ----------
 
-        # We attach each HighDimExplorers component to the app_graph :
+        # We attach each HighDimExplorers component to the app_graph:        
         change_widget(app_widget, "2001", self.vs_hde.container),
         change_widget(app_widget, "1200", self.vs_hde.get_projection_select())
         change_widget(app_widget, "12020", self.vs_hde.get_projection_prog_circ())
@@ -292,7 +312,7 @@ class GUI:
                 Allows change the color of the dots
             """
             # TODO : read the choice from the event, not from the GUI
-            choice = get_widget_at_address(app_widget,"110").v_model
+            choice = get_widget(app_widget,"110").v_model
 
             self.color = None
             if choice == "y":
@@ -331,7 +351,7 @@ class GUI:
 
 
         # Set "change" event on the Button Toggle used to chose color
-        get_widget_at_address(app_widget, "110").on_event("change", change_color)
+        get_widget(app_widget, "110").on_event("change", change_color)
 
         # ------- Dimension Switch ----------
 
@@ -345,8 +365,8 @@ class GUI:
             self.es_hde.set_dimension(3 if data else 2)
 
 
-        get_widget_at_address(app_widget, "102").v_model == config.DEFAULT_VS_DIMENSION
-        get_widget_at_address(app_widget, "102").on_event("change", switch_dimension)
+        get_widget(app_widget, "102").v_model == config.DEFAULT_VS_DIMENSION
+        get_widget(app_widget, "102").on_event("change", switch_dimension)
 
         # ---- Tab 2 : refinement ----
 
@@ -358,23 +378,23 @@ class GUI:
             
 
         # We wire a click event on validateRegionBtn(307000)
-        get_widget_at_address(app_widget, "307000").on_event("click", new_region_validated)
+        get_widget(app_widget, "307000").on_event("click", new_region_validated)
         def cluster_number_changed(*b):
             # TODO : read the slider from the event, not from the GUI
             # We set clustersSliderTxt to the current clustersSlider value
 
-            change_widget(app_widget, "304230", "Number of clusters " + str(get_widget_at_address(app_widget,"30422").v_model))
+            change_widget(app_widget, "304230", "Number of clusters " + str(get_widget(app_widget,"30422").v_model))
 
         # We wire the input event on the clustersSlider (30422)
-        get_widget_at_address(app_widget,"30422").on_event("input", cluster_number_changed)
+        get_widget(app_widget,"30422").on_event("input", cluster_number_changed)
 
         def cluster_check_changed(*b):
             # TODO : read the slider from the event, not from the GUI
             # TODO : what is this clusterCheck ?
             # clusterSlider(30422) visibility is linked to clusterCheck(30421)
-            get_widget_at_address(app_widget,"30422").disabled = get_widget_at_address(app_widget,"30421").v_model
+            get_widget(app_widget,"30422").disabled = get_widget(app_widget,"30421").v_model
 
-        get_widget_at_address(app_widget,"30421").on_event("change", cluster_check_changed)
+        get_widget(app_widget,"30421").on_event("change", cluster_check_changed)
 
         # Let's create an empty / dummy cluster_results_table :
         new_df = pd.DataFrame([], columns=["Region #", "Number of points"])
@@ -409,10 +429,10 @@ class GUI:
         def magic_btn_clicked(*b) -> int:
             # TODO : why ??
             # We update our loadingClustersProgLinear (3043)
-            get_widget_at_address(app_widget,"3043").class_ = "d-flex"
+            get_widget(app_widget,"3043").class_ = "d-flex"
 
             # Depending on clusterCheck (30421) :
-            if get_widget_at_address(app_widget,"30421").v_model:
+            if get_widget(app_widget,"30421").v_model:
                 self._auto_cluster_regions = auto_cluster(
                     self._ds.get_full_values(Dataset.SCALED),
                     self._xds.get_full_values(self._explanation_es[0]),
@@ -424,7 +444,7 @@ class GUI:
                     self._ds.get_full_values(Dataset.SCALED),
                     self._xds.get_full_values(self._explanation_es[0]),
                     # We read clusterSlider (30423) value :
-                    get_widget_at_address(app_widget,"30423").v_model,
+                    get_widget(app_widget,"30423").v_model,
                     False,
                 )
 
@@ -445,21 +465,21 @@ class GUI:
             # ]
 
             # colorChoiceBtnToggle(111) must be changed :
-            get_widget_at_address(app_widget,"30423").v_model = "auto"
+            get_widget(app_widget,"30423").v_model = "auto"
 
             # We wire a change event on a button above the cluster_results_table DataTable (30420)
-            get_widget_at_address(app_widget,"30420").on_event(
+            get_widget(app_widget,"30420").on_event(
                 "change", cluster_results_table_changed
             )
 
             # We udpate loadingClustersProgLinear (3043)
-            get_widget_at_address(app_widget,"30440").class_ = "d-none"
+            get_widget(app_widget,"30440").class_ = "d-none"
 
             # TODO : check if we really expect an int from this function
             return len(self._auto_cluster_regions)
         
         # We wire the click event on the "Magic" findClusterBtn (30451)
-        get_widget_at_address(app_widget,"30451").on_event("click", magic_btn_clicked)
+        get_widget(app_widget,"30451").on_event("click", magic_btn_clicked)
 
         def cluster_results_table_changed(widget, event, data):  # 1803
             """
@@ -472,10 +492,10 @@ class GUI:
             labels = self._auto_cluster_regions[1]
 
             # TODO : I guess tabOneSelectionColumn.children[-1].children[0].children[0] was refering to the DataTable
-            index = get_widget_at_address(app_widget,"304420").v_model
+            index = get_widget(app_widget,"304420").v_model
             liste = [i for i, d in enumerate(labels) if d == float(index)]
 
-            get_widget_at_address(app_widget,"30423").v_model = "auto"
+            get_widget(app_widget,"30423").v_model = "auto"
             # We call change_color by hand 
             # TODO : register change_color on the cluster_results_table instead 
             change_color()
@@ -483,71 +503,40 @@ class GUI:
 
         
         def magic_checkbox_changed(widget, event, data):
-            textField = get_widget_at_address(app_widget,"30453")
+            textField = get_widget(app_widget,"30453")
             if widget.v_model:
                 textField.disabled = False
             else:
                 textField.disabled = True
 
         # We wire a change event on magicCheckBox (or "demonstration mode" chekcbox)
-        get_widget_at_address(app_widget,"30452").on_event("change", magic_checkbox_changed)
+        get_widget(app_widget,"30452").on_event("change", magic_checkbox_changed)
 
         # =============== Skope rules ===============
+
+        # We add our 2 RulesWidgets to the GUI :
+        change_widget(app_widget, "305010", self.vs_rules_wgt.root_widget)
+        change_widget(app_widget, "305011", self.es_rules_wgt.root_widget)
 
         def compute_rules(widget, event, data):
             # if clicked, selection can't be empty
             # Let's disable the button during computation:
-            get_widget_at_address(app_widget,"3050000").disabled = True
+            get_widget(app_widget,"3050000").disabled = True
             
             # We try fo find Skope Rules on "VS" side :
             vs_rules_list, vs_score_list = Rule.compute_rules(self.selection_ids, self.vs_hde.get_current_X(), True, self.variables)
-            if len(vs_rules_list) > 0:
-                logger.debug(f"compute_rules: VS rules found : {vs_rules_list}, {vs_score_list}")
-                self.vs_rules_wgt = RulesWidget(self.vs_hde.get_current_X(), self.variables, True, vs_rules_list, vs_score_list, rules_updated)
-                change_widget(app_widget,"305010", self.vs_rules_wgt.vbox_widget)
-            else:
-                logger.debug(f"compute_rules: no VS rules found")
+            logger.debug(f"compute_rules: i call set_rules on VS with {vs_rules_list}")
+            self.vs_rules_wgt.set_rules(vs_rules_list, vs_score_list)
             
             # We try fo find Skope Rules on "ES" side :
             es_rules_list, es_score_list = Rule.compute_rules(self.selection_ids, self.es_hde.get_current_X(), False, self.variables)
-            if len(es_rules_list) > 0:
-                logger.debug(f"compute_rules: ES rules found : {es_rules_list}, {es_score_list}")
-                self.es_rules_wgt = RulesWidget(self.es_hde.get_current_X(), self.variables, False, es_rules_list, es_score_list, rules_updated)
-                change_widget(app_widget,"305011", self.es_rules_wgt.vbox_widget)
-            else:
-                logger.debug(f"compute_rules: no ES rules found")
+            logger.debug(f"compute_rules: i call set_rules on ES with {es_rules_list}")
+            self.es_rules_wgt.set_rules(es_rules_list, es_score_list)
 
-            get_widget_at_address(app_widget,"3050000").disabled = False
+            get_widget(app_widget,"3050000").disabled = False
 
         # We wire the ckick event on the skope-rules buttonn (3050000)
-        get_widget_at_address(app_widget,"3050000").on_event("click", compute_rules)
-
-
-        def rules_updated(rules_widget: RulesWidget, df_indexes: list):
-            """
-            Called by a RulesWidget upond (skope) rule creation or when the user updates the rules via a RulesWidget
-            The function asks the HDEs to display the rules result ()
-            """
-            # Navigation :
-            # We make HDE figures non selectable :
-            self.vs_hde.set_selection_disabled(True)
-            self.es_hde.set_selection_disabled(True)
-            # We disable tab 1 :
-            get_widget_at_address(app_widget,"300").disabled = True
-
-
-            logger.debug(f"rules_updated: received from {'VS RsW' if rules_widget.is_value_space else 'ES RsW'} : {rules_widget.get_current_rule_list()} rules to display")
-
-            # We make sure we're in 2D :
-            get_widget_at_address(app_widget, "102").v_model == 2 # Switch button
-            self.vs_hde.set_dimension(2)
-            self.es_hde.set_dimension(2)
-
-            
-            
-
-            # We sent to the proper HDE the rules_indexes to render :
-            self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
+        get_widget(app_widget,"3050000").on_event("click", compute_rules)
 
 
         def reinitSkopeRules(*b):
@@ -565,7 +554,7 @@ class GUI:
             # self.update_submodels_scores(None)
 
         # We wire the click event on the reinitSkopeBtn (3050001)
-        get_widget_at_address(app_widget, "3050001").on_event("click", reinitSkopeRules)
+        get_widget(app_widget, "3050001").on_event("click", reinitSkopeRules)
 
 
         # -------- figure size ------ 
@@ -576,24 +565,24 @@ class GUI:
             self.es_hde.redraw()
 
         # We wire the input event on the figureSizeSlider (050100)
-        get_widget_at_address(app_widget,"04000").on_event("input", fig_size_changed)
+        get_widget(app_widget,"04000").on_event("input", fig_size_changed)
         # We set the init value to default :
-        get_widget_at_address(app_widget,"04000").v_model=config.INIT_FIG_WIDTH
+        get_widget(app_widget,"04000").v_model=config.INIT_FIG_WIDTH
 
         # We wire the click event on addSkopeBtn (305020)
-        get_widget_at_address(app_widget,"305020").on_event("click", None)
+        get_widget(app_widget,"305020").on_event("click", None)
 
         # -- Show beeswarms Checkbox --
 
         def show_beeswarms_check_changed(widget, event, data):
             # TODO : read the beeSwarmCheck from the event, not from the GUI
     
-            refiners_list = get_widget_at_address(app_widget,"30501").children
+            refiners_list = get_widget(app_widget,"30501").children
 
             for refiner in refiners_list:
                 refiner.hide_beeswarm(widget.v_model)
         
         # We wire the change event on beeSwarmCheck (3050003)
-        # get_widget_at_address(app_widget,"3050003").on_event("change", show_beeswarms_check_changed)
+        # get_widget(app_widget,"3050003").on_event("change", show_beeswarms_check_changed)
 
         display(app_widget)

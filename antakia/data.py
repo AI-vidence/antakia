@@ -265,7 +265,6 @@ class Variable:
         self.descr = None
         self.critical = False
         self.continuous = False
-        self.explain_method = None
         self.lat = False
         self.lon = False
         
@@ -286,6 +285,35 @@ class Variable:
             variables.append(var)
         return variables
     
+    @staticmethod
+    def import_variable_list(var_list)-> list:
+        """
+        List of dicts
+        """
+        variables = []
+        for i in range(len(var_list)):
+            if isinstance(var_list[i], dict):
+                item = var_list[i]
+                if "col_index" in item and "symbol" in item and "type" in item:
+                    var = Variable(item["col_index"], item["symbol"], item["type"])
+                    if "unit" in item:
+                        var.unit = item["unit"]
+                    if "descr" in item:
+                        var.descr = item["descr"]
+                    if "critical" in item:
+                        var.critical = item["critical"]
+                    if "continuous" in item:
+                        var.continuous = item["continuous"]
+                    if "lat" in item:
+                        var.lat = item["lat"]
+                    if "lon" in item:
+                        var.lon = item["lon"]
+                    variables.append(var)
+                else:
+                    raise ValueError("Variable must a list of {key:value} with 'must keys' in [col_index, symbol, type] and optional keys in [unit, descr, critical, continuous, lat, lon]")
+        return variables
+
+
     @staticmethod
     def is_continuous(serie: pd.Series) -> bool:
         id_first_true = (serie > 0).idxmax()

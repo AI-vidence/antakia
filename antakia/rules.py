@@ -150,7 +150,7 @@ class Rule():
 
 
     @staticmethod
-    def rules_to_indexes(rules_list: list, base_space_df: pd.DataFrame, variables: list) -> list:
+    def rules_to_indexes(rules_list: list, base_space_df: pd.DataFrame) -> list:
         """"
         Returns a list of indexes of base_space_df that comply with the rules
         """
@@ -317,25 +317,23 @@ class Rule():
         return row_ids_list
 
     @staticmethod
-    def rules_to_records(rule_list: list) -> str:
+    def rules_to_dict_list(rule_list: list) -> dict:
         """""
-        Returns a string rep compatible with the v.DataTable  widget
+        Returns a dict rep compatible with the v.DataTable widget
         """
-        def rule_to_record(rule: Rule) -> str:
-            txt = "{"
-            txt += f"'Variable': '{rule.variable.symbol}', "
-            txt += f"'Unit': '{rule.variable.unit}', "
-            txt += f"'Desc': '{rule.variable.descr}', "
-            txt += f"'Critical': '{rule.variable.critical}', "
-            txt += f"'Rule': '{rule}', "
-            txt += "}"
-            return txt
+        def rule_to_dict(rule: Rule) -> dict:
+            temp = dict()
+            temp['Variable'] = rule.variable.symbol
+            temp['Unit'] = rule.variable.unit
+            temp['Desc'] = rule.variable.descr
+            temp['Critical'] = rule.variable.critical
+            temp['Rule'] = rule.__repr__()
+            return temp
 
-        txt = "["
-        for rule in rule_list:
-            txt += rule_to_record(rule) + "," 
-        txt += "]"
-        return txt
+        thing = [rule_to_dict(rule) for rule in rule_list] 
+        logger.debug(f"rules_to_dict : I return {thing}")
+
+        return thing
     
 def create_categorical_rule(variable: Variable, cat_values: list) -> Rule:
     """

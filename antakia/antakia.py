@@ -1,7 +1,7 @@
 import pandas as pd
 
 from antakia.data import ExplanationMethod, Variable, is_valid_model
-from antakia.gui import GUI
+from antakia.gui.gui import GUI
 from antakia.utils import confLogger
 
 import logging
@@ -32,7 +32,7 @@ class AntakIA():
 
     """
 
-    def __init__(self, X, y:pd.Series, model, method=None):
+    def __init__(self, X, y:pd.Series, model, method=None, variables: list=None):
         """
         AntakiIA constructor.
 
@@ -63,7 +63,14 @@ class AntakIA():
             else:
                 raise ValueError("bad explain method provided")
 
-        self.variables = Variable.guess_variables(X[0])
+        self.variables = variables
+        if self.variables is not None:
+            self.variables = Variable.import_variable_list(variables)
+            if len(self.variables) != len(X[0].columns):
+                raise ValueError("Provided variable list must be the same length of the dataframe")
+        else: 
+            self.variables = Variable.guess_variables(X[0])
+
         if len(self.X_list) > 1:
             # We ensure columns are the same for all X
             for df in self.X_list[1:]:
@@ -82,4 +89,4 @@ class AntakIA():
         self.regions = []
 
     def start_gui(self)-> GUI:
-        return GUI(self.X_list, self.X_method_list, self.y, self.model).show_splash_screen()
+        return GUI(self.X_list, self.X_method_list, self.y, self.model, self.variables).show_splash_screen()
