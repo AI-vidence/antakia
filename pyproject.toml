@@ -41,6 +41,7 @@ umap-learn = "^0.5.4"
 skope-rules = {git = "https://github.com/scikit-learn-contrib/skope-rules.git"}
 pandas = "2.1.2"
 jupyter = "^1.0.0"
+pacmap = "^0.7.1"
 
 [project.urls]
 Website = "https://ai-vidence.com/"
