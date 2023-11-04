@@ -403,17 +403,6 @@ app_widget = widgets.VBox(
                             style_="width: 150px",
                             disabled=False,
                         ),
-                        v.Btn(  # computeMenuBtnBtn # 112
-                            icon=True,
-                            children=[
-                                v.Icon(  # 112 0
-                                    children=[
-                                        "mdi-opacity"  # 112 00
-                                        ])
-                                ],
-                            class_="ma-2 ml-6 pa-3",
-                            elevation="3",
-                        ),
                     ],
                 ),
                 v.Layout(  # 12
@@ -667,8 +656,6 @@ app_widget = widgets.VBox(
             ]
         ),
         v.Col( # 3
-            # [  
-            # fluid=True,
             children=[
                 v.Tabs(  # 30
                     v_model=0,  # default active tab
@@ -678,21 +665,19 @@ app_widget = widgets.VBox(
                         v.Tab(children=["3. Sub-model"]),  # 302
                         v.Tab(children=["4. Regions"]),  # 303
                     ]
-                    + [
+                    +
+                    [
                         v.TabItem(  # Tab 1) Selection # 304
-                            class_="d-flex flex-column align-left",
+                            class_="mt-5",
                             children=[
-                                # v.Card(  # 304 0
-                                #     class_="ma-2",
-                                #     elevation=0,
-                                #     children=[
                                 v.Row(  # 304 00
+                                    class_="ml-5",
                                     children=[
                                         v.Icon( # 304 000
                                             children=["mdi-lasso"]
                                         ),  # 304 000
                                         v.Html(  # 304 001
-                                            class_="mt-2 ml-4",
+                                            class_="mt-2",
                                             tag="h4",
                                             children=[
                                                 "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"  # 304 001 0
@@ -700,57 +685,44 @@ app_widget = widgets.VBox(
                                         ),
                                     ]
                                 ),
-                                #     ],
-                                # ),
                                 v.ExpansionPanels(  # 304 1
-                                    class_="ma-2",
+                                    class_="mt-5 flex-row justify-start",
                                     children=[
                                         v.ExpansionPanel(  # 304 10
-                                            style_="max-width: 90%",
-                                            class_="flex",
+                                            style_="max-width: 100%",
+                                            class_="flex flex_row",
                                             children=[
                                                 v.ExpansionPanelHeader(  # 304 100
                                                     children=["Data selected"]
                                                 ),  # 304 100 0
                                                 v.ExpansionPanelContent(  # 304 101
-                                                    # children=[
-                                                    #     v.Alert(  # 304 101 0
-                                                            children=[
-                                                                v.Row(  # 304 101 00
-                                                                    children=[
-                                                                        v.Layout(  # 304 101 000
-                                                                            children=[
-                                                                                v.DataTable(  # 304 410 000 1
-                                                                                    v_model=[],
-                                                                                    show_select=False,
-                                                                                    headers=[
-                                                                                        {
-                                                                                            "text": column,
-                                                                                            "sortable": True,
-                                                                                            "value": column,
-                                                                                        }
-                                                                                        for column in dummy_df.columns
-                                                                                    ],
-                                                                                    items=dummy_df.to_dict(
-                                                                                        "records"
-                                                                                    ),
-                                                                                    hide_default_footer=False,
-                                                                                    disable_sort=False,
-                                                                                )
-                                                                            ],
-                                                                        )
-                                                                    ],
-                                                                ),
+                                                    children=[
+                                                        v.DataTable(  # 304 410 000 1
+                                                            v_model=[],
+                                                            show_select=False,
+                                                            headers=[
+                                                                {
+                                                                    "text": column,
+                                                                    "sortable": True,
+                                                                    "value": column,
+                                                                }
+                                                                for column in dummy_df.columns
                                                             ],
-                                                    #     ),
-                                                    # ]
+                                                            items=dummy_df.to_dict(
+                                                                "records"
+                                                            ),
+                                                            hide_default_footer=False,
+                                                            disable_sort=False,
+                                                        )
+                                                    ],
+
                                                 ),
                                             ]
                                         )
                                     ],
-                                )
+                                ),
                             ]
-                        ),
+                        ), # End TabITem
                         v.TabItem(  # Tab 2) Refinement # 305
                             class_="mt-5",
                             children=[
@@ -759,7 +731,7 @@ app_widget = widgets.VBox(
                                         widgets.VBox( # 305 00
                                             [
                                                 v.Layout( # 305 000
-                                                    class_="d-flex flex-row",
+                                                    class_="d-flex flex-row align-center",
                                                     children=[
                                                         v.Btn( # 305 000 0
                                                             class_="ma-1",
@@ -785,6 +757,13 @@ app_widget = widgets.VBox(
                                                                 "Skope rules",
                                                             ],
                                                         ),
+                                                        v.Icon(children=["mdi-arrow-left-bold-box"]),
+                                                        v.Switch( 
+                                                            class_="ml-3 mr-3",
+                                                            v_model=True,
+                                                            label="",
+                                                        ),
+                                                        v.Icon(children=["mdi-arrow-right-bold-box"]),
                                                         v.Btn( # 305 000 2
                                                             class_="ma-1",
                                                             children=[
@@ -988,62 +967,12 @@ app_widget = widgets.VBox(
                                 )
                             ]
                         ),
-                        v.TabItem(  # Tab 3) = tabThreeSubstitutionVBox ? # 306
+                        v.TabItem(  # Tab 3) Sub-model # 306
                             children=[
-                                widgets.VBox(  # 306 0
-                                    [
-                                        v.ProgressLinear(  # loadingModelsProgLinear # 306 00
-                                            indeterminate=True,
-                                            class_="my-0 mx-15",
-                                            style_="width: 100%;",
-                                            color="primary",
-                                            height="5",
-                                        ),
-                                        v.SlideGroup(  # subModelslides # 306 01
-                                            v_model=None,
-                                            class_="ma-3 pa-3",
-                                            elevation=4,
-                                            center_active=True,
-                                            show_arrows=True,
-                                            children=[
-                                                v.SlideItem(  # 306 010 # dummy SlideItem. Will be replaced by the app
-                                                    # style_="width: 30%",
-                                                    children=[
-                                                        v.Card(
-                                                            class_="grow ma-2",
-                                                            children=[
-                                                                v.Row(
-                                                                    class_="ml-5 mr-4",
-                                                                    children=[
-                                                                        v.Icon(
-                                                                            children=[
-                                                                                "a name"
-                                                                            ]
-                                                                        ),
-                                                                        v.CardTitle(
-                                                                            children=[
-                                                                                "model foo"
-                                                                            ]
-                                                                        ),
-                                                                    ],
-                                                                ),
-                                                                v.CardText(
-                                                                    class_="mt-0 pt-0",
-                                                                    children=[
-                                                                        "Model's score"
-                                                                    ],
-                                                                ),
-                                                            ],
-                                                        )
-                                                    ],
-                                                )
-                                            ],
-                                        ),
-                                    ]
-                                )
+                                
                             ]
                         ),
-                        v.TabItem(  # Tab 4) = tabFourRegionListVBox # 307
+                        v.TabItem(  # Tab 4) Regions # 307
                             children=[
                                 v.Col(  # 307 0
                                     children=[
