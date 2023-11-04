@@ -19,6 +19,8 @@ git lfs install
 cd antakia
 git lfs track "*.csv"
 git add .gitattributes
+git lfs fetch
+git lfs checkout
 ```
 
 Reference : [see Git-LFS website](https://git-lfs.com)
