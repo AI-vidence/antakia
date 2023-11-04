@@ -17,7 +17,7 @@ You'll also need to install Git LFS to download our CSV files in /data:
 brew install git-lfs # if you're a Mac / brew user
 git lfs install
 cd antakia
-git lfs trakc "*.csv"
+git lfs track "*.csv"
 git add .gitattributes
 ```
 
