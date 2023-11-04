@@ -1,19 +1,14 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[project]
+[tool.poetry]
 name = "antakia"
-version = "0.1"
-authors = [
-    { name = "Antoine EDY", email = "antoineedy@outlook.fr" },
-    { name = "Laurent MICHEL", email = "laurent@ai-vidence.com" },
-    { name = "David CORTÉS", email = "david@ai-vidence.com" },
-]
+version = "0.1.0"
 description = "AI made Xplainable"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { file = "LICENSE" }
+authors = [
+    "Antoine EDY <antoineedy@outlook.fr>",
+    "Pierre HULOT <pierre@ai-vidence.com>",
+    "Laurent MICHEL <laurent@ai-vidence.com>",
+    "David CORTÉS <david@ai-vidence.com>"
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -26,12 +21,32 @@ keywords = [
     "machine learning",
     "artificial intelligence",
 ]
-dynamic = ["dependencies"]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+ipykernel = "^6.26.0"
+ipython = "^8.17.2"
+ipyvuetify = "^1.8.10"
+ipywidgets = "^8.1.1"
+jupyterlab = "^4.0.8"
+jupyterlab-widgets = "^3.0.9"
+lime = "^0.2.0.1"
+mvlearn = "^0.5.0"
+numba = "^0.58.1"
+plotly = "^5.18.0"
+pre-commit = "^3.5.0"
+scikit-learn = "^1.3.2"
+shap = "^0.43.0"
+umap-learn = "^0.5.4"
+skope-rules = {git = "https://github.com/scikit-learn-contrib/skope-rules.git"}
+pandas = "2.1.2"
+jupyter = "^1.0.0"
 
 [project.urls]
 Website = "https://ai-vidence.com/"
 Repository = "https://github.com/AI-vidence/antakia"
 Documentation = "https://ai-vidence.github.io/antakia/"
 
-[tool.setuptools.dynamic]
-dependencies = { file = ["requirements.txt"] }
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
