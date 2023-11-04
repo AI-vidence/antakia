@@ -62,7 +62,7 @@ class GUI:
         IMPORTANT : a dataframe index may differ from the row number
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
     vs_rules_wgt, es_rules_wgt : RulesWidget
-    color : Pandas Series : color for each Y point
+    update_graphs_stack : list of tuples # history for undos
 
     """
 
@@ -122,8 +122,8 @@ class GUI:
             self.selection_changed, 
             self.new_values_wanted)
 
-        self.vs_rules_wgt = RulesWidget(self.X_list[0], self.variables, True, self.rules_updated)
-        self.es_rules_wgt = RulesWidget(self.X_list[0], self.variables, False, self.rules_updated)
+        self.vs_rules_wgt = RulesWidget(self.X_list[0], self.variables, True, self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.X_list[0], self.variables, False, self.new_rules_defined)
 
         self.color = []
         self.selection_ids = []
@@ -135,6 +135,8 @@ class GUI:
         get_widget(app_widget,"301").disabled = True
         get_widget(app_widget,"302").disabled = True
         get_widget(app_widget,"303").disabled = True
+
+        self.update_graphs_stack = []
         
 
     def __repr__(self) -> str:
@@ -172,7 +174,7 @@ class GUI:
 
     def update_splash_screen(self, caller: LongTask, progress: int, duration:float):
         """ 
-        Updates prorfess p$-abr progress bars of the splash screen
+        Updates progress bars of the splash screen
         """
         
         if isinstance(caller, ExplanationMethod):
@@ -231,7 +233,7 @@ class GUI:
             # We disable the datatable :
             get_widget(app_widget,"3041").disabled = True
             # We disable the SkopeButton
-            get_widget(app_widget,"3050000").disabled = True
+            get_widget(app_widget,"3050001").disabled = True
             
         else: 
             selection_status_str = f"Current selection : {len(new_selection_indexes)} point selected {round(100*len(new_selection_indexes)/len(self.X_list[0]))}% of the  dataset"
@@ -254,7 +256,9 @@ class GUI:
             # We open tab2 "refinement"
             get_widget(app_widget,"301").disabled = False
             # We enable the SkopeButton
-            get_widget(app_widget,"3050000").disabled = False
+            get_widget(app_widget,"3050001").disabled = False
+            # We disable the 'back_to_selection' button:
+            get_widget(app_widget, "3050000").disabled = True
 
         change_widget(app_widget,"3040010", selection_status_str)
         
@@ -265,13 +269,18 @@ class GUI:
         # We store the new selection
         self.selection_ids = new_selection_indexes
 
-    def rules_updated(self, rules_widget: RulesWidget, df_indexes: list):
+    def new_rules_defined(self, rules_widget: RulesWidget, df_indexes: list, skr:bool=False):
         """
-        Called by a RulesWidget upond (skope) rule creation or when the user updates the rules via a RulesWidget
-        The function asks the HDEs to display the rules result ()
+        Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
+        The function asks the HDEs to display the rules result
         """
-        logger.debug(f"rules_updated: from {'VS' if rules_widget.is_value_space else 'ES'} with {len(df_indexes)} indexes")
         # Navigation :
+        # We enable the 'Update graphs' buttonn, but not for the SKR init
+        logger.debug(f"new_rules_defined")
+        if not skr:
+            # We enbale the 'Update graphs' button
+            get_widget(app_widget, "3050002").disabled = False
+
         # We make HDE figures non selectable :
         self.vs_hde.set_selection_disabled(True)
         self.es_hde.set_selection_disabled(True)
@@ -287,8 +296,6 @@ class GUI:
         self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
 
     def show_app(self):
-
-        # logger.debug(f"show_app: app_widget = {app_widget.id()}")
 
         # --------- Two HighDimExplorers ----------
 
@@ -368,149 +375,7 @@ class GUI:
         get_widget(app_widget, "102").v_model == config.DEFAULT_VS_DIMENSION
         get_widget(app_widget, "102").on_event("change", switch_dimension)
 
-        # ---- Tab 2 : refinement ----
-
-        # ---------- cluster and regions  ------------
-
-        # Called when validating a tile to add it to the set of Regions
-        def new_region_validated(*args):
-            pass
-            
-
-        # We wire a click event on validateRegionBtn(307000)
-        get_widget(app_widget, "307000").on_event("click", new_region_validated)
-        def cluster_number_changed(*b):
-            # TODO : read the slider from the event, not from the GUI
-            # We set clustersSliderTxt to the current clustersSlider value
-
-            change_widget(app_widget, "304230", "Number of clusters " + str(get_widget(app_widget,"30422").v_model))
-
-        # We wire the input event on the clustersSlider (30422)
-        get_widget(app_widget,"30422").on_event("input", cluster_number_changed)
-
-        def cluster_check_changed(*b):
-            # TODO : read the slider from the event, not from the GUI
-            # TODO : what is this clusterCheck ?
-            # clusterSlider(30422) visibility is linked to clusterCheck(30421)
-            get_widget(app_widget,"30422").disabled = get_widget(app_widget,"30421").v_model
-
-        get_widget(app_widget,"30421").on_event("change", cluster_check_changed)
-
-        # Let's create an empty / dummy cluster_results_table :
-        new_df = pd.DataFrame([], columns=["Region #", "Number of points"])
-        columns = [{"text": c, "sortable": True, "value": c} for c in new_df.columns]
-
-        # We insert the cluster_results_table
-        change_widget(app_widget, "304410", v.Row(
-            children=[
-                v.Layout(
-                    class_="flex-grow-0 flex-shrink-0",
-                    children=[v.Btn(class_="d-none", elevation=0, disabled=True)],
-                ),
-                v.Layout( 
-                    class_="flex-grow-1 flex-shrink-0",
-                    children=[v.DataTable( # cluster_results_table
-                        class_="w-100",
-                        style_="width : 100%",
-                        v_model=[],
-                        show_select=False,
-                        headers=columns,
-                        explanationsMenuDict=new_df.to_dict("records"),
-                        item_value="Region #",
-                        item_key="Region #",
-                        hide_default_footer=True,
-                    )],
-                ),
-            ],
-        )
-        )
-
-        # ------ Magic Buton ------
-        def magic_btn_clicked(*b) -> int:
-            # TODO : why ??
-            # We update our loadingClustersProgLinear (3043)
-            get_widget(app_widget,"3043").class_ = "d-flex"
-
-            # Depending on clusterCheck (30421) :
-            if get_widget(app_widget,"30421").v_model:
-                self._auto_cluster_regions = auto_cluster(
-                    self._ds.get_full_values(Dataset.SCALED),
-                    self._xds.get_full_values(self._explanation_es[0]),
-                    3,
-                    True,
-                )
-            else:
-                self._auto_cluster_regions = auto_cluster(
-                    self._ds.get_full_values(Dataset.SCALED),
-                    self._xds.get_full_values(self._explanation_es[0]),
-                    # We read clusterSlider (30423) value :
-                    get_widget(app_widget,"30423").v_model,
-                    False,
-                )
-
-            # TODO we'll have to change this when Selection will be returned
-            self.color = self._auto_cluster_regions[1]
-
-            self.redraw_both_graphs()
-
-            # We set our regions accordingly
-            self.regions = self._auto_cluster_regions # just created, no need to copy
-            # We update the GUI tab 1(304) clusterResults(3044) (ie a v.Row)
-            # change_widget(app_widget, "304234", self.datatable_from_Selectiones(self.regions))
-
-
-            # TODO : understand
-            # tabOneSelectionColumn.children = tabOneSelectionColumn.children[:-1] + [
-            #     clusterResults
-            # ]
-
-            # colorChoiceBtnToggle(111) must be changed :
-            get_widget(app_widget,"30423").v_model = "auto"
-
-            # We wire a change event on a button above the cluster_results_table DataTable (30420)
-            get_widget(app_widget,"30420").on_event(
-                "change", cluster_results_table_changed
-            )
-
-            # We udpate loadingClustersProgLinear (3043)
-            get_widget(app_widget,"30440").class_ = "d-none"
-
-            # TODO : check if we really expect an int from this function
-            return len(self._auto_cluster_regions)
-        
-        # We wire the click event on the "Magic" findClusterBtn (30451)
-        get_widget(app_widget,"30451").on_event("click", magic_btn_clicked)
-
-        def cluster_results_table_changed(widget, event, data):  # 1803
-            """
-            Called when a new magic clustering ahs been computed
-            """
-            # TODO : maybe this event should not be called only for "auto regions"
-
-            # TODO : this has to do with the color and the current 
-            # auto_cluser() implementation. It should return Selectiones
-            labels = self._auto_cluster_regions[1]
-
-            # TODO : I guess tabOneSelectionColumn.children[-1].children[0].children[0] was refering to the DataTable
-            index = get_widget(app_widget,"304420").v_model
-            liste = [i for i, d in enumerate(labels) if d == float(index)]
-
-            get_widget(app_widget,"30423").v_model = "auto"
-            # We call change_color by hand 
-            # TODO : register change_color on the cluster_results_table instead 
-            change_color()
-
-
-        
-        def magic_checkbox_changed(widget, event, data):
-            textField = get_widget(app_widget,"30453")
-            if widget.v_model:
-                textField.disabled = False
-            else:
-                textField.disabled = True
-
-        # We wire a change event on magicCheckBox (or "demonstration mode" chekcbox)
-        get_widget(app_widget,"30452").on_event("change", magic_checkbox_changed)
+        # ---- Tab 2 : refinement ---
 
         # =============== Skope rules ===============
 
@@ -521,44 +386,91 @@ class GUI:
         def compute_rules(widget, event, data):
             # if clicked, selection can't be empty
             # Let's disable the button during computation:
-            get_widget(app_widget,"3050000").disabled = True
+            get_widget(app_widget,"3050001").disabled = True
             
             # We try fo find Skope Rules on "VS" side :
             vs_rules_list, vs_score_list = Rule.compute_rules(self.selection_ids, self.vs_hde.get_current_X(), True, self.variables)
             logger.debug(f"compute_rules: i call set_rules on VS with {vs_rules_list}")
-            self.vs_rules_wgt.set_rules(vs_rules_list, vs_score_list)
+            self.vs_rules_wgt.init_rules(vs_rules_list, vs_score_list)
             
             # We try fo find Skope Rules on "ES" side :
             es_rules_list, es_score_list = Rule.compute_rules(self.selection_ids, self.es_hde.get_current_X(), False, self.variables)
             logger.debug(f"compute_rules: i call set_rules on ES with {es_rules_list}")
-            self.es_rules_wgt.set_rules(es_rules_list, es_score_list)
+            self.es_rules_wgt.init_rules(es_rules_list, es_score_list)
 
-            get_widget(app_widget,"3050000").disabled = False
+            # Navigation :
+            # If rules found, we enable 'back_to_selection' button:
+            get_widget(app_widget, "3050000").disabled = False
 
-        # We wire the ckick event on the skope-rules buttonn (3050000)
-        get_widget(app_widget,"3050000").on_event("click", compute_rules)
+        # We wire the ckick event on the 'Skope-rules' button
+        get_widget(app_widget,"3050001").on_event("click", compute_rules)
 
 
-        def reinitSkopeRules(*b):
-            pass
-            # Why the rules should be saved ?
-            # self.selection.setVSRules(self._save_rules)
+        def back_to_selection(widget, event, data):
+            # Navigation :
+            # We enable tab 1 
+            get_widget(app_widget,"300").disabled = False
+            # We show tab 1
+            get_widget(app_widget,"30").v_model=0
+            # We remove HDE's rules_traces
+            self.vs_hde.display_rules(None)
+            self.es_hde.display_rules(None)
+            # We disable the 'Update graphs' button
+            get_widget(app_widget, "3050002").disabled = True
+            # We empty our RulesWidgets
+            self.vs_rules_wgt.init_rules(None, None)
+            self.es_rules_wgt.init_rules(None, None)
+            # We make HDE figures selectable
+            self.vs_hde.set_selection_disabled(False)
+            self.es_hde.set_selection_disabled(False)
+            # We fon't disable tab 1 since there's an active selection
 
-            # If called, means the selection is back to a selection :
-            # self.selection.setType(Selection.SELECTION)
+        # We wire the click event on the 'back to selection' btn
+        get_widget(app_widget, "3050000").on_event("click", back_to_selection)
 
-            # We reset the refiners
-            # self.reinit_skope_rules(None)
+        # At start the button is disabled
+        get_widget(app_widget, "3050000").disabled = True
+        # Its enabled when a rule is found and disabled when a selection is made
 
-            # We udpate the scores for the submodels
-            # self.update_submodels_scores(None)
+        def update_graphs(widget, event, data):
+            self.update_graphs_stack.append([self.vs_rules_wgt.current_index, self.es_rules_wgt.current_index])
+            # We update the HDEs with the new rules
+            self.vs_hde.display_rules(self.vs_rules_wgt.rules_indexes)
+            self.es_hde.display_rules(self.es_rules_wgt.rules_indexes)
+            # Navigation :
+            # The 'Update graphs' button is disabled until new rules are defined
+            get_widget(app_widget, "3050002").disabled = True
+            # Now the 'Undo' button is enabled
+            get_widget(app_widget, "3050003").disabled = False
+            # TODO : implement when undo should be disabled
 
-        # We wire the click event on the reinitSkopeBtn (3050001)
-        get_widget(app_widget, "3050001").on_event("click", reinitSkopeRules)
+        # We wire the ckick event on the 'Update graphs' button
+        get_widget(app_widget, "3050002").on_event("click", update_graphs)
+        # At start the button is disabled
+        get_widget(app_widget, "3050002").disabled = True
+        # Its enabled when rules are modified in a RsW and disabled when we're back to selections
 
+        def undo(widget, event, data):
+            logger.debug(f"undo stack is {len(self.update_graphs_stack)}")
+            last_refresh_indexes = self.update_graphs_stack[len(self.update_graphs_stack)-1]
+            self.update_graphs_stack.pop(-1)
+            self.vs_rules_wgt.current_index = last_refresh_indexes[0]
+            self.es_rules_wgt.current_index = last_refresh_indexes[1]
+            self.vs_hde.redraw()
+            self.es_hde.redraw()
+            update_graphs(None, None, None)
+            if len(self.update_graphs_stack) == 0:
+                get_widget(app_widget, "3050003").disabled = True
+            
+
+        # We wire the ckick event on the 'Undo' button
+        get_widget(app_widget, "3050003").on_event("click", undo)
+        # At start the button is disabled
+        get_widget(app_widget, "3050003").disabled = True
+        # Its enabled when rules graphs have been updated with rules
 
         # -------- figure size ------ 
-        def fig_size_changed(widget, event, data):  # 2121
+        def fig_size_changed(widget, event, data):
             """ Called when the figureSizeSlider changed"""
             self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model/2)
             self.vs_hde.redraw()
@@ -568,21 +480,5 @@ class GUI:
         get_widget(app_widget,"04000").on_event("input", fig_size_changed)
         # We set the init value to default :
         get_widget(app_widget,"04000").v_model=config.INIT_FIG_WIDTH
-
-        # We wire the click event on addSkopeBtn (305020)
-        get_widget(app_widget,"305020").on_event("click", None)
-
-        # -- Show beeswarms Checkbox --
-
-        def show_beeswarms_check_changed(widget, event, data):
-            # TODO : read the beeSwarmCheck from the event, not from the GUI
-    
-            refiners_list = get_widget(app_widget,"30501").children
-
-            for refiner in refiners_list:
-                refiner.hide_beeswarm(widget.v_model)
-        
-        # We wire the change event on beeSwarmCheck (3050003)
-        # get_widget(app_widget,"3050003").on_event("change", show_beeswarms_check_changed)
 
         display(app_widget)

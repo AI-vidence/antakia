@@ -15,9 +15,9 @@ handler = confLogger(logger)
 handler.clear_logs()
 handler.show_logs()
 
+
 def is_valid_model(model) -> bool:
     return callable(getattr(model, "score")) and callable(getattr(model, "predict"))
-
 
 
 class LongTask(ABC):
@@ -32,7 +32,7 @@ class LongTask(ABC):
     progress:int
     """
 
-    def __init__(self, X: pd.DataFrame, progress_updated:callable = None):
+    def __init__(self, X: pd.DataFrame, progress_updated: callable = None):
         if X is None:
             raise ValueError("You must provide a dataframe for a LongTask")
         self.X = X
@@ -40,9 +40,8 @@ class LongTask(ABC):
         self.start_time = time.time()
         self.progress = 0
 
-    
     def publish_progress(self, progress: int):
-        self.progress = progress # its seems LIME requires it
+        self.progress = progress  # its seems LIME requires it
         self.progress_updated(self, progress, time.time() - self.start_time)
 
     @abstractmethod
@@ -52,7 +51,9 @@ class LongTask(ABC):
         """
         pass
 
+
 # -----
+
 
 class ExplanationMethod(LongTask):
     """
@@ -64,7 +65,7 @@ class ExplanationMethod(LongTask):
     """
 
     # Class attributes
-    NONE = 0 # no explanation, ie: original values
+    NONE = 0  # no explanation, ie: original values
     SHAP = 1
     LIME = 2
 
@@ -72,8 +73,8 @@ class ExplanationMethod(LongTask):
         self,
         explanation_method: int,
         X: pd.DataFrame,
-        model= None,
-        progress_updated:callable = None,
+        model=None,
+        progress_updated: callable = None,
     ):
         # TODO : do wee need X_all ?
         if not ExplanationMethod.is_valid_explanation_method(explanation_method):
@@ -87,7 +88,11 @@ class ExplanationMethod(LongTask):
         """
         Returns True if this is a valid explanation method.
         """
-        return method == ExplanationMethod.SHAP or method == ExplanationMethod.LIME or method == ExplanationMethod.NONE
+        return (
+            method == ExplanationMethod.SHAP
+            or method == ExplanationMethod.LIME
+            or method == ExplanationMethod.NONE
+        )
 
     @staticmethod
     def explanation_methods_as_list() -> list:
@@ -101,7 +106,7 @@ class ExplanationMethod(LongTask):
             return "LIME"
         else:
             raise ValueError(method, " is a bad explanation method")
-        
+
     @staticmethod
     def explain_method_as_int(method: str) -> int:
         if method.upper() == "SHAP":
@@ -111,7 +116,9 @@ class ExplanationMethod(LongTask):
         else:
             raise ValueError(method, " is a bad explanation method")
 
+
 # -----
+
 
 class DimReducMethod(LongTask):
     """
@@ -124,6 +131,7 @@ class DimReducMethod(LongTask):
         Dimension reduction methods require a dimension parameter
         We store it in the abstract class
     """
+
     # Class attributes methods
     PCA = 1
     TSNE = 2
@@ -131,7 +139,11 @@ class DimReducMethod(LongTask):
     PaCMAP = 4
 
     def __init__(
-        self, dimreduc_method: int, dimension: int, X: pd.DataFrame, progress_updated : callable = None
+        self,
+        dimreduc_method: int,
+        dimension: int,
+        X: pd.DataFrame,
+        progress_updated: callable = None,
     ):
         """
         Constructor for the DimReducMethod class.
@@ -150,10 +162,12 @@ class DimReducMethod(LongTask):
             Stored in LongTask instance
         """
         if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
-            raise ValueError(dimreduc_method, " is a Bbad dimensionality reduction method")
+            raise ValueError(
+                dimreduc_method, " is a Bbad dimensionality reduction method"
+            )
         if not DimReducMethod.is_valid_dim_number(dimension):
             raise ValueError(dimension, " is a bad dimension number")
-        
+
         self.dimreduc_method = dimreduc_method
         self.dimension = dimension
         # IMPORTANT : we set the topic as for ex 'PCA/2' or 't-SNE/3' -> subscribers have to follow this scheme
@@ -229,45 +243,56 @@ class DimReducMethod(LongTask):
         Returns True if dim is a valid dimension number.
         """
         return dim == 2 or dim == 3
-    
 
-    def get_dimension(self)->int:
+    def get_dimension(self) -> int:
         return self.dimension
 
 
 # ================================================
 
-class Variable:
-    """ 
-        Describes each X column or Y value
 
-        col_index : int
-            The index of the column in the dataframe i come from (ds or xds)
-            #TODO : I shoudl code an Abstract class for Dataset and ExplanationDataset
-        symbol : str
-            How it should be displayed in the GUI
-        descr : str
-            A description of the variable
-        type : str
-            The type of the variable
-        sensible : bool
-            Wether the variable is sensible or not
-        contiuous : bool
-        lat : bool
-        lon : bool
+class Variable:
+    """
+    Describes each X column or Y value
+
+    col_index : int
+        The index of the column in the dataframe i come from (ds or xds)
+        #TODO : I shoudl code an Abstract class for Dataset and ExplanationDataset
+    symbol : str
+        How it should be displayed in the GUI
+    descr : str
+        A description of the variable
+    type : str
+        The type of the variable
+    sensible : bool
+        Wether the variable is sensible or not
+    contiuous : bool
+    lat : bool
+    lon : bool
     """
 
-    def __init__(self, col_index:int, symbol: str, type: str):
+    def __init__(
+        self,
+        col_index: int,
+        symbol: str,
+        type: str,
+        unit: str = None,
+        descr: str = None,
+        critical=False,
+        continuous: bool = False,
+        lat: bool = False,
+        lon: bool = False,
+    ):
         self.col_index = col_index
         self.symbol = symbol
         self.type = type
-        self.unit = None
-        self.descr = None
-        self.critical = False
-        self.continuous = False
-        self.lat = False
-        self.lon = False
-        
+        self.unit = unit
+        self.descr = descr
+        self.critical = critical
+        self.continuous = continuous
+        self.lat = lat
+        self.lon = lon
+
     @staticmethod
     def guess_variables(X: pd.DataFrame) -> list:
         """
@@ -284,11 +309,21 @@ class Variable:
             var.continuous = Variable.is_continuous(X[X.columns[i]])
             variables.append(var)
         return variables
-    
+
     @staticmethod
-    def import_variable_list(var_list)-> list:
+    def import_variable_df(df: pd.DataFrame) -> list:
         """
-        List of dicts
+        Import variables from a DataFrame
+        """
+        # We just need to insert a new column with symbols (ie indexes)
+        df.insert(loc=0, column="symbol", value=df.index)
+        # and send it as list of dicts to import_variable_list
+        return Variable.import_variable_list(df.to_dict("records"))
+
+    @staticmethod
+    def import_variable_list(var_list: list) -> list:
+        """
+        Import variables from a list of dicts
         """
         variables = []
         for i in range(len(var_list)):
@@ -310,9 +345,10 @@ class Variable:
                         var.lon = item["lon"]
                     variables.append(var)
                 else:
-                    raise ValueError("Variable must a list of {key:value} with 'must keys' in [col_index, symbol, type] and optional keys in [unit, descr, critical, continuous, lat, lon]")
+                    raise ValueError(
+                        "Variable must a list of {key:value} with 'must keys' in [col_index, symbol, type] and optional keys in [unit, descr, critical, continuous, lat, lon]"
+                    )
         return variables
-
 
     @staticmethod
     def is_continuous(serie: pd.Series) -> bool:
@@ -322,7 +358,7 @@ class Variable:
 
     def __repr__(self):
         """
-            Displays the variable as a string 
+        Displays the variable as a string
         """
         text = f"{self.symbol}, col#:{self.col_index}, type:{self.type}"
         if self.descr is not None:
@@ -331,37 +367,41 @@ class Variable:
             text += f", unit:{self.unit}"
         if self.critical:
             text += ", critical"
-        if self.continuous:
-            text += ", continuous"
+        if not self.continuous:
+            text += ", categorical"
         if self.lat:
             text += ", is lat"
         if self.lon:
             text += ", is lon"
         return text
 
-def vars_to_string(variables:list) -> str:
+
+def vars_to_string(variables: list) -> str:
     text = ""
     for i in range(len(variables)):
         var = variables[i]
-        text += str(i) + ") " +  var.__str__() + "\n"
+        text += str(i) + ") " + var.__str__() + "\n"
     return text
 
-def vars_to_sym_list(variables:list) -> list:
+
+def vars_to_sym_list(variables: list) -> list:
     symbols = []
     for var in variables:
         symbols.append(var.symbol)
     return symbols
 
-def var_from_symbol(variables:list, token:str) -> Variable:
-        for var in variables:
-            if var.symbol == token:
-                return var
-        return None
 
-class ProjectedValues():
+def var_from_symbol(variables: list, token: str) -> Variable:
+    for var in variables:
+        if var.symbol == token:
+            return var
+    return None
+
+
+class ProjectedValues:
     """
     A class to hold a Dataframe X, and its projected values (with various dimensionality reduction methods).
-    
+
     Instance attributes
     ------------------
     X  : pandas.Dataframe
@@ -393,15 +433,14 @@ class ProjectedValues():
         self.X = X
         self._X_proj = {}
 
-
     def __str__(self):
         text = f"X's shape : {self.X.shape}"
         for proj_method in DimReducMethod.dimreduc_methods_as_list():
-            for dim in [2,3]:
+            for dim in [2, 3]:
                 if self.is_available(proj_method, dim):
                     text += f"\n{DimReducMethod.dimreduc_method_as_str(proj_method)}/{DimReducMethod.dimension_as_str(dim)} : {self.get_proj_values(proj_method, dim).shape}"
         return text
-    
+
     def get_length(self) -> int:
         return self.X.shape[0]
 
@@ -418,20 +457,23 @@ class ProjectedValues():
         if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
             raise ValueError("Bad dimensionality reduction method")
         if not DimReducMethod.is_valid_dim_number(dimension):
-            raise ValueError(dimension," is a bad dimension number")
+            raise ValueError(dimension, " is a bad dimension number")
 
-        if dimreduc_method not in self._X_proj or dimension not in self._X_proj[dimreduc_method] or self._X_proj[dimreduc_method][dimension] is None:
+        if (
+            dimreduc_method not in self._X_proj
+            or dimension not in self._X_proj[dimreduc_method]
+            or self._X_proj[dimreduc_method][dimension] is None
+        ):
             # ProjectedValues is a "datastore", its role is not trigger projection computations
             return None
-        else :
+        else:
             return self._X_proj[dimreduc_method][dimension]
-    
-    def is_available(self, dimreduc_method: int, dimension: int) ->bool :
+
+    def is_available(self, dimreduc_method: int, dimension: int) -> bool:
         return self.get_proj_values(dimreduc_method, dimension) is not None
 
     def set_proj_values(
         self, dimreduc_method: int, dimension: int, values: pd.DataFrame
-
     ):
         """Set X_proj alues for this dimensionality reduction and  dimension."""
 

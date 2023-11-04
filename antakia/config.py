@@ -9,10 +9,6 @@ DEFAULT_VS_PROJECTION = DEFAULT_ES_PROJECTION = DimReducMethod.PaCMAP
 
 INIT_FIG_WIDTH = 1800
 
-# Convention :
-VS = 0
-ES = 1
-
 # Rule format
 USE_INTERVALS_FOR_RULES = True
 

@@ -44,16 +44,27 @@ class Rule():
 
     OPERATORS = ["<", "<=", "=", ">=", ">"]
 
-    def __init__(self, min: float, operator_min_str: str, variable: Variable, operator_max_str: str, max: float, cat_values: list = None):
+    def __init__(self, min: float, operator_min, variable: Variable, operator_max, max: float, cat_values: list = None):
         self.min = min
-        self.operator_min = self.OPERATORS.index(operator_min_str)
+        # operarors may be int or str or None (simple rule).
+        if isinstance(operator_min, int):
+            self.operator_min = operator_min
+        elif isinstance(operator_min, str):
+            self.operator_min = self.OPERATORS.index(operator_min)
+        else:
+            self.operator_min = None
         self.variable = variable
-        self.operator_max = self.OPERATORS.index(operator_max_str)
+        if isinstance(operator_max, int):
+            self.operator_max = operator_max
+        elif isinstance(operator_max, str):
+            self.operator_max = self.OPERATORS.index(operator_max)
+        else:
+            self.operator_max = None
         self.max = max
         self.cat_values = cat_values
 
     def is_categorical_rule(self) -> bool:
-        return not self.variable.is_continuous
+        return self.cat_values is not None and len(self.cat_values)
 
     def is_interval_rule(self) -> bool:
         return self.min is not None and self.max is not None
@@ -63,44 +74,51 @@ class Rule():
 
     def __repr__(self) -> str:
         txt = ""
-        if self.min is None:
-            # Rule type 1
-            txt = self.variable.symbol + " "
-            txt += "<" if self.operator_min == 0 else "\u2264" # lesser (or equal) than
-            txt += " " + str(self.max)
-        elif self.max is None:
-            # Rule type 2
-            txt = self.variable.symbol + " "
-            txt += ">" if self.operator_min == 0 else "\u2265" # geater (or equal) than
-            txt += " " + str(self.min)
+        if self.is_categorical_rule():
+            txt =  f"{self.variable.symbol} \u2208  \u27E6"
+            for i, cat_value in enumerate(self.cat_values):
+                txt += cat_value
+                if i < len(self.cat_values) - 1:
+                    txt += ", "
+            txt += "\u27E7"
         else:
-            if self.is_inner_interval_rule():
-                # Rule type 3 : the rule is of the form : variable included in [min, max] interval, or min < variable < max
-                if config.USE_INTERVALS_FOR_RULES:
-                    txt = self.variable.symbol + " \u2208 " # element of
-                    txt += "[" if self.operator_min==0 else "\u27E6" # exclusive or inclusive left square bracket
-                    txt += f"{self.min}, {self.max}"
-                    txt += "]" if self.operator_max==0 else "\u27E7" # exclusive or inclusive right square bracket
-                else:
-                    txt = str(self.min) + " "
-                    txt += "<" if self.operator_min == 0 else "\u2264" # lesser (or equal) than
-                    txt += " " + self.variable.symbol + " "
-                    txt += "<" if self.operator_max == 0 else "\u2264" # lesser (or equal) than
-                    txt += " " + str(self.max)
+            if self.min is None:
+                # Rule type 1
+                txt = self.variable.symbol + " "
+                txt += "<" if self.operator_min == 0 else "\u2264" # lesser (or equal) than
+                txt += " " + str(self.max)
+            elif self.max is None:
+                # Rule type 2
+                txt = self.variable.symbol + " "
+                txt += ">" if self.operator_min == 0 else "\u2265" # geater (or equal) than
+                txt += " " + str(self.min)
             else:
-                # Rule type 4 : the rule is of the form : variable not included in [min, max] interval or variable < min and variable > max
-                if config.USE_INTERVALS_FOR_RULES:
-                    txt = self.variable.symbol + "\u2209" # not an element of
-                    txt += "[" if self.operator_min==0 else "\u27E6" # exclusive or inclusive left square bracket
-                    txt += f"{self.min}, {self.max}"
-                    txt += "]" if self.operator_max==0 else "\u27E7" # exclusive or inclusive right square bracket
-                else :
-                    txt = self.variable.symbol + " "
-                    txt += "<" if self.operator_min == 0 else "\u2264" # lesser (or equal) than
-                    txt += " " + self.variable.symbol + " "
-                    txt += ">" if self.operator_max == 0 else "\u2265" # greater (or equal) than
-                    txt += " " + str(self.max)
-
+                if self.is_inner_interval_rule():
+                    # Rule type 3 : the rule is of the form : variable included in [min, max] interval, or min < variable < max
+                    if config.USE_INTERVALS_FOR_RULES:
+                        txt = self.variable.symbol + " \u2208 " # element of
+                        txt += "[" if self.operator_min==0 else "\u27E6" # exclusive or inclusive left square bracket
+                        txt += f"{self.min}, {self.max}"
+                        txt += "]" if self.operator_max==0 else "\u27E7" # exclusive or inclusive right square bracket
+                    else:
+                        txt = str(self.min) + " "
+                        txt += "<" if self.operator_min == 0 else "\u2264" # lesser (or equal) than
+                        txt += " " + self.variable.symbol + " "
+                        txt += "<" if self.operator_max == 0 else "\u2264" # lesser (or equal) than
+                        txt += " " + str(self.max)
+                else:
+                    # Rule type 4 : the rule is of the form : variable not included in [min, max] interval or variable < min and variable > max
+                    if config.USE_INTERVALS_FOR_RULES:
+                        txt = self.variable.symbol + "\u2209" # not an element of
+                        txt += "[" if self.operator_min==0 else "\u27E6" # exclusive or inclusive left square bracket
+                        txt += f"{self.min}, {self.max}"
+                        txt += "]" if self.operator_max==0 else "\u27E7" # exclusive or inclusive right square bracket
+                    else :
+                        txt = self.variable.symbol + " "
+                        txt += "<" if self.operator_min == 0 else "\u2264" # lesser (or equal) than
+                        txt += " " + self.variable.symbol + " "
+                        txt += ">" if self.operator_max == 0 else "\u2265" # greater (or equal) than
+                        txt += " " + str(self.max)
         return txt
 
     def get_matching_indexes(self, X: pd.DataFrame) -> list:
@@ -112,40 +130,44 @@ class Rule():
 
         query_var = "df['" + self.variable.symbol + "']"
 
-        if not self.is_interval_rule():
-            if self.min is None:
-                # Rule type 1
-                query = "df.loc[" + query_var + " "
-                query += "<" if self.operator_max == 0 else "<="
-                query += " " + str(self.max) + "]"    
-            if self.max is None:
-                # Rule type 2
-                query = "df.loc[" + " " + query_var + " "
-                query += ">" if self.operator_min == 0 else ">="
-                query += " " + str(self.min) + "]"
+        if self.is_categorical_rule():
+            query = f"df[ + {query_var} .isin({self.cat_values})]"
             df = eval(query)
         else:
-            # We have an interval rule -> 2 queries
-            if self.is_inner_interval_rule():
-                # Rule type 3 
-                min_query = "df.loc[" + query_var
-                min_query += ">" if self.operator_min == 0 else ">="
-                min_query += " " + str(self.min) + "]"
-                df = eval(min_query)
-                max_query = "df.loc[" + query_var
-                max_query += "<" if self.operator_max == 0 else "<="
-                max_query += " " + str(self.max) + "]"
-                df = eval(max_query)
-            else: 
-                # Rule type 4
-                min_query = "df.loc[" + query_var
-                min_query += "<" if self.operator_min == 0 else "<="
-                min_query += " " + str(self.min) + "]"
-                df = eval(min_query)
-                max_query = "df.loc[" + query_var
-                max_query += ">" if self.operator_max == 0 else ">="
-                max_query += " " + str(self.max) + "]"
-                df = eval(max_query)
+            if not self.is_interval_rule():
+                if self.min is None:
+                    # Rule type 1
+                    query = "df.loc[" + query_var + " "
+                    query += "<" if self.operator_max == 0 else "<="
+                    query += " " + str(self.max) + "]"    
+                if self.max is None:
+                    # Rule type 2
+                    query = "df.loc[" + " " + query_var + " "
+                    query += ">" if self.operator_min == 0 else ">="
+                    query += " " + str(self.min) + "]"
+                df = eval(query)
+            else:
+                # We have an interval rule -> 2 queries
+                if self.is_inner_interval_rule():
+                    # Rule type 3 
+                    min_query = "df.loc[" + query_var
+                    min_query += ">" if self.operator_min == 0 else ">="
+                    min_query += " " + str(self.min) + "]"
+                    df = eval(min_query)
+                    max_query = "df.loc[" + query_var
+                    max_query += "<" if self.operator_max == 0 else "<="
+                    max_query += " " + str(self.max) + "]"
+                    df = eval(max_query)
+                else: 
+                    # Rule type 4
+                    min_query = "df.loc[" + query_var
+                    min_query += "<" if self.operator_min == 0 else "<="
+                    min_query += " " + str(self.min) + "]"
+                    df = eval(min_query)
+                    max_query = "df.loc[" + query_var
+                    max_query += ">" if self.operator_max == 0 else ">="
+                    max_query += " " + str(self.max) + "]"
+                    df = eval(max_query)
         return df.index.tolist() if df is not None else []
 
 
@@ -154,6 +176,10 @@ class Rule():
         """"
         Returns a list of indexes of base_space_df that comply with the rules
         """
+
+        if rules_list is None or len(rules_list) == 0:
+            return []
+
         indexes = []
         for rule in rules_list:
             matching_indexes = rule.get_matching_indexes(base_space_df)
@@ -276,6 +302,8 @@ class Rule():
         )
         sk_classifier.fit(base_space_df, y_train)
 
+        logger.debug(f"Raw SFR = {sk_classifier.rules_}")
+
         if sk_classifier.rules_ != []:
             rules_list, score_list = Rule._extract_rules(sk_classifier.rules_, base_space_df, variables)
             if len(rules_list) >= 0:
@@ -317,10 +345,16 @@ class Rule():
         return row_ids_list
 
     @staticmethod
-    def rules_to_dict_list(rule_list: list) -> dict:
+    def rules_to_dict_list(rules_list: list) -> dict:
         """""
         Returns a dict rep compatible with the v.DataTable widget
         """
+
+        logger.debug(f"rules_list : {rules_list}")
+
+        if rules_list is None or len(rules_list) == 0:
+            return []
+
         def rule_to_dict(rule: Rule) -> dict:
             temp = dict()
             temp['Variable'] = rule.variable.symbol
@@ -329,11 +363,8 @@ class Rule():
             temp['Critical'] = rule.variable.critical
             temp['Rule'] = rule.__repr__()
             return temp
-
-        thing = [rule_to_dict(rule) for rule in rule_list] 
-        logger.debug(f"rules_to_dict : I return {thing}")
-
-        return thing
+        
+        return [rule_to_dict(rule) for rule in rules_list]
     
 def create_categorical_rule(variable: Variable, cat_values: list) -> Rule:
     """

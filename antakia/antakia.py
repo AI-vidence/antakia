@@ -32,7 +32,7 @@ class AntakIA():
 
     """
 
-    def __init__(self, X, y:pd.Series, model, method=None, variables: list=None):
+    def __init__(self, X, y:pd.Series, model, method=None, variables=None):
         """
         AntakiIA constructor.
 
@@ -65,10 +65,15 @@ class AntakIA():
 
         self.variables = variables
         if self.variables is not None:
-            self.variables = Variable.import_variable_list(variables)
-            if len(self.variables) != len(X[0].columns):
-                raise ValueError("Provided variable list must be the same length of the dataframe")
-        else: 
+            if isinstance(self.variables, list):
+                self.variables = Variable.import_variable_list(variables)
+                if len(self.variables) != len(X[0].columns):
+                    raise ValueError("Provided variable list must be the same length of the dataframe")
+            elif isinstance(self.variables, pd.DataFrame):
+                self.variables = Variable.import_variable_df(variables)
+            else:
+                raise ValueError("Provided variable list must be a list or a pandas DataFrame")
+        else:
             self.variables = Variable.guess_variables(X[0])
 
         if len(self.X_list) > 1:

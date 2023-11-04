@@ -292,11 +292,11 @@ class HighDimExplorer:
 
         # We add a second trace (Scatter) to the figure to display the rules
         if df_ids_list is None or len(df_ids_list) == 0:
-            # We remove the 'rule trace' if exists
+            # We remove the 'rule rules_trace' if exists
             if len(fig.data) > 1:
                 if fig.data[1] is not None:
                     # It seems impossible to remove a trace from a figure once created
-                    # So we hide or update&show this 'rule_trace'
+                    # So we hide or update&show this 'rules_trace'
                     fig.data[1].visible = False
         else:
             # Let's create a color scale with rule postives in blue and the rest in grey
@@ -309,7 +309,7 @@ class HighDimExplorer:
                 colors[row_id] = "blue"
 
             if len(fig.data) == 1:
-                # We need to add a 'rule_trace'
+                # We need to add a 'rules_trace'
                 if dim == 2:
                     fig.add_trace(
                         Scatter(
@@ -344,7 +344,7 @@ class HighDimExplorer:
                         )
                     )
             elif len(fig.data) == 2:
-                # We replace the existing 'rule_trace'
+                # We replace the existing 'rules_trace'
                 with fig.batch_update():
                     fig.data[1].x = self.pv_list[
                         self.current_pv
@@ -399,7 +399,7 @@ class HighDimExplorer:
         )
         return text
 
-    def create_figure(self, dim: int) -> FigureWidget:
+    def create_figure(self, dim: int):
         """
         Called by __init__ and by set_selection
         Builds and  returns the FigureWidget for the given dimension
@@ -688,7 +688,7 @@ class HighDimExplorer:
             self.figure_2D.data[0]["selectedpoints"] is not None
             and len(self.figure_2D.data[0]["selectedpoints"]) > 0
         ):
-            self.figure_2D = self.create_figure(2)
+            self.create_figure(2)
             # And I add the newly created figure to our container :
             if self._current_dim == 2:
                 self.container.children = [self.figure_2D]

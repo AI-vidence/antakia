@@ -354,14 +354,12 @@ app_widget = widgets.VBox(
                     class_="ma-3",
                     children=[
                         v.Icon(children=["mdi-numeric-2-box"]),
-                        v.Icon(children=["mdi-alpha-d-box"]),
-                        v.Switch(  # Dim switch # 102
+                        v.Switch( # 102
                             class_="ml-3 mr-2",
                             v_model=False,
                             label="",
                         ),
                         v.Icon(children=["mdi-numeric-3-box"]),
-                        v.Icon(children=["mdi-alpha-d-box"]),
                     ],
                 ),
                 v.Layout(  # 11
@@ -423,14 +421,14 @@ app_widget = widgets.VBox(
                     children=[
                         widgets.HBox(  # 120
                             [
-                                v.Select(  # projSelectVS # 1200
+                                v.Select(   # 1200
                                     label="Projection in the VS :",
                                     items=DimReducMethod.dimreduc_methods_as_str_list(),
                                     style_="width: 150px",
                                 ),
                                 v.Layout(  # 120 1
                                     children=[
-                                        v.Menu(  # projSettingsMenuVS # 120 10
+                                        v.Menu(   # 120 10
                                             v_slots=[
                                                 {
                                                     "name": "activator",
@@ -456,7 +454,7 @@ app_widget = widgets.VBox(
                                                     rounded=True,
                                                     children=[
                                                         widgets.VBox(
-                                                            [  # ProjVS sliders # 120 100 0
+                                                            [  # 120 100 0
                                                                 v.Slider(
                                                                     v_model=10,
                                                                     min=5,
@@ -520,14 +518,14 @@ app_widget = widgets.VBox(
                         ),
                         widgets.HBox(  # 121
                             [
-                                v.Select(  # projSelectES # 121 0
+                                v.Select(  # 121 0
                                     label="Projection in the ES :",
                                     items=DimReducMethod.dimreduc_methods_as_str_list(),
                                     style_="width: 150px",
                                 ),
                                 v.Layout(  # 121 1
                                     children=[
-                                        v.Menu(  # projSettingsMenuES # 121 10
+                                        v.Menu(  # 121 10
                                             v_slots=[
                                                 {
                                                     "name": "activator",
@@ -553,7 +551,7 @@ app_widget = widgets.VBox(
                                                     rounded=True,
                                                     children=[
                                                         widgets.VBox(
-                                                            [  # ProjES sliders # 121 100 0
+                                                            [  # 121 100 0
                                                                 v.Slider(
                                                                     v_model=10,
                                                                     min=5,
@@ -604,7 +602,7 @@ app_widget = widgets.VBox(
                                 ),
                                 widgets.HBox(  # 121 2
                                     [
-                                        v.ProgressCircular(  # ESBusyBox # 121 20
+                                        v.ProgressCircular(  # 121 20
                                             indeterminate=True,
                                             color="blue",
                                             width="6",
@@ -668,8 +666,9 @@ app_widget = widgets.VBox(
                 )
             ]
         ),
-        v.Container(  # antakiaMethodCard # 3
-            fluid=True,
+        v.Col( # 3
+            # [  
+            # fluid=True,
             children=[
                 v.Tabs(  # 30
                     v_model=0,  # default active tab
@@ -680,48 +679,46 @@ app_widget = widgets.VBox(
                         v.Tab(children=["4. Regions"]),  # 303
                     ]
                     + [
-                        v.TabItem(  # Tab 1) = tabOneSelectionColumn ? Selection # 304
+                        v.TabItem(  # Tab 1) Selection # 304
+                            class_="d-flex flex-column align-left",
                             children=[
-                                v.Card(  # selectionCard # 304 0
-                                    class_="ma-2",
-                                    elevation=0,
+                                # v.Card(  # 304 0
+                                #     class_="ma-2",
+                                #     elevation=0,
+                                #     children=[
+                                v.Row(  # 304 00
                                     children=[
-                                        v.Layout(  # 304 00
+                                        v.Icon( # 304 000
+                                            children=["mdi-lasso"]
+                                        ),  # 304 000
+                                        v.Html(  # 304 001
+                                            class_="mt-2 ml-4",
+                                            tag="h4",
                                             children=[
-                                                v.Icon( # 304 000
-                                                    children=["mdi-lasso"]
-                                                ),  # 304 000
-                                                v.Html(  # 304 001
-                                                    class_="mt-2 ml-4",
-                                                    tag="h4",
-                                                    children=[
-                                                        "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"  # 304 001 0
-                                                    ],
-                                                ),
-                                            ]
+                                                "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"  # 304 001 0
+                                            ],
                                         ),
-                                    ],
+                                    ]
                                 ),
-                                v.ExpansionPanels(  # out_accordion # 304 1
+                                #     ],
+                                # ),
+                                v.ExpansionPanels(  # 304 1
                                     class_="ma-2",
                                     children=[
                                         v.ExpansionPanel(  # 304 10
+                                            style_="max-width: 90%",
+                                            class_="flex",
                                             children=[
                                                 v.ExpansionPanelHeader(  # 304 100
                                                     children=["Data selected"]
                                                 ),  # 304 100 0
                                                 v.ExpansionPanelContent(  # 304 101
-                                                    children=[
-                                                        v.Alert(  # out_selec_all # 304 101 0
-                                                            max_height="400px",
-                                                            style_="overflow: auto",
-                                                            elevation="0",
+                                                    # children=[
+                                                    #     v.Alert(  # 304 101 0
                                                             children=[
                                                                 v.Row(  # 304 101 00
-                                                                    class_="d-flex flex-row justify-space-between",
                                                                     children=[
-                                                                        v.Layout(  # out_selec # 304 101 000
-                                                                            style_="min-width: 100%; max-width: 94%",
+                                                                        v.Layout(  # 304 101 000
                                                                             children=[
                                                                                 v.DataTable(  # 304 410 000 1
                                                                                     v_model=[],
@@ -745,147 +742,85 @@ app_widget = widgets.VBox(
                                                                     ],
                                                                 ),
                                                             ],
-                                                        ),
-                                                    ]
+                                                    #     ),
+                                                    # ]
                                                 ),
                                             ]
                                         )
                                     ],
-                                ),
-                                v.Layout(  # clusterGrp # 304 2
-                                    class_="d-flex flex-row",
-                                    children=[
-                                        v.Btn(  # findClusterBtn # 304 20
-                                            class_="ma-1 mt-2 mb-0",
-                                            elevation="2",
-                                            children=[
-                                                v.Icon(children=["mdi-magnify"]),
-                                                "Find clusters",
-                                            ],
-                                        ),
-                                        v.Checkbox(  # clusterCheck # 304 21
-                                            v_model=True,
-                                            label="Optimal number of clusters :",
-                                            class_="ma-3",
-                                        ),
-                                        v.Slider(  # clustersSlider # 304 22
-                                            style_="width : 30%",
-                                            class_="ma-3 mb-0",
-                                            min=2,
-                                            max=20,
-                                            step=1,
-                                            v_model=3,
-                                            disabled=True,
-                                        ),
-                                        v.Html(  # clustersSliderTxt # 304 23
-                                            tag="h3",
-                                            class_="ma-3 mb-0",
-                                            children=["Number of clusters #"],
-                                        ),
-                                    ],
-                                ),
-                                v.ProgressLinear(  # loadingClustersProgLinear # 304 3
-                                    indeterminate=True,
-                                    class_="ma-3",
-                                    style_="width : 100%",
-                                ),
-                                v.Row(  # clusterResults # 304 4
-                                    children=[
-                                        v.Layout(
-                                            class_="flex-grow-0 flex-shrink-0",
-                                            children=[
-                                                v.Btn(
-                                                    class_="d-none",
-                                                    elevation=0,
-                                                    disabled=True,
-                                                )
-                                            ],  # 304 40
-                                        ),
-                                        v.Layout(  # 304 41
-                                            class_="flex-grow-1 flex-shrink-0",
-                                            children=[
-                                                v.DataTable(  # 304 410
-                                                    v_model=[],
-                                                    show_select=False,
-                                                    headers=[
-                                                        {
-                                                            "text": column,
-                                                            "sortable": True,
-                                                            "value": column,
-                                                        }
-                                                        for column in dummy_df.columns
-                                                    ],
-                                                    items=dummy_df.to_dict("records"),
-                                                    hide_default_footer=False,
-                                                    disable_sort=False,
-                                                )
-                                            ],
-                                        ),
-                                    ],
-                                ),
-                                v.Layout(  # magicGUI 304 5
-                                    class_="d-flex flex-row justify-center align-center",
-                                    children=[
-                                        v.Spacer(),  # 304 50
-                                        v.Btn(  # magicBtn # findClusterBtn # 304 51
-                                            class_="ma-3",
-                                            children=[
-                                                v.Icon(
-                                                    children=["mdi-creation"],
-                                                    class_="mr-3",
-                                                ),
-                                                "Magic button",
-                                            ],
-                                        ),
-                                        v.Checkbox(  # # magicCheckBox 304 52
-                                            v_model=True,
-                                            label="Demonstration mode",
-                                            class_="ma-4",
-                                        ),
-                                        v.TextField(  # 304 53
-                                            class_="shrink", 
-                                            type="number",
-                                            label="Time between the steps (ds)",
-                                            v_model=10,
-                                        ),
-                                        v.Spacer(),  # 304 54
-                                    ],
-                                ),
+                                )
                             ]
                         ),
-                        v.TabItem(  # Tab 2) = tabTwoSkopeRulesColumn ? Refinement # 305
+                        v.TabItem(  # Tab 2) Refinement # 305
+                            class_="mt-5",
                             children=[
                                 v.Col(  # 305 0
                                     children=[
-                                        widgets.VBox(  # skopeBtnsGrp # 305 00
+                                        widgets.VBox( # 305 00
                                             [
-                                                v.Layout(  # skopeBtns # 305 000
+                                                v.Layout( # 305 000
                                                     class_="d-flex flex-row",
                                                     children=[
-                                                        v.Btn(  # validateSkopeBtn # 305 000 0
+                                                        v.Btn( # 305 000 0
                                                             class_="ma-1",
                                                             children=[
                                                                 v.Icon(
                                                                     class_="mr-2",
                                                                     children=[
-                                                                        "mdi-auto-fix"
+                                                                        "mdi-lasso"
                                                                     ],
                                                                 ),
-                                                                "Skope-Rules",
+                                                                "Back to selection",
                                                             ],
                                                         ),
-                                                        v.Btn(  # reinitSkopeBtn # 305 000 1
+                                                        v.Btn( # 305 000 1
+                                                            class_="ma-1 light-blue white--text",
+                                                            children=[
+                                                                v.Icon(
+                                                                    class_="mr-2",
+                                                                    children=[
+                                                                        "mdi-axis-arrow"
+                                                                    ],
+                                                                ),
+                                                                "Skope rules",
+                                                            ],
+                                                        ),
+                                                        v.Btn( # 305 000 2
                                                             class_="ma-1",
                                                             children=[
                                                                 v.Icon(
                                                                     class_="mr-2",
                                                                     children=[
-                                                                        "mdi-skip-backward"
+                                                                        "mdi-arrow-up-bold-outline"
                                                                     ],
                                                                 ),
-                                                                "Come back to the initial rules",
+                                                                "Update graphs",
                                                             ],
                                                         ),
+                                                        v.Btn( # 305 000 3
+                                                            class_="ma-1",
+                                                            children=[
+                                                                v.Icon(
+                                                                    class_="mr-2",
+                                                                    children=[
+                                                                        "mdi-undo"
+                                                                    ],
+                                                                ),
+                                                                "Undo",
+                                                            ],
+                                                        ),
+                                                        v.Btn( # 305 000 4
+                                                            class_="ma-1 light-green white--text",
+                                                            children=[
+                                                                v.Icon(
+                                                                    class_="mr-2",
+                                                                    children=[
+                                                                        "mdi-check"
+                                                                    ],
+                                                                ),
+                                                                "Validate rules",
+                                                            ],
+                                                        )
                                                     ],
                                                 ),
                                             ]
@@ -894,38 +829,25 @@ app_widget = widgets.VBox(
                                             [
                                                 widgets.VBox(  # placeholder for the VS RulesWidget (RsW) # 305 010
                                                     [
-                                                        v.Col( # placeholder for the VS RulesWidget card # 305 010 0
+                                                        v.Col( # # 305 010 0
                                                             children=[
                                                                 v.Row( # 305 010 00
-                                                                    class_="ml-4",
                                                                     children=[
                                                                         v.Icon(children=["mdi-target"]), # 305 010 000
-                                                                        v.Html(class_="ml-3", tag="h2", children=["RuleZZZZ applied on the value space"]), # 305 010 001
+                                                                        v.Html(class_="ml-3", tag="h2", children=["Rules applied on the value space"]), # 305 010 001
                                                                     ]
-                                                                    ),
-                                                                v.Col( # 305 010 01
-                                                                    elevation=10,
-                                                                    children=[ 
-                                                                        v.Html( # 305 010 010
-                                                                            class_="ml-3", 
-                                                                            tag="p", 
-                                                                            children=[
-                                                                                "Precision = 0.3, Recall = 0.8, F1 = 22" # 305 010 010 0
-                                                                                ]
-                                                                            ), 
-                                                                            v.DataTable( # 305 010 011
-                                                                                    v_model=[],
-                                                                                    show_select=False,
-                                                                                    headers=[{"text": column, "sortable": False, "value": column } for column in dummy_df.columns],
-                                                                                    items=dummy_df.to_dict("records"),
-                                                                                    hide_default_footer=True,
-                                                                                    disable_sort=True,
-                                                                                ),
-                                                                        ]
-                                                                    )
+                                                                ),
+                                                                v.Html( # 305 010 01
+                                                                    class_="ml-7", 
+                                                                    tag="p", 
+                                                                    children=[
+                                                                        "Precision = 0.3, Recall = 0.8, F1 = 22" # 305 010 010 0
+                                                                    ]
+                                                                ), 
                                                                 ]
                                                         ),
                                                         v.ExpansionPanels( # 305 010 1
+                                                            style_="max-width: 90%",
                                                             children=[
                                                                 v.ExpansionPanel( # 305 010 10 Placeholder for a VS RuleWidget
                                                                     children=[
@@ -938,11 +860,11 @@ app_widget = widgets.VBox(
                                                                         v.ExpansionPanelContent( # 305 010 101
                                                                             children=[
                                                                                 v.Col( # 305 010 101 0
-                                                                                    class_="ma-3 pa-3",
+                                                                                    # class_="ma-3 pa-3",
                                                                                     children=[
                                                                                         v.Spacer(), # 305 010 101 00
                                                                                         v.RangeSlider(  # 305 010 101 01
-                                                                                            class_="ma-3",
+                                                                                            # class_="ma-3",
                                                                                             v_model=[
                                                                                                 -1,
                                                                                                 1,
@@ -963,12 +885,12 @@ app_widget = widgets.VBox(
                                                                                                     100,
                                                                                                     size=(
                                                                                                         100,
-                                                                                                        4,
+                                                                                                        # 4,
                                                                                                     ),
                                                                                                 ),
-                                                                                                columns=list(
-                                                                                                    "ABCD"
-                                                                                                ),
+                                                                                                # columns=list(
+                                                                                                #     "ABCD"
+                                                                                                # ),
                                                                                             ),
                                                                                             bingroup=1,
                                                                                             nbinsx=50,
@@ -982,43 +904,30 @@ app_widget = widgets.VBox(
                                                                 )
                                                             ]
                                                         ),
-                                                    ]
+                                                    ],
+                                                    layout=Layout(width='50%'),
                                                 ),
                                                 widgets.VBox(  # placeholder for the ES RulesWidget (RsW) # 305 011
                                                     [
                                                         v.Col( # placeholder for the ES RulesWidget card # 305 011 0
                                                             children=[
                                                                 v.Row( 
-                                                                    class_="ml-4",
                                                                     children=[
                                                                         v.Icon(children=["mdi-target"]), 
-                                                                        v.Html(class_="ml-3", tag="h2", children=["RuleZZZ applied on the explanations space"]),
+                                                                        v.Html(class_="ml-3", tag="h2", children=["Rules applied on the explanations space"]),
                                                                     ]
                                                                     ),
-                                                                v.Col( 
-                                                                    elevation=10,
-                                                                    children=[ 
-                                                                        v.Html(class_="ml-3", tag="p", children=["Precision = 0.3, Recall = 0.8, F1 = 22"]),
-                                                                        v.DataTable( 
-                                                                                    v_model=[],
-                                                                                    show_select=False,
-                                                                                    headers=[{"text": column, "sortable": False, "value": column } for column in dummy_df.columns],
-                                                                                    items=dummy_df.to_dict("records"),
-                                                                                    hide_default_footer=True,
-                                                                                    disable_sort=True,
-                                                                                ),
-                                                                        ]
-                                                                    )
+                                                                v.Html(class_="ml-7", tag="p", children=["Precision = 0.3, Recall = 0.8, F1 = 22"]),
                                                                 ]
                                                         ),
                                                         v.ExpansionPanels( # 305 011 1
-                                                            elevation=4,
+                                                            style_="max-width: 90%",
                                                             children=[
                                                                 v.ExpansionPanel( # 305 011 10 Placeholder for the ES RuleWidgets 
                                                                     children=[
                                                                         v.ExpansionPanelHeader( # 0 
                                                                             class_="font-weight-bold blue lighten-4",
-                                                                            variant="outlined",
+                                                                            # variant="outlined",
                                                                             children=[
                                                                                 "Another variable"
                                                                             ]
@@ -1026,11 +935,11 @@ app_widget = widgets.VBox(
                                                                         v.ExpansionPanelContent( # 1
                                                                             children=[
                                                                                 v.Col( # 10
-                                                                                    class_="ma-3 pa-3",
+                                                                                    # class_="ma-3 pa-3",
                                                                                     children=[
                                                                                         v.Spacer(), # 100
                                                                                         v.RangeSlider(  # 101 
-                                                                                            class_="ma-3",
+                                                                                            # class_="ma-3",
                                                                                             v_model=[
                                                                                                 -1,
                                                                                                 1,
@@ -1051,12 +960,12 @@ app_widget = widgets.VBox(
                                                                                                     100,
                                                                                                     size=(
                                                                                                         100,
-                                                                                                        4,
+                                                                                                        # 4,
                                                                                                     ),
                                                                                                 ),
-                                                                                                columns=list(
-                                                                                                    "ABCD"
-                                                                                                ),
+                                                                                                # columns=list(
+                                                                                                #     "ABCD"
+                                                                                                # ),
                                                                                             ),
                                                                                             bingroup=1,
                                                                                             nbinsx=50,
@@ -1070,40 +979,11 @@ app_widget = widgets.VBox(
                                                                 )
                                                             ]
                                                         )
-                                                    ]
-                                                ),
-                                            ]
-                                        ),
-                                        v.Row(  # addButtonsGrp # 305 02
-                                            children=[
-                                                v.Btn(  # addSkopeBtn # 305 020
-                                                    class_="ma-4 pa-2 mb-1",
-                                                    children=[
-                                                        v.Icon(children=["mdi-plus"]),
-                                                        "Add a rule",
                                                     ],
+                                                    layout=Layout(width='50%'),
                                                 ),
-                                                v.Select(  # addAnotherFeatureWgt # 305 021
-                                                    class_="mr-3 mb-0",
-                                                    explanationsMenuDict=["/"],
-                                                    v_model="/",
-                                                    style_="max-width : 15%",
-                                                ),
-                                                v.Spacer(),  # 305 022
-                                                v.Btn(  # addMapBtn # 305 023
-                                                    class_="ma-4 pa-2 mb-1",
-                                                    children=[
-                                                        v.Icon(
-                                                            class_="mr-4",
-                                                            children=["mdi-map"],
-                                                        ),
-                                                        "Display the map",
-                                                    ],
-                                                    color="white",
-                                                    disabled=True,
-                                                ),
-                                            ]
-                                        ),
+                                            ],
+                                        )
                                     ]
                                 )
                             ]
@@ -1188,10 +1068,10 @@ app_widget = widgets.VBox(
                             ]
                         ),
                     ],
-                )
+                    layout=Layout(width="100%"),
+                ) # end v.Tabs
             ],
-            class_="mt-0",
-            outlined=True,
-        ),
+            class_="mt-00",
+        ), # End v.Col
     ]
 )
