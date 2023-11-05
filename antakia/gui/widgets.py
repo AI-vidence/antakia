@@ -338,7 +338,7 @@ app_widget = widgets.VBox(
                     close_on_content_click=False,
                     offset_y=True,
                 ),
-                v.Btn(  # gotoWebBtn # 06
+                v.Btn(  # 06
                     icon=True, children=[v.Icon(children=["mdi-web"])], elevation=0
                 ),
             ],
@@ -361,7 +361,7 @@ app_widget = widgets.VBox(
                     class_="pa-2 ma-2",
                     elevation="3",
                     children=[
-                        v.BtnToggle(  # colorChoiceBtnToggle # 110
+                        v.BtnToggle( # 110
                             mandatory=True,
                             v_model="Y",
                             children=[
@@ -1079,26 +1079,138 @@ app_widget = widgets.VBox(
                         ),
                         v.TabItem(  # Tab 4) Regions # 307
                             children=[
-                                v.Col(  # 307 0
+                                v.Sheet(
+                                    class_="d-flex",
                                     children=[
-                                        widgets.VBox(  # 307 00
-                                            [
-                                                v.Btn(  # 307 000
-                                                    class_="ma-4 pa-2 mb-1",
+                                        v.Sheet( # Col 1
+                                            class_="",
+                                            style_="width: auto",
+                                            children=[
+                                                v.List(
                                                     children=[
-                                                        v.Icon(
-                                                            class_="mr-4",
-                                                            children=["mdi-map"],
+                                                        v.ListItem(
+                                                            class_="mb-5",
+                                                            children=[
+                                                                v.Spacer(),
+                                                            ]
                                                         ),
-                                                        "Validate the region",
-                                                    ],
-                                                    color="white",
-                                                    disabled=True,
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="red", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="green", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="pink", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="yellow", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="green", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="blue", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="grey", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="blue", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="yellow", children=[""]),
+                                                            ]
+                                                        ),
+                                                        v.ListItem(
+                                                            children=[
+                                                                v.Chip(class_="pink", children=[""]),
+                                                            ]
+                                                        ),
+                                                    ]
                                                 )
                                             ]
-                                        ),
+                                        ), # End Col 1
+                                        v.Sheet(
+                                            class_="flex-fill",
+                                            children=[
+                                                v.Html(
+                                                    tag="h3",
+                                                    class_="ml-2 mb-2",
+                                                    children=["Regions :"],
+                                                ),
+                                                v.DataTable(
+                                                    v_model=[],
+                                                    show_select=True,
+                                                    headers=[
+                                                        {
+                                                            "text": column,
+                                                            "sortable": True,
+                                                            "value": column,
+                                                        }
+                                                        for column in dummy_regions_df.columns
+                                                    ],
+                                                    items=dummy_regions_df.to_dict(
+                                                        "records"
+                                                    ),
+                                                    hide_default_footer=True,
+                                                    disable_sort=False,
+                                                ),
+                                                v.Html(
+                                                    tag="p",
+                                                    class_="mt-3 ml-2 ",
+                                                    children=["Dataset coverage : 23%"],
+                                                )
+                                            ]
+                                        ), # End Col 2
+                                        v.Sheet(
+                                            class_="",
+                                            children=[
+                                                v.Btn(
+                                                    class_="ml-3 mt-8 grey",
+                                                    children=[
+                                                        v.Icon(
+                                                            class_="mr-2",
+                                                            children=[
+                                                                "mdi-trash-can-outline" 
+                                                            ],
+                                                        ),
+                                                        "Delete",
+                                                    ],
+                                                ),
+                                                v.Btn(
+                                                    class_="ml-3 mt-3 primary white--text",
+                                                    children=[
+                                                        v.Icon(
+                                                            class_="mr-2",
+                                                            children=[
+                                                                "mdi-auto-fix" 
+                                                            ],
+                                                        ),
+                                                        "Auto-clustering",
+                                                    ],
+                                                ),
+                                            ]
+                                        )
                                     ]
-                                )
+                                ), # End Sheet
                             ]
                         ),
                     ],
