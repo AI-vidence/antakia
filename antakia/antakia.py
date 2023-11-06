@@ -2,14 +2,7 @@ import pandas as pd
 
 from antakia.data import ExplanationMethod, Variable, is_valid_model
 from antakia.gui.gui import GUI
-from antakia.utils import confLogger
 
-import logging
-from logging import getLogger
-logger = logging.getLogger(__name__)
-handler = confLogger(logger)
-handler.clear_logs()
-handler.show_logs()
 
 class AntakIA():
     """

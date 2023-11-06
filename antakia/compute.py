@@ -25,13 +25,12 @@ import sklearn.cluster
 from ipywidgets.widgets.widget import Widget
 
 from antakia.data import LongTask, ExplanationMethod, DimReducMethod
-from antakia.utils import confLogger
+from antakia.utils import conf_logger
 import logging
 from logging import getLogger
 logger = logging.getLogger(__name__)
-handler = confLogger(logger)
-handler.clear_logs()
-handler.show_logs()
+conf_logger(logger)
+
 
 
 # ===========================================================

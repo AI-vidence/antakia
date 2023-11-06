@@ -9,14 +9,12 @@ from copy import copy
 import math
 from antakia.data import Variable, vars_to_string, vars_to_sym_list, var_from_symbol
 
-from antakia.utils import confLogger
+from antakia.utils import conf_logger
 
 import antakia.config as config
 
 logger = logging.getLogger(__name__)
-handler = confLogger(logger)
-handler.clear_logs()
-handler.show_logs()
+conf_logger(logger)
 
 
 class Rule():
@@ -248,7 +246,7 @@ class Rule():
         Transforms a string into a list of rules
         """
         tokens = skrules[0]
-        score_list = {
+        score_dict = {
             "precision": round(tokens[1][0], 3),
             "recall": round(tokens[1][1], 3),
             "f1": round(tokens[1][2], 3),
@@ -272,7 +270,7 @@ class Rule():
             temp_rule = Rule(min, "<=", variable, "<=", max)
             rule_list.append(temp_rule)
 
-        return rule_list, score_list
+        return rule_list, score_dict
 
     @staticmethod
     def compute_rules(df_indexes: list, base_space_df: pd.DataFrame, values_space: bool, variables: list = None, precision: float = 0.7, recall: float = 0.7) -> list:
@@ -302,10 +300,13 @@ class Rule():
         )
         sk_classifier.fit(base_space_df, y_train)
 
-        logger.debug(f"Raw SFR = {sk_classifier.rules_}")
+        logger.debug(f"Rules.compute_rules : raw SKR = {sk_classifier.rules_}")
 
         if sk_classifier.rules_ != []:
-            rules_list, score_list = Rule._extract_rules(sk_classifier.rules_, base_space_df, variables)
+            rules_list, score_dict = Rule._extract_rules(sk_classifier.rules_, base_space_df, variables)
+            
+            logger.debug(f"Rules.compute_rules : rules_list = {rules_list}, score_dict = {score_dict}")
+            
             if len(rules_list) >= 0:
                 Rule._combine_rule_list(rules_list)
 
@@ -318,10 +319,10 @@ class Rule():
                 if rule.max == math.inf:
                     rule.max = None
                     rule.operator_max = None
-            return rules_list, score_list
+            return rules_list, score_dict
 
         else:
-            return [], []
+            return [], {}
 
     @staticmethod
     def rows_to_indexes(X: pd.DataFrame, rows_list: list) -> list:

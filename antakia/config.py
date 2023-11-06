@@ -12,9 +12,4 @@ INIT_FIG_WIDTH = 1800
 # Rule format
 USE_INTERVALS_FOR_RULES = True
 
-def get_default_submodels():
-    """
-    Returns a list of surrogates models
-    """
-    return [linear_model.LinearRegression(), RandomForestRegressor(random_state=9), ensemble.GradientBoostingRegressor(random_state=9)]
-
+SHOW_LOG_MODULE_WIDGET = True

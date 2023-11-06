@@ -22,7 +22,7 @@ from antakia.data import (
 )
 import antakia.config as config
 from antakia.rules import Rule
-from antakia.utils import confLogger
+from antakia.utils import conf_logger
 from antakia.gui.widgets import (
     get_widget,
     change_widget,
@@ -34,9 +34,7 @@ from antakia.gui.ruleswidget import RulesWidget
 
 import logging
 logger = logging.getLogger(__name__)
-handler = confLogger(logger)
-handler.clear_logs()
-handler.show_logs()
+conf_logger(logger)
 
 class GUI:
     """
@@ -124,6 +122,10 @@ class GUI:
 
         self.vs_rules_wgt = RulesWidget(self.X_list[0], self.variables, True, self.new_rules_defined)
         self.es_rules_wgt = RulesWidget(self.X_list[0], self.variables, False, self.new_rules_defined)
+        # We set empty rules for now :
+        self.vs_rules_wgt.init_rules(None, None)
+        self.es_rules_wgt.init_rules(None, None)
+
 
         self.color = []
         self.selection_ids = []
@@ -133,8 +135,8 @@ class GUI:
         get_widget(app_widget,"3041").disabled = True
         # No selection, so the tabs 2, 3 and 4 are not avaiable
         get_widget(app_widget,"301").disabled = True
-        get_widget(app_widget,"302").disabled = True
-        get_widget(app_widget,"303").disabled = True
+        get_widget(app_widget,"302").disabled = False
+        get_widget(app_widget,"303").disabled = False
 
         self.update_graphs_stack = []
         
@@ -241,7 +243,7 @@ class GUI:
             # We show the datatable :
             get_widget(app_widget,"3041").disabled = False
             # TODO : format the cells, remove digits
-            change_widget(app_widget,"3041010000", v.DataTable(
+            change_widget(app_widget,"3041010", v.DataTable(
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column } for column in self.X_list[0].columns],
@@ -259,8 +261,12 @@ class GUI:
             get_widget(app_widget,"3050001").disabled = False
             # We disable the 'back_to_selection' button:
             get_widget(app_widget, "3050000").disabled = True
+            # We set the switch space to the  correct side :
+            get_widget(app_widget,"3050003").v_model = caller == self.es_hde
+            self.vs_rules_wgt.disable(caller == self.es_hde)
+            self.es_rules_wgt.disable(caller == self.vs_hde)
 
-        change_widget(app_widget,"3040010", selection_status_str)
+        change_widget(app_widget,"304010", selection_status_str)
         
         # We syncrhonize selection between the two HighDimExplorers
         other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
@@ -279,7 +285,7 @@ class GUI:
         logger.debug(f"new_rules_defined")
         if not skr:
             # We enbale the 'Update graphs' button
-            get_widget(app_widget, "3050002").disabled = False
+            get_widget(app_widget, "3050005").disabled = False
 
         # We make HDE figures non selectable :
         self.vs_hde.set_selection_disabled(True)
@@ -311,6 +317,17 @@ class GUI:
         change_widget(app_widget, "111", self.es_hde.get_values_select())
         change_widget(app_widget, "112", self.es_hde.get_compute_menu())
 
+        # ------------------ figure size ---------------
+        def fig_size_changed(widget, event, data):
+            """ Called when the figureSizeSlider changed"""
+            self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model/2)
+            self.vs_hde.redraw()
+            self.es_hde.redraw()
+
+        # We wire the input event on the figureSizeSlider (050100)
+        get_widget(app_widget,"04000").on_event("input", fig_size_changed)
+        # We set the init value to default :
+        get_widget(app_widget,"04000").v_model=config.INIT_FIG_WIDTH
         
         # --------- ColorChoiceBtnToggle ------------
         def change_color(*args):
@@ -375,9 +392,9 @@ class GUI:
         get_widget(app_widget, "102").v_model == config.DEFAULT_VS_DIMENSION
         get_widget(app_widget, "102").on_event("change", switch_dimension)
 
-        # ---- Tab 2 : refinement ---
+        # ------------- Tab 2 : refinement -----------
 
-        # =============== Skope rules ===============
+        # ------------- Skope rules ----------------
 
         # We add our 2 RulesWidgets to the GUI :
         change_widget(app_widget, "305010", self.vs_rules_wgt.root_widget)
@@ -387,23 +404,42 @@ class GUI:
             # if clicked, selection can't be empty
             # Let's disable the button during computation:
             get_widget(app_widget,"3050001").disabled = True
-            
-            # We try fo find Skope Rules on "VS" side :
-            vs_rules_list, vs_score_list = Rule.compute_rules(self.selection_ids, self.vs_hde.get_current_X(), True, self.variables)
-            logger.debug(f"compute_rules: i call set_rules on VS with {vs_rules_list}")
-            self.vs_rules_wgt.init_rules(vs_rules_list, vs_score_list)
-            
-            # We try fo find Skope Rules on "ES" side :
-            es_rules_list, es_score_list = Rule.compute_rules(self.selection_ids, self.es_hde.get_current_X(), False, self.variables)
-            logger.debug(f"compute_rules: i call set_rules on ES with {es_rules_list}")
-            self.es_rules_wgt.init_rules(es_rules_list, es_score_list)
+
+            rules_found=False
+            # We compute SKR on the space indicated by the switch
+            if get_widget(app_widget,"3050003").v_model :
+                es_rules_list, es_score_dict = Rule.compute_rules(self.selection_ids, self.es_hde.get_current_X(), False, self.variables)
+                self.es_rules_wgt.init_rules(es_rules_list, es_score_dict)
+                rules_found = True
+            else:
+                vs_rules_list, vs_score_dict = Rule.compute_rules(self.selection_ids, self.vs_hde.get_current_X(), True, self.variables)
+                self.vs_rules_wgt.init_rules(vs_rules_list, vs_score_dict)
+                rules_found = True
 
             # Navigation :
             # If rules found, we enable 'back_to_selection' button:
-            get_widget(app_widget, "3050000").disabled = False
+            if rules_found: get_widget(app_widget, "3050000").disabled = False
 
-        # We wire the ckick event on the 'Skope-rules' button
+        # We wire the click event on the 'Skope-rules' button
         get_widget(app_widget,"3050001").on_event("click", compute_rules)
+
+        def switch_space(widget, event, data):
+            logger.debug(f"switch_space: widget = {widget.__class__}, event = {event}, data = {data}")
+            # TODO : understand why data is True or empty dict {}
+            if data == True:  # ES side
+                self.vs_rules_wgt.disable(True)
+                self.es_rules_wgt.disable(False)
+            else: # VS side
+                self.vs_rules_wgt.disable(False)
+                self.es_rules_wgt.disable(True)
+
+        # We wire the change event on the VS/ES switch
+        get_widget(app_widget,"3050003").on_event("change", switch_space)
+        # At init, the switch is on VS s:
+        get_widget(app_widget,"3050003").v_model = False
+        get_widget(app_widget,"3050003").disabled = False
+        self.vs_rules_wgt.disable(False)
+        self.es_rules_wgt.disable(True)
 
 
         def back_to_selection(widget, event, data):
@@ -416,7 +452,7 @@ class GUI:
             self.vs_hde.display_rules(None)
             self.es_hde.display_rules(None)
             # We disable the 'Update graphs' button
-            get_widget(app_widget, "3050002").disabled = True
+            get_widget(app_widget, "3050005").disabled = True
             # We empty our RulesWidgets
             self.vs_rules_wgt.init_rules(None, None)
             self.es_rules_wgt.init_rules(None, None)
@@ -439,15 +475,15 @@ class GUI:
             self.es_hde.display_rules(self.es_rules_wgt.rules_indexes)
             # Navigation :
             # The 'Update graphs' button is disabled until new rules are defined
-            get_widget(app_widget, "3050002").disabled = True
+            get_widget(app_widget, "3050005").disabled = True
             # Now the 'Undo' button is enabled
-            get_widget(app_widget, "3050003").disabled = False
+            get_widget(app_widget, "3050006").disabled = False
             # TODO : implement when undo should be disabled
 
         # We wire the ckick event on the 'Update graphs' button
-        get_widget(app_widget, "3050002").on_event("click", update_graphs)
+        get_widget(app_widget, "3050005").on_event("click", update_graphs)
         # At start the button is disabled
-        get_widget(app_widget, "3050002").disabled = True
+        get_widget(app_widget, "3050005").disabled = True
         # Its enabled when rules are modified in a RsW and disabled when we're back to selections
 
         def undo(widget, event, data):
@@ -460,25 +496,25 @@ class GUI:
             self.es_hde.redraw()
             update_graphs(None, None, None)
             if len(self.update_graphs_stack) == 0:
-                get_widget(app_widget, "3050003").disabled = True
+                get_widget(app_widget, "3050006").disabled = True
             
 
         # We wire the ckick event on the 'Undo' button
-        get_widget(app_widget, "3050003").on_event("click", undo)
+        get_widget(app_widget, "3050006").on_event("click", undo)
         # At start the button is disabled
-        get_widget(app_widget, "3050003").disabled = True
+        get_widget(app_widget, "3050006").disabled = True
         # Its enabled when rules graphs have been updated with rules
 
-        # -------- figure size ------ 
-        def fig_size_changed(widget, event, data):
-            """ Called when the figureSizeSlider changed"""
-            self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model/2)
-            self.vs_hde.redraw()
-            self.es_hde.redraw()
 
-        # We wire the input event on the figureSizeSlider (050100)
-        get_widget(app_widget,"04000").on_event("input", fig_size_changed)
-        # We set the init value to default :
-        get_widget(app_widget,"04000").v_model=config.INIT_FIG_WIDTH
+
+        # ------------- Tab 3 : sub-models -----------
+
+        def skr_change_side(widget, event, data):
+            self.vs_rules_wgt.display(data)
+            self.es_rules_wgt.display(not data)
+
+
+
+        # ------------- Tab 4 : regions -----------
 
         display(app_widget)

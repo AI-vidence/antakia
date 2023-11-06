@@ -11,7 +11,7 @@ import seaborn as sns
 
 from antakia.data import ExplanationMethod, DimReducMethod, Variable, ProjectedValues
 import antakia.compute as compute
-from antakia.utils import confLogger
+from antakia.utils import conf_logger
 from antakia.rules import Rule
 import antakia.config as config
 
@@ -21,9 +21,8 @@ from importlib.resources import files
 import logging
 
 logger = logging.getLogger(__name__)
-handler = confLogger(logger)
-handler.clear_logs()
-handler.show_logs()
+conf_logger(logger)
+
 
 
 def get_widget(root_widget: Widget, address: str) -> Widget:
@@ -177,6 +176,16 @@ dummy_sub_models_df = pd.DataFrame(
         "Model": ["Linear regression", "Random forest", "Gradient boost", "Tree rank"],
         "Descr.": ["Lorem Ipsum is simply dummy text of the printing and typesetting industry.", "Cras ipsum neque, eleifend non neque in, iaculis efficitur lectus.", "Etiam ex felis, tempus eu odio ut, euismod dictum nibh", "Fusce molestie diam nulla, quis mattis justo tristique quis."],
         "Explanability": ["High", "High", "Medium", "Medium"],
+    }
+)
+
+dummy_regions_df = pd.DataFrame(
+    {
+        "#": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
+        "Rules": ["Income ≥ 2800", "Segment ∈ ⟦D, E, F⟧", "Age ∈ [39, 45⟧", "Income ≥ 2800", "Segment ∈ ⟦D, E, F⟧", "Age ∈ [39, 45⟧", "Income ≥ 2800", "Segment ∈ ⟦D, E, F⟧", "Age ∈ [39, 45⟧", "Income ≥ 2800"],
+        "Sub-model": ["Linear regression", "Random forest", "Gradient boost", "Linear regression", "Random forest", "Gradient boost", "Linear regression", "Random forest", "Gradient boost", "Linear regression"],
+        "Score": ["MSE = 0.8", "MAE = 0.79", "MSE = 0.95", "MSE = 0.8", "MAE = 0.79", "MSE = 0.95", "MSE = 0.8", "MAE = 0.79", "MSE = 0.95", "MSE = 0.8"],
+        "% dataset": ["5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%"],
     }
 )
 
@@ -665,17 +674,17 @@ app_widget = widgets.VBox(
                         v.TabItem(  # Tab 1) Selection # 304
                             class_="mt-5",
                             children=[
-                                v.Row(  # 304 00
+                                v.Row(  # 304 0
                                     class_="ml-5",
                                     children=[
-                                        v.Icon( # 304 000
+                                        v.Icon( # 304 00
                                             children=["mdi-lasso"]
                                         ),  # 304 000
-                                        v.Html(  # 304 001
+                                        v.Html(  # 304 01
                                             class_="mt-2",
                                             tag="h4",
                                             children=[
-                                                "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"  # 304 001 0
+                                                "0 point selected : use the lasso tool on the figures above or use the auto-selection tool below"  # 304 010
                                             ],
                                         ),
                                     ]
@@ -692,7 +701,7 @@ app_widget = widgets.VBox(
                                                 ),  # 304 100 0
                                                 v.ExpansionPanelContent(  # 304 101
                                                     children=[
-                                                        v.DataTable(  # 304 410 000 1
+                                                        v.DataTable(  # 304 101 0
                                                             v_model=[],
                                                             show_select=False,
                                                             headers=[
@@ -719,12 +728,12 @@ app_widget = widgets.VBox(
                             ]
                         ), # End TabITem
                         v.TabItem(  # Tab 2) Refinement # 305
-                            class_="mt-5",
+                            class_="mt-2",
                             children=[
                                 v.Col(  # 305 0
                                     children=[
-                                        widgets.VBox( # 305 00
-                                            [
+                                        v.Col( # 305 00
+                                            children=[
                                                 v.Layout( # 305 000
                                                     class_="d-flex flex-row align-center",
                                                     children=[
@@ -737,7 +746,7 @@ app_widget = widgets.VBox(
                                                                         "mdi-lasso"
                                                                     ],
                                                                 ),
-                                                                "Back to selection",
+                                                                "Back",
                                                             ],
                                                         ),
                                                         v.Btn( # 305 000 1
@@ -753,13 +762,13 @@ app_widget = widgets.VBox(
                                                             ],
                                                         ),
                                                         v.Icon(children=["mdi-arrow-left-bold-box"]),
-                                                        v.Switch( 
+                                                        v.Switch( # 305 000 3
                                                             class_="ml-3 mr-3",
-                                                            v_model=True,
+                                                            v_model=False,
                                                             label="",
                                                         ),
                                                         v.Icon(children=["mdi-arrow-right-bold-box"]),
-                                                        v.Btn( # 305 000 2
+                                                        v.Btn( # 305 000 5
                                                             class_="ma-1",
                                                             children=[
                                                                 v.Icon(
@@ -768,10 +777,10 @@ app_widget = widgets.VBox(
                                                                         "mdi-arrow-up-bold-outline"
                                                                     ],
                                                                 ),
-                                                                "Update graphs",
+                                                                "Update",
                                                             ],
                                                         ),
-                                                        v.Btn( # 305 000 3
+                                                        v.Btn( # 305 000 6
                                                             class_="ma-1",
                                                             children=[
                                                                 v.Icon(
@@ -783,7 +792,7 @@ app_widget = widgets.VBox(
                                                                 "Undo",
                                                             ],
                                                         ),
-                                                        v.Btn( # 305 000 4
+                                                        v.Btn( # 305 000 7
                                                             class_="ma-1 green white--text",
                                                             children=[
                                                                 v.Icon(
@@ -799,23 +808,23 @@ app_widget = widgets.VBox(
                                                 ),
                                             ]
                                         ),
-                                        widgets.HBox(  # 305 01
-                                            [
-                                                widgets.VBox(  # placeholder for the VS RulesWidget (RsW) # 305 010
-                                                    [
+                                        v.Row(  # 305 01
+                                            children=[
+                                                v.Col(  # placeholder for the VS RulesWidget (RsW) # 305 010
+                                                    children=[
                                                         v.Col( # # 305 010 0
                                                             children=[
                                                                 v.Row( # 305 010 00
                                                                     children=[
                                                                         v.Icon(children=["mdi-target"]), # 305 010 000
-                                                                        v.Html(class_="ml-3", tag="h2", children=["Rules applied on the value space"]), # 305 010 001
+                                                                        v.Html(class_="ml-3", tag="h2", children=["Rules applied on the values space"]), # 305 010 001
                                                                     ]
                                                                 ),
                                                                 v.Html( # 305 010 01
                                                                     class_="ml-7", 
                                                                     tag="p", 
                                                                     children=[
-                                                                        "Precision = 0.3, Recall = 0.8, F1 = 22" # 305 010 010 0
+                                                                        "Precision = 0.3, recall = 0.8, f1_score = 22" # 305 010 010 0
                                                                     ]
                                                                 ), 
                                                                 ]
@@ -879,10 +888,10 @@ app_widget = widgets.VBox(
                                                             ]
                                                         ),
                                                     ],
-                                                    layout=Layout(width='50%'),
                                                 ),
-                                                widgets.VBox(  # placeholder for the ES RulesWidget (RsW) # 305 011
-                                                    [
+                                                v.Col(  # placeholder for the ES RulesWidget (RsW) # 305 011
+                                                    size_="width=50%",
+                                                    children=[
                                                         v.Col( # placeholder for the ES RulesWidget card # 305 011 0
                                                             children=[
                                                                 v.Row( 
@@ -954,9 +963,8 @@ app_widget = widgets.VBox(
                                                             ]
                                                         )
                                                     ],
-                                                    layout=Layout(width='50%'),
                                                 ),
-                                            ],
+                                            ], # end Row
                                         )
                                     ]
                                 )
@@ -1181,32 +1189,95 @@ app_widget = widgets.VBox(
                                             ]
                                         ), # End Col 2
                                         v.Sheet(
-                                            class_="",
+                                            class_="ml-5 flex-column",
                                             children=[
-                                                v.Btn(
-                                                    class_="ml-3 mt-8 grey",
+                                                v.Row(
+                                                    class_="flex-column",
                                                     children=[
-                                                        v.Icon(
-                                                            class_="mr-2",
+                                                        v.Btn(
+                                                            class_="ml-3 mt-8 grey",
                                                             children=[
-                                                                "mdi-trash-can-outline" 
+                                                                v.Icon(
+                                                                    class_="mr-2",
+                                                                    children=[
+                                                                        "mdi-trash-can-outline" 
+                                                                    ],
+                                                                ),
+                                                                "Delete",
                                                             ],
-                                                        ),
-                                                        "Delete",
-                                                    ],
+                                                        )
+                                                    ]
                                                 ),
-                                                v.Btn(
-                                                    class_="ml-3 mt-3 primary white--text",
+                                                v.Row(
                                                     children=[
-                                                        v.Icon(
-                                                            class_="mr-2",
-                                                            children=[
-                                                                "mdi-auto-fix" 
-                                                            ],
-                                                        ),
-                                                        "Auto-clustering",
-                                                    ],
-                                                ),
+                                                    v.Dialog(
+                                                        style_ = "width=500",
+                                                        v_slots=[
+                                                            {
+                                                                "name": "activator",
+                                                                "variable": "props",
+                                                                "children": v.Btn(
+                                                                    v_on="props.on",
+                                                                    class_="ml-3 mt-3 primary",
+                                                                    children=[
+                                                                        v.Icon(
+                                                                            class_="mr-2",
+                                                                            children=[
+                                                                                "mdi-auto-fix" 
+                                                                            ],
+                                                                        ),
+                                                                        "Auto-clustering",
+                                                                    ],
+                                                                ),
+                                                            }
+                                                        ],
+                                                        children=[
+                                                            v.Sheet(
+                                                                children=[
+                                                                    v.Alert(
+                                                                        children=[
+                                                                            v.Alert(
+                                                                                type="info",
+                                                                                children=[  
+                                                                                    v.Html(
+                                                                                        tag="h2",
+                                                                                        children=[
+                                                                                            "Coming soon ..."
+                                                                                        ]
+                                                                                    ),
+                                                                                    v.Html(
+                                                                                        tag="p",
+                                                                                        children=[
+                                                                                            "Auto-clusterig is a key feature of AntakIA. It will allow you to automatically discover relevant regions in the 'value space' of your model."
+                                                                                        ]
+                                                                                    ),
+                                                                                    v.Html(
+                                                                                        tag="p",
+                                                                                        children=[
+                                                                                            "This feature will soon be released, stay tuned !"
+                                                                                        ]
+                                                                                    ),
+                                                                                    v.Html(
+                                                                                        tag="p",
+                                                                                        children=[
+                                                                                            "Please note that it will be a server-side feature, since we do not intend to open-source it yet."
+                                                                                        ]
+                                                                                    ),
+                                                                                ]
+                                                                            )
+                                                                        ],
+                                                                        min_width="500",
+                                                                    ),
+                                                                ],
+                                                                min_width="500",
+                                                            )
+                                                        ],
+                                                        v_model=False,
+                                                        close_on_content_click=False,
+                                                        offset_y=True,
+                                                    ),
+                                                    ]
+                                                )
                                             ]
                                         )
                                     ]

@@ -6,17 +6,15 @@ from ipywidgets import Layout, widgets
 from plotly.graph_objects import FigureWidget, Histogram, Scatter, Scatter3d
 
 from antakia.rules import Rule
-from antakia.gui.widgets import change_widget, get_widget
+from antakia.gui.widgets import change_widget, get_widget, app_widget
 
-from antakia.utils import confLogger
+from antakia.utils import conf_logger
 
 from copy import copy
 import logging
 
 logger = logging.getLogger(__name__)
-handler = confLogger(logger)
-handler.clear_logs()
-handler.show_logs()
+conf_logger(logger)
 
 class RuleWidget:
     """
@@ -38,115 +36,8 @@ class RuleWidget:
         self.values_space = values_space
         self.rule_updated = rule_updated
         
-        if values_space:
-            self.root_widget = v.ExpansionPanel( 
-                children=[
-                    v.ExpansionPanelHeader( # 0
-                        class_="font-weight-bold blue lighten-4",
-                        children=[
-                            "Variable" # 00
-                        ]
-                    ),
-                    v.ExpansionPanelContent( # 1
-                        children=[
-                            v.Col( # 10
-                                # class_="ma-3 pa-3",
-                                children=[
-                                    v.Spacer(), # 100
-                                    v.RangeSlider(  # 101
-                                        # class_="ma-3",
-                                        v_model=[
-                                            -1,
-                                            1,
-                                        ],
-                                        min=-5,
-                                        max=5,
-                                        step=0.1,
-                                        thumb_label="always",
-                                    ),
-                                ],
-                            ),
-                            FigureWidget( # 11
-                                data=[
-                                    Histogram(
-                                        x=pd.DataFrame(
-                                            np.random.randint(
-                                                0,
-                                                100,
-                                                size=(
-                                                    100,
-                                                    4,
-                                                ),
-                                            ),
-                                            columns=list(
-                                                "ABCD"
-                                            ),
-                                        ),
-                                        bingroup=1,
-                                        nbinsx=50,
-                                        marker_color="grey",
-                                    )
-                                ]
-                            ),
-                        ]
-                    ),
-                ]
-            )
-        else:
-            self.root_widget = v.ExpansionPanel(
-                children=[
-                    v.ExpansionPanelHeader( # 0 
-                        class_="font-weight-bold blue lighten-4",
-                        children=[
-                            "Another variable"
-                        ]
-                    ),
-                    v.ExpansionPanelContent( # 1
-                        children=[
-                            v.Col( # 10
-                                # class_="ma-3 pa-3",
-                                children=[
-                                    v.Spacer(), # 100
-                                    v.RangeSlider(  # 101 
-                                        class_="ma-3",
-                                        v_model=[
-                                            -1,
-                                            1,
-                                        ],
-                                        min=-5,
-                                        max=5,
-                                        step=0.1,
-                                        thumb_label="always",
-                                    ),
-                                ],
-                            ),
-                            FigureWidget(
-                                data=[
-                                    Histogram(
-                                        x=pd.DataFrame(
-                                            np.random.randint(
-                                                0,
-                                                100,
-                                                size=(
-                                                    100,
-                                                    4,
-                                                ),
-                                            ),
-                                            columns=list(
-                                                "ABCD"
-                                            ),
-                                        ),
-                                        bingroup=1,
-                                        nbinsx=50,
-                                        marker_color="grey",
-                                    )
-                                ]
-                            ),
-                        ]
-                    ),
-                ]
-            )
-
+        # root_widget is an ExpansionPanel
+        self.root_widget = get_widget(app_widget,"30501010") if values_space else get_widget(app_widget,"30501110")
         
         # We set the select widget (slider, rangeslider ...)
         if self.rule.is_categorical_rule():
@@ -328,63 +219,67 @@ class RulesWidget:
         self.variables = variables
         self.rules_indexes = None
         self.is_value_space = values_space
-        self.new_rules_defined = new_rules_defined
+        self.new_rules_defined = new_rules_defined 
+    
+
 
         # UI:
-        self.root_widget = widgets.VBox(
-            [
-                v.Col( # 0 
-                    children=[
-                        v.Row( # 00
-                            # class_="ml-4",
-                            children=[
-                                v.Icon(children=["mdi-target"]), # 000
-                                v.Html(class_="ml-3", tag="h2", children=[f"No rule to display for the {'VS' if self.is_value_space else 'ES'} space"]), # 001
-                            ]
-                            ),
-                        v.Col( # 01
-                            elevation=10,
-                            children=[ 
-                                v.Html( # 010
-                                    # class_="ml-3", 
-                                    tag="p", 
-                                    children=[
-                                        "Precision = n/a, Recall = n/a, f_score = n/a"
-                                        ]
-                                ), 
-                                v.DataTable( # 011 
-                                        v_model=[],
-                                        show_select=False,
-                                        headers=[{"text": column, "sortable": False, "value": column } for column in ['Variable', 'Unit', 'Desc', 'Critical', 'Rule']],
-                                        items=[], 
-                                        hide_default_footer=True,
-                                        disable_sort=True,
-                                    ),
-                                ]
-                            )
-                        ]
-                ),
-                v.ExpansionPanels() # 1 / We insert RuleWidgets here
-            ]
-        )
+        self.root_widget = get_widget(app_widget, "305010") if values_space else get_widget(app_widget, "305011")
 
         self.rule_widget_list = []
 
-    def init_rules(self, rules_list: list, score_list: list):
+    def _set_score(self, score_dict: dict):
+        if score_dict is None or len(score_dict) == 0:
+            get_widget(self.root_widget, "01").children=[f"Precision = {score_dict['precision']}, recall = {score_dict['recall']}, f1_score = {score_dict['f1']}"]
+
+    def disable(self, is_disabled: bool):
+        """
+        SKR computation only takes place in one space. GUI may call this method
+        to disable the other space.
+        NOTE : disable = False erases existing rules
+        """
+
+        html = get_widget(self.root_widget, "001")
+        html.children=[
+            f"No rule to display for the {'values' if self.is_value_space else 'explanations'} space"
+        ]
+        html.class_= "ml-3 grey--text" if is_disabled else "ml-3"
+        
+        html = get_widget(self.root_widget, "01")
+        html.children=["Precision = n/a, recall = n/a, f1_score = n/a"]
+        html.class_= "ml-7 grey--text" if is_disabled else "ml-7"
+  
+        # The first ExpansionPanel
+        get_widget(self.root_widget, "10").disabled = is_disabled
+        xph = get_widget(self.root_widget, "100")
+        xph.children=["Variable"]
+        xph.class_ = "light-grey" if is_disabled else "font-weight-bold blue lighten-4"
+
+
+    def init_rules(self, rules_list: list, score_dict: list):
         """
         Called by the GUI when new SKR rules are computed
         """
+        if rules_list is None:
+            self.rules_db = {}
+            self.current_index = 0
+            self.create_rule_widgets([])
+            self._set_score({})
+            self.disable(True)
+            return
+        
         # We populate our db
-        self._put_in_db(rules_list, score_list, True)
-
+        self._put_in_db(rules_list, score_dict, True)
+    
         self.set_rules_info()
-        self.rules_indexes = Rule.rules_to_indexes(self.get_current_rules_list(), self.X)
+        self._set_score(score_dict)
+        rules_indexes = Rule.rules_to_indexes(self.get_current_rules_list(), self.X)
 
-        self.create_rule_widgets()
+        self.create_rule_widgets(rules_indexes)
 
         # We notify the GUI and ask to draw the rules
         if self.new_rules_defined is not None:
-            self.new_rules_defined(self,self.rules_indexes, True)
+            self.new_rules_defined(self,rules_indexes, True)
 
     def update_rule(self, new_rule:Rule):
         """
@@ -399,27 +294,28 @@ class RulesWidget:
                 break
 
         # TODO : compute new scores / use fake scores for now
-        scores_dict = {"precision": 0, "recall": 0, "f1": 0}
-        self._put_in_db(rules_list, scores_dict)
+        score_dict = {"precision": 0, "recall": 0, "f1": 0}
+        self._set_score(score_dict)
+        self._put_in_db(rules_list, score_dict)
 
         # We update our card info
         self.set_rules_info()
 
-        self.rules_indexes = Rule.rules_to_indexes(self.get_current_rules_list(), self.X)
+        rules_indexes = Rule.rules_to_indexes(self.get_current_rules_list(), self.X)
 
         # We update each of our RuleWidgets
         for rw in self.rule_widget_list:
-            rw.update_figure(self.rules_indexes)
+            rw.update_figure(rules_indexes)
 
         # We notify the GUI and tell there are new rules to draw
-        self.new_rules_defined(self,self.rules_indexes)
+        self.new_rules_defined(self,rules_indexes)
 
-    def _put_in_db(self, rules_list: list, score_list: list, erase_past:bool=False):
+    def _put_in_db(self, rules_list: list, score_dict: list, erase_past:bool=False):
         if erase_past:
             self.rules_db = {}
             self.current_index = -1
         self.current_index += 1
-        self.rules_db[self.current_index] = [rules_list, score_list]
+        self.rules_db[self.current_index] = [rules_list, score_dict]
 
     def _dump_db(self) -> str:
         txt = ""
@@ -432,7 +328,7 @@ class RulesWidget:
             txt = txt + f"   scores = {scores_dict}\n"
         return txt
 
-    def create_rule_widgets(self):
+    def create_rule_widgets(self, init_rules_indexes:list):
         """
         Creates RuleWidgest, one per rule
         """
@@ -445,7 +341,7 @@ class RulesWidget:
         if self.get_current_rules_list() is None or len(self.get_current_rules_list()) == 0:
             self.rule_widget_list = []
         else:
-            self.rule_widget_list = [RuleWidget(rule, self.X, self.is_value_space, self.rules_indexes, self.update_rule) for rule in self.get_current_rules_list()]
+            self.rule_widget_list = [RuleWidget(rule, self.X, self.is_value_space, init_rules_indexes, self.update_rule) for rule in self.get_current_rules_list()]
         get_widget(self.root_widget, "1").children = [rule_widget.root_widget for rule_widget in self.rule_widget_list]
 
     def set_rules_info(self):

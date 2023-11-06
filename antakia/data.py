@@ -8,13 +8,6 @@ import time
 # TODO : these references to IPython should be removed in favor of a new scheme (see Wiki)
 from sklearn.preprocessing import StandardScaler
 
-from antakia.utils import confLogger
-
-logger = logging.getLogger(__name__)
-handler = confLogger(logger)
-handler.clear_logs()
-handler.show_logs()
-
 
 def is_valid_model(model) -> bool:
     return callable(getattr(model, "score")) and callable(getattr(model, "predict"))
