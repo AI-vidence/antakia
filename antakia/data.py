@@ -7,7 +7,10 @@ import time
 
 # TODO : these references to IPython should be removed in favor of a new scheme (see Wiki)
 from sklearn.preprocessing import StandardScaler
-
+import logging as logging
+from antakia.utils import conf_logger
+logger = logging.getLogger(__name__)
+conf_logger(logger)
 
 def is_valid_model(model) -> bool:
     return callable(getattr(model, "score")) and callable(getattr(model, "predict"))
@@ -31,10 +34,8 @@ class LongTask(ABC):
         self.X = X
         self.progress_updated = progress_updated
         self.start_time = time.time()
-        self.progress = 0
 
     def publish_progress(self, progress: int):
-        self.progress = progress  # its seems LIME requires it
         self.progress_updated(self, progress, time.time() - self.start_time)
 
     @abstractmethod

@@ -25,38 +25,23 @@ class AntakIA():
 
     """
 
-    def __init__(self, X, y:pd.Series, model, method=None, variables=None):
+    def __init__(self, X:pd.DataFrame, y:pd.Series, model, variables=None, X_exp:pd.DataFrame=None):
         """
         AntakiIA constructor.
 
         Parameters:
-        X : can be a pd.DataFrame or a list of pd.DataFrame
+        X : a pd.DataFrame
         """
-
-        if y is None or not isinstance(y, pd.Series):
-            raise ValueError("y must be a pandas Series")
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
         
-        if isinstance(X, list):
-            self.X_list = X
-            if isinstance(method, list) and (len(method) == len(X)):
-                self.X_method_list = method
-                for i in range(len(X)):
-                    if not isinstance(X[i], pd.DataFrame):
-                        raise ValueError("X must be a list of pandas DataFrame")
-                    if not ExplanationMethod.is_valid_explanation_method(method[i]):
-                        raise ValueError(method[i], " is not a valide ExplanationMethod code")
-            else:
-                raise ValueError("Since your provided a list of X, you must provide a list of methods of the same size")
-        else:
-            self.X_list = [X]
-            if isinstance(method, int) and method == ExplanationMethod.NONE:
-                self.X_method_list = [method]
-            else:
-                raise ValueError("bad explain method provided")
-
+        self.X = X
+        self.y = y
+        self.model = model
+        self.Y_pred = model.predict(X)
+        self.X_exp = X_exp
         self.variables = variables
+
         if self.variables is not None:
             if isinstance(self.variables, list):
                 self.variables = Variable.import_variable_list(variables)
@@ -69,22 +54,7 @@ class AntakIA():
         else:
             self.variables = Variable.guess_variables(X[0])
 
-        if len(self.X_list) > 1:
-            # We ensure columns are the same for all X
-            for df in self.X_list[1:]:
-                df.columns = self.X_list[0].columns
-
-        self.model = model
-        self.y = y
-        self.Y_pred = model.predict(X[0])
-
-
-        # if csv_file_name is not None :
-        #     with open(csv_file_name) as csv_file:
-        #         self.X_exp = pd.read_csv(csv_file)
-        #         # TODO : we should check coherecne between X and X_exp
-
         self.regions = []
 
     def start_gui(self)-> GUI:
-        return GUI(self.X_list, self.X_method_list, self.y, self.model, self.variables).show_splash_screen()
+        return GUI(self.X, self.y, self.model, self.variables, self.X_exp).show_splash_screen()

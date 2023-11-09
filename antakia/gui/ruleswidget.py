@@ -35,9 +35,11 @@ class RuleWidget:
         self.X = X
         self.values_space = values_space
         self.rule_updated = rule_updated
+
+        logger.debug(f"RuleWidget.init : rule = {rule}")
         
         # root_widget is an ExpansionPanel
-        self.root_widget = get_widget(app_widget,"30501010") if values_space else get_widget(app_widget,"30501110")
+        self.root_widget = get_widget(app_widget,"431010") if values_space else get_widget(app_widget,"431110")
         
         # We set the select widget (slider, rangeslider ...)
         if self.rule.is_categorical_rule():
@@ -202,6 +204,7 @@ class RulesWidget:
     X : pd.DataFrame, values or explanations Dataframe depending on the context
     variables : list of Variable
     is_value_space : bool
+    is_disabled : bool
     rules_indexes : Dataframe indexes of the rules
     rules_updated : callable of the GUI parent
     root_wiget : its widget representation
@@ -220,66 +223,71 @@ class RulesWidget:
         self.rules_indexes = None
         self.is_value_space = values_space
         self.new_rules_defined = new_rules_defined 
-    
 
+        # The root widget is a v.Col - we get it from app_widget
+        self.root_widget = get_widget(app_widget, "4310") if values_space else get_widget(app_widget, "4311")
 
-        # UI:
-        self.root_widget = get_widget(app_widget, "305010") if values_space else get_widget(app_widget, "305011")
-
+        self.rules_db = {}
         self.rule_widget_list = []
 
-    def _set_score(self, score_dict: dict):
-        if score_dict is None or len(score_dict) == 0:
-            get_widget(self.root_widget, "01").children=[f"Precision = {score_dict['precision']}, recall = {score_dict['recall']}, f1_score = {score_dict['f1']}"]
+        # At startup, we are disabled :
+        self.is_disabled=True
+        self.update_state()
 
-    def disable(self, is_disabled: bool):
+
+    def update_state(self):
         """
-        SKR computation only takes place in one space. GUI may call this method
-        to disable the other space.
-        NOTE : disable = False erases existing rules
+        GUI calls this change the RsW UI 
         """
 
-        html = get_widget(self.root_widget, "001")
-        html.children=[
+        logger.debug(f"RulesWidget.update_state : is_disabled = {self.is_disabled}")
+
+        header_html= get_widget(self.root_widget, "001")
+        header_html.children=[
             f"No rule to display for the {'values' if self.is_value_space else 'explanations'} space"
         ]
-        html.class_= "ml-3 grey--text" if is_disabled else "ml-3"
+        header_html.class_= "ml-3 grey--text" if self.is_disabled else "ml-3"
         
-        html = get_widget(self.root_widget, "01")
-        html.children=["Precision = n/a, recall = n/a, f1_score = n/a"]
-        html.class_= "ml-7 grey--text" if is_disabled else "ml-7"
-  
-        # The first ExpansionPanel
-        get_widget(self.root_widget, "10").disabled = is_disabled
-        xph = get_widget(self.root_widget, "100")
-        xph.children=["Variable"]
-        xph.class_ = "light-grey" if is_disabled else "font-weight-bold blue lighten-4"
+        self._show_score()
+        self._show_rules()
+
+        if self.is_disabled: # We clear the RuleWidget:
+            self.init_rules(None, None)
+
+        # We enable / disable the ExpansionPanels :
+        get_widget(self.root_widget, "1").disabled=self.is_disabled
+
+        if len(self.rule_widget_list)==0 :
+            # We set a dummy rule widget :
+            change_widget(self.root_widget, "1", get_widget(app_widget, "43101") if self.is_value_space else get_widget(app_widget, "43111"))
+            logger.debug(f"RulesWidget.update_state : i've modfied the UI")
+        else:
+            logger.debug(f"RulesWidget.update_state : I've not modifued the UI")
 
 
     def init_rules(self, rules_list: list, score_dict: list):
         """
-        Called by the GUI when new SKR rules are computed
+        Called to set rules or clear them. To update, use update_rule
         """
         if rules_list is None:
             self.rules_db = {}
-            self.current_index = 0
-            self.create_rule_widgets([])
-            self._set_score({})
-            self.disable(True)
-            return
-        
-        # We populate our db
+            self.current_index = -1
+            self.rule_widget_list = []
+            return 
+
+        # We populate the db and ask to erase past rules
         self._put_in_db(rules_list, score_dict, True)
-    
+        # We set our card info
         self.set_rules_info()
-        self._set_score(score_dict)
+        self._show_score()
+        self._show_rules()
+
+        # We create the RuleWidgets
         rules_indexes = Rule.rules_to_indexes(self.get_current_rules_list(), self.X)
+        self._create_rule_widgets(rules_indexes)
 
-        self.create_rule_widgets(rules_indexes)
-
-        # We notify the GUI and ask to draw the rules
-        if self.new_rules_defined is not None:
-            self.new_rules_defined(self,rules_indexes, True)
+        # We notify the GUI and ask to draw the rules on HDEs
+        self.new_rules_defined(self,rules_indexes, True)
 
     def update_rule(self, new_rule:Rule):
         """
@@ -295,7 +303,6 @@ class RulesWidget:
 
         # TODO : compute new scores / use fake scores for now
         score_dict = {"precision": 0, "recall": 0, "f1": 0}
-        self._set_score(score_dict)
         self._put_in_db(rules_list, score_dict)
 
         # We update our card info
@@ -328,21 +335,28 @@ class RulesWidget:
             txt = txt + f"   scores = {scores_dict}\n"
         return txt
 
-    def create_rule_widgets(self, init_rules_indexes:list):
+    def _create_rule_widgets(self, init_rules_indexes:list):
         """
+        Called by self.init_rules
         Creates RuleWidgest, one per rule
+        If init_rules_indexes is None, we clear all our RuleWidgets
         """
+        if init_rules_indexes is None:
+            return
+
         # We remove existing RuleWidgets
         for i in reversed(range(len(self.rule_widget_list))):
             self.rule_widget_list[i].root_widget.close()
             self.rule_widget_list.pop(i)
-    
+
+        logger.debug(f"crw : rule_widget_list len = {len(self.rule_widget_list)}")
+
         # We set new RuleWidget list and put it in our ExpansionPanels children
         if self.get_current_rules_list() is None or len(self.get_current_rules_list()) == 0:
             self.rule_widget_list = []
         else:
             self.rule_widget_list = [RuleWidget(rule, self.X, self.is_value_space, init_rules_indexes, self.update_rule) for rule in self.get_current_rules_list()]
-        get_widget(self.root_widget, "1").children = [rule_widget.root_widget for rule_widget in self.rule_widget_list]
+            get_widget(self.root_widget, "1").children = [rule_widget.root_widget for rule_widget in self.rule_widget_list]
 
     def set_rules_info(self):
         """
@@ -356,15 +370,11 @@ class RulesWidget:
         change_widget(self.root_widget, "001", v.Html(class_="ml-3", tag="h2", children=[title]))
 
         # We set the scores
-        if (
-            self.get_current_scores_dict() is None
-            or len(self.get_current_scores_dict()) == 0
-        ):
-            scores_txt = "Precision = n/a, recall = n/a, f1_score = n/a"
-        else:
-            scores_txt = f"Precision : {self.get_current_scores_dict()['precision']}, recall : {self.get_current_scores_dict()['recall']}, f1_score : {self.get_current_scores_dict()['f1']}"
-        change_widget(self.root_widget, "010", v.Html(class_="ml-3", tag="p", children=[scores_txt]))
+        self._show_score()
 
+        # We set the rules
+        self._show_rules()
+        
         # We set the rules in the DataTable
         change_widget(self.root_widget, "011", v.DataTable(
                 v_model=[],
@@ -376,14 +386,45 @@ class RulesWidget:
             )
         )
 
-    def add_rules(self, rule_list: list, score_lsit):
-        pass
+    def _show_score(self):
+        if (
+            self.get_current_scores_dict() is None
+            or len(self.get_current_scores_dict()) == 0 or self.is_disabled
+        ):
+            scores_txt = "Precision = n/a, recall = n/a, f1_score = n/a"
+            css = "ml-7 grey--text"
+        else:
+            scores_txt = f"Precision : {self.get_current_scores_dict()['precision']}, recall : {self.get_current_scores_dict()['recall']}, f1_score : {self.get_current_scores_dict()['f1']}"
+            css = "ml-7 black--text"
+        change_widget(self.root_widget, "01", v.Html(class_=css, tag="li", children=[scores_txt]))
+
+    def _show_rules(self):
+        if (
+            self.get_current_rules_list is None
+            or len(self.get_current_rules_list()) == 0 or self.is_disabled
+        ):
+            rules_txt = "N/A"
+            css = "ml-7 grey--text"
+        else:
+            rules_txt = ""
+            for rule in self.get_current_rules_list():
+                rules_txt += f"{rule} / "
+            css = "ml-7 blue--text"
+
+        change_widget(self.root_widget, "02", v.Html(class_=css, tag="li", children=[rules_txt]))
+
+
 
     def get_current_rules_list(self):
-        return self.rules_db[self.current_index][0]
-
+        if len(self.rules_db) == 0:
+            return []
+        else:
+            return self.rules_db[self.current_index][0]
 
     def get_current_scores_dict(self):
-        return self.rules_db[self.current_index][1]
+        if len(self.rules_db) == 0:
+            return []
+        else:
+            return self.rules_db[self.current_index][1]
 
 

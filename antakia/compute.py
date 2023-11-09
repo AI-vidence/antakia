@@ -46,12 +46,12 @@ class SHAPExplanation(ExplanationMethod):
         super().__init__(ExplanationMethod.SHAP, X, model, progress_updated)
 
     def compute(self) -> pd.DataFrame :
-        #TOPO split this !!
+        #TODO split this !!
         self.publish_progress(0)
         explainer = shap.Explainer(self.model.predict, self.X)
         shap_values = explainer(self.X)
         self.publish_progress(100)
-        return pd.DataFrame(shap_values)
+        return pd.DataFrame(shap_values.values)
 
 class LIMExplanation(ExplanationMethod):
     """
@@ -62,13 +62,17 @@ class LIMExplanation(ExplanationMethod):
         super().__init__(ExplanationMethod.LIME, X, model, progress_updated)
 
     def compute(self) -> pd.DataFrame :
-        self.publish_progress(0)
+        progress = 0
+
+        self.publish_progress(progress)
 
         # TODO : It seems we defined class_name in order to work with California housing dataset. We should find a way to generalize this.
-        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.get_X()), feature_names=self.X.columns, class_names=['price'], verbose=False, mode='regression')
+        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.X), feature_names=self.X.columns, class_names=['price'], verbose=False, mode='regression')
 
-        N = len(self.get_X().shape[0])
+        N = self.X.shape[0]
         values_lime = pd.DataFrame(np.zeros((N, self.X.shape[-1])))
+
+        
         
         for j in range(N):
             l = []
@@ -82,8 +86,8 @@ class LIMExplanation(ExplanationMethod):
                 l.extend(exp_map[ii][1] for jj in range(size) if ii == exp_map[jj][0])
             
             values_lime.iloc[j] = pd.Series(l)
-            self.progress += 100 / len(self.X)
-            self.publish_progress()
+            progress += 100 / len(self.X)
+            self.publish_progress(progress)
         j = list(self.X.columns)
         for i in range(len(j)): 
             j[i] = j[i] + "_lime"
@@ -167,43 +171,28 @@ class PaCMAPDimReduc(DimReducMethod):
     """
     PaCMAP computation class.
 
-    _param_dict : dict, 
-        Paramters for the PaCMAP algorithm
-        Keys : "neighbours", "MN_ratio", "FP_ratio"
     """
 
-    def __init__(self, X:pd.DataFrame, dimension: int = 2, callback:callable = None, **kwargs):
-        self._paramDict = dict()
-        if kwargs is not None :
-            if "neighbours" in kwargs:
-                    self._param_dict.update({"neighbours": kwargs["neighbours"]})
-            if "MN_ratio" in kwargs :
-                    self._param_dict.update({"MN_ratio": kwargs["MN_ratio"]})
-            if "FP_ratio" in kwargs :
-                    self._param_dict.update({"FP_ratio": kwargs["FP_ratio"]})
+    def __init__(self, X:pd.DataFrame, dimension: int = 2, callback:callable = None):
         DimReducMethod.__init__(self, DimReducMethod.PaCMAP, dimension, X, callback)
 
     
-    def compute(self, *args) -> pd.DataFrame :
+    def compute(self, **kwargs) -> pd.DataFrame :
         self.publish_progress(0)
-        # compute fonction allows to define parmameters for the PaCMAP algorithm
-        if len(args) == 3 :
-                self._param_dict.update({"neighbours": args[0]})
-                self._param_dict.update({"MN_ratio": args[1]})
-                self._param_dict.update({"FP_ratio": args[2]})
-                reducer = pacmap.PaCMAP(
-                    n_components=self.get_dimension(),
-                    n_neighbors=self._param_dict["neighbours"],
-                    MN_ratio=self._param_dict["MN_ratio"],
-                    FP_ratio=self._param_dict["FP_ratio"],
-                    random_state=9,
-                )
-        else :
-            reducer = pacmap.PaCMAP(
-                    n_components=self.get_dimension(), 
-                    random_state=9,
-                )
 
+        if len(kwargs)==3 :
+            reducer = pacmap.PaCMAP(
+                n_components=self.get_dimension(),
+                n_neighbors = kwargs["n_neighbors"],
+                MN_ratio = kwargs["FP_ratio"],
+                FP_ratio = kwargs["MN_ratio"],
+                random_state = 9,
+            )
+        else:
+            reducer = pacmap.PaCMAP(
+                n_components=self.get_dimension(), 
+                random_state=9,
+            )
         embedding = reducer.fit_transform(self.X, init="pca")
         embedding = pd.DataFrame(embedding)
 
@@ -230,8 +219,7 @@ def compute_projection(X: pd.DataFrame, dimreduc_method:int, dimension : int, ca
         if kwargs is None or len(kwargs) == 0 :
             proj_values =  PaCMAPDimReduc(X, dimension, callback).compute()
         else: 
-            logger.debug(f"compute_projection: PaCMAPDimReduc with kwargs {kwargs}")
-            proj_values =  PaCMAPDimReduc(X, dimension, callback, **kwargs).compute()
+            proj_values =  PaCMAPDimReduc(X, dimension, callback).compute(**kwargs)
 
     return proj_values
 
