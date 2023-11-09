@@ -99,10 +99,9 @@ class GUI:
         self.vs_rules_wgt = RulesWidget(self.X, self.variables, True, self.new_rules_defined)
         self.es_rules_wgt = RulesWidget(self.X, self.variables, False, self.new_rules_defined)
         # We set empty rules for now :
-        self.vs_rules_wgt.is_disabled=True
-        # self.vs_rules_wgt.update_state()
-        self.es_rules_wgt.is_disabled=True
-        # self.es_rules_wgt.update_state()
+        self.vs_rules_wgt.disable(True)
+        self.es_rules_wgt.disable(True)
+
     
 
         self.color = []
@@ -189,19 +188,21 @@ class GUI:
         """
         selection_status_str = ""
 
+        # Selection (empty or not) we remove any rule trace from HDEs
+        self.vs_hde.display_rules(None)
+        self.es_hde.display_rules(None)
+        # Selection (empty or not) we reset both RulesWidgets
+        self.vs_rules_wgt.disable(True)
+        self.es_rules_wgt.disable(True)
+
         if len(new_selection_indexes)==0:
             selection_status_str_1 = f"No point selected"
             selection_status_str_2 = f"0% of the dataset"
             # We disable the selection datatable :
             get_widget(app_widget,"4320").disabled = True
-            # We disable the SkopeButton
+            # We disable the Skope button
             get_widget(app_widget,"4301").disabled = True
-            if self.vs_rules_wgt.is_disabled == False:
-                # ongoing rules on VS RsW : we disable it
-                self.vs_rules_wgt.is_disabled = True
-                self.vs_rules_wgt.update_state()
             self.selection_ids = []
-            
         else: 
             self.selection_ids = new_selection_indexes
             selection_status_str_1 = f"{len(new_selection_indexes)} point selected"
@@ -220,7 +221,6 @@ class GUI:
                     disable_sort=False,
                 )
             )
-
             # UI rules :
             # We enable the SkopeButton
             get_widget(app_widget,"4301").disabled = False
@@ -244,10 +244,6 @@ class GUI:
         get_widget(app_widget, "10").v_model == 2 # Switch button
         self.vs_hde.set_dimension(2)
         self.es_hde.set_dimension(2)
-
-        # We enable the rules_widget who found the rules :
-        rules_widget.is_disabled = False
-        rules_widget.update_state()
 
         # We sent to the proper HDE the rules_indexes to render :
         self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
@@ -328,7 +324,7 @@ class GUI:
 
         def compute_rules(widget, event, data):
             # if clicked, selection can't be empty
-            # Let's disable the button during computation:
+            # Let's disable the Skope button. I will be re-enabled if a new selection occurs
             get_widget(app_widget,"4301").disabled = True
 
             if self.vs_hde._has_lasso:
@@ -339,6 +335,7 @@ class GUI:
                 self.es_rules_wgt.init_rules(es_rules_list, es_score_dict)
             else:
                 raise ValueError("compute_rules: called with no lasso")
+
 
 
         # We wire the click event on the 'Skope-rules' button

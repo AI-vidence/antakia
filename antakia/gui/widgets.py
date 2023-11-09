@@ -831,7 +831,7 @@ app_widget = v.Col(
                                                         v.ExpansionPanelHeader( # 0 / 100
                                                             class_="blue lighten-4",
                                                             children=[
-                                                                "A VS rule variable" # 00 
+                                                                "A VS rule variable" # 1000 
                                                             ]
                                                         ),
                                                         v.ExpansionPanelContent( # 1

@@ -305,8 +305,6 @@ class Rule():
         if sk_classifier.rules_ != []:
             rules_list, score_dict = Rule._extract_rules(sk_classifier.rules_, base_space_df, variables)
             
-            logger.debug(f"Rules.compute_rules : rules_list = {rules_list}, score_dict = {score_dict}")
-            
             if len(rules_list) >= 0:
                 Rule._combine_rule_list(rules_list)
 
@@ -350,8 +348,6 @@ class Rule():
         """""
         Returns a dict rep compatible with the v.DataTable widget
         """
-
-        logger.debug(f"rules_list : {rules_list}")
 
         if rules_list is None or len(rules_list) == 0:
             return []

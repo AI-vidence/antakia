@@ -494,8 +494,6 @@ class HighDimExplorer:
         Called by tne UI when a new selection occured on the other HDE
         """
 
-        logger.debug(f"HDE.set_sel : {self.get_space_name()} has to replace its {len(self._current_selection)} points sel by {len(new_selection_indexes)} points. Lasso ? {self._has_lasso}")
-
         if len(self._current_selection) == 0 and len(new_selection_indexes) == 0:
             logger.debug(f"HDE.set_sel : {self.get_space_name()} ignore another unselect.")
             return

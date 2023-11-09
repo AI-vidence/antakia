@@ -39,7 +39,33 @@ class RuleWidget:
         logger.debug(f"RuleWidget.init : rule = {rule}")
         
         # root_widget is an ExpansionPanel
-        self.root_widget = get_widget(app_widget,"431010") if values_space else get_widget(app_widget,"431110")
+        self.root_widget = v.ExpansionPanel( # PH for VS RuleWidget #431010 10
+            children=[
+                v.ExpansionPanelHeader(
+                    class_="blue lighten-4",
+                    children=[
+                        "Placeholder for variable symbol" # 1000 
+                    ]
+                ),
+                v.ExpansionPanelContent( 
+                    children=[
+                        v.Col( 
+                            children=[
+                                v.Spacer(), 
+                                v.Slider( # placeholder for select widget
+                                ),
+                            ],
+                        ),
+                        FigureWidget( # Placeholder for figure
+                        ),
+                    ]
+                ),
+            ]
+        )
+
+
+        # The variable name bg (ExpansionPanelHeader) is light blue
+        get_widget(self.root_widget,"0").class_= "blue lighten-4"
         
         # We set the select widget (slider, rangeslider ...)
         if self.rule.is_categorical_rule():
@@ -231,16 +257,16 @@ class RulesWidget:
         self.rule_widget_list = []
 
         # At startup, we are disabled :
-        self.is_disabled=True
-        self.update_state()
+        self.disable(True)
 
 
-    def update_state(self):
+    def disable(self, is_disabled:bool=True):
         """
-        GUI calls this change the RsW UI 
+        Disabled : card in grey with dummy text + no ExpansionPanels
+        Enabled : card in light blue / ready to display RuleWidgets
         """
 
-        logger.debug(f"RulesWidget.update_state : is_disabled = {self.is_disabled}")
+        self.is_disabled = is_disabled
 
         header_html= get_widget(self.root_widget, "001")
         header_html.children=[
@@ -251,29 +277,14 @@ class RulesWidget:
         self._show_score()
         self._show_rules()
 
-        if self.is_disabled: # We clear the RuleWidget:
-            self.init_rules(None, None)
-
-        # We enable / disable the ExpansionPanels :
-        get_widget(self.root_widget, "1").disabled=self.is_disabled
-
-        if len(self.rule_widget_list)==0 :
-            # We set a dummy rule widget :
-            change_widget(self.root_widget, "1", get_widget(app_widget, "43101") if self.is_value_space else get_widget(app_widget, "43111"))
-            logger.debug(f"RulesWidget.update_state : i've modfied the UI")
-        else:
-            logger.debug(f"RulesWidget.update_state : I've not modifued the UI")
+        # We set an empty ExpansionPanels :
+        change_widget(self.root_widget, "1", v.ExpansionPanels())
 
 
     def init_rules(self, rules_list: list, score_dict: list):
         """
         Called to set rules or clear them. To update, use update_rule
         """
-        if rules_list is None:
-            self.rules_db = {}
-            self.current_index = -1
-            self.rule_widget_list = []
-            return 
 
         # We populate the db and ask to erase past rules
         self._put_in_db(rules_list, score_dict, True)
@@ -348,8 +359,6 @@ class RulesWidget:
         for i in reversed(range(len(self.rule_widget_list))):
             self.rule_widget_list[i].root_widget.close()
             self.rule_widget_list.pop(i)
-
-        logger.debug(f"crw : rule_widget_list len = {len(self.rule_widget_list)}")
 
         # We set new RuleWidget list and put it in our ExpansionPanels children
         if self.get_current_rules_list() is None or len(self.get_current_rules_list()) == 0:
