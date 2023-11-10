@@ -46,21 +46,18 @@ class SHAPExplanation(ExplanationMethod):
         super().__init__(ExplanationMethod.SHAP, X, model, progress_updated)
 
     def compute(self) -> pd.DataFrame:
-        # TODO split this !!
         self.publish_progress(0)
-        explainer = shap.Explainer(self.model.predict)
-        if isinstance(explainer, (shap.TreeExplainer, shap.GPUTreeExplainer)):
-            chunck_size = 200
-            shap_val_list = []
-            for i in range(0, len(self.X), chunck_size):
-                explanations = explainer(self.X.loc[i:i + chunck_size])
-                shap_val_list.append(explanations.values)
-                self.publish_progress(int(100 * i / len(self.X)))
-            shap_values = pd.concat(self.X)
-        else:
-            shap_values = explainer(self.X)
+        explainer = shap.TreeExplainer(self.model)
+        chunck_size = 200
+        shap_val_list = []
+        for i in range(0, len(self.X), chunck_size):
+            explanations = explainer.shap_values(self.X.iloc[i:i + chunck_size])
+            shap_val_list.append(
+                pd.DataFrame(explanations, columns=self.X.columns, index=self.X.index[i:i + chunck_size]))
+            self.publish_progress(int(100 * i / len(self.X)))
+        shap_values = pd.concat(shap_val_list)
         self.publish_progress(100)
-        return pd.DataFrame(shap_values.values)
+        return shap_values
 
 
 class LIMExplanation(ExplanationMethod):
