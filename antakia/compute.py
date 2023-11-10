@@ -194,8 +194,8 @@ class PaCMAPDimReduc(DimReducMethod):
             reducer = pacmap.PaCMAP(
                 n_components=self.get_dimension(),
                 n_neighbors=kwargs["n_neighbors"],
-                MN_ratio=kwargs["FP_ratio"],
-                FP_ratio=kwargs["MN_ratio"],
+                MN_ratio=kwargs["MN_ratio"],
+                FP_ratio=kwargs["FP_ratio"],
                 random_state=9,
             )
         else:
