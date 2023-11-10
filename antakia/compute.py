@@ -48,7 +48,7 @@ class SHAPExplanation(ExplanationMethod):
     def compute(self) -> pd.DataFrame :
         #TODO split this !!
         self.publish_progress(0)
-        explainer = shap.Explainer(self.model.predict, self.X)
+        explainer = shap.Explainer(self.model.predict)
         shap_values = explainer(self.X)
         self.publish_progress(100)
         return pd.DataFrame(shap_values.values)
