@@ -107,9 +107,6 @@ class GUI:
         self.selection_ids = []
 
         # UI rules : 
-        # We disable tabs 2 and 3 at startup
-        get_widget(app_widget,"41").disabled = True
-        get_widget(app_widget,"42").disabled = True
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget,"4220").disabled = True
 
