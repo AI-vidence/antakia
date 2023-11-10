@@ -179,7 +179,7 @@ def datatable_from_Selection(sel: list, length: int) -> v.Row:
     )
 
 
-dummy_df = pd.DataFrame({'MedInc': [8.3252, 8.3014, 2.0804, 1.3578, 1.7135, 2.4038, 2.4597, 1.9274, 1.7969, 1.375], 'HouseAge': [41.0, 21.0, 42.0, 40.0, 42.0, 41.0, 49.0, 49.0, 48.0, 49.0], 'AveRooms': [6.984126984126984, 6.238137082601054, 4.294117647058823, 4.524096385542169, 4.478142076502732, 4.495798319327731, 4.728033472803348, 5.068783068783069, 5.737313432835821, 5.030395136778116], 'AveBedrms': [1.0238095238095235, 0.9718804920913884, 1.1176470588235294, 1.108433734939759, 1.0027322404371584, 1.0336134453781514, 1.0209205020920502, 1.1825396825396826, 1.2208955223880598, 1.1124620060790271], 'Population': [322.0, 2401.0, 1206.0, 409.0, 929.0, 317.0, 607.0, 863.0, 1026.0, 754.0], 'AveOccup': [2.555555555555556, 2.109841827768014, 2.026890756302521, 2.463855421686747, 2.5382513661202184, 2.663865546218488, 2.5397489539748954, 2.2830687830687832, 3.062686567164179, 2.291793313069909], 'Latitude': [37.88, 37.86, 37.84, 37.85, 37.85, 37.85, 37.85, 37.84, 37.84, 37.83], 'Longitude': [-122.23, -122.22, -122.26, -122.27, -122.27, -122.28, -122.28, -122.28, -122.27, -122.27]})
+dummy_df = pd.DataFrame({'MedInc': [8.3252, 8.3014, 2.0804, 1.3578, 1.7135, 2.4038, 2.4597, 1.9274, 1.7969, 1.375], 'HouseAge': [41.0, 21.0, 42.0, 40.0, 42.0, 41.0, 49.0, 49.0, 48.0, 49.0], 'AveRooms': [6.984126984126984, 6.238137082601054, 4.294117647058823, 4.524096385542169, 4.478142076502732, 4.495798319327731, 4.728033472803348, 5.068783068783069, 5.737313422835821, 5.030395136778116], 'AveBedrms': [1.0238095238095235, 0.9718804920913884, 1.1176470588235294, 1.108423734939759, 1.0027322404271584, 1.0336134453781514, 1.0209205020920502, 1.1825396825396826, 1.2208955223880598, 1.1124620060790271], 'Population': [322.0, 2401.0, 1206.0, 409.0, 929.0, 317.0, 607.0, 863.0, 1026.0, 754.0], 'AveOccup': [2.555555555555556, 2.109841827768014, 2.026890756302521, 2.463855421686747, 2.5382513661202184, 2.663865546218488, 2.5397489539748954, 2.2830687830687832, 3.062686567164179, 2.291793313069909], 'Latitude': [37.88, 37.86, 37.84, 37.85, 37.85, 37.85, 37.85, 37.84, 37.84, 37.83], 'Longitude': [-122.23, -122.22, -122.26, -122.27, -122.27, -122.28, -122.28, -122.28, -122.27, -122.27]})
 
 dummy_sub_models_df = pd.DataFrame(
     {
@@ -725,38 +725,37 @@ app_widget = v.Col(
             v_model=0,  # default active tab
             children=[
                 v.Tab(children=["1. Selection"]), # 40
-                v.Tab(children=["2. Sub-model"]), # 41
-                v.Tab(children=["3. Regions"]), # 42
+                v.Tab(children=["2. Regions"]), # 41
             ]
             +
             [
-                v.TabItem(  # Tab 1) Selection # 43
+                v.TabItem(  # Tab 1) Selection # 42
                     class_="mt-2",
                     children=[
-                        v.Row( # buttons row # 430
+                        v.Row( # buttons row # 420
                             class_="d-flex flex-row align-top mt-2",
                             children=[
-                                v.Sheet( # Selection info # 4300
+                                v.Sheet( # Selection info # 4200
                                     class_="ml-3 mr-3 pa-2 align-top grey lighten-3",
                                     style_="width: 20%",
                                     elevation=1,
                                     children=[
-                                        v.Html( # 43000
+                                        v.Html( # 42000
                                             tag="li",
                                             children=[
-                                                    v.Html( # 430000
+                                                    v.Html( # 420000
                                                         tag="strong",
-                                                        children=["0 points"] # 4300000
+                                                        children=["0 points"] # 4200000
                                                     )
                                                 ]
                                         ),
-                                        v.Html( # 43001
+                                        v.Html( # 42001
                                             tag="li",
-                                            children=["0% of the dataset"] # 430010
+                                            children=["0% of the dataset"] # 420010
                                         )
                                     ],
                                 ),
-                                v.Btn( # 4301 Skope button
+                                v.Btn( # 4201 Skope button
                                     class_="ma-1 primary white--text",
                                     children=[
                                         v.Icon(
@@ -768,7 +767,7 @@ app_widget = v.Col(
                                         "Skope rules",
                                     ],
                                 ),
-                                v.Btn( # 4302
+                                v.Btn( # 4202
                                     class_="ma-1",
                                     children=[
                                         v.Icon(
@@ -780,7 +779,7 @@ app_widget = v.Col(
                                         "Undo",
                                     ],
                                 ),
-                                v.Btn(  # 4303
+                                v.Btn(  # 4203
                                     class_="ma-1 green white--text",
                                     children=[
                                         v.Icon(
@@ -794,27 +793,27 @@ app_widget = v.Col(
                                 )
                             ]
                         ), # End Buttons row
-                        v.Row( # tab 1 / row #2 : 2 RulesWidgets # 431
+                        v.Row( # tab 1 / row #2 : 2 RulesWidgets # 421
                             class_="d-flex flex-row",
                             children=[
-                                v.Col(  # placeholder for the VS RulesWidget (RsW) # 4310 
+                                v.Col(  # placeholder for the VS RulesWidget (RsW) # 4210 
                                     children=[
-                                        v.Col( # 43100 / 0
+                                        v.Col( # 42100 / 0
                                             children=[
-                                                v.Row( # 431000 / 00
+                                                v.Row( # 421000 / 00
                                                     children=[
                                                         v.Icon(children=["mdi-target"]), # 
                                                         v.Html(class_="ml-3", tag="h2", children=["Rules applied on the values space"]), 
                                                     ]
                                                 ),
-                                                v.Html( # 431001 / 01
+                                                v.Html( # 421001 / 01
                                                     class_="ml-7", 
                                                     tag="li", 
                                                     children=[
                                                         "Precision = 0.3, recall = 0.8, f1_score = 22" 
                                                     ]
                                                 ),  
-                                                v.Html( # 431002 / 02
+                                                v.Html( # 421002 / 02
                                                     class_="ml-7", 
                                                     tag="li", 
                                                     children=[
@@ -823,10 +822,10 @@ app_widget = v.Col(
                                                 ),
                                                 ]
                                         ),
-                                        v.ExpansionPanels( # Holds VS RuleWidgets  # 43101 / 1
+                                        v.ExpansionPanels( # Holds VS RuleWidgets  # 42101 / 1
                                             style_="max-width: 95%",
                                             children=[
-                                                v.ExpansionPanel( # PH for VS RuleWidget #431010 10
+                                                v.ExpansionPanel( # PH for VS RuleWidget #421010 10
                                                     children=[
                                                         v.ExpansionPanelHeader( # 0 / 100
                                                             class_="blue lighten-4",
@@ -875,10 +874,10 @@ app_widget = v.Col(
                                         ),
                                     ],
                                 ),
-                                v.Col(  # placeholder for the ES RulesWidget (RsW) # 4311
+                                v.Col(  # placeholder for the ES RulesWidget (RsW) # 4211
                                     size_="width=50%",
                                     children=[
-                                        v.Col( # placeholder for the ES RulesWidget card # 43110
+                                        v.Col( # placeholder for the ES RulesWidget card # 42110
                                             children=[
                                                 v.Row( 
                                                     children=[
@@ -891,7 +890,7 @@ app_widget = v.Col(
                                                     tag="li", 
                                                     children=["Precision = 0.3, Recall = 0.8, F1 = 22"]
                                                     ),
-                                                v.Html( # 431002
+                                                v.Html( # 421002
                                                     class_="ml-7", 
                                                     tag="li", 
                                                     children=[
@@ -900,7 +899,7 @@ app_widget = v.Col(
                                                 )
                                                 ]
                                         ),
-                                        v.ExpansionPanels( # 43111
+                                        v.ExpansionPanels( # 42111
                                             style_="max-width: 95%",
                                             children=[
                                                 v.ExpansionPanel( # Placeholder for the ES RuleWidgets 
@@ -954,18 +953,18 @@ app_widget = v.Col(
                                 ),
                             ], # end Row
                         ),
-                        v.ExpansionPanels( # tab 1 / row #3 : datatable with selected rows # 432
+                        v.ExpansionPanels( # tab 1 / row #3 : datatable with selected rows # 422
                             class_="d-flex flex-row",
                             children=[
-                                v.ExpansionPanel(  # 4320
+                                v.ExpansionPanel(  # 4220
                                     children=[
-                                        v.ExpansionPanelHeader( # 43200
+                                        v.ExpansionPanelHeader( # 42200
                                             class_="grey lighten-3",
                                             children=["Data selected"]
                                         ), 
-                                        v.ExpansionPanelContent( # 43201
+                                        v.ExpansionPanelContent( # 42201
                                             children=[
-                                                v.DataTable( # 432010
+                                                v.DataTable( # 422010
                                                     v_model=[],
                                                     show_select=False,
                                                     headers=[
@@ -991,122 +990,7 @@ app_widget = v.Col(
                         ),
                     ]
                 ),
-                v.TabItem(  # Tab 2) Sub-model  # 44
-                    children=[
-                        v.Col(
-                            children=[
-                                v.Row(
-                                    children=[
-                                        v.Col(
-                                            children=[
-                                                v.Html(
-                                                    tag="h3",
-                                                    class_="mb-3",
-                                                    children=["Sub-models"],
-                                                ),
-                                                v.DataTable(
-                                                    single_select=True,
-                                                    v_model=[],
-                                                    headers=[
-                                                        {
-                                                            "text": column,
-                                                            "sortable": True,
-                                                            "value": column,
-                                                        }
-                                                        for column in dummy_sub_models_df.columns
-                                                    ],
-                                                    items=dummy_sub_models_df.to_dict("records"),
-                                                    hide_default_footer=False,
-                                                    disable_sort=False,
-                                                    )
-                                            ]
-                                        ),
-                                        v.Col(
-                                            style_="width: 50%",
-                                            children = [
-                                                v.Row(
-                                                    children=[
-                                                        v.Btn(
-                                                            children=["Compute scores"],
-                                                            class_="ma-2 ml-6 pa-3",
-                                                            elevation="3",
-                                                            color="primary",
-                                                        ),
-                                                        v.Btn(
-                                                            children=["Validate model"],
-                                                            class_="ma-2 ml-6 pa-3 white--text",
-                                                            elevation="3",
-                                                            color="green",
-                                                        ),
-                                                    ]
-                                                ),
-                                                v.Html(
-                                                    tag="h3",
-                                                    class_="ma-3",
-                                                    children=["Results :"],
-                                                ),
-                                                v.Sheet(
-                                                    class_="ml-3 pl-5 mt-3",
-                                                    style_="width: 30%",
-                                                    elevation=2,
-                                                    children=[
-                                                        v.Row(
-                                                            children=[
-                                                                v.Col(
-                                                                    style_="width: 50%",
-                                                                    class_="flex-column",
-                                                                    children = [
-                                                                        v.Html(
-                                                                            tag="h4",
-                                                                            class_="mb-3",
-                                                                            children=["Score"],
-                                                                        ),
-                                                                        v.Html(
-                                                                            tag="p",
-                                                                            class_="mb-3",
-                                                                            children=["MSE"],
-                                                                        ),
-                                                                        v.Html(
-                                                                            tag="p",
-                                                                            class_="mb-3",
-                                                                            children=["MAE"],
-                                                                        ),
-                                                                    ]
-                                                                ),
-                                                                v.Col(
-                                                                    style_="width: 50%",
-                                                                    class_="flex-column",
-                                                                    children = [
-                                                                        v.Html(
-                                                                            tag="h4",
-                                                                            class_="mb-3",
-                                                                            children=["Value"],
-                                                                        ),
-                                                                        v.Html(
-                                                                            tag="p",
-                                                                            class_="mb-3",
-                                                                            children=["0.35"],
-                                                                        ),
-                                                                        v.Html(
-                                                                            tag="p",
-                                                                            class_="mb-3",
-                                                                            children=["0.99"],
-                                                                        ),
-                                                                    ]
-                                                                )
-                                                            ]
-                                                        )
-                                                    ]
-                                                ),
-                                            ] 
-                                        )
-                                    ]
-                                )
-                            ]
-                        ),
-                    ]
-                ),
-                v.TabItem(  # Tab 3) Regions #45
+                v.TabItem(  # Tab 2) Regions #43
                     children=[
                         v.Sheet(
                             class_="d-flex",

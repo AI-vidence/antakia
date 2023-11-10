@@ -40,7 +40,7 @@ class RuleWidget:
         logger.debug(f"RuleWidget.init : rule = {rule}")
         
         # root_widget is an ExpansionPanel
-        self.root_widget = v.ExpansionPanel( # PH for VS RuleWidget #431010 10
+        self.root_widget = v.ExpansionPanel( # PH for VS RuleWidget #421010 10
             children=[
                 v.ExpansionPanelHeader(
                     class_="blue lighten-4",
@@ -262,7 +262,7 @@ class RulesWidget:
         self.new_rules_defined = new_rules_defined 
 
         # The root widget is a v.Col - we get it from app_widget
-        self.root_widget = get_widget(app_widget, "4310") if values_space else get_widget(app_widget, "4311")
+        self.root_widget = get_widget(app_widget, "4210") if values_space else get_widget(app_widget, "4211")
 
         self.rules_db = {}
         self.current_index = -1
