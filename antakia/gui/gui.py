@@ -59,7 +59,6 @@ class GUI:
         IMPORTANT : a dataframe index may differ from the row number
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
     vs_rules_wgt, es_rules_wgt : RulesWidget
-    update_graphs_stack : list of tuples # history for undos
 
     """
 
@@ -97,7 +96,7 @@ class GUI:
             )
 
         self.vs_rules_wgt = RulesWidget(self.X, self.variables, True, self.new_rules_defined)
-        self.es_rules_wgt = RulesWidget(self.X, self.variables, False, self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.es_hde.get_current_X(), self.variables, False, self.new_rules_defined)
         # We set empty rules for now :
         self.vs_rules_wgt.disable(True)
         self.es_rules_wgt.disable(True)
@@ -114,8 +113,6 @@ class GUI:
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget,"4320").disabled = True
 
-        # We init the 'undo stack'
-        self.update_graphs_stack = []
         
     def show_splash_screen(self):
         """ Displays the splash screen and updates it during the first computations.
@@ -188,7 +185,8 @@ class GUI:
         """
         selection_status_str = ""
 
-        # Selection (empty or not) we remove any rule trace from HDEs
+        # UI rules :
+        # Selection (empty or not) we remove any (rule trace) from HDEs
         self.vs_hde.display_rules(None)
         self.es_hde.display_rules(None)
         # Selection (empty or not) we reset both RulesWidgets
@@ -196,19 +194,36 @@ class GUI:
         self.es_rules_wgt.disable(True)
 
         if len(new_selection_indexes)==0:
+            # Selection gets emty
             selection_status_str_1 = f"No point selected"
             selection_status_str_2 = f"0% of the dataset"
-            # We disable the selection datatable :
-            get_widget(app_widget,"4320").disabled = True
+
+            # UI rules :
             # We disable the Skope button
             get_widget(app_widget,"4301").disabled = True
+            # We disable 'undo' and 'validate rules' buttons
+            get_widget(app_widget,"4302").disabled = True
+            get_widget(app_widget,"4303").disabled = True
+            # We enable HDEs (proj select, explain select etc.)
+            self.vs_hde.disable_widgets(False)
+            self.es_hde.disable_widgets(False)
+            # We disable the selection datatable :
+            get_widget(app_widget,"4320").disabled = True
+
             self.selection_ids = []
         else: 
+            # Selection is not empty anymore / changes
             self.selection_ids = new_selection_indexes
+
+            # UI rules : we update the selection status :
             selection_status_str_1 = f"{len(new_selection_indexes)} point selected"
             selection_status_str_2 = f"{round(100*len(new_selection_indexes)/len(self.X))}% of the  dataset"
-            
-            # We show the selection datatable :
+            # We enable the SkopeButton
+            get_widget(app_widget,"4301").disabled = False
+            # We disable HDEs
+            self.vs_hde.disable_widgets(True)
+            self.es_hde.disable_widgets(True)
+            # We show and fill the selection datatable :
             get_widget(app_widget,"4320").disabled = False
             # TODO : format the cells, remove digits
             change_widget(app_widget,"432010", v.DataTable(
@@ -221,19 +236,17 @@ class GUI:
                     disable_sort=False,
                 )
             )
-            # UI rules :
-            # We enable the SkopeButton
-            get_widget(app_widget,"4301").disabled = False
-
-        change_widget(app_widget,"4300000", selection_status_str_1)
-        change_widget(app_widget,"430010", selection_status_str_2)
-        
         # We syncrhonize selection between the two HighDimExplorers
         other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
         other_hde.set_selection(new_selection_indexes)
-
         # We store the new selection
         self.selection_ids = new_selection_indexes
+
+        # UI rules :
+        # We update the selection status :
+        change_widget(app_widget,"4300000", selection_status_str_1)
+        change_widget(app_widget,"430010", selection_status_str_2)
+        
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_indexes: list, skr:bool=False):
         """
@@ -248,11 +261,11 @@ class GUI:
         # We sent to the proper HDE the rules_indexes to render :
         self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
 
-        # We enable 'undo' and 'validate rules' buttons
-        get_widget(app_widget, "4302").disabled = False
-        get_widget(app_widget, "4303").disabled = False
-
-
+        # We disable the 'undo' button if RsW has less than 2 rules
+        get_widget(app_widget, "4302").disabled = rules_widget.current_index <1
+        # We disable the 'validate rules' button if RsW has less than 1 rule
+        get_widget(app_widget, "4303").disabled = rules_widget.current_index < 0
+        
     def show_app(self):
         # AppBar
 
@@ -322,40 +335,44 @@ class GUI:
         change_widget(app_widget, "4310", self.vs_rules_wgt.root_widget)
         change_widget(app_widget, "4311", self.es_rules_wgt.root_widget)
 
-        def compute_rules(widget, event, data):
+        def compute_skope_rules(widget, event, data):
             # if clicked, selection can't be empty
             # Let's disable the Skope button. I will be re-enabled if a new selection occurs
             get_widget(app_widget,"4301").disabled = True
 
-            if self.vs_hde._has_lasso:
-                vs_rules_list, vs_score_dict = Rule.compute_rules(self.selection_ids, self.vs_hde.get_current_X(), True, self.variables)
-                self.vs_rules_wgt.init_rules(vs_rules_list, vs_score_dict)
-            elif self.es_hde._has_lasso:
-                es_rules_list, es_score_dict = Rule.compute_rules(self.selection_ids, self.es_hde.get_current_X(), False, self.variables)
-                self.es_rules_wgt.init_rules(es_rules_list, es_score_dict)
+            hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
+            rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
+            skr_rules_list, skr_score_dict = Rule.compute_skope_rules(self.selection_ids, hde.get_current_X(), True, self.variables)
+            if len(skr_rules_list) > 0: # SKR rules found
+                # UI rules :
+                # We enable the 'validate rule' button
+                get_widget(app_widget,"4303").disabled = False
+                # We enable RulesWidet and init it wit the rules
+                rsw.disable(False)
+                rsw.init_rules(skr_rules_list, skr_score_dict, self.selection_ids )
             else:
-                raise ValueError("compute_rules: called with no lasso")
-
-
+                # No skr found
+                rsw.show_msg("No Skope rules found", "red--text")
 
         # We wire the click event on the 'Skope-rules' button
-        get_widget(app_widget,"4301").on_event("click", compute_rules)
-        # We disable the 'Skope-rules' button at startup
+        get_widget(app_widget,"4301").on_event("click", compute_skope_rules)
+        # UI rules :
+        # The Skope rules button is disabled at startup
+        # It's only enabled when a selection occurs - when the selection is empty, it's disabled again
+        # Startup status :
         get_widget(app_widget,"4301").disabled = True
 
         def undo(widget, event, data):
-            pass
-            # logger.debug(f"undo stack is {len(self.update_graphs_stack)}")
-            # last_refresh_indexes = self.update_graphs_stack[len(self.update_graphs_stack)-1]
-            # self.update_graphs_stack.pop(-1)
-            # self.vs_rules_wgt.current_index = last_refresh_indexes[0]
-            # self.es_rules_wgt.current_index = last_refresh_indexes[1]
-            # self.vs_hde.redraw()
-            # self.es_hde.redraw()
-            # # update_graphs(None, None, None)
-            # # if len(self.update_graphs_stack) == 0:
-            # #     get_widget(app_widget, "4302").disabled = True
-            
+            if self.vs_rules_wgt.current_index > 0:
+                self.vs_rules_wgt.undo()
+                if self.vs_rules_wgt.current_index == 0:
+                    # We disable the 'undo' button
+                    get_widget(app_widget,"4302").disabled = True
+            else:
+                self.es_rules_wgt.undo()
+                if self.es_rules_wgt.current_index == 0:
+                    # We disable the 'undo' button
+                    get_widget(app_widget,"4302").disabled = True
 
         # We wire the ckick event on the 'Undo' button
         get_widget(app_widget, "4302").on_event("click", undo)
@@ -368,7 +385,9 @@ class GUI:
 
         # We wire the ckick event on the 'Valildate ruyles' button
         get_widget(app_widget, "4303").on_event("click", validate_rules)
-        # At start the button is disabled
+        # UI rules :
+        # The 'validate rules' button is disabled at startup
+        # It's enabled when a SKR rules has been found and is disabled when the selection gets empty
         get_widget(app_widget, "4303").disabled = True
 
         # ------------- Tab 2 : sub-models -----------

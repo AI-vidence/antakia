@@ -756,7 +756,7 @@ app_widget = v.Col(
                                         )
                                     ],
                                 ),
-                                v.Btn( # 4301
+                                v.Btn( # 4301 Skope button
                                     class_="ma-1 primary white--text",
                                     children=[
                                         v.Icon(
@@ -797,7 +797,7 @@ app_widget = v.Col(
                         v.Row( # tab 1 / row #2 : 2 RulesWidgets # 431
                             class_="d-flex flex-row",
                             children=[
-                                v.Col(  # placeholder for the VS RulesWidget (RsW) # 4310
+                                v.Col(  # placeholder for the VS RulesWidget (RsW) # 4310 
                                     children=[
                                         v.Col( # 43100 / 0
                                             children=[

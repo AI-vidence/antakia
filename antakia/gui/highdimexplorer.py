@@ -47,7 +47,7 @@ class HighDimExplorer:
     _selection_disabled : bool
     container : a thin v.Container wrapper around the current Figure. Allows us to swap between 2D and 3D figures alone (without GUI)
     _proj_params_cards : dict of VBox,  parameters for dimreduc methods
-    fig_size
+    fig_size : int
 
     """
 
@@ -176,9 +176,18 @@ class HighDimExplorer:
 
         self._current_selection = []
         self._has_lasso = False
-        
 
     # ---- Methods ------
+
+    def disable_widgets(self, is_disabled: bool):
+        """
+        Called by GUI to enable/disable proj changes
+        """
+        self.get_projection_select().disabled = is_disabled
+        self.get_proj_params_menu().disabled = is_disabled
+        if not self.is_value_space :
+            self.get_explanation_select().disabled = is_disabled
+            self.get_compute_menu().disabled = is_disabled
 
     def display_rules(self, df_ids_list: list):
         """

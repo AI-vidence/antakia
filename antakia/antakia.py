@@ -39,8 +39,12 @@ class AntakIA():
         self.y = y
         self.model = model
         self.Y_pred = model.predict(X)
-        self.X_exp = X_exp
         self.variables = variables
+
+        # It's common to have column names ending with _shap, so we remove them
+        X_exp.columns = X_exp.columns.str.replace('_shap', '')
+        self.X_exp = X_exp
+        
 
         if self.variables is not None:
             if isinstance(self.variables, list):

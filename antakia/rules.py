@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -143,6 +144,8 @@ class Rule():
                     query = "df.loc[" + " " + query_var + " "
                     query += ">" if self.operator_min == 0 else ">="
                     query += " " + str(self.min) + "]"
+                logger.debug(f"X : {X.columns}")
+                logger.debug(f"Query : {query}")
                 df = eval(query)
             else:
                 # We have an interval rule -> 2 queries
@@ -273,7 +276,7 @@ class Rule():
         return rule_list, score_dict
 
     @staticmethod
-    def compute_rules(df_indexes: list, base_space_df: pd.DataFrame, values_space: bool, variables: list = None, precision: float = 0.7, recall: float = 0.7) -> list:
+    def compute_skope_rules(df_indexes: list, base_space_df: pd.DataFrame, values_space: bool, variables: list = None, precision: float = 0.7, recall: float = 0.7) -> list:
         """
         variables : list of Variables of the app
         df_indexes : list of (DataFrame) indexes for the points selected in the GUI
@@ -281,27 +284,28 @@ class Rule():
         precision for SKR binary classifer : defaults to 0.7
         recall for SKR binary classifer : defaults to 0.7
         """
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            y_train = np.zeros(len(base_space_df))
+            y_train[Rule.indexes_to_rows(base_space_df, df_indexes)] = 1  # our target
 
-        y_train = np.zeros(len(base_space_df))
-        y_train[Rule.indexes_to_rows(base_space_df, df_indexes)] = 1  # our target
+            if variables is None:
+                variables = Variable.guess_variables(base_space_df)
 
-        if variables is None:
-            variables = Variable.guess_variables(base_space_df)
+            sk_classifier = SkopeRules(
+                feature_names=vars_to_sym_list(variables),
+                random_state=42,
+                n_estimators=5,
+                recall_min=recall,
+                precision_min=precision,
+                max_depth_duplication=0,
+                max_samples=1.0,
+                max_depth=3,
+            )
 
-        sk_classifier = SkopeRules(
-            feature_names=vars_to_sym_list(variables),
-            random_state=42,
-            n_estimators=5,
-            recall_min=recall,
-            precision_min=precision,
-            max_depth_duplication=0,
-            max_samples=1.0,
-            max_depth=3,
-        )
-        sk_classifier.fit(base_space_df, y_train)
+            sk_classifier.fit(base_space_df, y_train)
 
-        logger.debug(f"Rules.compute_rules : raw SKR = {sk_classifier.rules_}")
-
+            
         if sk_classifier.rules_ != []:
             rules_list, score_dict = Rule._extract_rules(sk_classifier.rules_, base_space_df, variables)
             
