@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 # umpa fires NumbaDeprecationWarning warning, so :
 import warnings
 from numba.core.errors import NumbaDeprecationWarning
+
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=UserWarning)
 
@@ -15,7 +16,6 @@ import lime
 import lime.lime_tabular
 import shap
 from copy import deepcopy, copy
-
 
 import mvlearn
 from skrules import SkopeRules
@@ -28,9 +28,9 @@ from antakia.data import LongTask, ExplanationMethod, DimReducMethod
 from antakia.utils import conf_logger
 import logging
 from logging import getLogger
+
 logger = logging.getLogger(__name__)
 conf_logger(logger)
-
 
 
 # ===========================================================
@@ -42,38 +42,44 @@ class SHAPExplanation(ExplanationMethod):
     SHAP computation class.
     """
 
-    def __init__(self, X:pd.DataFrame, model, progress_updated: callable = None):
+    def __init__(self, X: pd.DataFrame, model, progress_updated: callable = None):
         super().__init__(ExplanationMethod.SHAP, X, model, progress_updated)
 
-    def compute(self) -> pd.DataFrame :
-        #TODO split this !!
+    def compute(self) -> pd.DataFrame:
         self.publish_progress(0)
-        explainer = shap.Explainer(self.model.predict, self.X)
-        shap_values = explainer(self.X)
+        explainer = shap.TreeExplainer(self.model)
+        chunck_size = 200
+        shap_val_list = []
+        for i in range(0, len(self.X), chunck_size):
+            explanations = explainer.shap_values(self.X.iloc[i:i + chunck_size])
+            shap_val_list.append(
+                pd.DataFrame(explanations, columns=self.X.columns, index=self.X.index[i:i + chunck_size]))
+            self.publish_progress(int(100 * i / len(self.X)))
+        shap_values = pd.concat(shap_val_list)
         self.publish_progress(100)
-        return pd.DataFrame(shap_values.values)
+        return shap_values
+
 
 class LIMExplanation(ExplanationMethod):
     """
     LIME computation class.
     """
-    
-    def __init__(self, X:pd.DataFrame, model, progress_updated: callable = None):
+
+    def __init__(self, X: pd.DataFrame, model, progress_updated: callable = None):
         super().__init__(ExplanationMethod.LIME, X, model, progress_updated)
 
-    def compute(self) -> pd.DataFrame :
+    def compute(self) -> pd.DataFrame:
         progress = 0
 
         self.publish_progress(progress)
 
         # TODO : It seems we defined class_name in order to work with California housing dataset. We should find a way to generalize this.
-        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.X), feature_names=self.X.columns, class_names=['price'], verbose=False, mode='regression')
+        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.X), feature_names=self.X.columns,
+                                                           class_names=['price'], verbose=False, mode='regression')
 
         N = self.X.shape[0]
         values_lime = pd.DataFrame(np.zeros((N, self.X.shape[-1])))
 
-        
-        
         for j in range(N):
             l = []
             exp = explainer.explain_instance(
@@ -84,27 +90,28 @@ class LIMExplanation(ExplanationMethod):
             for ii in range(size):
                 exp_map = exp.as_map()[0]
                 l.extend(exp_map[ii][1] for jj in range(size) if ii == exp_map[jj][0])
-            
+
             values_lime.iloc[j] = pd.Series(l)
             progress += 100 / len(self.X)
             self.publish_progress(progress)
         j = list(self.X.columns)
-        for i in range(len(j)): 
+        for i in range(len(j)):
             j[i] = j[i] + "_lime"
         values_lime.columns = j
         self.publish_progress(100)
         return values_lime
 
+
 # --------------------------------------------------------------------------
 
-def compute_explanations(X:pd.DataFrame, model, explanation_method:int, callback:callable) -> pd.DataFrame:
+def compute_explanations(X: pd.DataFrame, model, explanation_method: int, callback: callable) -> pd.DataFrame:
     """ Generic method to compute explanations, SHAP or LIME
     """
-    if explanation_method == ExplanationMethod.SHAP :
+    if explanation_method == ExplanationMethod.SHAP:
         return SHAPExplanation(X, model, callback).compute()
-    elif explanation_method == ExplanationMethod.LIME :
+    elif explanation_method == ExplanationMethod.LIME:
         return LIMExplanation(X, model, callback).compute()
-    else :
+    else:
         raise ValueError(f"This explanation method {explanation_method} is not valid!")
 
 
@@ -117,7 +124,8 @@ class PCADimReduc(DimReducMethod):
     """
     PCA computation class.
     """
-    def __init__(self, X:pd.DataFrame, dimension: int = 2, callback : callable = None):
+
+    def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         DimReducMethod.__init__(self, DimReducMethod.PCA, dimension, X, callback)
 
     def compute(self) -> pd.DataFrame:
@@ -131,15 +139,15 @@ class PCADimReduc(DimReducMethod):
         self.publish_progress(100)
         return X_pca
 
-    
+
 class TSNEDimReduc(DimReducMethod):
     """
     T-SNE computation class.
     """
 
-    def __init__(self, X:pd.DataFrame,  dimension : int = 2, callback : callable = None):
+    def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         DimReducMethod.__init__(self, DimReducMethod.TSNE, dimension, X, callback)
-    
+
     def compute(self) -> pd.DataFrame:
         self.publish_progress(0)
 
@@ -149,12 +157,14 @@ class TSNEDimReduc(DimReducMethod):
 
         self.publish_progress(100)
         return X_tsne
-    
+
+
 class UMAPDimReduc(DimReducMethod):
     """
     UMAP computation class.
     """
-    def __init__(self, X:pd.DataFrame, dimension : int = 2, callback : callable = None):
+
+    def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         DimReducMethod.__init__(self, DimReducMethod.UMAP, dimension, X, callback)
 
     def compute(self) -> pd.DataFrame:
@@ -167,30 +177,30 @@ class UMAPDimReduc(DimReducMethod):
         self.publish_progress(100)
         return embedding
 
+
 class PaCMAPDimReduc(DimReducMethod):
     """
     PaCMAP computation class.
 
     """
 
-    def __init__(self, X:pd.DataFrame, dimension: int = 2, callback:callable = None):
+    def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         DimReducMethod.__init__(self, DimReducMethod.PaCMAP, dimension, X, callback)
 
-    
-    def compute(self, **kwargs) -> pd.DataFrame :
+    def compute(self, **kwargs) -> pd.DataFrame:
         self.publish_progress(0)
 
-        if len(kwargs)==3 :
+        if len(kwargs) == 3:
             reducer = pacmap.PaCMAP(
                 n_components=self.get_dimension(),
-                n_neighbors = kwargs["n_neighbors"],
-                MN_ratio = kwargs["FP_ratio"],
-                FP_ratio = kwargs["MN_ratio"],
-                random_state = 9,
+                n_neighbors=kwargs["n_neighbors"],
+                MN_ratio=kwargs["FP_ratio"],
+                FP_ratio=kwargs["MN_ratio"],
+                random_state=9,
             )
         else:
             reducer = pacmap.PaCMAP(
-                n_components=self.get_dimension(), 
+                n_components=self.get_dimension(),
                 random_state=9,
             )
         embedding = reducer.fit_transform(self.X, init="pca")
@@ -202,24 +212,25 @@ class PaCMAPDimReduc(DimReducMethod):
 
 # --------------------------------------------------------------------------
 
-def compute_projection(X: pd.DataFrame, dimreduc_method:int, dimension : int, callback: callable= None, **kwargs) -> pd.DataFrame:
-    
-    if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(dimension):
+def compute_projection(X: pd.DataFrame, dimreduc_method: int, dimension: int, callback: callable = None,
+                       **kwargs) -> pd.DataFrame:
+    if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(
+            dimension):
         raise ValueError("Cannot compute proj method #", dimreduc_method, " in ", dimension, " dimensions")
 
     proj_values = None
 
-    if dimreduc_method == DimReducMethod.PCA :    
-        proj_values =  PCADimReduc(X, dimension, callback).compute()
-    elif dimreduc_method == DimReducMethod.TSNE :
-        proj_values =  TSNEDimReduc(X, dimension, callback).compute()
-    elif dimreduc_method == DimReducMethod.UMAP :
-        proj_values =  UMAPDimReduc(X, dimension, callback).compute()
-    elif dimreduc_method == DimReducMethod.PaCMAP :
-        if kwargs is None or len(kwargs) == 0 :
-            proj_values =  PaCMAPDimReduc(X, dimension, callback).compute()
-        else: 
-            proj_values =  PaCMAPDimReduc(X, dimension, callback).compute(**kwargs)
+    if dimreduc_method == DimReducMethod.PCA:
+        proj_values = PCADimReduc(X, dimension, callback).compute()
+    elif dimreduc_method == DimReducMethod.TSNE:
+        proj_values = TSNEDimReduc(X, dimension, callback).compute()
+    elif dimreduc_method == DimReducMethod.UMAP:
+        proj_values = UMAPDimReduc(X, dimension, callback).compute()
+    elif dimreduc_method == DimReducMethod.PaCMAP:
+        if kwargs is None or len(kwargs) == 0:
+            proj_values = PaCMAPDimReduc(X, dimension, callback).compute()
+        else:
+            proj_values = PaCMAPDimReduc(X, dimension, callback).compute(**kwargs)
 
     return proj_values
 
