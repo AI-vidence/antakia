@@ -204,7 +204,7 @@ splash_widget = v.Layout(
     children=[
         widgets.Image(  # 0
             value=widgets.Image._load_file_value(
-                files("antakia.assets").joinpath("logo_antakia.png")
+                files("antakia").joinpath("assets/logo_antakia.png")
             ),
             layout=Layout(width="230px"),
         ),
@@ -293,7 +293,7 @@ app_widget = v.Col(
                     children=[
                         widgets.Image(  # 010
                             value=open(
-                                files("antakia.assets").joinpath("logo_ai-vidence.png"),
+                                files("antakia").joinpath("assets/logo_ai-vidence.png"),
                                 "rb",
                             ).read(),
                             height=str(864 / 20) + "px",
