@@ -53,7 +53,8 @@ class SHAPExplanation(ExplanationMethod):
             chunck_size = 200
             shap_val_list = []
             for i in range(0, len(self.X), chunck_size):
-                shap_val_list.append(explainer(self.X.loc[i:i + chunck_size]))
+                explanations = explainer(self.X.loc[i:i + chunck_size])
+                shap_val_list.append(explanations.values)
                 self.publish_progress(int(100 * i / len(self.X)))
             shap_values = pd.concat(self.X)
         else:
