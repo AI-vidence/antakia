@@ -366,6 +366,23 @@ class Rule():
         
         return [rule_to_dict(rule) for rule in rules_list]
     
+    @staticmethod
+    def regions_to_rules(region_list: list) -> list:
+        """
+        Transforms a list of regions into a list of rules
+        """
+        rules = []
+        for region in region_list:
+            rules.append(region['rules'])
+        return rules
+    
+    @staticmethod
+    def resulting_df(X: pd.DataFrame, rules_list:list) -> pd.DataFrame:
+        """
+        Returns X minus rules_list(X)
+        """
+        return X.drop(Rule.rules_to_indexes(rules_list, X))
+    
 def create_categorical_rule(variable: Variable, cat_values: list) -> Rule:
     """
     Creates a categorical rule for the given variable and list of values

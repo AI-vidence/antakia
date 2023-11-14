@@ -59,6 +59,9 @@ class GUI:
         IMPORTANT : a dataframe index may differ from the row number
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
     vs_rules_wgt, es_rules_wgt : RulesWidget
+    color : a list of colors, one per point
+    region_list : a list of Region, 
+        a region is a dict : {'rules': list of rules, 'model': class}
 
     """
 
@@ -101,14 +104,13 @@ class GUI:
         self.vs_rules_wgt.disable(True)
         self.es_rules_wgt.disable(True)
 
-    
-
+        self.region_list = []
         self.color = []
         self.selection_ids = []
 
         # UI rules : 
         # We disable the selection datatable at startup (bottom of tab 1)
-        get_widget(app_widget,"4220").disabled = True
+        get_widget(app_widget,"432010").disabled = True
 
         
     def show_splash_screen(self):
@@ -162,6 +164,32 @@ class GUI:
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
 
+    def update_rule_tables(self):
+        """
+        Called to empty then fill the CustomDataTable with our region_list
+        """
+
+        def region_to_table_item(num:int, region:dict)-> dict:
+            """
+            Transforms a region dict into a dict to be displayed by the CustomDataTable
+            """
+            return {
+                "Region": num,
+                "Rules": Rule.multi_rules_to_string(region["rules"]),
+                "Sub-model": region["model"],
+                "Score": ""
+            }
+        
+        def regions_to_items(regions:list)-> list:
+            """
+            Transforms a list of region dict into a list of dict to be displayed by the CustomDataTable
+            """
+            return [region_to_table_item(i+1, region) for i, region in enumerate(regions)]
+
+        get_widget(app_widget,"44001").items = regions_to_items(self.region_list)
+        
+
+
     def new_eplanation_values_required(self, explain_method:int, callback:callable=None)-> pd.DataFrame:
         """
         Called either by :
@@ -197,15 +225,15 @@ class GUI:
 
             # UI rules :
             # We disable the Skope button
-            get_widget(app_widget,"4201").disabled = True
+            get_widget(app_widget,"4401").disabled = True
             # We disable 'undo' and 'validate rules' buttons
-            get_widget(app_widget,"4202").disabled = True
-            get_widget(app_widget,"4203").disabled = True
+            get_widget(app_widget,"4402").disabled = True
+            get_widget(app_widget,"4403").disabled = True
             # We enable HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(False)
             self.es_hde.disable_widgets(False)
             # We disable the selection datatable :
-            get_widget(app_widget,"4220").disabled = True
+            get_widget(app_widget,"4430").disabled = True
 
             self.selection_ids = []
         else: 
@@ -216,14 +244,14 @@ class GUI:
             selection_status_str_1 = f"{len(new_selection_indexes)} point selected"
             selection_status_str_2 = f"{round(100*len(new_selection_indexes)/len(self.X))}% of the  dataset"
             # We enable the SkopeButton
-            get_widget(app_widget,"4201").disabled = False
+            get_widget(app_widget,"4401").disabled = False
             # We disable HDEs
             self.vs_hde.disable_widgets(True)
             self.es_hde.disable_widgets(True)
             # We show and fill the selection datatable :
-            get_widget(app_widget,"4220").disabled = False
+            get_widget(app_widget,"4430").disabled = False
             # TODO : format the cells, remove digits
-            change_widget(app_widget,"422010", v.DataTable(
+            change_widget(app_widget,"443010", v.DataTable(
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column } for column in self.X.columns],
@@ -241,8 +269,8 @@ class GUI:
 
         # UI rules :
         # We update the selection status :
-        change_widget(app_widget,"4200000", selection_status_str_1)
-        change_widget(app_widget,"420010", selection_status_str_2)
+        change_widget(app_widget,"4400000", selection_status_str_1)
+        change_widget(app_widget,"440010", selection_status_str_2)
         
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_indexes: list, skr:bool=False):
@@ -259,9 +287,9 @@ class GUI:
         self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
 
         # We disable the 'undo' button if RsW has less than 2 rules
-        get_widget(app_widget, "4202").disabled = rules_widget.current_index <1
+        get_widget(app_widget, "4402").disabled = rules_widget.current_index <1
         # We disable the 'validate rules' button if RsW has less than 1 rule
-        get_widget(app_widget, "4203").disabled = rules_widget.current_index < 0
+        get_widget(app_widget, "4403").disabled = rules_widget.current_index < 0
         
     def show_app(self):
         # AppBar
@@ -329,13 +357,13 @@ class GUI:
         # ------------- Skope rules ----------------
 
         # We add our 2 RulesWidgets to the GUI :
-        change_widget(app_widget, "4210", self.vs_rules_wgt.root_widget)
-        change_widget(app_widget, "4211", self.es_rules_wgt.root_widget)
+        change_widget(app_widget, "4310", self.vs_rules_wgt.root_widget)
+        change_widget(app_widget, "4311", self.es_rules_wgt.root_widget)
 
         def compute_skope_rules(widget, event, data):
             # if clicked, selection can't be empty
             # Let's disable the Skope button. I will be re-enabled if a new selection occurs
-            get_widget(app_widget,"4201").disabled = True
+            get_widget(app_widget,"4301").disabled = True
 
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
@@ -343,7 +371,7 @@ class GUI:
             if len(skr_rules_list) > 0: # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button
-                get_widget(app_widget,"4203").disabled = False
+                get_widget(app_widget,"4403").disabled = False
                 # We enable RulesWidet and init it wit the rules
                 rsw.disable(False)
                 rsw.init_rules(skr_rules_list, skr_score_dict, self.selection_ids )
@@ -352,44 +380,97 @@ class GUI:
                 rsw.show_msg("No Skope rules found", "red--text")
 
         # We wire the click event on the 'Skope-rules' button
-        get_widget(app_widget,"4201").on_event("click", compute_skope_rules)
+        get_widget(app_widget,"4301").on_event("click", compute_skope_rules)
         # UI rules :
         # The Skope rules button is disabled at startup
         # It's only enabled when a selection occurs - when the selection is empty, it's disabled again
         # Startup status :
-        get_widget(app_widget,"4201").disabled = True
+        get_widget(app_widget,"4301").disabled = True
 
         def undo(widget, event, data):
             if self.vs_rules_wgt.current_index > 0:
                 self.vs_rules_wgt.undo()
                 if self.vs_rules_wgt.current_index == 0:
                     # We disable the 'undo' button
-                    get_widget(app_widget,"4202").disabled = True
+                    get_widget(app_widget,"4302").disabled = True
             else:
                 self.es_rules_wgt.undo()
                 if self.es_rules_wgt.current_index == 0:
                     # We disable the 'undo' button
-                    get_widget(app_widget,"4202").disabled = True
+                    get_widget(app_widget,"4302").disabled = True
 
         # We wire the ckick event on the 'Undo' button
-        get_widget(app_widget, "4202").on_event("click", undo)
+        get_widget(app_widget, "4302").on_event("click", undo)
         # At start the button is disabled
-        get_widget(app_widget, "4202").disabled = True
+        get_widget(app_widget, "4302").disabled = True
         # Its enabled when rules graphs have been updated with rules
 
         def validate_rules(widget, event, data):
-            pass
+            # We get the rules to validate
+            if self.vs_rules_wgt.current_index>=0:
+                rules_widget = self.vs_rules_wgt
+                hde = self.vs_hde
+            else:
+                rules_widget = self.es_rules_wgt
+                hde = self.es_hde
 
-        # We wire the ckick event on the 'Valildate ruyles' button
-        get_widget(app_widget, "4203").on_event("click", validate_rules)
+            rules_list = rules_widget.get_current_rules_list()
+            # We add them to our region_list
+            self.region_list.append({"rules": rules_list, "model": None})
+            # And update the rules table (tab 2)
+            self.update_rule_tables()
+            # We force tab 2
+            get_widget(app_widget,"4").v_model=1
+
+            # UI rules :
+            # We clear the RulesWidget
+            rules_widget.disable(True)
+            rules_widget.init_rules(None, None, None)
+            # We disable the 'undo' button
+            get_widget(app_widget,"4302").disabled = True
+            # We disable the 'validate rules' button
+            get_widget(app_widget,"4303").disabled = True
+            # We clear HDE 'rule traces'
+            hde.display_rules(None)
+
+            # We enable the 'Skope-rules' button
+            get_widget(app_widget,"4301").disabled = False
+
+        # We wire the click event on the 'Valildate rules' button
+        get_widget(app_widget, "4303").on_event("click", validate_rules)
+
+        # ------------- Tab 2 : regions -----------
+
+        self.update_rule_tables()
+
+        def auto_cluster_clicked(widget, event, data):
+            """
+            Called when the user clicks on the 'auto-cluster' button
+            """
+            rule_list = Rule.regions_to_rules(self.region_list)
+            result = auto_cluster(
+                Rule.resulting_df(self.X, rule_list),
+                Rule.resulting_df(self.es_hde.get_current_X(), rule_list),
+                6,
+                True
+                )
+            logger.debug(f"auto_cluster result = {len(result)} regions")
+            for reg in result:
+                if isinstance(reg, list):
+                    logger.debug(f"list in the list :")
+                    for sub_reg in reg:
+                        logger.debug(f"sub_reg len : {len(sub_reg)}, sub_reg : {sub_reg}")
+                logger.debug(f"region in the list: len : {len(reg)}, reg: {reg}")
+
+
+        # We wure the 'auto-cluster' button :
+        get_widget(app_widget,"440110").on_event("click", auto_cluster_clicked)
+
         # UI rules :
         # The 'validate rules' button is disabled at startup
+        get_widget(app_widget, "4303").disabled = True
         # It's enabled when a SKR rules has been found and is disabled when the selection gets empty
-        get_widget(app_widget, "4203").disabled = True
-
-        # ------------- Tab 2 : sub-models -----------
-
-
-        # ------------- Tab 3 : regions -----------
+        # or when validated is pressed
+        
 
         display(app_widget)
