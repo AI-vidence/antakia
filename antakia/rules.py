@@ -383,6 +383,17 @@ class Rule():
         """
         return X.drop(Rule.rules_to_indexes(rules_list, X))
     
+    @staticmethod
+    def multi_rules_to_string(rules_list: list) -> str:
+        """
+        Returns a string representation of a list of rules
+        """
+        if rules_list is None or len(rules_list) == 0:
+            return ""
+        else:
+            return " and ".join([rule.__repr__() for rule in rules_list])
+    
+    
 def create_categorical_rule(variable: Variable, cat_values: list) -> Rule:
     """
     Creates a categorical rule for the given variable and list of values

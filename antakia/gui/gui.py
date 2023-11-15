@@ -61,7 +61,8 @@ class GUI:
     vs_rules_wgt, es_rules_wgt : RulesWidget
     color : a list of colors, one per point
     region_list : a list of Region, 
-        a region is a dict : {'rules': list of rules, 'model': class}
+        a region is a dict : {'rules': list of rules, 'indexes', 'model': class}
+        if the list of rules is None, the region has been defined with auto-cluster
 
     """
 
@@ -164,7 +165,7 @@ class GUI:
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
 
-    def update_rule_tables(self):
+    def update_regions_table(self):
         """
         Called to empty then fill the CustomDataTable with our region_list
         """
@@ -173,9 +174,12 @@ class GUI:
             """
             Transforms a region dict into a dict to be displayed by the CustomDataTable
             """
+            indexes = len(region["indexes"]) if region["indexes"] is not None else str(Rule.rules_to_indexes(region["rules"], self.X).shape[0])
             return {
                 "Region": num,
-                "Rules": Rule.multi_rules_to_string(region["rules"]),
+                "Rules": Rule.multi_rules_to_string(region["rules"]) if region["rules"] is not None else "auto-cluster",
+                "Points": indexes,
+                "% dataset": str(round(100*int(indexes)/len(self.X)))+"%",
                 "Sub-model": region["model"],
                 "Score": ""
             }
@@ -197,7 +201,6 @@ class GUI:
         - the ES HighDimExplorer (HDE) when the user wants to compute new explain values
         callback is a HDE function to update the progress linear
         """
-
         return compute_explanations(
             self.X,
             self.model, 
@@ -416,9 +419,13 @@ class GUI:
 
             rules_list = rules_widget.get_current_rules_list()
             # We add them to our region_list
-            self.region_list.append({"rules": rules_list, "model": None})
+            self.region_list.append({
+                "rules": rules_list, 
+                "indexes": Rule.rules_to_indexes(rules_list, self.X),
+                "model": None
+                })
             # And update the rules table (tab 2)
-            self.update_rule_tables()
+            self.update_regions_table()
             # We force tab 2
             get_widget(app_widget,"4").v_model=1
 
@@ -441,21 +448,24 @@ class GUI:
 
         # ------------- Tab 2 : regions -----------
 
-        self.update_rule_tables()
+        self.update_regions_table()
 
         def auto_cluster_clicked(widget, event, data):
             """
             Called when the user clicks on the 'auto-cluster' button
             """
+            # We assemble all rules from all existing regions :
             rule_list = Rule.regions_to_rules(self.region_list)
-            result = auto_cluster(
+
+            # We call the auto_cluster with remaing X and explained(X) :
+            found_regions = auto_cluster(
                 Rule.resulting_df(self.X, rule_list),
                 Rule.resulting_df(self.es_hde.get_current_X(), rule_list),
                 6,
                 True
                 )
-            logger.debug(f"auto_cluster: {len(result)} regions found")
-            for reg in result:
+            logger.debug(f"auto_cluster: {len(found_regions)} regions found")
+            for reg in found_regions:
                 if reg is None:
                     logger.debug(f"OOps this region is None")
                 elif not isinstance(reg, list):
@@ -463,7 +473,11 @@ class GUI:
                 elif len(reg)==0:
                     logger.debug(f"OOps this region is an empty list")
                 else:
+                    self.region_list.append({"rules": None, "indexes": reg, "model": None})
                     logger.debug(f"region with {len(reg)} points")
+            
+            self.update_regions_table()
+            
 
         # We wure the 'auto-cluster' button :
         get_widget(app_widget,"440110").on_event("click", auto_cluster_clicked)
