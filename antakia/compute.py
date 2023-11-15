@@ -236,7 +236,9 @@ def compute_projection(X: pd.DataFrame, dimreduc_method: int, dimension: int, ca
 
 
 def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, default: bool) -> list:
-    # TODO : we must return a list of Potato
+    """ Returns a list of regions, a region is a list of indexes of X
+    """
+
     m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
     a_list = m_kmeans.fit_predict([X, shap_values])
     clusters_number = 0
