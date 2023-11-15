@@ -40,7 +40,7 @@ class RuleWidget:
         logger.debug(f"RuleWidget.init : rule = {rule}")
         
         # root_widget is an ExpansionPanel
-        self.root_widget = v.ExpansionPanel( # PH for VS RuleWidget #431010 10
+        self.root_widget = v.ExpansionPanel( 
             children=[
                 v.ExpansionPanelHeader(
                     class_="blue lighten-4",

@@ -369,22 +369,22 @@ class Variable:
             text += ", is lon"
         return text
 
+    @staticmethod
+    def vars_to_string(variables: list) -> str:
+        text = ""
+        for i in range(len(variables)):
+            var = variables[i]
+            text += str(i) + ") " + var.__str__() + "\n"
+        return text
 
-def vars_to_string(variables: list) -> str:
-    text = ""
-    for i in range(len(variables)):
-        var = variables[i]
-        text += str(i) + ") " + var.__str__() + "\n"
-    return text
+    @staticmethod
+    def vars_to_sym_list(variables: list) -> list:
+        symbols = []
+        for var in variables:
+            symbols.append(var.symbol)
+        return symbols
 
-
-def vars_to_sym_list(variables: list) -> list:
-    symbols = []
-    for var in variables:
-        symbols.append(var.symbol)
-    return symbols
-
-
+    
 def var_from_symbol(variables: list, token: str) -> Variable:
     for var in variables:
         if var.symbol == token:

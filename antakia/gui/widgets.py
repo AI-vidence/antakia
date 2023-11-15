@@ -77,7 +77,7 @@ def show_tree(parent: Widget, filter: str= "", address:str=""):
         child = parent.children[i]
         if filter in child.__class__.__name__:
             print(f"{' ' * 3 * len(address)} {child.__class__.__name__} @{address}{str(i)}")
-        if not isinstance(child, widgets.Image) and not isinstance(child, str) and not isinstance(child, v.Html) and not isinstance(parent.children[i], widgets.HTML) and not isinstance(child, FigureWidget):
+        if not isinstance(child, widgets.Image) and not isinstance(child, str) and not isinstance(child, v.Html) and not isinstance(parent.children[i], widgets.HTML) and not isinstance(child, FigureWidget) and not isinstance(child, RegionDataTable):
             show_tree(child, filter, address=f"{address}{i}")
 
 def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
@@ -100,83 +100,6 @@ def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
             new_children.append(parent_widget.children[i])
     parent_widget.children = new_children
 
-
-def create_rule_card(object) -> list:
-    return None
-
-
-def datatable_from_Selection(sel: list, length: int) -> v.Row:
-    """Returns a DataTable from a list of Selections"""
-    new_df = []
-
-    for i in range(len(sel)):
-        new_df.append(
-            [
-                i + 1,
-                sel[i].size(),
-                str(
-                    round(
-                        sel[i].size() / length * 100,
-                        2,
-                    )
-                )
-                + "%",
-            ]
-        )
-    new_df = pd.DataFrame(
-        new_df,
-        columns=["Region #", "Number of points", "Percentage of the dataset"],
-    )
-    data = new_df.to_dict("records")
-    columns = [{"text": c, "sortable": False, "value": c} for c in new_df.columns]
-    datatable = v.DataTable(
-        class_="w-100",
-        style_="width : 100%",
-        show_select=False,
-        single_select=True,
-        v_model=[],
-        headers=columns,
-        explanationsMenuDict=data,
-        item_value="Region #",
-        item_key="Region #",
-        hide_default_footer=True,
-    )
-    all_chips = []
-    all_radio = []
-    size = len(sel)
-    coeff = 100
-    start = 0
-    end = (size * coeff - 1) * (1 + 1 / (size - 1))
-    step = (size * coeff - 1) / (size - 1)
-    scale_colors = np.arange(start, end, step)
-    a = 0
-    for i in scale_colors:
-        color = sns.color_palette("viridis", size * coeff).as_hex()[round(i)]
-        all_chips.append(v.Chip(class_="rounded-circle", color=color))
-        all_radio.append(v.Radio(class_="mt-4", value=str(a)))
-        a += 1
-    all_radio[-1].class_ = "mt-4 mb-0 pb-0"
-    radio_group = v.RadioGroup(
-        v_model=None,
-        class_="mt-10 ml-7",
-        style_="width : 10%",
-        children=all_radio,
-    )
-    chips_col = v.Col(
-        class_="mt-10 mb-2 ml-0 d-flex flex-column justify-space-between",
-        style_="width : 10%",
-        children=all_chips,
-    )
-    return v.Row(
-        children=[
-            v.Layout(class_="flex-grow-0 flex-shrink-0", children=[radio_group]),
-            v.Layout(class_="flex-grow-0 flex-shrink-0", children=[chips_col]),
-            v.Layout(
-                class_="flex-grow-1 flex-shrink-0",
-                children=[datatable],
-            ),
-        ],
-    )
 
 # ------------------- Dummy data for UI testing  --------------------------------
 
@@ -333,7 +256,7 @@ app_widget = v.Col(
             children=[
                 v.Layout( # 00
                     children=[
-                        widgets.Image(  # 010
+                        widgets.Image(  # 000
                             value=open(
                                 files("antakia").joinpath("assets/logo_ai-vidence.png"),
                                 "rb",
@@ -349,13 +272,7 @@ app_widget = v.Col(
                     class_="blue-darken-3--text"
                     ),  
                 v.Spacer(),  # 02
-                v.Btn(  # backupBtn # 03
-                    icon=True,
-                    children=[v.Icon(children=["mdi-content-save"])],
-                    elevation=0,
-                    disabled=True,
-                ),
-                v.Menu(  # 04
+                v.Menu(  # 03 # Menu for the figure width
                     v_slots=[
                         {
                             "name": "activator",
@@ -371,13 +288,13 @@ app_widget = v.Col(
                         }
                     ],
                     children=[
-                        v.Card(  # 040
+                        v.Card(  # 030
                             class_="pa-4",
                             rounded=True,
                             children=[
-                                widgets.VBox(  # 040 0
+                                widgets.VBox(  # 0300
                                     [
-                                        v.Slider(  # 040 0O
+                                        v.Slider(  # 03000
                                             v_model=400,
                                             min=100,
                                             max=3000,
@@ -393,10 +310,7 @@ app_widget = v.Col(
                     v_model=False,
                     close_on_content_click=False,
                     offset_y=True,
-                ),
-                v.Btn(  # 06
-                    icon=True, children=[v.Icon(children=["mdi-web"])], elevation=0
-                ),
+                )
             ],
         ),
         v.Row(  # Top buttons bar # 1
@@ -466,56 +380,58 @@ app_widget = v.Col(
                             class_="pa-4",
                             rounded=True,
                             children=[
-                                widgets.VBox( # 1300
-                                    [v.Tabs(v_model=0, # 13000
-                                            children=
-                                            [
-                                                v.Tab(children=label) for label in ["SHAP", "LIME"]] # 130000 and 130001
-                                            + 
-                                            [
-                                                v.TabItem(  # 130002 and 130003
-                                                    children=[
-                                                        v.Col( # 0
-                                                            class_="d-flex flex-column align-center",
-                                                            children=[
-                                                                v.Html( # 00
-                                                                    tag="h3",
-                                                                    class_="mb-3",
-                                                                    children=["Compute " + label],
-                                                                ),
-                                                                v.ProgressLinear( # 01
-                                                                    style_="width: 80%",
-                                                                    v_model=0,
-                                                                    color="primary",
-                                                                    height="15",
-                                                                    striped=True,
-                                                                ),
-                                                                v.TextField( # 02
-                                                                    class_="w-100",
-                                                                    style_="width: 100%",
-                                                                    v_model="compute progress status",
-                                                                    readonly=True,
-                                                                ),
-                                                                v.Btn( # 03
-                                                                    children=[
-                                                                        v.Icon(
-                                                                            class_="mr-2",
-                                                                            children=["mdi-calculator-variant"],
-                                                                        ),
-                                                                        "Compute values",
-                                                                    ],
-                                                                    class_="ma-2 ml-6 pa-3",
-                                                                    elevation="3",
-                                                                    v_model=label,
-                                                                    color="primary",
-                                                                ),
-                                                            ],
-                                                        )
-                                                    ]
-                                                )
-                                                for label in ["SHAP", "LIME"]
-                                            ]
+                                widgets.VBox( # 1300 # compute menu
+                                    [
+                                        v.Tabs( # 13000
+                                        v_model=0,
+                                        children=
+                                        [
+                                            v.Tab(children=label) for label in ["SHAP", "LIME"]] # 130000 and 130001
+                                        + 
+                                        [
+                                            v.TabItem(  # 130002 and 130003
+                                                children=[
+                                                    v.Col( # 0
+                                                        class_="d-flex flex-column align-center",
+                                                        children=[
+                                                            v.Html( # 00
+                                                                tag="h3",
+                                                                class_="mb-3",
+                                                                children=["Compute " + label],
+                                                            ),
+                                                            v.ProgressLinear( # 01
+                                                                style_="width: 80%",
+                                                                v_model=0,
+                                                                color="primary",
+                                                                height="15",
+                                                                striped=True,
+                                                            ),
+                                                            v.TextField( # 02
+                                                                class_="w-100",
+                                                                style_="width: 100%",
+                                                                v_model="compute progress status",
+                                                                readonly=True,
+                                                            ),
+                                                            v.Btn( # 03
+                                                                children=[
+                                                                    v.Icon(
+                                                                        class_="mr-2",
+                                                                        children=["mdi-calculator-variant"],
+                                                                    ),
+                                                                    "Compute values",
+                                                                ],
+                                                                class_="ma-2 ml-6 pa-3",
+                                                                elevation="3",
+                                                                v_model=label,
+                                                                color="primary",
+                                                            ),
+                                                        ],
+                                                    )
+                                                ]
                                             )
+                                            for label in ["SHAP", "LIME"]
+                                        ]
+                                        )
                                     ],
                                 )
                             ],
@@ -570,7 +486,7 @@ app_widget = v.Col(
                                             thumb_label="always",
                                             thumb_size=25,
                                         ),
-                                        v.Slider( # 150001
+                                        v.Slider( # 15001
                                             class_="ma-8 pa-2",
                                             v_model=0.5,
                                             min=0.1,
@@ -580,7 +496,7 @@ app_widget = v.Col(
                                             thumb_label="always",
                                             thumb_size=25,
                                         ),
-                                        v.Slider( # 150002
+                                        v.Slider( # 15002
                                             class_="ma-8 pa-2",
                                             v_model=2,
                                             min=0.1,
@@ -651,7 +567,7 @@ app_widget = v.Col(
                                             thumb_label="always",
                                             thumb_size=25,
                                         ),
-                                        v.Slider( # 180001
+                                        v.Slider( # 18001
                                             class_="ma-8 pa-2",
                                             v_model=0.5,
                                             min=0.1,
@@ -661,7 +577,7 @@ app_widget = v.Col(
                                             thumb_label="always",
                                             thumb_size=25,
                                         ),
-                                        v.Slider( # 180002
+                                        v.Slider( # 18002
                                             class_="ma-8 pa-2",
                                             v_model=2,
                                             min=0.1,
@@ -681,7 +597,7 @@ app_widget = v.Col(
                     close_on_content_click=False,
                     offset_y=True,
                 ),
-                v.ProgressCircular(  # 19 # ES side progress bar
+                v.ProgressCircular( # 19 # ES side progress bar
                     indeterminate=True,
                     color="blue",
                     width="6",
@@ -697,7 +613,7 @@ app_widget = v.Col(
                     style_="width: 50%",
                     class_="d-flex flex-column justify-center",
                     children=[
-                        v.Html(
+                        v.Html( # 200
                             tag="h3",
                             style_="align-self: center",
                             class_="mb-3",
@@ -730,13 +646,13 @@ app_widget = v.Col(
                     style_="width: 50%",
                     class_="d-flex flex-column justify-center",
                     children=[
-                        v.Html(
+                        v.Html( # 210
                             tag="h3",
                             style_="align-self: center",
                             class_="mb-3",
                             children=["Explanations space"]
                         ),
-                        v.Container( # 210
+                        v.Container( # 211
                             children=[
                                 FigureWidget( 
                                     data=[
@@ -788,13 +704,13 @@ app_widget = v.Col(
                                             children=[
                                                     v.Html( # 430000
                                                         tag="strong",
-                                                        children=["0 points"] # 4300000
+                                                        children=["0 points"] # 4300000 # selection_status_str_1
                                                     )
                                                 ]
                                         ),
                                         v.Html( # 43001
                                             tag="li",
-                                            children=["0% of the dataset"] # 430010
+                                            children=["0% of the dataset"] # 430010 # selection_status_str_2
                                         )
                                     ],
                                 ),
@@ -922,18 +838,18 @@ app_widget = v.Col(
                                     children=[
                                         v.Col( # placeholder for the ES RulesWidget card # 43110
                                             children=[
-                                                v.Row( 
+                                                v.Row( # 431100
                                                     children=[
                                                         v.Icon(children=["mdi-target"]), 
                                                         v.Html(class_="ml-3", tag="h2", children=["Rules applied on the explanations space"]),
                                                     ]
                                                     ),
-                                                v.Html(
+                                                v.Html( # 431101
                                                     class_="ml-7", 
                                                     tag="li", 
                                                     children=["Precision = 0.3, Recall = 0.8, F1 = 22"]
                                                     ),
-                                                v.Html( # 431002
+                                                v.Html( # 431102
                                                     class_="ml-7", 
                                                     tag="li", 
                                                     children=[
@@ -999,7 +915,7 @@ app_widget = v.Col(
                         v.ExpansionPanels( # tab 1 / row #3 : datatable with selected rows # 432
                             class_="d-flex flex-row",
                             children=[
-                                v.ExpansionPanel(  # 4320
+                                v.ExpansionPanel(  # 4320 # is enabled or disabled when no selection
                                     children=[
                                         v.ExpansionPanelHeader( # 43200
                                             class_="grey lighten-3",
@@ -1061,6 +977,7 @@ app_widget = v.Col(
                                     class_="ml-5 flex-column",
                                     children=[
                                         v.Row( #44010
+                                            class_="flex-column",
                                             children=[
                                                 v.Btn(
                                                     class_="ml-3 mt-8 grey",
@@ -1077,6 +994,7 @@ app_widget = v.Col(
                                             ]
                                         ),
                                         v.Row( #44011
+                                            class_="flex-column",
                                             children=[
                                                 v.Btn( #440110
                                                     class_="ml-3 mt-3 primary",
@@ -1096,8 +1014,13 @@ app_widget = v.Col(
                                 )  # End v.Sheet Col 2 = buttons
                             ] # End v.Sheet children
                         ), # End v.Sheet
-                    ] # End of v.TabItem #3 children
-                )  # End of v.TabItem #3
+                    ] # End of v.TabItem #2 children
+                ),  # End of v.TabItem #2
+                v.TabItem(  # TabItem #3 Substitution #45
+                    children=[
+                        v.Sheet()
+                    ]
+                )
             ]
         ) # End of v.Tabs 
     ] # End v.Col children

@@ -14,7 +14,7 @@ from ipywidgets import Layout, widgets
 from antakia.data import DimReducMethod, ExplanationMethod, Variable, LongTask
 import antakia.config as config
 from antakia.compute import (
-    auto_cluster, compute_explanations
+    auto_cluster, compute_explanations, skope_rules
 )
 from antakia.data import (  
     ExplanationMethod,
@@ -111,7 +111,7 @@ class GUI:
 
         # UI rules : 
         # We disable the selection datatable at startup (bottom of tab 1)
-        get_widget(app_widget,"432010").disabled = True
+        get_widget(app_widget,"4320").disabled = True
 
         
     def show_splash_screen(self):
@@ -228,15 +228,15 @@ class GUI:
 
             # UI rules :
             # We disable the Skope button
-            get_widget(app_widget,"4401").disabled = True
+            get_widget(app_widget,"4301").disabled = True
             # We disable 'undo' and 'validate rules' buttons
-            get_widget(app_widget,"4402").disabled = True
-            get_widget(app_widget,"4403").disabled = True
+            get_widget(app_widget,"4302").disabled = True
+            get_widget(app_widget,"4303").disabled = True
             # We enable HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(False)
             self.es_hde.disable_widgets(False)
             # We disable the selection datatable :
-            get_widget(app_widget,"4430").disabled = True
+            get_widget(app_widget,"4320").disabled = True
 
             self.selection_ids = []
         else: 
@@ -247,14 +247,14 @@ class GUI:
             selection_status_str_1 = f"{len(new_selection_indexes)} point selected"
             selection_status_str_2 = f"{round(100*len(new_selection_indexes)/len(self.X))}% of the  dataset"
             # We enable the SkopeButton
-            get_widget(app_widget,"4401").disabled = False
+            get_widget(app_widget,"4301").disabled = False
             # We disable HDEs
             self.vs_hde.disable_widgets(True)
             self.es_hde.disable_widgets(True)
             # We show and fill the selection datatable :
-            get_widget(app_widget,"4430").disabled = False
+            get_widget(app_widget,"4320").disabled = False
             # TODO : format the cells, remove digits
-            change_widget(app_widget,"443010", v.DataTable(
+            change_widget(app_widget,"432010", v.DataTable(
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column } for column in self.X.columns],
@@ -272,8 +272,8 @@ class GUI:
 
         # UI rules :
         # We update the selection status :
-        change_widget(app_widget,"4400000", selection_status_str_1)
-        change_widget(app_widget,"440010", selection_status_str_2)
+        change_widget(app_widget,"4300000", selection_status_str_1)
+        change_widget(app_widget,"430010", selection_status_str_2)
         
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_indexes: list, skr:bool=False):
@@ -290,9 +290,9 @@ class GUI:
         self.vs_hde.display_rules(df_indexes) if rules_widget.is_value_space else self.es_hde.display_rules(df_indexes)
 
         # We disable the 'undo' button if RsW has less than 2 rules
-        get_widget(app_widget, "4402").disabled = rules_widget.current_index <1
+        get_widget(app_widget, "4302").disabled = rules_widget.current_index <1
         # We disable the 'validate rules' button if RsW has less than 1 rule
-        get_widget(app_widget, "4403").disabled = rules_widget.current_index < 0
+        get_widget(app_widget, "4303").disabled = rules_widget.current_index < 0
         
     def show_app(self):
         # AppBar
@@ -319,9 +319,9 @@ class GUI:
             self.es_hde.redraw()
 
         # We wire the input event on the figureSizeSlider (050100)
-        get_widget(app_widget,"04000").on_event("input", fig_size_changed)
+        get_widget(app_widget,"03000").on_event("input", fig_size_changed)
         # We set the init value to default :
-        get_widget(app_widget,"04000").v_model=config.INIT_FIG_WIDTH
+        get_widget(app_widget,"03000").v_model=config.INIT_FIG_WIDTH
         
         # --------- ColorChoiceBtnToggle ------------
         def change_color(widget, event, data):
@@ -370,11 +370,11 @@ class GUI:
 
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
-            skr_rules_list, skr_score_dict = Rule.compute_skope_rules(self.selection_ids, hde.get_current_X(), True, self.variables)
+            skr_rules_list, skr_score_dict = skope_rules(self.selection_ids, hde.get_current_X(), self.variables)
             if len(skr_rules_list) > 0: # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button
-                get_widget(app_widget,"4403").disabled = False
+                get_widget(app_widget,"4303").disabled = False
                 # We enable RulesWidet and init it wit the rules
                 rsw.disable(False)
                 rsw.init_rules(skr_rules_list, skr_score_dict, self.selection_ids )

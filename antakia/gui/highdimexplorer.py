@@ -318,7 +318,7 @@ class HighDimExplorer:
                 ),
             )
 
-            self._redraw_figure(self.figure_2D)
+            self.redraw_figure(self.figure_2D)
 
         if projected_dots_3D is None or params_changed:
             self.pv_list[self.current_pv].set_proj_values(
@@ -332,7 +332,7 @@ class HighDimExplorer:
                     **kwargs
                 ),
             )
-            self._redraw_figure(self.figure_3D)
+            self.redraw_figure(self.figure_3D)
 
     def _proj_params_changed(self, widget, event, data):
         """
@@ -433,7 +433,7 @@ class HighDimExplorer:
         # We compute proj for this new PV :
         self.compute_projs(False, self.update_progress_circular)
         self.update_explanation_select()
-        self._redraw_figure(self.figure_3D)
+        self.redraw_figure(self.figure_3D)
 
     def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float):
         """
@@ -604,18 +604,20 @@ class HighDimExplorer:
         """
         Redraws the 2D and 3D figures. FigureWidgets are not recreated.
         """
-        self._redraw_figure(self.figure_2D, color)
-        self._redraw_figure(self.figure_3D, color)
+        self.redraw_figure(self.figure_2D, color)
+        self.redraw_figure(self.figure_3D, color)
 
-    def _redraw_figure(
+    def redraw_figure(
         self,
         fig: FigureWidget,
         color: pd.Series = None,
-        opacity_values: pd.Series = None,
+        opacity_values: pd.Series = None
     ):
+
         dim = (
-            2 if fig == self.figure_2D else 3
+            2 if isinstance(fig.data[0],Scatter) else 3
         )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
+
 
         x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
         y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
