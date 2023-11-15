@@ -454,14 +454,16 @@ class GUI:
                 6,
                 True
                 )
-            logger.debug(f"auto_cluster result = {len(result)} regions")
+            logger.debug(f"auto_cluster: {len(result)} regions found")
             for reg in result:
-                if isinstance(reg, list):
-                    logger.debug(f"list in the list :")
-                    for sub_reg in reg:
-                        logger.debug(f"sub_reg len : {len(sub_reg)}, sub_reg : {sub_reg}")
-                logger.debug(f"region in the list: len : {len(reg)}, reg: {reg}")
-
+                if reg is None:
+                    logger.debug(f"OOps this region is None")
+                elif not isinstance(reg, list):
+                    logger.debug(f"OOps this region is not a list")
+                elif len(reg)==0:
+                    logger.debug(f"OOps this region is an empty list")
+                else:
+                    logger.debug(f"region with {len(reg)} points")
 
         # We wure the 'auto-cluster' button :
         get_widget(app_widget,"440110").on_event("click", auto_cluster_clicked)
