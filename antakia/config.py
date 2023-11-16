@@ -11,4 +11,4 @@ INIT_FIG_WIDTH = os.environ.get('INIT_FIG_WIDTH', 1800)
 # Rule format
 USE_INTERVALS_FOR_RULES = os.environ.get('DEFAULT_EXPLANATION_METHOD', 'True') == 'True'
 
-SHOW_LOG_MODULE_WIDGET = os.environ.get('DEFAULT_EXPLANATION_METHOD', 'True') == 'True'
+SHOW_LOG_MODULE_WIDGET = os.environ.get('DEFAULT_EXPLANATION_METHOD', 'False') == 'True'
