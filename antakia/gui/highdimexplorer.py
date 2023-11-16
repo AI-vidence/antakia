@@ -124,10 +124,10 @@ class HighDimExplorer:
         # are 'DimReducMethod' (int), then 'previous' / 'current', then 'VS' / 'ES', then 'n_neighbors' / 'MN_ratio' / 'FP_ratio'
         # app_widget holds the UI for the PaCMAP params:
 
-        self._proj_params_cards[DimReducMethod.PaCMAP] = get_widget(app_widget,
-                                                                    "150" if self.is_value_space() else "180")
+        self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = get_widget(app_widget,
+                                                                                              "150" if self.is_value_space() else "180")
         # We init PaCMAP params for both sides
-        self._proj_params[DimReducMethod.PaCMAP] = {
+        self._proj_params[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = {
             "previous": {
                 "VS": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
                 "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
@@ -346,7 +346,7 @@ class HighDimExplorer:
 
         # We store previous value ...
         self._proj_params[self._get_projection_method()]["previous"][self.get_space_name()][changed_param] = \
-        self._proj_params[self._get_projection_method()]["current"][self.get_space_name()][changed_param]
+            self._proj_params[self._get_projection_method()]["current"][self.get_space_name()][changed_param]
         # .. and new value :
         self._proj_params[self._get_projection_method()]["current"][self.get_space_name()][changed_param] = data
 
@@ -391,7 +391,8 @@ class HighDimExplorer:
         """
         self.get_projection_select().disabled = True
         # We disable proj params if  not PaCMAP:
-        self.get_proj_params_menu().disabled = self._get_projection_method() != DimReducMethod.PaCMAP
+        self.get_proj_params_menu().disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int(
+            'PaCMAP')
         self.compute_projs(False, self.update_progress_circular)  # to ensure we got the values
         self.get_projection_select().disabled = False
         self.redraw()
@@ -611,9 +612,8 @@ class HighDimExplorer:
     ):
 
         dim = (
-            2 if isinstance(fig.data[0],Scatter) else 3
+            2 if isinstance(fig.data[0], Scatter) else 3
         )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
-
 
         x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
         y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
@@ -673,9 +673,9 @@ class HighDimExplorer:
         # We return
         proj_params_menu = get_widget(app_widget, "15") if self.is_value_space() else get_widget(app_widget, "18")
         # We neet to set a Card, depending on the projection method
-        if self._get_projection_method() == DimReducMethod.PaCMAP:
-            proj_params_menu.children = [self._proj_params_cards[DimReducMethod.PaCMAP]]
-        proj_params_menu.disabled = self._get_projection_method() != DimReducMethod.PaCMAP
+        if self._get_projection_method() == DimReducMethod.dimreduc_method_as_int('PaCMAP'):
+            proj_params_menu.children = [self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')]]
+        proj_params_menu.disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int('PaCMAP')
 
         return proj_params_menu
 

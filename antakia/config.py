@@ -9,10 +9,7 @@ DEFAULT_ES_PROJECTION = os.environ.get('DEFAULT_ES_PROJECTION', 4)
 INIT_FIG_WIDTH = os.environ.get('INIT_FIG_WIDTH', 1800)
 
 # Rule format
-USE_INTERVALS_FOR_RULES = os.environ.get('DEFAULT_EXPLANATION_METHOD', 'True') == 'True'
+USE_INTERVALS_FOR_RULES = os.environ.get('USE_INTERVALS_FOR_RULES', 'True') == 'True'
 
-<<<<<<< HEAD
-SHOW_LOG_MODULE_WIDGET = True
-=======
-SHOW_LOG_MODULE_WIDGET = os.environ.get('DEFAULT_EXPLANATION_METHOD', 'False') == 'True'
->>>>>>> refactor_compute
+
+SHOW_LOG_MODULE_WIDGET = os.environ.get('SHOW_LOG_MODULE_WIDGET', 'False') == 'True'

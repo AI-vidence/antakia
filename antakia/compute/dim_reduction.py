@@ -16,56 +16,82 @@ class PCADimReduc(DimReducMethod):
     """
     PCA computation class.
     """
+    dimreduc_method = DimReducMethod.dimreduc_method_as_int('PCA')
 
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
-        DimReducMethod.__init__(self, DimReducMethod.PCA, dimension, X, callback)
-        self.allowed_kwargs = ['n_components', 'copy', 'whiten', 'svd_solver', 'tol', 'iterated_power', 'n_oversamples',
+        super().__init__(
+            self.dimreduc_method,
+            PCA,
+            dimension,
+            X,
+            progress_updated=callback,
+            default_parameters={
+                'n_components': dimension,
+            }
+        )
+        self.allowed_kwargs = ['copy', 'whiten', 'svd_solver', 'tol', 'iterated_power', 'n_oversamples',
                                'power_iteration_normalizer', 'random_state']
-
-    def compute(self, **kwargs) -> pd.DataFrame:
-        self.publish_progress(0)
-
-        kwargs['n_components'] = self.get_dimension()
-        pca = PCA(**kwargs)
-        pca.fit(self.X)
-        X_pca = pca.transform(self.X)
-        X_pca = pd.DataFrame(X_pca)
-
-        self.publish_progress(100)
-        return X_pca
 
 
 class TSNEDimReduc(DimReducMethod):
     """
     T-SNE computation class.
     """
+    dimreduc_method = DimReducMethod.dimreduc_method_as_int('TSNE')
 
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
-        DimReducMethod.__init__(self, DimReducMethod.TSNE, dimension, X, callback)
-        self.allowed_kwargs = ['n_components', 'perplexity', 'early_exaggeration', 'learning_rate', 'n_iter',
+        super().__init__(
+            self.dimreduc_method,
+            TSNE,
+            dimension,
+            X,
+            progress_updated=callback,
+            default_parameters={
+                'n_components': dimension,
+                'n_jobs': -1
+            }
+        )
+        self.allowed_kwargs = ['perplexity', 'early_exaggeration', 'learning_rate', 'n_iter',
                                'n_iter_without_progress', 'min_grad_norm', 'metric', 'metric_params', 'init', 'verbose',
                                'random_state', 'method', 'angle', 'n_jobs'
                                ]
 
-    def compute(self, **kwargs) -> pd.DataFrame:
-        self.publish_progress(0)
-        kwargs['n_components'] = self.get_dimension()
-        tsne = TSNE(kwargs)
-        X_tsne = tsne.fit_transform(self.X)
-        X_tsne = pd.DataFrame(X_tsne)
-
-        self.publish_progress(100)
-        return X_tsne
+    def parameters(cls):
+        return {
+            'perplexity': {
+                'type': float,
+                'min': 5,
+                'max': 50,
+                'default': 12
+            },
+            'learning_rate': {
+                'type': [float, str],
+                'min': 10,
+                'max': 1000,
+                'default': 'auto'
+            }
+        }
 
 
 class UMAPDimReduc(DimReducMethod):
     """
     UMAP computation class.
     """
+    dimreduc_method = DimReducMethod.dimreduc_method_as_int('UMAP')
 
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
-        DimReducMethod.__init__(self, DimReducMethod.UMAP, dimension, X, callback)
-        self.allowed_kwargs = ['n_neighbors', 'n_components', 'metric', 'metric_kwds', 'output_metric',
+        super().__init__(
+            self.dimreduc_method,
+            umap.UMAP,
+            dimension,
+            X,
+            progress_updated=callback,
+            default_parameters={
+                'n_components': dimension,
+                'n_jobs': -1
+            }
+        )
+        self.allowed_kwargs = ['n_neighbors', 'metric', 'metric_kwds', 'output_metric',
                                'output_metric_kwds', 'n_epochs', 'learning_rate', 'init', 'min_dist', 'spread',
                                'low_memory', 'n_jobs', 'set_op_mix_ratio', 'local_connectivity', 'repulsion_strength',
                                'negative_sample_rate', 'transform_queue_size', 'a', 'b', 'random_state',
@@ -75,16 +101,21 @@ class UMAPDimReduc(DimReducMethod):
                                'dens_var_shift', 'output_dens', 'disconnection_distance', 'precomputed_knn',
                                ]
 
-    def compute(self, **kwargs) -> pd.DataFrame:
-        self.publish_progress(0)
-
-        kwargs['n_components'] = self.get_dimension()
-        reducer = umap.UMAP(**kwargs)
-        embedding = reducer.fit_transform(self.X)
-        embedding = pd.DataFrame(embedding)
-
-        self.publish_progress(100)
-        return embedding
+    def parameters(cls):
+        return {
+            'n_neighbors': {
+                'type': int,
+                'min': 1,
+                'max': 200,
+                'default': 15
+            },
+            'min_dist': {
+                'type': float,
+                'min': 0.1,
+                'max': 0.99,
+                'default': 0.1
+            }
+        }
 
 
 class PaCMAPDimReduc(DimReducMethod):
@@ -92,29 +123,50 @@ class PaCMAPDimReduc(DimReducMethod):
     PaCMAP computation class.
 
     """
+    dimreduc_method = DimReducMethod.dimreduc_method_as_int('PacMAP')
 
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
-        DimReducMethod.__init__(self, DimReducMethod.PaCMAP, dimension, X, callback)
-        self.allowed_kwargs = ['n_components', 'n_neighbors', 'MN_ratio', 'FP_ratio', 'pair_neighbors', 'pair_MN',
+        super().__init__(
+            self.dimreduc_method,
+            pacmap.PaCMAP,
+            dimension,
+            X,
+            progress_updated=callback,
+            default_parameters={
+                'n_components': dimension,
+            }
+        )
+        self.allowed_kwargs = ['n_neighbors', 'MN_ratio', 'FP_ratio', 'pair_neighbors', 'pair_MN',
                                'pair_FP', 'distance', 'lr', 'num_iters', 'apply_pca', 'intermediate',
                                'intermediate_snapshots', 'random_state']
 
-    def compute(self, **kwargs) -> pd.DataFrame:
-        self.publish_progress(0)
-        kwargs['n_components'] = self.get_dimension()
-        reducer = pacmap.PaCMAP(**kwargs)
-        embedding = reducer.fit_transform(self.X, init="pca")
-        embedding = pd.DataFrame(embedding)
-
-        self.publish_progress(100)
-        return embedding
+    def parameters(cls):
+        return {
+            'n_neighbors': {
+                'type': int,
+                'min': 1,
+                'max': 200,
+                'default': 15
+            },
+            'MN_ratio': {
+                'type': float,
+                'min': 0.1,
+                'max': 10,
+                'default': 0.5,
+                'scale': 'log'
+            },
+            'FP_ratio': {
+                'type': float,
+                'min': 0.1,
+                'max': 10,
+                'default': 2,
+                'scale': 'log'
+            }
+        }
 
 
 dim_reduc_factory = {
-    DimReducMethod.PCA: PCADimReduc,
-    DimReducMethod.TSNE: TSNEDimReduc,
-    DimReducMethod.UMAP: UMAPDimReduc,
-    DimReducMethod.PaCMAP: PaCMAPDimReduc,
+    dm.dimreduc_method: dm for dm in [PCADimReduc, TSNEDimReduc, UMAPDimReduc, PaCMAPDimReduc]
 }
 
 

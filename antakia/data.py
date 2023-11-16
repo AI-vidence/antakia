@@ -5,12 +5,15 @@ import pandas as pd
 
 import time
 
+from sklearn.base import TransformerMixin
 # TODO : these references to IPython should be removed in favor of a new scheme (see Wiki)
 from sklearn.preprocessing import StandardScaler
 import logging as logging
 from antakia.utils import conf_logger
+
 logger = logging.getLogger(__name__)
 conf_logger(logger)
+
 
 def is_valid_model(model) -> bool:
     return callable(getattr(model, "score")) and callable(getattr(model, "predict"))
@@ -39,7 +42,7 @@ class LongTask(ABC):
         self.progress_updated(self, progress, time.time() - self.start_time)
 
     @abstractmethod
-    def compute(self) -> pd.DataFrame:
+    def compute(self, **kwargs) -> pd.DataFrame:
         """
         Method to compute the long task and update listener with the progress.
         """
@@ -64,11 +67,11 @@ class ExplanationMethod(LongTask):
     LIME = 2
 
     def __init__(
-        self,
-        explanation_method: int,
-        X: pd.DataFrame,
-        model=None,
-        progress_updated: callable = None,
+            self,
+            explanation_method: int,
+            X: pd.DataFrame,
+            model=None,
+            progress_updated: callable = None,
     ):
         # TODO : do wee need X_all ?
         if not ExplanationMethod.is_valid_explanation_method(explanation_method):
@@ -83,9 +86,9 @@ class ExplanationMethod(LongTask):
         Returns True if this is a valid explanation method.
         """
         return (
-            method == ExplanationMethod.SHAP
-            or method == ExplanationMethod.LIME
-            or method == ExplanationMethod.NONE
+                method == ExplanationMethod.SHAP
+                or method == ExplanationMethod.LIME
+                or method == ExplanationMethod.NONE
         )
 
     @staticmethod
@@ -127,18 +130,19 @@ class DimReducMethod(LongTask):
     """
 
     # Class attributes methods
-    PCA = 1
-    TSNE = 2
-    UMAP = 3
-    PaCMAP = 4
+    dim_reduc_methods = ['PCA', 'TSNE', 'UMAP', 'PaCMAP']
+    dimreduc_method = -1
+
     allowed_kwargs = []
 
     def __init__(
-        self,
-        dimreduc_method: int,
-        dimension: int,
-        X: pd.DataFrame,
-        progress_updated: callable = None,
+            self,
+            dimreduc_method: int,
+            dimreduc_model: type[TransformerMixin],
+            dimension: int,
+            X: pd.DataFrame,
+            default_parameters: dict = None,
+            progress_updated: callable = None,
     ):
         """
         Constructor for the DimReducMethod class.
@@ -164,52 +168,36 @@ class DimReducMethod(LongTask):
             raise ValueError(dimension, " is a bad dimension number")
 
         self.dimreduc_method = dimreduc_method
+        self.default_parameters = default_parameters
         self.dimension = dimension
+        self.dimreduc_model = dimreduc_model
         # IMPORTANT : we set the topic as for ex 'PCA/2' or 't-SNE/3' -> subscribers have to follow this scheme
         LongTask.__init__(self, X, progress_updated)
 
-    @staticmethod
-    def dimreduc_method_as_str(method: int) -> str:
-        if method == DimReducMethod.PCA:
-            return "PCA"
-        elif method == DimReducMethod.TSNE:
-            return "t-SNE"
-        elif method == DimReducMethod.UMAP:
-            return "UMAP"
-        elif method == DimReducMethod.PaCMAP:
-            return "PaCMAP"
-        elif method is None:
+    @classmethod
+    def dimreduc_method_as_str(cls, method: int) -> str:
+        if method is None:
             return None
         else:
-            raise ValueError(method, " is an invalid dimensionality reduction method")
+            raise ValueError(f"{method} is an invalid dimensionality reduction method")
 
-    @staticmethod
-    def dimreduc_method_as_int(method: str) -> int:
-        if method == "PCA":
-            return DimReducMethod.PCA
-        elif method == "t-SNE":
-            return DimReducMethod.TSNE
-        elif method == "UMAP":
-            return DimReducMethod.UMAP
-        elif method == "PaCMAP":
-            return DimReducMethod.PaCMAP
-        elif method is None:
-            return None
-        else:
-            raise ValueError(method, " is an invalid dimensionality reduction method")
+    @classmethod
+    def dimreduc_method_as_int(cls, method: str) -> int:
+        if method is None:
+            return
+        try:
+            i = cls.dim_reduc_methods.index(method) + 1
+            return i
+        except ValueError:
+            raise ValueError(f"{method} is an invalid dimensionality reduction method")
 
-    @staticmethod
-    def dimreduc_methods_as_list() -> list:
-        return [
-            DimReducMethod.PCA,
-            DimReducMethod.TSNE,
-            DimReducMethod.UMAP,
-            DimReducMethod.PaCMAP,
-        ]
+    @classmethod
+    def dimreduc_methods_as_list(cls) -> list:
+        return list(map(lambda x: x + 1, range(len(cls.dim_reduc_methods))))
 
-    @staticmethod
-    def dimreduc_methods_as_str_list() -> list:
-        return ["PCA", "t-SNE", "UMAP", "PaCMAP"]
+    @classmethod
+    def dimreduc_methods_as_str_list(cls) -> list:
+        return cls.dim_reduc_methods.copy()
 
     @staticmethod
     def dimension_as_str(dim) -> str:
@@ -218,29 +206,45 @@ class DimReducMethod(LongTask):
         elif dim == 3:
             return "3D"
         else:
-            raise ValueError(dim, " is a bad dimension")
+            raise ValueError(f"{dim}, is a bad dimension")
 
-    @staticmethod
-    def is_valid_dimreduc_method(method: int) -> bool:
+    @classmethod
+    def is_valid_dimreduc_method(cls, method: int) -> bool:
         """
         Returns True if it is a valid dimensionality reduction method.
         """
-        return (
-            method == DimReducMethod.PCA
-            or method == DimReducMethod.TSNE
-            or method == DimReducMethod.UMAP
-            or method == DimReducMethod.PaCMAP
-        )
+        return 0 <= method - 1 < len(cls.dim_reduc_methods)
 
     @staticmethod
     def is_valid_dim_number(dim: int) -> bool:
         """
         Returns True if dim is a valid dimension number.
         """
-        return dim == 2 or dim == 3
+        return dim in [2, 3]
 
     def get_dimension(self) -> int:
         return self.dimension
+
+    @classmethod
+    def parameters(cls):
+        return {}
+
+    def compute(self, **kwargs) -> pd.DataFrame:
+        self.publish_progress(0)
+        kwargs['n_components'] = self.get_dimension()
+        param = self.default_parameters.copy()
+        param.update(kwargs)
+
+        dim_red_model = self.dimreduc_model(**param)
+        if hasattr(dim_red_model, 'fit_transform'):
+            X_red = dim_red_model.fit_transform(self.X)
+        else:
+            dim_red_model.fit(self.X)
+            X_red = dim_red_model.transform(self.X)
+        X_red = pd.DataFrame(X_red)
+
+        self.publish_progress(100)
+        return X_red
 
 
 # ================================================
@@ -267,16 +271,16 @@ class Variable:
     """
 
     def __init__(
-        self,
-        col_index: int,
-        symbol: str,
-        type: str,
-        unit: str = None,
-        descr: str = None,
-        critical=False,
-        continuous: bool = False,
-        lat: bool = False,
-        lon: bool = False,
+            self,
+            col_index: int,
+            symbol: str,
+            type: str,
+            unit: str = None,
+            descr: str = None,
+            critical=False,
+            continuous: bool = False,
+            lat: bool = False,
+            lon: bool = False,
     ):
         self.col_index = col_index
         self.symbol = symbol
@@ -385,7 +389,7 @@ class Variable:
             symbols.append(var.symbol)
         return symbols
 
-    
+
 def var_from_symbol(variables: list, token: str) -> Variable:
     for var in variables:
         if var.symbol == token:
@@ -455,12 +459,14 @@ class ProjectedValues:
             raise ValueError(dimension, " is a bad dimension number")
 
         if (
-            dimreduc_method not in self._X_proj
-            or dimension not in self._X_proj[dimreduc_method]
-            or self._X_proj[dimreduc_method][dimension] is None
+                dimreduc_method not in self._X_proj
+                or dimension not in self._X_proj[dimreduc_method]
+                or self._X_proj[dimreduc_method][dimension] is None
         ):
             # ProjectedValues is a "datastore", its role is not trigger projection computations
             return None
+        elif 0 < method <= len(cls.dim_reduc_methods):
+            return cls.dim_reduc_methods[method - 1]
         else:
             return self._X_proj[dimreduc_method][dimension]
 
@@ -468,7 +474,7 @@ class ProjectedValues:
         return self.get_proj_values(dimreduc_method, dimension) is not None
 
     def set_proj_values(
-        self, dimreduc_method: int, dimension: int, values: pd.DataFrame
+            self, dimreduc_method: int, dimension: int, values: pd.DataFrame
     ):
         """Set X_proj alues for this dimensionality reduction and  dimension."""
 
@@ -491,4 +497,4 @@ class ProjectedValues:
 
     def get_shape(self):
         """Returns the shape of the used dataset"""
-        return self._X.shape
+        return self.X.shape
