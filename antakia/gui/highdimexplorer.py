@@ -2,11 +2,10 @@ import pandas as pd
 
 from plotly.graph_objects import FigureWidget, Scatter, Scatter3d
 import ipyvuetify as v
-from ipywidgets.widgets import Widget
-from ipywidgets import Layout, widgets
 
+from antakia.compute.dim_reduction import compute_projection
 from antakia.data import ProjectedValues, DimReducMethod, ExplanationMethod
-import antakia.compute as compute
+
 from antakia.rules import Rule
 from antakia.gui.widgets import get_widget, app_widget
 import logging as logging
@@ -14,6 +13,7 @@ from antakia.utils import conf_logger
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
+
 
 class HighDimExplorer:
     """
@@ -52,16 +52,16 @@ class HighDimExplorer:
     """
 
     def __init__(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        init_proj: int,
-        init_dim: int,
-        fig_size: int,
-        border_size: int,
-        selection_changed: callable,
-        new_eplanation_values_required: callable = None,
-        X_exp:pd.DataFrame = None,
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            init_proj: int,
+            init_dim: int,
+            fig_size: int,
+            border_size: int,
+            selection_changed: callable,
+            new_eplanation_values_required: callable = None,
+            X_exp: pd.DataFrame = None,
     ):
         """
         Instantiate a new HighDimExplorer.
@@ -93,7 +93,7 @@ class HighDimExplorer:
                 self.current_pv = 1
             else:
                 self.pv_list.append(None)
-                self.current_pv = -1 # We have nothing to display yet
+                self.current_pv = -1  # We have nothing to display yet
             # We set SHAP and LIME computed PV (to None for now):
             # Items 3 and 4
             self.pv_list.append(None)
@@ -108,7 +108,7 @@ class HighDimExplorer:
         # We initiate it in grey, not indeterminate :
         self.get_projection_prog_circ().color = "grey"
         self.get_projection_prog_circ().indeterminate = False
-        self.get_projection_prog_circ().v_model=100
+        self.get_projection_prog_circ().v_model = 100
 
         # Since HDE is responsible for storing its current proj, we check init value :
         if init_proj not in DimReducMethod.dimreduc_methods_as_list():
@@ -119,14 +119,15 @@ class HighDimExplorer:
             init_proj
         )
         # For each projection method, we store the widget (Card) that contains its parameters UI :
-        self._proj_params_cards = {} # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
-        self._proj_params = {} # A dict of dict of dict, see below. Nested keys
+        self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
+        self._proj_params = {}  # A dict of dict of dict, see below. Nested keys
         # are 'DimReducMethod' (int), then 'previous' / 'current', then 'VS' / 'ES', then 'n_neighbors' / 'MN_ratio' / 'FP_ratio'
         # app_widget holds the UI for the PaCMAP params:
 
-        self._proj_params_cards[DimReducMethod.PaCMAP] = get_widget(app_widget, "150" if self.is_value_space() else "180")
+        self._proj_params_cards[DimReducMethod.PaCMAP] = get_widget(app_widget,
+                                                                    "150" if self.is_value_space() else "180")
         # We init PaCMAP params for both sides
-        self._proj_params[DimReducMethod.PaCMAP] =  {
+        self._proj_params[DimReducMethod.PaCMAP] = {
             "previous": {
                 "VS": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
                 "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
@@ -152,7 +153,7 @@ class HighDimExplorer:
                 {"text": "SHAP", "disabled": True},
                 {"text": "LIME", "disabled": True},
             ]
-                    
+
             self.get_explanation_select().on_event("change", self.explanation_select_changed)
             self.update_explanation_select()
 
@@ -185,7 +186,7 @@ class HighDimExplorer:
         """
         self.get_projection_select().disabled = is_disabled
         self.get_proj_params_menu().disabled = is_disabled
-        if not self.is_value_space :
+        if not self.is_value_space:
             self.get_explanation_select().disabled = is_disabled
             self.get_compute_menu().disabled = is_disabled
 
@@ -276,7 +277,7 @@ class HighDimExplorer:
                     f"HDE.{'VS' if len(self.pv_list) == 1 else 'ES'}.display_rules : to be debugged : the figure has {len(self.figure_2D.data)} traces, not 1 or 2"
                 )
 
-    def compute_projs(self, params_changed:bool=False, callback: callable = None):
+    def compute_projs(self, params_changed: bool = False, callback: callable = None):
         """
         If check if our projs (2 and 3D), are computed.
         NOTE : we only computes the values for _pv_list[self.current_pv]
@@ -296,20 +297,15 @@ class HighDimExplorer:
             )
 
         if params_changed:
-            kwargs = {
-                "n_neighbors": self._proj_params[self._get_projection_method()]["current"][self.get_space_name()]["n_neighbors"],
-                "MN_ratio": self._proj_params[self._get_projection_method()]["current"][self.get_space_name()]["MN_ratio"],
-                "FP_ratio": self._proj_params[self._get_projection_method()]["current"][self.get_space_name()]["FP_ratio"],
-            }
+            kwargs = self._proj_params[self._get_projection_method()]["current"][self.get_space_name()]
         else:
             kwargs = {}
-
 
         if projected_dots_2D is None or params_changed:
             self.pv_list[self.current_pv].set_proj_values(
                 self._get_projection_method(),
                 2,
-                compute.compute_projection(
+                compute_projection(
                     self.pv_list[self.current_pv].X,
                     self._get_projection_method(),
                     2,
@@ -324,7 +320,7 @@ class HighDimExplorer:
             self.pv_list[self.current_pv].set_proj_values(
                 self._get_projection_method(),
                 3,
-                compute.compute_projection(
+                compute_projection(
                     self.pv_list[self.current_pv].X,
                     self._get_projection_method(),
                     3,
@@ -341,15 +337,16 @@ class HighDimExplorer:
         self.get_proj_params_menu().disabled = True
 
         # We determine which param changed :
-        if widget ==  get_widget(app_widget, "15000" if self.is_value_space() else "18000"):
+        if widget == get_widget(app_widget, "15000" if self.is_value_space() else "18000"):
             changed_param = 'n_neighbors'
-        elif widget ==  get_widget(app_widget, "15001" if self.is_value_space() else "18001"):
+        elif widget == get_widget(app_widget, "15001" if self.is_value_space() else "18001"):
             changed_param = 'MN_ratio'
         else:
             changed_param = 'FP_ratio'
 
         # We store previous value ...
-        self._proj_params[self._get_projection_method()]["previous"][self.get_space_name()][changed_param] = self._proj_params[self._get_projection_method()]["current"][self.get_space_name()][changed_param]
+        self._proj_params[self._get_projection_method()]["previous"][self.get_space_name()][changed_param] = \
+        self._proj_params[self._get_projection_method()]["current"][self.get_space_name()][changed_param]
         # .. and new value :
         self._proj_params[self._get_projection_method()]["current"][self.get_space_name()][changed_param] = data
 
@@ -359,9 +356,8 @@ class HighDimExplorer:
 
         self.get_proj_params_menu().disabled = False
 
-
     def update_progress_circular(
-        self, caller, progress: int, duration: float
+            self, caller, progress: int, duration: float
     ):
         """
         Each proj computation consists in 2 (2D and 3D) tasks.
@@ -405,12 +401,12 @@ class HighDimExplorer:
         Called when the user choses another dataframe
         """
         # Remember : impossible items ine thee Select are disabled = we have the desired values
-       
+
         if data == "Imported":
             chosen_pv_index = 1
         elif data == "SHAP":
             chosen_pv_index = 2
-        else: # LIME
+        else:  # LIME
             chosen_pv_index = 3
         self.current_pv = chosen_pv_index
         self.redraw()
@@ -427,7 +423,8 @@ class HighDimExplorer:
         else:
             desired_explain_method = ExplanationMethod.LIME
 
-        self.pv_list[2 if desired_explain_method == ExplanationMethod.SHAP else 3] = ProjectedValues(self.new_eplanation_values_required(desired_explain_method, self.update_progress_linear))
+        self.pv_list[2 if desired_explain_method == ExplanationMethod.SHAP else 3] = ProjectedValues(
+            self.new_eplanation_values_required(desired_explain_method, self.update_progress_linear))
 
         self.current_pv = 2 if desired_explain_method == ExplanationMethod.SHAP else 3
         # We compute proj for this new PV :
@@ -439,7 +436,7 @@ class HighDimExplorer:
         """
         Called by the computation process (SHAP or LUME) to udpate the progress linear
         """
-        
+
         if method.explanation_method == ExplanationMethod.SHAP:
             progress_linear = get_widget(app_widget, "13000201")
             progress_linear.indeterminate = True
@@ -455,7 +452,7 @@ class HighDimExplorer:
                 progress_linear.indeterminate = False
             else:
                 tab = get_widget(app_widget, "130001")
-                progress_linear.v_model= progress
+                progress_linear.v_model = progress
             tab.disabled = True
 
     def set_dimension(self, dim: int):
@@ -473,16 +470,16 @@ class HighDimExplorer:
         """
         return DimReducMethod.dimreduc_method_as_int(
             self.get_projection_select().v_model
-            )
-    
+        )
+
     def _selection_event(self, trace, points, selector, *args):
         """Called whenever the user selects dots on the scatter plot"""
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
-        
+
         if len(points.point_inds) > 0:
             # NOTE : Plotly doesn't allow to show selection on Scatter3d
             self._has_lasso = True
-            
+
             # We tell the GUI
             # NOTE : here we convert row ids to dataframe indexes
             self.selection_changed(
@@ -513,14 +510,14 @@ class HighDimExplorer:
             # We have to rebuild our figure:
             self.create_figure(2)
             return
-        
+
         if self._has_lasso:
             logger.debug(f"HDE.set_sel : {self.get_space_name()} had the lasso but receives set_sel.")
             # We don't have lasso anymore
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure(2)
-            self.figure_2D.data[0].selectedpoints=Rule.indexes_to_rows(self.get_current_X(), new_selection_indexes)
+            self.figure_2D.data[0].selectedpoints = Rule.indexes_to_rows(self.get_current_X(), new_selection_indexes)
             self._current_selection = new_selection_indexes
             return
 
@@ -538,7 +535,7 @@ class HighDimExplorer:
 
         x = y = z = None
 
-        if self.pv_list[self.current_pv] is not None:            
+        if self.pv_list[self.current_pv] is not None:
             proj_values = self.pv_list[self.current_pv].get_proj_values(
                 self._get_projection_method(), dim
             )
@@ -596,9 +593,8 @@ class HighDimExplorer:
             self.figure_2D.data[0].on_deselect(self._deselection_event)
         else:
             self.figure_3D = fig
-        
-        self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
 
+        self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
 
     def redraw(self, color: pd.Series = None, opacity_values: pd.Series = None):
         """
@@ -627,7 +623,7 @@ class HighDimExplorer:
         with fig.batch_update():
             fig.data[0].x = x
             fig.data[0].y = y
-            if dim == 3 :
+            if dim == 3:
                 fig.data[0].z = z
             fig.layout.width = self.fig_size
             if color is not None:
@@ -659,16 +655,16 @@ class HighDimExplorer:
        Called at startup by the GUI (only ES HE)
        """
         return get_widget(app_widget, "12")
-    
+
     def update_explanation_select(self):
         """
        Called at startup by the GUI (only ES HE)
        """
         self.get_explanation_select().items = [
-                {"text": "Imported", "disabled": self.pv_list[1] is None},
-                {"text": "SHAP", "disabled": self.pv_list[2] is None},
-                {"text": "LIME", "disabled": self.pv_list[3] is None},
-            ]
+            {"text": "Imported", "disabled": self.pv_list[1] is None},
+            {"text": "SHAP", "disabled": self.pv_list[2] is None},
+            {"text": "LIME", "disabled": self.pv_list[3] is None},
+        ]
 
     def get_proj_params_menu(self):
         """
@@ -678,11 +674,11 @@ class HighDimExplorer:
         proj_params_menu = get_widget(app_widget, "15") if self.is_value_space() else get_widget(app_widget, "18")
         # We neet to set a Card, depending on the projection method
         if self._get_projection_method() == DimReducMethod.PaCMAP:
-            proj_params_menu.children=[self._proj_params_cards[DimReducMethod.PaCMAP]]
+            proj_params_menu.children = [self._proj_params_cards[DimReducMethod.PaCMAP]]
         proj_params_menu.disabled = self._get_projection_method() != DimReducMethod.PaCMAP
 
         return proj_params_menu
-    
+
     def is_value_space(self) -> bool:
         return len(self.pv_list) == 1
 
@@ -694,4 +690,3 @@ class HighDimExplorer:
 
     def get_current_X(self) -> pd.DataFrame:
         return self.pv_list[self.current_pv].X
-    
