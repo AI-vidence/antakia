@@ -3,19 +3,13 @@ import pandas as pd
 
 from ipywidgets import Layout, widgets
 from ipywidgets.widgets import Widget
-from IPython.display import display
 import ipyvuetify as v
-from traitlets import HasTraits, TraitError
-from plotly.graph_objects import FigureWidget, Histogram, Scatter, Scatter3d
+from plotly.graph_objects import FigureWidget, Histogram, Scatter
 import seaborn as sns
 
-from antakia.data import ExplanationMethod, DimReducMethod, Variable, ProjectedValues
-import antakia.compute as compute
+from antakia.data import DimReducMethod
 from antakia.utils import conf_logger
-from antakia.rules import Rule
-import antakia.config as config
 
-from copy import deepcopy, copy
 from importlib.resources import files
 
 import logging

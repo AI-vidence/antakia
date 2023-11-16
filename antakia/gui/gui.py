@@ -1,21 +1,11 @@
-from copy import deepcopy
-from importlib.resources import files
-
-
-import numpy as np
 import pandas as pd
 
-import plotly.graph_objects as go
 import ipyvuetify as v
 from IPython.display import display
-from ipywidgets import Layout, widgets
 
-
-from antakia.data import DimReducMethod, ExplanationMethod, Variable, LongTask
-import antakia.config as config
-from antakia.compute import (
-    auto_cluster, compute_explanations, skope_rules
-)
+from antakia.data import DimReducMethod, LongTask,ExplanationMethod,ProjectedValues
+from antakia.compute.explanations import compute_explanations
+from antakia.compute.auto_cluster import auto_cluster, skope_rules
 from antakia.data import (  
     ExplanationMethod,
     ProjectedValues
@@ -60,7 +50,7 @@ class GUI:
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
     vs_rules_wgt, es_rules_wgt : RulesWidget
     color : a list of colors, one per point
-    region_list : a list of Region, 
+    region_list : a list of Region,
         a region is a dict : {'rules': list of rules, 'indexes', 'model': class}
         if the list of rules is None, the region has been defined with auto-cluster
 
@@ -109,7 +99,7 @@ class GUI:
         self.color = []
         self.selection_ids = []
 
-        # UI rules : 
+        # UI rules :
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget,"4320").disabled = True
 
@@ -183,7 +173,7 @@ class GUI:
                 "Sub-model": region["model"],
                 "Score": ""
             }
-        
+
         def regions_to_items(regions:list)-> list:
             """
             Transforms a list of region dict into a list of dict to be displayed by the CustomDataTable
@@ -191,7 +181,7 @@ class GUI:
             return [region_to_table_item(i+1, region) for i, region in enumerate(regions)]
 
         get_widget(app_widget,"44001").items = regions_to_items(self.region_list)
-        
+
 
 
     def new_eplanation_values_required(self, explain_method:int, callback:callable=None)-> pd.DataFrame:
@@ -420,7 +410,7 @@ class GUI:
             rules_list = rules_widget.get_current_rules_list()
             # We add them to our region_list
             self.region_list.append({
-                "rules": rules_list, 
+                "rules": rules_list,
                 "indexes": Rule.rules_to_indexes(rules_list, self.X),
                 "model": None
                 })
@@ -482,14 +472,24 @@ class GUI:
 
             raw_clusters, all_indexes = auto_cluster(
                 Rule.resulting_df(self.X, rule_list),
-                Rule.resulting_df(self.es_hde.get_current_X().iloc[indexes_list], rule_list)
+                Rule.resulting_df(self.es_hde.get_current_X(), rule_list),
+                6,
+                True
                 )
-            
-            for indexes_list in extract_real_clusters(raw_clusters):
-                self.region_list.append({"rules": None, "indexes": indexes_list, "model": None})
-            
+            logger.debug(f"auto_cluster: {len(found_regions)} regions found")
+            for reg in found_regions:
+                if reg is None:
+                    logger.debug(f"OOps this region is None")
+                elif not isinstance(reg, list):
+                    logger.debug(f"OOps this region is not a list")
+                elif len(reg)==0:
+                    logger.debug(f"OOps this region is an empty list")
+                else:
+                    self.region_list.append({"rules": None, "indexes": reg, "model": None})
+                    logger.debug(f"region with {len(reg)} points")
+
             self.update_regions_table()
-            
+
 
         # We wure the 'auto-cluster' button :
         get_widget(app_widget,"440110").on_event("click", auto_cluster_clicked)
@@ -499,6 +499,6 @@ class GUI:
         get_widget(app_widget, "4303").disabled = True
         # It's enabled when a SKR rules has been found and is disabled when the selection gets empty
         # or when validated is pressed
-        
+
 
         display(app_widget)

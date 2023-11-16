@@ -131,6 +131,7 @@ class DimReducMethod(LongTask):
     TSNE = 2
     UMAP = 3
     PaCMAP = 4
+    allowed_kwargs = []
 
     def __init__(
         self,
