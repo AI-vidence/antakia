@@ -178,6 +178,8 @@ class DimReducMethod(LongTask):
     def dimreduc_method_as_str(cls, method: int) -> str:
         if method is None:
             return None
+        elif 0 < method <= len(cls.dim_reduc_methods):
+            return cls.dim_reduc_methods[method - 1]
         else:
             raise ValueError(f"{method} is an invalid dimensionality reduction method")
 
@@ -465,8 +467,6 @@ class ProjectedValues:
         ):
             # ProjectedValues is a "datastore", its role is not trigger projection computations
             return None
-        elif 0 < method <= len(cls.dim_reduc_methods):
-            return cls.dim_reduc_methods[method - 1]
         else:
             return self._X_proj[dimreduc_method][dimension]
 

@@ -123,7 +123,7 @@ class PaCMAPDimReduc(DimReducMethod):
     PaCMAP computation class.
 
     """
-    dimreduc_method = DimReducMethod.dimreduc_method_as_int('PacMAP')
+    dimreduc_method = DimReducMethod.dimreduc_method_as_int('PaCMAP')
 
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         super().__init__(
