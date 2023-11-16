@@ -285,8 +285,11 @@ def skope_rules(df_indexes: list, base_space_df: pd.DataFrame, variables: list =
 
         else:
             return [], {}
+        
+def auto_ml_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, default: bool) -> list:
+    pass
 
-def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, default: bool) -> list:
+def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int=6, use_default: bool=True) -> list:
     """ Returns a list of regions, a region is a list of indexes of X
     """
     with warnings.catch_warnings():
@@ -294,7 +297,8 @@ def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, de
         m_kmeans = mvlearn.cluster.MultiviewKMeans(n_clusters=n_clusters, random_state=9)
         a_list = m_kmeans.fit_predict([X, shap_values])
         clusters_number = 0
-        if default is True:
+
+        if use_default:
             X_train = pd.DataFrame(X.copy())
             recall_min = 0.8
             precision_min = 0.8
@@ -317,7 +321,7 @@ def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, de
                 if len(skope_rules_clf.rules_) == 0:
                     k = _find_best_k(X, indices, recall_min, precision_min)
                     clusters_number += k
-                    # kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
+                    kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
                     agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=k)
                     agglo.fit(X.iloc[indices])
                     labels = np.array(agglo.labels_) + max_
@@ -336,14 +340,12 @@ def _invert_list(a_list: list, size: int) -> list:
         newList[a_list[i]].append(i)
     return newList
 
-
 def _reset_list(a_list: list) -> list:
     a_list = list(a_list)
     for i in range(max(a_list) + 1):
         if a_list.count(i) == 0:
             a_list = list(np.array(a_list) - 1)
     return a_list
-
 
 def _find_best_k(X: pd.DataFrame, indices: list, recall_min: float, precision_min: float) -> int:
     recall_min = 0.7
