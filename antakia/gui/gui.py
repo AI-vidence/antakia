@@ -445,48 +445,25 @@ class GUI:
             Called when the user clicks on the 'auto-cluster' button
             """
 
-            def extract_real_clusters(cluster:list)-> list:
-                real_clusters = []
-                if isinstance(cluster, list) and len(cluster)>0:
-                    if isinstance(cluster[0], int):
-                        real_clusters.append(cluster)
-                    elif isinstance(cluster[0], list):
-                        for sub_cluster in cluster:
-                            real_clusters += extract_real_clusters(sub_cluster)
-                else:
-                    raise TypeError("find_region : cluster must be a list of int") 
-                
-                return real_clusters
-
             # We assemble all rules from all existing regions :
             rule_list = Rule.regions_to_rules(self.region_list)
 
             # We call the auto_cluster with remaing X and explained(X) :
-            indexes_list = Rule.rules_to_indexes(rule_list, self.X)
+            rules_indexes_list = Rule.rules_to_indexes(rule_list, self.X)
+            not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
 
-            logger.debug(f"rules -> {indexes_list}")
-            logger.debug(f"len(rules) -> {len(indexes_list)} indices")
-            logger.debug(f"with min= {min(indexes_list)} and max= {max(indexes_list)} indices")
-            logger.debug(f"X_exp : is {len(self.es_hde.get_current_X())} long")
-            logger.debug(f"with min={min(self.es_hde.get_current_X().index)} and max={max(self.es_hde.get_current_X().index)} indices")
-
-            raw_clusters, all_indexes = auto_cluster(
-                Rule.resulting_df(self.X, rule_list),
-                Rule.resulting_df(self.es_hde.get_current_X(), rule_list),
+            found_clusters, all_indexes = auto_cluster(
+                self.X.loc[not_rules_indexes_list],
+                self.es_hde.get_current_X().loc[not_rules_indexes_list],
                 6,
                 True
                 )
-            logger.debug(f"auto_cluster: {len(found_regions)} regions found")
-            for reg in found_regions:
-                if reg is None:
-                    logger.debug(f"OOps this region is None")
-                elif not isinstance(reg, list):
-                    logger.debug(f"OOps this region is not a list")
-                elif len(reg)==0:
-                    logger.debug(f"OOps this region is an empty list")
-                else:
-                    self.region_list.append({"rules": None, "indexes": reg, "model": None})
-                    logger.debug(f"region with {len(reg)} points")
+            
+            logger.debug(f"raw_clusters: {len(found_clusters)} regions")
+
+            for cluster in found_clusters:
+                if cluster is not None and isinstance(cluster, list) and len(cluster)>0:
+                    self.region_list.append({"rules": None, "indexes": cluster, "model": None})
 
             self.update_regions_table()
 
