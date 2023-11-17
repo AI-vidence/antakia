@@ -463,7 +463,7 @@ class GUI:
             logger.debug(f"raw_clusters: {num_clusters} regions")
 
             cluster_grp = clusters.reset_index().groupby('cluster')['index'].agg(list)
-            for _, cluster in cluster_grp.iterrows():
+            for _, cluster in cluster_grp.items():
                 self.region_list.append({"rules": None, "indexes": cluster, "model": None})
 
             self.update_regions_table()
