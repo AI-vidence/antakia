@@ -23,7 +23,7 @@ keywords = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.9,<3.12"
 ipykernel = "^6.26.0"
 ipython = "^8.17.2"
 ipyvuetify = "^1.8.10"
@@ -43,6 +43,8 @@ pandas = "2.1.2"
 jupyter = "^1.0.0"
 pacmap = "^0.7.1"
 python-dotenv = "^1.0.0"
+pygam = "^0.9.0"
+interpret = "^0.4.4"
 
 [project.urls]
 Website = "https://ai-vidence.com/"

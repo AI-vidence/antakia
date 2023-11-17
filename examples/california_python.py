@@ -1,6 +1,7 @@
 import pandas as pd
 
 from antakia.compute.auto_cluster.auto_cluster import auto_cluster
+from antakia.compute.model_subtitution.model_interface import InterpretableModels
 
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
 
@@ -51,5 +52,9 @@ num_clusters = clusters.nunique()
 
 region_list = []
 cluster_grp = clusters.reset_index().groupby('cluster')['index'].agg(list)
-for _, cluster in cluster_grp.items():
-    region_list.append({"rules": None, "indexes": cluster, "model": None})
+for i in range(num_clusters):
+    mask = clusters==i
+    im = InterpretableModels()
+    perfs = im.get_models_performance(model, X.loc[mask,:], y.loc[mask])
+
+    print(perfs)
