@@ -12,7 +12,7 @@ from antakia.data import (
 )
 import antakia.config as config
 from antakia.rules import Rule
-from antakia.utils import conf_logger
+import antakia.utils as utils
 from antakia.gui.widgets import (
     get_widget,
     change_widget,
@@ -24,7 +24,7 @@ from antakia.gui.ruleswidget import RulesWidget
 
 import logging
 logger = logging.getLogger(__name__)
-conf_logger(logger)
+utils.conf_logger(logger)
 
 class GUI:
     """
@@ -157,7 +157,7 @@ class GUI:
 
     def update_regions_table(self):
         """
-        Called to empty then fill the CustomDataTable with our region_list
+        Called to empty / fill the RegionDataTable with our region_list
         """
 
         def region_to_table_item(num:int, region:dict)-> dict:
@@ -181,6 +181,31 @@ class GUI:
             return [region_to_table_item(i+1, region) for i, region in enumerate(regions)]
 
         get_widget(app_widget,"44001").items = regions_to_items(self.region_list)
+        
+        region_stats = self.regions_stats()
+        get_widget(app_widget,"44002").children=[f"{region_stats['regions']} {'regions' if region_stats['regions']>1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"]
+        
+        # It seems HDEs need to display regions each time we udpate the table :
+        self.vs_hde.display_regions(self.region_list)
+        self.es_hde.display_regions(self.region_list)
+
+        # UI rules :
+        # If regions coverage > 80%, we disable the 'auto-cluster' button
+        get_widget(app_widget,"440110").disabled = region_stats['coverage'] > 80
+
+    def regions_stats(self)->dict:
+        """ Computes the number of distinct points in the regions and the coverage in %
+        """
+        def union(list1:list, list2:list)-> list:
+            return list(set(list1) | set(list2))
+        stats = {}
+        all_indexes = []
+        for region in self.region_list:
+            all_indexes = union(all_indexes, region["indexes"])
+        stats['regions']=len(self.region_list)
+        stats['points']=len(all_indexes)
+        stats['coverage']=round(100*len(all_indexes)/len(self.X))
+        return stats
 
 
 
@@ -436,6 +461,12 @@ class GUI:
         # We wire the click event on the 'Valildate rules' button
         get_widget(app_widget, "4303").on_event("click", validate_rules)
 
+        # UI rules :
+        # The 'validate rules' button is disabled at startup
+        get_widget(app_widget, "4303").disabled = True
+        # It's enabled when a SKR rules has been found and is disabled when the selection gets empty
+        # or when validated is pressed
+
         # ------------- Tab 2 : regions -----------
 
         self.update_regions_table()
@@ -444,12 +475,16 @@ class GUI:
             """
             Called when the user clicks on the 'auto-cluster' button
             """
-
-            # We assemble all rules from all existing regions :
-            rule_list = Rule.regions_to_rules(self.region_list)
+            
+            # We assemble indices ot all existing regions :
+            rules_indexes_list=[]
+            for region in self.region_list:
+                if region["rules"] is not None:
+                    rules_indexes_list += Rule.rules_to_indexes(region["rules"], self.X)
+                else:
+                    rules_indexes_list += region["indexes"]
 
             # We call the auto_cluster with remaing X and explained(X) :
-            rules_indexes_list = Rule.rules_to_indexes(rule_list, self.X)
             not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
 
             found_clusters, all_indexes = auto_cluster(
@@ -463,19 +498,41 @@ class GUI:
 
             for cluster in found_clusters:
                 if cluster is not None and isinstance(cluster, list) and len(cluster)>0:
-                    self.region_list.append({"rules": None, "indexes": cluster, "model": None})
+                    # The auto_cluster  returns lists of row_ids. We need to convert them ot the Dataframe indexes
+                    self.region_list.append({"rules": None, "indexes": utils.rows_to_indexes(self.X, cluster), "model": None})
 
             self.update_regions_table()
 
-
-        # We wure the 'auto-cluster' button :
+        # We wire events on the 'auto-cluster' button :
         get_widget(app_widget,"440110").on_event("click", auto_cluster_clicked)
 
+
+        def delete_region_clicked(widget, event, data):
+            """
+            Called when the user clicks on the 'delete' (region) button
+            """
+            # We get the region to delete :
+            # See https://vuetifyjs.com/en/components/data-tables/data-and-display/#selectable-rows
+            selected_region = get_widget(app_widget,"44001").v_model
+            # What about multiple selection ?
+
+            # Then we delete the regions in self.region_list
+            # We keep numbers
+            # We call udpatetable
+            self.update_regions_table() # HDEs are updated then
+            # if zero region, we disable the button
+
+        # We wire events on the 'delete' button:
+        get_widget(app_widget,"440100").on_event("click", delete_region_clicked)
+
         # UI rules :
-        # The 'validate rules' button is disabled at startup
+        # The 'delete' button is disabled at startup
         get_widget(app_widget, "4303").disabled = True
-        # It's enabled when a SKR rules has been found and is disabled when the selection gets empty
-        # or when validated is pressed
+
+        def region_selected(widget, event, data):
+            logger.debug(f"region_selected: widget={widget.__class__.__name__}, event={event}, data={data}")
+
+        get_widget(app_widget,"44001").on_event("all", region_selected)
 
 
         display(app_widget)

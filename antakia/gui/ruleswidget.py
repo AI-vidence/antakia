@@ -36,8 +36,6 @@ class RuleWidget:
         self.X = X
         self.values_space = values_space
         self.rule_updated = rule_updated
-
-        logger.debug(f"RuleWidget.init : rule = {rule}")
         
         # root_widget is an ExpansionPanel
         self.root_widget = v.ExpansionPanel( 
@@ -465,7 +463,6 @@ class RulesWidget:
             for rule in self.get_current_rules_list():
                 rules_txt += f"{rule} / "
             css = "ml-7 blue--text"
-            logger.debug(f"RulesWidget._show_rules : rules_txt = {rules_txt}")
 
         change_widget(self.root_widget, "02", v.Html(class_=css, tag="li", children=[rules_txt]))
 

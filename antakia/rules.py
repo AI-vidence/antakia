@@ -272,28 +272,6 @@ class Rule():
 
         return rule_list, score_dict
 
-
-    @staticmethod
-    def rows_to_indexes(X: pd.DataFrame, rows_list: list) -> list:
-        """
-        Converts DataFrame row numbers to Index numbers
-        """
-        return [X.index[row_number] for row_number in rows_list]
-    
-    @staticmethod
-    def indexes_to_rows(X: pd.DataFrame, indexes_list: list) -> list:
-        """
-        Converts DataFrame Index numbers to row numbers
-        """
-        row_ids_list = []
-        for index in indexes_list:
-            if index in X.index:
-                row_ids_list.append(X.index.get_loc(index))
-            else:
-                raise KeyError(f"Index {index} not found in DataFrame")
-
-        return row_ids_list
-
     @staticmethod
     def rules_to_dict_list(rules_list: list) -> dict:
         """""
@@ -313,25 +291,6 @@ class Rule():
             return temp
         
         return [rule_to_dict(rule) for rule in rules_list]
-    
-    @staticmethod
-    def regions_to_rules(region_list: list) -> list:
-        """
-        Transforms a list of regions into a list of rules
-        """
-        rules = []
-        for region in region_list:
-            region_rule_list = region['rules']
-            for rule in region_rule_list:
-                rules.append(rule)   
-        return rules
-    
-    @staticmethod
-    def resulting_df(X: pd.DataFrame, rules_list:list) -> pd.DataFrame:
-        """
-        Returns X minus rules_list(X)
-        """
-        return X.drop(Rule.rules_to_indexes(rules_list, X))
     
     @staticmethod
     def multi_rules_to_string(rules_list: list) -> str:

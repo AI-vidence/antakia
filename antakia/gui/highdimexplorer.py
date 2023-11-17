@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 
 from plotly.graph_objects import FigureWidget, Scatter, Scatter3d
@@ -7,12 +8,12 @@ from antakia.compute.dim_reduction import compute_projection
 from antakia.data import ProjectedValues, DimReducMethod, ExplanationMethod
 
 from antakia.rules import Rule
-from antakia.gui.widgets import get_widget, app_widget
+from antakia.gui.widgets import get_widget, app_widget, region_colors
 import logging as logging
-from antakia.utils import conf_logger
+import antakia.utils as utils
 
 logger = logging.getLogger(__name__)
-conf_logger(logger)
+utils.conf_logger(logger)
 
 
 class HighDimExplorer:
@@ -190,92 +191,86 @@ class HighDimExplorer:
             self.get_explanation_select().disabled = is_disabled
             self.get_compute_menu().disabled = is_disabled
 
-    def display_rules(self, df_ids_list: list):
+    def display_rules(self, indexes_list: list):
+        """"
+        Displays the dots corresponding to our current rules in blue, the others in grey
         """
-        Draws the plots in blue / grey if they comply with the rules
-        If non : draws back the dots with their original color
+        if indexes_list is  None:
+            indexes_list = []
+        
+        self._display_zones([indexes_list], ["blue"])
+
+
+    def display_regions(self, region_list: list):
+        """"
+        Displays each region in a different color
         """
-        self._display_rules_one_side(df_ids_list, 2)
-        self._display_rules_one_side(df_ids_list, 3)
+        if region_list is None:
+            region_list = []
 
-    def _display_rules_one_side(self, df_ids_list: list, dim: int):
+        index_list = []
+        color_list = []
+        for i in range(len(region_list)):
+            index_list.append(region_list[i]["indexes"])
+            color_list.append(region_colors[i % len(region_colors)])
+        self._display_zones(index_list, color_list)
 
-        fig = self.figure_2D if dim == 2 else self.figure_3D
+    def _display_zones(self, zone_indices_list:list, colors_list:list):
+        """
+        Paint on our extra scatter one or more zones (list of pv_list[0].X indexes) using
+        the passed colors. Zones may be regions or rules
+        if index_list is None, we restore the original color
+        Common method for display_rules and display_regions
+        """
+        # We use two extra traces in the figure : the rules and the regions traces
+        
+        # We detect the trace of the figure we'll paint on
+        trace_id = 1 if len(zone_indices_list) == 1 and colors_list[0] == "blue" else 2
+            
+        if len(zone_indices_list) == 0:
+            
+            # We need to clean the trace - we just hide it
+            self.figure_2D.data[trace_id].visible = False
+            self.figure_3D.data[trace_id].visible = False
+            # And we're done
+            return
 
-        # We add a second trace (Scatter) to the figure to display the rules
-        if df_ids_list is None or len(df_ids_list) == 0:
-            # We remove the 'rule rules_trace' if exists
-            if len(fig.data) > 1:
-                if fig.data[1] is not None:
-                    # It seems impossible to remove a trace from a figure once created
-                    # So we hide or update&show this 'rules_trace'
-                    fig.data[1].visible = False
-        else:
-            # Let's create a color scale with rule postives in blue and the rest in grey
-            colors = ["grey"] * self.pv_list[self.current_pv].get_length()
-            # IMPORTANT : we convert df_ids to row_ids (dataframe may not be indexed by row !!)
-            row_ids_list = Rule.indexes_to_rows(
-                self.pv_list[self.current_pv].X, df_ids_list
-            )
-            for row_id in row_ids_list:
-                colors[row_id] = "blue"
+        
 
-            if len(fig.data) == 1:
-                # We need to add a 'rules_trace'
-                if dim == 2:
-                    fig.add_trace(
-                        Scatter(
-                            x=self.pv_list[self.current_pv].get_proj_values(
-                                self._get_projection_method(), 2
-                            )[0],
-                            y=self.pv_list[self.current_pv].get_proj_values(
-                                self._get_projection_method(), 2
-                            )[1],
-                            mode="markers",
-                            marker=dict(
-                                color=colors,
-                            ),
-                        )
-                    )
-                else:
-                    fig.add_trace(
-                        Scatter3d(
-                            x=self.pv_list[self.current_pv].get_proj_values(
-                                self._get_projection_method(), 3
-                            )[0],
-                            y=self.pv_list[self.current_pv].get_proj_values(
-                                self._get_projection_method(), 3
-                            )[1],
-                            z=self.pv_list[self.current_pv].get_proj_values(
-                                self._get_projection_method(), 3
-                            )[2],
-                            mode="markers",
-                            marker=dict(
-                                color=colors,
-                            ),
-                        )
-                    )
-            elif len(fig.data) == 2:
-                # We replace the existing 'rules_trace'
-                with fig.batch_update():
-                    fig.data[1].x = self.pv_list[
-                        self.current_pv
-                    ].get_proj_values(self._get_projection_method(), dim)[0]
-                    fig.data[1].y = self.pv_list[
-                        self.current_pv
-                    ].get_proj_values(self._get_projection_method(), dim)[1]
-                    if dim == 3:
-                        fig.data[1].z = self.pv_list[
-                            self.current_pv
-                        ].get_proj_values(self._get_projection_method(), dim)[2]
-                    fig.layout.width = self.fig_size
-                    fig.data[1].marker.color = colors
+        def _display_zone_on_figure(fig: FigureWidget, trace_id:int, colors: list):
+            """
+            Draws one zone on one figure using the passed colors
+            """
+            dim = 2 if isinstance(fig.data[0],Scatter) else 3
 
-                fig.data[1].visible = True  # in case it was hidden
+            x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
+            y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
+            if dim == 3:
+                z=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
             else:
-                raise ValueError(
-                    f"HDE.{'VS' if len(self.pv_list) == 1 else 'ES'}.display_rules : to be debugged : the figure has {len(self.figure_2D.data)} traces, not 1 or 2"
-                )
+                z=None
+
+            with fig.batch_update():
+                fig.data[trace_id].x = x
+                fig.data[trace_id].y = y
+                if dim == 3:
+                    fig.data[trace_id].z = z
+                fig.layout.width = self.fig_size
+                fig.data[trace_id].marker.color = colors
+            fig.data[trace_id].visible = True  # in case it was hidden
+            
+        
+        # List of color names, 1 per point. Initialized to grey
+        colors = ["grey"] * self.pv_list[0].X.shape[0]
+
+        for zone_id in range(len(zone_indices_list)):
+            zone_indices = utils.indexes_to_rows(self.pv_list[0].X, zone_indices_list[zone_id])
+            if len(zone_indices) > 0:
+                zone_color = colors_list[zone_id]
+                for zone_index in zone_indices:
+                    colors[zone_index] = zone_color    
+                _display_zone_on_figure(self.figure_2D, trace_id, colors)
+                _display_zone_on_figure(self.figure_3D, trace_id, colors)
 
     def compute_projs(self, params_changed: bool = False, callback: callable = None):
         """
@@ -485,7 +480,7 @@ class HighDimExplorer:
             # NOTE : here we convert row ids to dataframe indexes
             self.selection_changed(
                 self,
-                Rule.rows_to_indexes(self.get_current_X(), points.point_inds))
+                utils.rows_to_indexes(self.get_current_X(), points.point_inds))
 
         self._current_selection = points.point_inds
 
@@ -502,28 +497,25 @@ class HighDimExplorer:
         """
 
         if len(self._current_selection) == 0 and len(new_selection_indexes) == 0:
-            logger.debug(f"HDE.set_sel : {self.get_space_name()} ignore another unselect.")
             return
 
         if len(self._current_selection) > 0 and len(new_selection_indexes) == 0:
-            logger.debug(f"HDE.set_sel : {self.get_space_name()} forced to unselect")
             self._current_selection = []
             # We have to rebuild our figure:
             self.create_figure(2)
             return
 
         if self._has_lasso:
-            logger.debug(f"HDE.set_sel : {self.get_space_name()} had the lasso but receives set_sel.")
             # We don't have lasso anymore
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure(2)
-            self.figure_2D.data[0].selectedpoints = Rule.indexes_to_rows(self.get_current_X(), new_selection_indexes)
+            self.figure_2D.data[0].selectedpoints = utils.indexes_to_rows(self.get_current_X(), new_selection_indexes)
             self._current_selection = new_selection_indexes
             return
 
         # We set the new selection on our figures :
-        self.figure_2D.update_traces(selectedpoints=Rule.indexes_to_rows(self.get_current_X(), new_selection_indexes))
+        self.figure_2D.update_traces(selectedpoints=utils.indexes_to_rows(self.get_current_X(), new_selection_indexes))
 
         # We store the new selection :
         self._current_selection = new_selection_indexes
@@ -533,7 +525,6 @@ class HighDimExplorer:
         Called by __init__ and by set_selection
         Builds the FigureWidget for the given dimension
         """
-
         x = y = z = None
 
         if self.pv_list[self.current_pv] is not None:
@@ -556,7 +547,7 @@ class HighDimExplorer:
 
         if dim == 2:
             fig = FigureWidget(
-                data=Scatter(
+                data=Scatter( # Trace 0 for dots
                     x=x,
                     y=y,
                     mode="markers",
@@ -565,9 +556,28 @@ class HighDimExplorer:
                     hovertemplate="%{customdata:.3f}",
                 )
             )
+            fig.add_trace(
+                Scatter( # Trace 1 for rules
+                    x=x,
+                    y=y,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                    hovertemplate="%{customdata:.3f}",
+                )
+            )
+            fig.add_trace(
+                Scatter( # Trace 2 for regions
+                    x=x,
+                    y=y,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                )
+            ) 
         else:
             fig = FigureWidget(
-                data=Scatter3d(
+                data=Scatter3d( # Trace 0 for dots
                     x=x,
                     y=y,
                     z=z,
@@ -577,6 +587,28 @@ class HighDimExplorer:
                     hovertemplate="%{customdata:.3f}",
                 )
             )
+            fig.add_trace(
+                Scatter3d( # Trace 1 for rules
+                    x=x,
+                    y=y,
+                    z=z,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                    hovertemplate="%{customdata:.3f}",
+                )
+                )
+            fig.add_trace(
+                Scatter3d( # Trace 2 for regions
+                    x=x,
+                    y=y,
+                    z=z,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                    hovertemplate="%{customdata:.3f}",
+                )
+            ) 
 
         fig.update_layout(dragmode=False if self._selection_disabled else "lasso")
         fig.update_traces(

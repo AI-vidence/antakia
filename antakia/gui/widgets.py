@@ -118,41 +118,8 @@ dummy_regions_df = pd.DataFrame(
     }
 )
 
-region_headers=[
-    {
-        "text": column,
-        "sortable": True,
-        "value": column,
-    }
-    for column in dummy_regions_df.columns
-]
-region_items=dummy_regions_df.to_dict('records')
-
-region_colors = ["red", "blue", "green", "yellow", "purple", "orange", "pink", "brown", "grey", "cyan"]
-
-# ------------------- DataTable with color chips  --------------------------------
-
-import traitlets
-
-class RegionDataTable(v.VuetifyTemplate):
-    headers = traitlets.List([]).tag(sync=True, allow_null=True)
-    items = traitlets.List([]).tag(sync=True, allow_null=True)
-    colors = traitlets.List(region_colors).tag(sync=True)
-    template = traitlets.Unicode('''
-        <template>
-            <v-data-table
-                :headers="headers"
-                :items="items"
-            >
-            <template v-slot:item.Region="variable">
-              <v-chip :color="colors[variable.value]">
-              {{ variable.value }}
-            </v-chip>
-            </template>
-            </v-data-table>
-        </template>
-        ''').tag(sync=True)
-
+# First color can't be blue, reserved for the rules
+region_colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
 
 # ------------------- Splash screen mega widget --------------------------------
 
@@ -951,16 +918,31 @@ app_widget = v.Col(
                                 v.Sheet( # v.Sheet Col 1 = v.DataTable #4400
                                     class_="flex-fill",
                                     children=[
-                                        v.Html(
+                                        v.Html( #44000
                                             tag="h3",
                                             class_="ml-2 mb-2",
                                             children=["Regions :"],
                                         ),
-                                        RegionDataTable(
-                                            headers=region_headers, 
-                                            items=region_items
+                                        v.DataTable(
+                                            v_model=[],
+                                            show_select=True,
+                                            item_key="Region",
+                                            single_select=True,
+                                            headers=[
+                                                {
+                                                    "text": column,
+                                                    "sortable": True,
+                                                    "value": column,
+                                                }
+                                                for column in dummy_regions_df.columns
+                                            ],
+                                            items=dummy_regions_df.to_dict(
+                                                "records"
+                                            ),
+                                            hide_default_footer=False,
+                                            disable_sort=False,
                                         ),
-                                        v.Html(
+                                        v.Html( #44002
                                             tag="p",
                                             class_="mt-3 ml-2 ",
                                             children=["Dataset coverage : 23%"],
@@ -973,7 +955,7 @@ app_widget = v.Col(
                                         v.Row( #44010
                                             class_="flex-column",
                                             children=[
-                                                v.Btn(
+                                                v.Btn( #440100
                                                     class_="ml-3 mt-8 grey",
                                                     children=[
                                                         v.Icon(

@@ -54,6 +54,27 @@ def conf_logger(logger : Logger, height:int =160) -> Handler:
     else:
         logger.setLevel(INFO)
 
+
+def rows_to_indexes(X: pd.DataFrame, rows_list: list) -> list:
+    """
+    Converts DataFrame row numbers to Index numbers
+    """
+    return [X.index[row_number] for row_number in rows_list]
+
+
+def indexes_to_rows(X: pd.DataFrame, indexes_list: list) -> list:
+    """
+    Converts DataFrame Index numbers to row numbers
+    """
+    row_ids_list = []
+    for index in indexes_list:
+        if index in X.index:
+            row_ids_list.append(X.index.get_loc(index))
+        else:
+            raise KeyError(f"Index {index} not found in DataFrame index")
+
+    return row_ids_list
+    
 def wrap_repr(widget : Widget, size : int = 200) -> str:
     text = widget.__repr__()
     if widget.layout is None :
