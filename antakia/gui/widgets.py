@@ -6,6 +6,7 @@ from ipywidgets.widgets import Widget
 import ipyvuetify as v
 from plotly.graph_objects import FigureWidget, Histogram, Scatter
 import seaborn as sns
+import traitlets
 
 from antakia.data import DimReducMethod
 from antakia.utils import conf_logger
@@ -118,8 +119,42 @@ dummy_regions_df = pd.DataFrame(
     }
 )
 
+headers=[
+    {
+        "text": column,
+        "sortable": False, 
+        "value": column,
+    }
+    for column in dummy_regions_df.columns
+]
+headers2=headers.copy()[1:]
+items=dummy_regions_df.to_dict('records')
+
 # First color can't be blue, reserved for the rules
 region_colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
+colors = region_colors
+
+class ColorTable(v.VuetifyTemplate):
+    headers = traitlets.List([]).tag(sync=True, allow_null=True)
+    items = traitlets.List([]).tag(sync=True, allow_null=True)
+    colors = traitlets.List(colors).tag(sync=True)
+    template = traitlets.Unicode('''
+        <template>
+            <v-data-table
+                :headers="headers"
+                :items="items"
+                item-key="Region"
+                :hide-default-footer="true"
+            >
+            <template v-slot:item.Region="variable">
+              <v-chip :color="colors[variable.value]">
+              {{ variable.value }}
+            </v-chip>
+            </template>
+            </v-data-table>
+        </template>
+        ''').tag(sync=True)
+    disable_sort=True
 
 # ------------------- Splash screen mega widget --------------------------------
 
@@ -913,50 +948,77 @@ app_widget = v.Col(
                 v.TabItem(  # Tab 2) Regions #44
                     children=[
                         v.Sheet( #440
-                            class_="d-flex",
+                            class_="d-flex flex-row",
                             children=[
-                                v.Sheet( # v.Sheet Col 1 = v.DataTable #4400
-                                    class_="flex-fill",
+                                v.Sheet( # v.Sheet Col 1 # 4400
                                     children=[
                                         v.Html( #44000
                                             tag="h3",
-                                            class_="ml-2 mb-2",
+                                            class_="ml-2",
                                             children=["Regions :"],
-                                        ),
-                                        v.DataTable(
-                                            v_model=[],
-                                            show_select=True,
-                                            item_key="Region",
-                                            single_select=True,
-                                            headers=[
-                                                {
-                                                    "text": column,
-                                                    "sortable": True,
-                                                    "value": column,
-                                                }
-                                                for column in dummy_regions_df.columns
+                                        ),                                        
+                                        v.Container( # 44001
+                                            class_="d-flex align-start",
+                                            children=[
+                                                v.Col( # 440010
+                                                    class_="d-flex align-start mr-0 pr-0",
+                                                    children=[
+                                                        ColorTable( # 4400100
+                                                            headers=[headers[0]], 
+                                                            items=items,
+                                                        )
+                                                    ],
+                                                ),
+                                                v.Col( # 440011
+                                                    class_="ml-0 pl-0 flex-fill",
+                                                    children=[
+                                                        v.DataTable( # 4400110
+                                                            v_model="selected",
+                                                            show_select=True,
+                                                            item_key="Region",
+                                                            item_value="Region",
+                                                            single_select=True,
+                                                            headers=headers2,
+                                                            items=items,
+                                                            hide_default_footer=True,
+                                                            disable_sort=True,
+                                                        )
+                                                    ],
+                                                )
                                             ],
-                                            items=dummy_regions_df.to_dict(
-                                                "records"
-                                            ),
-                                            hide_default_footer=False,
-                                            disable_sort=False,
                                         ),
                                         v.Html( #44002
                                             tag="p",
-                                            class_="mt-3 ml-2 ",
-                                            children=["Dataset coverage : 23%"],
-                                        )
+                                            class_="ml-2 mb-2",
+                                            children=["0 region, 0% of the dataset"],
+                                        ),
                                     ]
                                 ), # End Col 1
-                                v.Sheet(  # v.Sheet Col 2 = buttons #4401
-                                    class_="ml-5 flex-column",
+                                v.Sheet(  # v.Sheet Col 2 = buttons #4401 # 4401
+                                    class_="ml-5 ",
                                     children=[
                                         v.Row( #44010
                                             class_="flex-column",
                                             children=[
                                                 v.Btn( #440100
-                                                    class_="ml-3 mt-8 grey",
+                                                    class_="ml-3 mt-12 green white--text",
+                                                    children=[
+                                                        v.Icon(
+                                                            class_="mr-2",
+                                                            children=[
+                                                                "mdi-swap-horizontal-circle-outline"
+                                                            ],
+                                                        ),
+                                                        "Substitute",
+                                                    ],
+                                                )
+                                            ]
+                                        ),
+                                        v.Row( #44011
+                                            class_="flex-column",
+                                            children=[
+                                                v.Btn( #440110
+                                                    class_="ml-3 mt-3 grey",
                                                     children=[
                                                         v.Icon(
                                                             class_="mr-2",
@@ -969,10 +1031,10 @@ app_widget = v.Col(
                                                 )
                                             ]
                                         ),
-                                        v.Row( #44011
+                                        v.Row( #44012
                                             class_="flex-column",
                                             children=[
-                                                v.Btn( #440110
+                                                v.Btn( #440120
                                                     class_="ml-3 mt-3 primary",
                                                     children=[
                                                         v.Icon(

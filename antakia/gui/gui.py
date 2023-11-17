@@ -162,7 +162,7 @@ class GUI:
 
         def region_to_table_item(num:int, region:dict)-> dict:
             """
-            Transforms a region dict into a dict to be displayed by the CustomDataTable
+            Transforms a region dict into a dict to be displayed by the DataTable
             """
             indexes = len(region["indexes"]) if region["indexes"] is not None else str(Rule.rules_to_indexes(region["rules"], self.X).shape[0])
             return {
@@ -180,7 +180,10 @@ class GUI:
             """
             return [region_to_table_item(i+1, region) for i, region in enumerate(regions)]
 
-        get_widget(app_widget,"44001").items = regions_to_items(self.region_list)
+        # We populate the ColorTable :
+        get_widget(app_widget,"4400100").items = regions_to_items(self.region_list)
+        # We populate the regions DataTable :
+        get_widget(app_widget,"4400110").items = regions_to_items(self.region_list)
         
         region_stats = self.regions_stats()
         get_widget(app_widget,"44002").children=[f"{region_stats['regions']} {'regions' if region_stats['regions']>1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"]
@@ -191,7 +194,7 @@ class GUI:
 
         # UI rules :
         # If regions coverage > 80%, we disable the 'auto-cluster' button
-        get_widget(app_widget,"440110").disabled = region_stats['coverage'] > 80
+        get_widget(app_widget,"440120").disabled = region_stats['coverage'] > 80
 
     def regions_stats(self)->dict:
         """ Computes the number of distinct points in the regions and the coverage in %
@@ -504,7 +507,7 @@ class GUI:
             self.update_regions_table()
 
         # We wire events on the 'auto-cluster' button :
-        get_widget(app_widget,"440110").on_event("click", auto_cluster_clicked)
+        get_widget(app_widget,"440120").on_event("click", auto_cluster_clicked)
 
 
         def delete_region_clicked(widget, event, data):
@@ -523,16 +526,12 @@ class GUI:
             # if zero region, we disable the button
 
         # We wire events on the 'delete' button:
-        get_widget(app_widget,"440100").on_event("click", delete_region_clicked)
+        get_widget(app_widget,"440110").on_event("click", delete_region_clicked)
 
         # UI rules :
         # The 'delete' button is disabled at startup
-        get_widget(app_widget, "4303").disabled = True
+        get_widget(app_widget, "440110").disabled = True
 
-        def region_selected(widget, event, data):
-            logger.debug(f"region_selected: widget={widget.__class__.__name__}, event={event}, data={data}")
-
-        get_widget(app_widget,"44001").on_event("all", region_selected)
 
 
         display(app_widget)
