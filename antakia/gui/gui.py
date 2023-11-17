@@ -5,8 +5,9 @@ from IPython.display import display
 
 from antakia.data import DimReducMethod, LongTask,ExplanationMethod,ProjectedValues
 from antakia.compute.explanations import compute_explanations
-from antakia.compute.auto_cluster import auto_cluster, skope_rules
-from antakia.data import (  
+from antakia.compute.auto_cluster.auto_cluster import auto_cluster
+from antakia.compute.selection_rule.skope_rule import skope_rules
+from antakia.data import (
     ExplanationMethod,
     ProjectedValues
 )
@@ -452,18 +453,18 @@ class GUI:
             rules_indexes_list = Rule.rules_to_indexes(rule_list, self.X)
             not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
 
-            found_clusters, all_indexes = auto_cluster(
+            clusters = auto_cluster(
                 self.X.loc[not_rules_indexes_list],
-                self.es_hde.get_current_X().loc[not_rules_indexes_list],
-                6,
-                True
-                )
-            
-            logger.debug(f"raw_clusters: {len(found_clusters)} regions")
+                self.es_hde.get_current_X().loc[not_rules_indexes_list]
+            )
+            clusters.name = 'cluster'
+            num_clusters = clusters.nunique()
 
-            for cluster in found_clusters:
-                if cluster is not None and isinstance(cluster, list) and len(cluster)>0:
-                    self.region_list.append({"rules": None, "indexes": cluster, "model": None})
+            logger.debug(f"raw_clusters: {num_clusters} regions")
+
+            cluster_grp = clusters.reset_index().groupby('cluster')['index'].agg(list)
+            for _, cluster in cluster_grp.iterrows():
+                self.region_list.append({"rules": None, "indexes": cluster, "model": None})
 
             self.update_regions_table()
 
