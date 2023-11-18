@@ -1,3 +1,5 @@
+from curses import start_color
+from tracemalloc import start
 import pandas as pd
 
 import ipyvuetify as v
@@ -47,8 +49,9 @@ class GUI:
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
     vs_rules_wgt, es_rules_wgt : RulesWidget
     region_list : a list of Region,
-        a region is a dict : {'rules': list of rules, 'indexes', 'model': class}
+        a region is a dict : {'num':int, 'rules': list of rules, 'indexes', 'model': class}
         if the list of rules is None, the region has been defined with auto-cluster
+        num start at 1
     selected_region : int, the selected region number; starts at 1. This is a hack to avoid using the ColorTable selection
 
     """
@@ -154,16 +157,16 @@ class GUI:
 
     def update_regions_table(self):
         """
-        Called to empty / fill the RegionDataTable with our region_list
+        Called to empty / fill the RegionDataTable with our >WXC V
         """
 
-        def region_to_table_item(num:int, region:dict)-> dict:
+        def region_to_table_item(region:dict)-> dict:
             """
             Transforms a region dict into a dict to be displayed by the DataTable
             """
             indexes = len(region["indexes"]) if region["indexes"] is not None else str(Rule.rules_to_indexes(region["rules"], self.X).shape[0])
             return {
-                "Region": num,
+                "Region": region["num"],
                 "Rules": Rule.multi_rules_to_string(region["rules"]) if region["rules"] is not None else "auto-cluster",
                 "Points": indexes,
                 "% dataset": str(round(100*int(indexes)/len(self.X)))+"%",
@@ -175,7 +178,7 @@ class GUI:
             """
             Transforms a list of region dict into a list of dict to be displayed by the CustomDataTable
             """
-            return [region_to_table_item(i+1, region) for i, region in enumerate(regions)]
+            return [region_to_table_item(region) for i, region in enumerate(regions)]
 
 
         temp_items = regions_to_items(self.region_list)
@@ -195,6 +198,16 @@ class GUI:
         # UI rules :
         # If regions coverage > 80%, we disable the 'auto-cluster' button
         get_widget(app_widget,"440120").disabled = region_stats['coverage'] > 80
+
+    def max_num_region(self)->int:
+        """
+        Returns the last region number
+        """
+        max_num = 0
+        for region in self.region_list: 
+            if region["num"] > max_num:
+                max_num = region["num"]
+        return max_num
 
     def regions_stats(self)->dict:
         """ Computes the number of distinct points in the regions and the coverage in %
@@ -442,6 +455,7 @@ class GUI:
             rules_list = rules_widget.get_current_rules_list()
             # We add them to our region_list
             self.region_list.append({
+                "num": self.max_num_region()+1,
                 "rules": rules_list,
                 "indexes": Rule.rules_to_indexes(rules_list, self.X),
                 "model": None
@@ -477,7 +491,6 @@ class GUI:
         # ------------- Tab 2 : regions -----------
 
         def region_selected(data):
-            # TODO store the index
             is_selected = data["value"]
 
             # We store this GUI attribute to store the selected region
@@ -509,13 +522,11 @@ class GUI:
             """
             Called when the user clicks on the 'delete' (region) button
             """
-            # We get the region to delete :
-            # See https://vuetifyjs.com/en/components/data-tables/data-and-display/#selectable-rows
-            selected_region = get_widget(app_widget,"4400110").v_model
-            # What about multiple selection ?
-
             # Then we delete the regions in self.region_list
-            # We keep numbers
+            # for i in range(len(self.region_list)):
+            #     if self.region_list[i]
+            # self.region_list.pop(self.selected_region-1) # We substract 1 because the ColorTable starts at 1
+            # # We keep numbers
             # We call udpatetable
             self.update_regions_table() # HDEs are updated then
             # if zero region, we disable the button
@@ -550,12 +561,15 @@ class GUI:
                 get_widget(app_widget,"440130").v_model,
                 True
                 ) # type: ignore
+            
+
+            start_num = self.max_num_region()+1
 
             for cluster in found_clusters:
-                logger.debug(f"raw cluster : {cluster}")
                 if cluster is not None and isinstance(cluster, list) and len(cluster)>0:
                     # The auto_cluster  returns lists of row_ids. We need to convert them ot the Dataframe indexes
-                    self.region_list.append({"rules": None, "indexes": utils.rows_to_indexes(self.X, cluster), "model": None})
+                    self.region_list.append({'num':start_num, "rules": None, "indexes": utils.rows_to_indexes(self.X, cluster), "model": None})
+                    start_num += 1
 
             self.update_regions_table()
 
