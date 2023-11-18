@@ -523,13 +523,16 @@ class GUI:
             Called when the user clicks on the 'delete' (region) button
             """
             # Then we delete the regions in self.region_list
-            # for i in range(len(self.region_list)):
-            #     if self.region_list[i]
-            # self.region_list.pop(self.selected_region-1) # We substract 1 because the ColorTable starts at 1
-            # # We keep numbers
-            # We call udpatetable
-            self.update_regions_table() # HDEs are updated then
-            # if zero region, we disable the button
+            for region_dict in self.region_list:
+                if region_dict["num"] == self.selected_region:
+                    self.region_list.remove(region_dict)
+                    break
+            
+            self.update_regions_table()
+            # THere is no more selected region
+            self.selected_region = None
+            get_widget(app_widget,"440110").disabled = True
+            get_widget(app_widget, "440100").disabled = True
 
         # We wire events on the 'delete' button:
         get_widget(app_widget,"440110").on_event("click", delete_region_clicked)
