@@ -477,6 +477,7 @@ class GUI:
         # ------------- Tab 2 : regions -----------
 
         def region_selected(data):
+            # TODO store the index
             is_selected = data["value"]
 
             # We store this GUI attribute to store the selected region
@@ -542,7 +543,7 @@ class GUI:
             # We call the auto_cluster with remaing X and explained(X) :
             not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
 
-            found_clusters = auto_cluster(
+            found_clusters, weird_cluster = auto_cluster(
                 self.X.loc[not_rules_indexes_list],
                 self.es_hde.get_current_X().loc[not_rules_indexes_list],
                 # We read the number of clusters from the Slider
