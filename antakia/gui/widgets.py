@@ -150,7 +150,7 @@ class ColorTable(v.VuetifyTemplate):
                 @item-selected="tableselect"
             >
             <template v-slot:item.Region="variable">
-              <v-chip :color="colors[variable.value]" >
+              <v-chip :color="colors[variable.value-1]" >
               {{ variable.value }}
               </v-chip>
             </template>

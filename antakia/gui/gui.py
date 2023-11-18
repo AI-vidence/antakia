@@ -5,7 +5,7 @@ from IPython.display import display
 
 from antakia.data import DimReducMethod, LongTask,ExplanationMethod
 from antakia.compute.explanations import compute_explanations
-from antakia.compute.auto_cluster import auto_cluster, skope_rules
+from antakia.compute.legacy_auto_cluster import auto_cluster, skope_rules
 
 import antakia.config as config
 from antakia.rules import Rule
@@ -205,6 +205,7 @@ class GUI:
         all_indexes = []
         for region in self.region_list:
             all_indexes = union(all_indexes, region["indexes"])
+
         stats['regions']=len(self.region_list)
         stats['points']=len(all_indexes)
         stats['coverage']=round(100*len(all_indexes)/len(self.X))
@@ -541,15 +542,16 @@ class GUI:
             # We call the auto_cluster with remaing X and explained(X) :
             not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
 
-            clusters = auto_cluster(
+            found_clusters = auto_cluster(
                 self.X.loc[not_rules_indexes_list],
                 self.es_hde.get_current_X().loc[not_rules_indexes_list],
                 # We read the number of clusters from the Slider
                 get_widget(app_widget,"440130").v_model,
                 True
-                )
+                ) # type: ignore
 
             for cluster in found_clusters:
+                logger.debug(f"raw cluster : {cluster}")
                 if cluster is not None and isinstance(cluster, list) and len(cluster)>0:
                     # The auto_cluster  returns lists of row_ids. We need to convert them ot the Dataframe indexes
                     self.region_list.append({"rules": None, "indexes": utils.rows_to_indexes(self.X, cluster), "model": None})

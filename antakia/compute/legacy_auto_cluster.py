@@ -100,7 +100,7 @@ def auto_cluster(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters: int, de
                 if len(skope_rules_clf.rules_) == 0:
                     k = _find_best_k(X, indices, recall_min, precision_min)
                     clusters_number += k
-                    # kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
+                    kmeans = sklearn.cluster.KMeans(n_clusters=k, random_state=9)
                     agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=k)
                     agglo.fit(X.iloc[indices])
                     labels = np.array(agglo.labels_) + max_
@@ -135,7 +135,7 @@ def _find_best_k(X: pd.DataFrame, indices: list, recall_min: float, precision_mi
     new_X = X.iloc[indices]
     ind_f = 2
     for i in range(2, 9):
-        # kmeans = sklearn.cluster.KMeans(n_clusters=i, random_state=9, n_init="auto")
+        kmeans = sklearn.cluster.KMeans(n_clusters=i, random_state=9, n_init="auto")
         agglo = sklearn.cluster.AgglomerativeClustering(n_clusters=i)
         agglo.fit(new_X)
         labels = agglo.labels_
