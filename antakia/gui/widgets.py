@@ -144,17 +144,34 @@ class ColorTable(v.VuetifyTemplate):
                 :headers="headers"
                 :items="items"
                 item-key="Region"
+                show-select
+                single-select
                 :hide-default-footer="true"
+                @item-selected="tableselect"
             >
             <template v-slot:item.Region="variable">
-              <v-chip :color="colors[variable.value - 1]">
+              <v-chip :color="colors[variable.value]" >
               {{ variable.value }}
-            </v-chip>
+              </v-chip>
             </template>
             </v-data-table>
         </template>
-        ''').tag(sync=True)
+        ''').tag(sync=True) # type: ignore
     disable_sort=True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.callback = None
+
+    # @click:row="tableclick"
+    # def vue_tableclick(self, data):
+    #     raise ValueError(f"click event data = {data}")
+
+    def set_callback(self, callback:callable): # type: ignore
+        self.callback = callback
+    
+    def vue_tableselect(self, data):
+        self.callback(data)
 
 # ------------------- Splash screen mega widget --------------------------------
 
@@ -254,7 +271,7 @@ app_widget = v.Col(
                     children=[
                         widgets.Image(  # 000
                             value=open(
-                                files("antakia").joinpath("assets/logo_ai-vidence.png"),
+                                files("antakia").joinpath("assets/logo_ai-vidence.png"), # type: ignore
                                 "rb",
                             ).read(),
                             height=str(864 / 20) + "px",
@@ -973,13 +990,15 @@ app_widget = v.Col(
                                                     class_="ml-0 pl-0 flex-fill",
                                                     children=[
                                                         v.DataTable( # 4400110
-                                                            v_model="selected",
-                                                            show_select=True,
-                                                            item_key="Region",
-                                                            item_value="Region",
-                                                            single_select=True,
+                                                            # v_model="selected",
+                                                            # show_select=True,
+                                                            # item_key="Region",
+                                                            # item_value="Region",
+                                                            # single_select=True,
                                                             headers=headers2,
-                                                            items=items,
+                                                            items=dummy_regions_df.to_dict(
+                                                                "records"
+                                                            ),
                                                             hide_default_footer=True,
                                                             disable_sort=True,
                                                         )

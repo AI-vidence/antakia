@@ -1,3 +1,5 @@
+from multiprocessing.context import get_spawning_popen
+import re
 import pandas as pd
 
 import ipyvuetify as v
@@ -49,10 +51,10 @@ class GUI:
         IMPORTANT : a dataframe index may differ from the row number
     vs_hde, es_hde : HighDimExplorer for the VS and ES space
     vs_rules_wgt, es_rules_wgt : RulesWidget
-    color : a list of colors, one per point
     region_list : a list of Region,
         a region is a dict : {'rules': list of rules, 'indexes', 'model': class}
         if the list of rules is None, the region has been defined with auto-cluster
+    selected_region : int, the selected region number; starts at 1. This is a hack to avoid using the ColorTable selection
 
     """
 
@@ -96,7 +98,7 @@ class GUI:
         self.es_rules_wgt.disable(True)
 
         self.region_list = []
-        self.color = []
+        self.selected_region = None # Holds the selection in our ColorTable
         self.selection_ids = []
 
         # UI rules :
@@ -478,14 +480,32 @@ class GUI:
 
         # ------------- Tab 2 : regions -----------
 
+        def region_selected(data):
+            is_selected = data["value"]
+
+            # We store this GUI attribute to store the selected region
+            # TODO : read the selected region from the ColorTable
+            self.selected_region = data["item"]["Region"] if is_selected else None
+
+            #UI rules :
+            # Is selected, we enable the 'substitute' and 'delete' buttons and vice-versa
+            get_widget(app_widget,"440100").disabled = not is_selected
+            get_widget(app_widget,"440110").disabled = not is_selected
+
+        get_widget(app_widget,"4400100").set_callback(region_selected)
+
         def substitute_clicked(widget, event, data):
-            pass
+            assert self.selected_region is not None
+            # We enable and show the substiution tab
+            get_widget(app_widget,"42").disabled=True
+            get_widget(app_widget,"4").v_model=2
 
         # We wire events on the 'substitute' button:
         get_widget(app_widget,"440100").on_event("click", substitute_clicked)
 
         # UI rules :
-        # The 'substitute' button is disabled at startup
+        # The 'substitute' button is disabled at startup; it'es enabled when a region is selected 
+        # and disabled if no region is selected or when substitute is pressed
         get_widget(app_widget, "440100").disabled = True
 
         def delete_region_clicked(widget, event, data):
