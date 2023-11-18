@@ -4038,5 +4038,10 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 
 [metadata]
 lock-version = "2.0"
+<<<<<<< HEAD
 python-versions = ">=3.9,<3.12"
 content-hash = "7f3f1163517c56ed879d2fe6f13430a53f8ad5c2ad39958ea774a4b7a8add34e"
+=======
+python-versions = ">=3.9,<3.13"
+content-hash = "23031c929bdc8bd8ec85faad7e1792a8deb10e43b31aefbea9ba47d6a0df7001"
+>>>>>>> temp-branch
