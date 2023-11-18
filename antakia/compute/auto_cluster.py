@@ -121,11 +121,12 @@ def _invert_list(a_list: list, size: int) -> list:
 
 
 def _reset_list(a_list: list) -> list:
-    a_list = list(a_list)
-    for i in range(max(a_list) + 1):
-        if a_list.count(i) == 0:
-            a_list = list(np.array(a_list) - 1)
-    return a_list
+    with warnings.catch_warnings():
+        a_list = list(a_list)
+        for i in range(max(a_list) + 1):
+            if a_list.count(i) == 0:
+                a_list = list(np.array(a_list) - 1)
+        return a_list
 
 
 def _find_best_k(X: pd.DataFrame, indices: list, recall_min: float, precision_min: float) -> int:

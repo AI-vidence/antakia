@@ -147,7 +147,7 @@ class ColorTable(v.VuetifyTemplate):
                 :hide-default-footer="true"
             >
             <template v-slot:item.Region="variable">
-              <v-chip :color="colors[variable.value]">
+              <v-chip :color="colors[variable.value - 1]">
               {{ variable.value }}
             </v-chip>
             </template>
@@ -1045,6 +1045,20 @@ app_widget = v.Col(
                                                         ),
                                                         "Auto-clustering",
                                                     ],
+                                                )
+                                            ]
+                                        ),
+                                        v.Row( #44013
+                                            class_="flex-column",
+                                            children=[
+                                                v.Slider( #440130
+                                                    class_="mt-10",
+                                                    v_model=6,
+                                                    min=2,
+                                                    max=12,
+                                                    thumb_color='blue', # marker color
+                                                    step=1,
+                                                    thumb_label="always"
                                                 )
                                             ]
                                         ),

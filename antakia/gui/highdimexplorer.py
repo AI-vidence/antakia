@@ -227,7 +227,7 @@ class HighDimExplorer:
         # We detect the trace of the figure we'll paint on
         trace_id = 1 if len(zone_indices_list) == 1 and colors_list[0] == "blue" else 2
             
-        if len(zone_indices_list) == 0:
+        if len(zone_indices_list) == 0 or len(zone_indices_list[0]) == 0:
             
             # We need to clean the trace - we just hide it
             self.figure_2D.data[trace_id].visible = False

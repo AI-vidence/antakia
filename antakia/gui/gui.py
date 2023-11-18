@@ -180,10 +180,13 @@ class GUI:
             """
             return [region_to_table_item(i+1, region) for i, region in enumerate(regions)]
 
+
+        temp_items = regions_to_items(self.region_list)
+
         # We populate the ColorTable :
-        get_widget(app_widget,"4400100").items = regions_to_items(self.region_list)
+        get_widget(app_widget,"4400100").items = temp_items
         # We populate the regions DataTable :
-        get_widget(app_widget,"4400110").items = regions_to_items(self.region_list)
+        get_widget(app_widget,"4400110").items = temp_items
         
         region_stats = self.regions_stats()
         get_widget(app_widget,"44002").children=[f"{region_stats['regions']} {'regions' if region_stats['regions']>1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"]
@@ -232,9 +235,12 @@ class GUI:
         selection_status_str = ""
 
         # UI rules :
-        # Selection (empty or not) we remove any (rule trace) from HDEs
+        # Selection (empty or not) we remove any rule or region trace from HDEs
         self.vs_hde.display_rules(None)
         self.es_hde.display_rules(None)
+        self.region_list = []
+        self.update_regions_table()
+    
         # Selection (empty or not) we reset both RulesWidgets
         self.vs_rules_wgt.disable(True)
         self.es_rules_wgt.disable(True)
@@ -472,43 +478,15 @@ class GUI:
 
         # ------------- Tab 2 : regions -----------
 
-        self.update_regions_table()
+        def substitute_clicked(widget, event, data):
+            pass
 
-        def auto_cluster_clicked(widget, event, data):
-            """
-            Called when the user clicks on the 'auto-cluster' button
-            """
-            
-            # We assemble indices ot all existing regions :
-            rules_indexes_list=[]
-            for region in self.region_list:
-                if region["rules"] is not None:
-                    rules_indexes_list += Rule.rules_to_indexes(region["rules"], self.X)
-                else:
-                    rules_indexes_list += region["indexes"]
+        # We wire events on the 'substitute' button:
+        get_widget(app_widget,"440100").on_event("click", substitute_clicked)
 
-            # We call the auto_cluster with remaing X and explained(X) :
-            not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
-
-            found_clusters, all_indexes = auto_cluster(
-                self.X.loc[not_rules_indexes_list],
-                self.es_hde.get_current_X().loc[not_rules_indexes_list],
-                6,
-                True
-                )
-            
-            logger.debug(f"raw_clusters: {len(found_clusters)} regions")
-
-            for cluster in found_clusters:
-                if cluster is not None and isinstance(cluster, list) and len(cluster)>0:
-                    # The auto_cluster  returns lists of row_ids. We need to convert them ot the Dataframe indexes
-                    self.region_list.append({"rules": None, "indexes": utils.rows_to_indexes(self.X, cluster), "model": None})
-
-            self.update_regions_table()
-
-        # We wire events on the 'auto-cluster' button :
-        get_widget(app_widget,"440120").on_event("click", auto_cluster_clicked)
-
+        # UI rules :
+        # The 'substitute' button is disabled at startup
+        get_widget(app_widget, "440100").disabled = True
 
         def delete_region_clicked(widget, event, data):
             """
@@ -516,7 +494,7 @@ class GUI:
             """
             # We get the region to delete :
             # See https://vuetifyjs.com/en/components/data-tables/data-and-display/#selectable-rows
-            selected_region = get_widget(app_widget,"44001").v_model
+            selected_region = get_widget(app_widget,"4400110").v_model
             # What about multiple selection ?
 
             # Then we delete the regions in self.region_list
@@ -533,5 +511,53 @@ class GUI:
         get_widget(app_widget, "440110").disabled = True
 
 
+        def auto_cluster_clicked(widget, event, data):
+            """
+            Called when the user clicks on the 'auto-cluster' button
+            """
+            if self.regions_stats()["coverage"]> 80:
+                # UI rules :
+                # region_list coverage is > 80% : we need to clear it to do another auto-cluster
+                self.region_list = []
+    
+            # We assemble indices ot all existing regions :
+            rules_indexes_list=[Rule.rules_to_indexes(region["rules"], self.X) for region in self.region_list]
+
+            # We call the auto_cluster with remaing X and explained(X) :
+            not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
+
+            found_clusters, all_indexes = auto_cluster(
+                self.X.loc[not_rules_indexes_list],
+                self.es_hde.get_current_X().loc[not_rules_indexes_list],
+                # We read the number of clusters from the Slider
+                get_widget(app_widget,"440130").v_model,
+                True
+                )
+
+            for cluster in found_clusters:
+                if cluster is not None and isinstance(cluster, list) and len(cluster)>0:
+                    # The auto_cluster  returns lists of row_ids. We need to convert them ot the Dataframe indexes
+                    self.region_list.append({"rules": None, "indexes": utils.rows_to_indexes(self.X, cluster), "model": None})
+
+            self.update_regions_table()
+
+        # We wire events on the 'auto-cluster' button :
+        get_widget(app_widget,"440120").on_event("click", auto_cluster_clicked)
+        # UI rules :
+        # The 'auto-cluster' button is disabled at startup
+        get_widget(app_widget, "440120").disabled = True
+
+
+        def num_cluster_changed(widget, event, data):
+            """
+            Called when the user changes the number of clusters
+            """
+            # We enable the 'auto-cluster' button
+            get_widget(app_widget,"440120").disabled = False
+
+        # We wire events on the 'auto-cluster' button :
+        get_widget(app_widget,"440130").on_event("change", num_cluster_changed)
+        
+        self.update_regions_table()
 
         display(app_widget)
