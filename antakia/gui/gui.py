@@ -5,13 +5,10 @@ import pandas as pd
 import ipyvuetify as v
 from IPython.display import display
 
-from antakia.data import DimReducMethod, LongTask,ExplanationMethod,ProjectedValues
+from antakia.data import DimReducMethod, LongTask,ExplanationMethod
 from antakia.compute.explanations import compute_explanations
 from antakia.compute.auto_cluster import auto_cluster, skope_rules
-from antakia.data import (  
-    ExplanationMethod,
-    ProjectedValues
-)
+
 import antakia.config as config
 from antakia.rules import Rule
 import antakia.utils as utils
