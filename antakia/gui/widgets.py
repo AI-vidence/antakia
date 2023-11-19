@@ -1090,7 +1090,62 @@ app_widget = v.Col(
                 ),  # End of v.TabItem #2
                 v.TabItem(  # TabItem #3 Substitution #45
                     children=[
-                        v.Sheet()
+                        v.Sheet(
+                            class_="d-flex",
+                            children=[
+                                v.Sheet( # Col1
+                                    class_="ma-2 d-flex flex-column",
+                                    children=[
+                                        v.Sheet(
+                                            class_="ma-1 d-flex flex-row align-center",
+                                            children=[
+                                                v.Html(class_="mr-2", tag="h3", children=["Region"]),
+                                                v.Chip(
+                                                    color="red",
+                                                    children=["1"],
+                                                ),
+                                                v.Html(class_="ml-2", tag="h3", children=["3 rules, 240 points, 23% dataset"]),
+                                            ]
+                                        ),
+                                        v.DataTable(
+                                            show_select=True,
+                                            single_select=True,
+                                            v_model=[2],
+                                            item_key="Sub-model",
+                                            headers=[
+                                                {
+                                                    "text": column,
+                                                    "sortable": True,
+                                                    "value": column,
+                                                    # "class": "primary white--text",\
+                                                }
+                                                for column in dummy_sub_models_df.columns
+                                            ],
+                                            items=dummy_sub_models_df.to_dict("records"),
+                                            hide_default_footer=True,
+                                            disable_sort=True,
+                                            )
+                                    ]
+                                ),
+                                v.Sheet( # Col2
+                                    class_="ml-4 d-flex flex-column",
+                                    children=[
+                                        v.Btn(
+                                            class_="ma-1 mt-12 green white--text",
+                                            children=[
+                                                v.Icon(
+                                                    class_="mr-2",
+                                                    children=[
+                                                        "mdi-check"
+                                                    ],
+                                                ),
+                                                "Validate rules",
+                                            ],
+                                        )
+                                    ]
+                                )
+                            ]
+                        )
                     ]
                 )
             ]
