@@ -102,9 +102,10 @@ dummy_df = pd.DataFrame({'MedInc': [8.3252, 8.3014, 2.0804, 1.3578, 1.7135, 2.40
 
 dummy_sub_models_df = pd.DataFrame(
     {
-        "Model": ["Linear regression", "Random forest", "Gradient boost", "Tree rank"],
-        "Descr.": ["Lorem Ipsum is simply dummy text of the printing and typesetting industry.", "Cras ipsum neque, eleifend non neque in, iaculis efficitur lectus.", "Etiam ex felis, tempus eu odio ut, euismod dictum nibh", "Fusce molestie diam nulla, quis mattis justo tristique quis."],
-        "Explanability": ["High", "High", "Medium", "Medium"],
+        "Sub-model": ["LinearRegression", "LassoRegression", "RidgeRegression", "GaM", "EBM", "DecisionTreeRegressor"],
+        "MSE": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "MAE": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "R2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     }
 )
 

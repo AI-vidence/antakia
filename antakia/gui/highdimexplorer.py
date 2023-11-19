@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 
-from plotly.graph_objects import FigureWidget, Scatter, Scatter3d
+from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 
 from antakia.compute.dim_reduction import compute_projection
@@ -648,7 +648,7 @@ class HighDimExplorer:
 
         if dim == 2:
             fig = FigureWidget(
-                data=Scatter( # Trace 0 for dots
+                data=Scattergl( # Trace 0 for dots
                     x=x,
                     y=y,
                     mode="markers",
@@ -658,7 +658,7 @@ class HighDimExplorer:
                 )
             )
             fig.add_trace(
-                Scatter( # Trace 1 for rules
+                Scattergl( # Trace 1 for rules
                     x=x,
                     y=y,
                     mode="markers",
@@ -668,7 +668,7 @@ class HighDimExplorer:
                 )
             )
             fig.add_trace(
-                Scatter( # Trace 2 for regions
+                Scattergl( # Trace 2 for regions
                     x=x,
                     y=y,
                     mode="markers",
@@ -745,7 +745,7 @@ class HighDimExplorer:
     ):
 
         dim = (
-            2 if isinstance(fig.data[0], Scatter) else 3
+            2 if isinstance(fig.data[0], Scattergl) else 3
         )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
 
         x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
