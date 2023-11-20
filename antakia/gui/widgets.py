@@ -1048,14 +1048,15 @@ app_widget = v.Col(
                                         ),
                                     ]
                                 ), # End Col 1
-                                v.Sheet(  # v.Sheet Col 2 = buttons #4401 # 4401
-                                    class_="ml-5 ",
+                                v.Col(  # v.Sheet Col 2 = buttons #4401 
+                                    class_="flex-column ml-5 ",
+                                    style_="size: 50%",
                                     children=[
                                         v.Row( #44010
                                             class_="flex-column",
                                             children=[
                                                 v.Btn( #440100
-                                                    class_="ml-3 mt-12 green white--text",
+                                                    class_="ml-3 mt-8 green white--text",
                                                     children=[
                                                         v.Icon(
                                                             class_="mr-2",
@@ -1084,14 +1085,20 @@ app_widget = v.Col(
                                                     ],
                                                 )
                                             ]
-                                        ),
-                                        v.Row( #44012
+                                        )
+                                    ] # End v.Sheet Col 2 children
+                                ),  # End v.Sheet Col 2 = buttons
+                                v.Col(  # v.Sheet Col 3 # 4402
+                                    class_="flex-column ml-5",
+                                    style_="size: 50%",
+                                    children=[
+                                        v.Row( # 44020
                                             class_="flex-column",
                                             children=[
-                                                v.Btn( #440120
-                                                    class_="ml-3 mt-3 primary",
+                                                v.Btn( # 440200
+                                                    class_="ml-3 mt-8 primary",
                                                     children=[
-                                                        v.Icon(
+                                                        v.Icon( # 4402000
                                                             class_="mr-2",
                                                             children=[
                                                                 "mdi-auto-fix" 
@@ -1102,10 +1109,10 @@ app_widget = v.Col(
                                                 )
                                             ]
                                         ),
-                                        v.Row( #44013
+                                        v.Row( # 44021
                                             class_="flex-column",
                                             children=[
-                                                v.Slider( #440130
+                                                v.Slider( # 440210
                                                     class_="mt-10",
                                                     v_model=6,
                                                     min=2,
@@ -1113,11 +1120,24 @@ app_widget = v.Col(
                                                     thumb_color='blue', # marker color
                                                     step=1,
                                                     thumb_label="always"
+                                                ),
+                                                v.Checkbox( # 440211
+                                                    class_="ma-2",
+                                                    v_model=True,
+                                                    label="Automatic number of clusters"
+                                                ),
+                                                v.ProgressLinear( # 440212
+                                                    style_="width: 80%",
+                                                    class_="py-0 mx-5",
+                                                    v_model=0,
+                                                    color="primary",
+                                                    height="15",
                                                 )
+
                                             ]
                                         ),
-                                    ] # End v.Sheet Col 2 children
-                                )  # End v.Sheet Col 2 = buttons
+                                    ] # End v.Sheet Col 3 children
+                                ) # End v.Sheet Col 3
                             ] # End v.Sheet children
                         ), # End v.Sheet
                     ] # End of v.TabItem #2 children
@@ -1169,7 +1189,15 @@ app_widget = v.Col(
                                                 ),
                                                 "Validate sub-model",
                                             ],
-                                        )
+                                        ),
+                                        v.ProgressLinear( # 45011
+                                                    style_="width: 80%",
+                                                    class_="py-0 mx-5 mt-6",
+                                                    v_model=0,
+                                                    height="15",
+                                                    indeterminate=True,
+                                                    color="blue",
+                                                )
                                     ]
                                 ),
                             ]
