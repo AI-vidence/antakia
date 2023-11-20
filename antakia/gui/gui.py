@@ -11,7 +11,7 @@ from antakia.compute.explanations import compute_explanations
 from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.selection_rule.skope_rule import skope_rules
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
-
+import antakia.config as config
 from antakia.rules import Rule
 import antakia.utils as utils
 from antakia.gui.widgets import (
@@ -68,17 +68,16 @@ class GUI:
         self.y_pred = model.predict(X)
         self.variables = variables
 
-
-
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
             DimReducMethod.scale_value_space(self.X, self.y),
             y,
-            int(os.environ.get("DEFAULT_VS_PROJECTION")),
-            int(os.environ.get("DEFAULT_VS_DIMENSION")),
-            int(os.environ.get("INIT_FIG_WIDTH"))/2,
+            config.DEFAULT_VS_PROJECTION,
+            config.DEFAULT_VS_DIMENSION,
+            int(config.INIT_FIG_WIDTH/2),
             40, # border size
-            self.selection_changed)
+            self.selection_changed
+            ) # type: ignore
         self.vs_rules_wgt = self.es_rules_wgt = None
 
         # We create our ES HDE :
@@ -86,9 +85,9 @@ class GUI:
         self.es_hde = HighDimExplorer(
             X,
             y,
-            int(os.environ.get("DEFAULT_VS_PROJECTION")), 
-            int(os.environ.get("DEFAULT_VS_DIMENSION")), # We use the same dimension as the VS HDE for now
-            int(os.environ.get("INIT_FIG_WIDTH"))/2,
+            config.DEFAULT_VS_PROJECTION, 
+            config.DEFAULT_VS_DIMENSION, # We use the same dimension as the VS HDE for now
+            int(config.INIT_FIG_WIDTH/2),
             40, # border size
             self.selection_changed,
             self.new_eplanation_values_required,
@@ -122,14 +121,14 @@ class GUI:
         display(splash_widget)
 
         # We trigger VS proj computation :
-        get_widget(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(int(os.environ.get('DEFAULT_VS_PROJECTION')))} on {self.X.shape} x 4"
+        get_widget(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X.shape} x 4"
         self.vs_hde.compute_projs(False, self.update_splash_screen)
 
         # We trigger ES explain computation if needed :
         if self.es_hde.pv_list[1] is None: # No imported explanation values
             # We compute default explanations :
             index = 1 if os.getenv== ExplanationMethod.SHAP else 3
-            get_widget(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(int(os.environ.get('DEFAULT_EXPLANATION_METHOD')))} on {self.X.shape}"
+            get_widget(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
 
 
 
@@ -443,7 +442,7 @@ class GUI:
             self.vs_hde.set_dimension(3 if data else 2)
             self.es_hde.set_dimension(3 if data else 2)
 
-        get_widget(app_widget, "10").v_model == os.environ.get("DEFAULT_VS_DIMENSION")
+        get_widget(app_widget, "10").v_model == config.DEFAULT_VS_DIMENSION
         get_widget(app_widget, "10").on_event("change", switch_dimension)
 
         # ------------- Tab 1 Selection ----------------

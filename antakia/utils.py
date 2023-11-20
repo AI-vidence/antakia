@@ -14,6 +14,8 @@ from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
 from IPython.display import display
 
+import antakia.config as config
+
 # ---------------------------------------------------------------------
 
 class OutputWidgetHandler(Handler):
@@ -43,7 +45,7 @@ class OutputWidgetHandler(Handler):
         self.out.clear_output()
 
 def conf_logger(logger : Logger, height:int =160) -> Handler:
-    if os.environ.get("SHOW_LOG_MODULE_WIDGET") == "True":
+    if config.SHOW_LOG_MODULE_WIDGET == "True":
         logger.setLevel(DEBUG)
         handler = OutputWidgetHandler(height)
         handler.setFormatter(Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))
