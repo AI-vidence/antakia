@@ -43,11 +43,9 @@ pandas = "2.1.2"
 jupyter = "^1.0.0"
 pacmap = "^0.7.1"
 python-dotenv = "^1.0.0"
-<<<<<<< HEAD
 pygam = "^0.9.0"
 interpret = "^0.4.4"
-=======
->>>>>>> temp-branch
+
 
 [project.urls]
 Website = "https://ai-vidence.com/"

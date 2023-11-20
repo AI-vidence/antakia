@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 
+
 def shap_based_kmeans(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters='auto') -> list:
     x_scaled = scale(X, shap_values)
     clusters = cluster(x_scaled, shap_values)

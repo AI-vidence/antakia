@@ -141,7 +141,6 @@ class Rule():
                     query = "df.loc[" + " " + query_var + " "
                     query += ">" if self.operator_min == 0 else ">="
                     query += " " + str(self.min) + "]"
-                logger.debug(f"Query : {query}")
                 df = eval(query)
             else:
                 # We have an interval rule -> 2 queries

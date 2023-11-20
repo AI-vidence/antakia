@@ -342,7 +342,7 @@ class HighDimExplorer:
             """
             Draws one zone on one figure using the passed colors
             """
-            dim = 2 if isinstance(fig.data[0],Scatter) else 3
+            dim = 2 if isinstance(fig.data[0],Scattergl) else 3
 
             x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
             y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]

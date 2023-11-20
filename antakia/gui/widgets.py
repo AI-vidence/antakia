@@ -174,6 +174,40 @@ class ColorTable(v.VuetifyTemplate):
     def vue_tableselect(self, data):
         self.callback(data)
 
+
+class SubModelTable(v.VuetifyTemplate):
+    headers = traitlets.List([]).tag(sync=True, allow_null=True)
+    items = traitlets.List([]).tag(sync=True, allow_null=True)
+    template = traitlets.Unicode('''
+        <template>
+            <v-data-table
+                :headers="headers"
+                :items="items"
+                item-key="Sub-model"
+                show-select
+                single-select
+                :hide-default-footer="true"
+                @item-selected="tableselect"
+            >
+            </v-data-table>
+        </template>
+        ''').tag(sync=True) # type: ignore
+    disable_sort=False
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.callback = None
+
+    # @click:row="tableclick"
+    # def vue_tableclick(self, data):
+    #     raise ValueError(f"click event data = {data}")
+
+    def set_callback(self, callback:callable): # type: ignore
+        self.callback = callback
+    
+    def vue_tableselect(self, data):
+        self.callback(data)
+
 # ------------------- Splash screen mega widget --------------------------------
 
 splash_widget = v.Layout(
@@ -1090,28 +1124,24 @@ app_widget = v.Col(
                 ),  # End of v.TabItem #2
                 v.TabItem(  # TabItem #3 Substitution #45
                     children=[
-                        v.Sheet(
+                        v.Sheet( #450
                             class_="d-flex",
                             children=[
-                                v.Sheet( # Col1
+                                v.Sheet( # Col1 #4500
                                     class_="ma-2 d-flex flex-column",
                                     children=[
-                                        v.Sheet(
+                                        v.Sheet( #45000
                                             class_="ma-1 d-flex flex-row align-center",
                                             children=[
-                                                v.Html(class_="mr-2", tag="h3", children=["Region"]),
-                                                v.Chip(
+                                                v.Html(class_="mr-2", tag="h3", children=["Region"]), #450000
+                                                v.Chip( #450001
                                                     color="red",
                                                     children=["1"],
                                                 ),
-                                                v.Html(class_="ml-2", tag="h3", children=["3 rules, 240 points, 23% dataset"]),
+                                                v.Html(class_="ml-2", tag="h3", children=["3 rules, 240 points, 23% dataset"]), #450002
                                             ]
                                         ),
-                                        v.DataTable(
-                                            show_select=True,
-                                            single_select=True,
-                                            v_model=[2],
-                                            item_key="Sub-model",
+                                        SubModelTable( #45001
                                             headers=[
                                                 {
                                                     "text": column,
@@ -1122,15 +1152,13 @@ app_widget = v.Col(
                                                 for column in dummy_sub_models_df.columns
                                             ],
                                             items=dummy_sub_models_df.to_dict("records"),
-                                            hide_default_footer=True,
-                                            disable_sort=True,
                                             )
                                     ]
                                 ),
-                                v.Sheet( # Col2
+                                v.Sheet( # Col2 #4501
                                     class_="ml-4 d-flex flex-column",
                                     children=[
-                                        v.Btn(
+                                        v.Btn( # 45010
                                             class_="ma-1 mt-12 green white--text",
                                             children=[
                                                 v.Icon(
@@ -1139,7 +1167,7 @@ app_widget = v.Col(
                                                         "mdi-check"
                                                     ],
                                                 ),
-                                                "Validate rules",
+                                                "Validate sub-model",
                                             ],
                                         )
                                     ]
