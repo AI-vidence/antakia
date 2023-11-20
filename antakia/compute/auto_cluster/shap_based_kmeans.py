@@ -8,16 +8,23 @@ from sklearn.metrics import silhouette_score
 
 def shap_based_kmeans(X: pd.DataFrame, shap_values: pd.DataFrame, n_clusters='auto') -> list:
     x_scaled = scale(X, shap_values)
-    clusters = cluster(x_scaled, shap_values)
+    clusters = cluster(x_scaled, shap_values, n_clusters=n_clusters)
     return clusters
 
 
-def cluster(X, shap):
+def cluster(X, shap, n_clusters):
     X2 = pd.concat([X, shap], axis=1)
     clusters = None
     score = 0
-    for k in range(2,30):
-        k_clusters = n_cluster(X2, k)
+    if n_clusters=='auto':
+        for k in range(2,30):
+            k_clusters = n_cluster(X2, k)
+            k_score = score_cluster(X2, k_clusters)
+            if k_score > score:
+                score = k_score
+                clusters = k_clusters
+    else:
+        k_clusters = n_cluster(X2, n_clusters)
         k_score = score_cluster(X2, k_clusters)
         if k_score > score:
             score = k_score
