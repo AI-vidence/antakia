@@ -5,7 +5,7 @@ Utils module for the antakia package.
 import numpy as np
 import pandas as pd
 
-import textwrap
+import os
 from logging import Logger, Handler, Formatter, DEBUG, INFO
 
 
@@ -13,7 +13,6 @@ import ipywidgets as widgets
 from ipywidgets.widgets.widget import Widget
 import ipyvuetify as v
 from IPython.display import display
-import antakia.config as config
 
 # ---------------------------------------------------------------------
 
@@ -44,7 +43,7 @@ class OutputWidgetHandler(Handler):
         self.out.clear_output()
 
 def conf_logger(logger : Logger, height:int =160) -> Handler:
-    if config.SHOW_LOG_MODULE_WIDGET :
+    if os.environ.get("SHOW_LOG_MODULE_WIDGET") == "True":
         logger.setLevel(DEBUG)
         handler = OutputWidgetHandler(height)
         handler.setFormatter(Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))

@@ -1,10 +1,7 @@
 import pandas as pd
 
 from antakia.compute.auto_cluster.auto_cluster import auto_cluster
-<<<<<<< HEAD
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
-=======
->>>>>>> temp-branch
 
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
 

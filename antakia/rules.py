@@ -5,11 +5,11 @@ import numpy as np
 
 
 from copy import copy
+import os
 import math
 
 from antakia.data import Variable, var_from_symbol
 from antakia.utils import conf_logger
-import antakia.config as config
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -91,7 +91,7 @@ class Rule():
             else:
                 if self.is_inner_interval_rule():
                     # Rule type 3 : the rule is of the form : variable included in [min, max] interval, or min < variable < max
-                    if config.USE_INTERVALS_FOR_RULES:
+                    if os.environ.get("USE_INTERVALS_FOR_RULES"):
                         txt = self.variable.symbol + " \u2208 " # element of
                         txt += "[" if self.operator_min==0 else "\u27E6" # exclusive or inclusive left square bracket
                         txt += f"{self.min}, {self.max}"
@@ -104,7 +104,7 @@ class Rule():
                         txt += " " + str(self.max)
                 else:
                     # Rule type 4 : the rule is of the form : variable not included in [min, max] interval or variable < min and variable > max
-                    if config.USE_INTERVALS_FOR_RULES:
+                    if os.environ.get("USE_INTERVALS_FOR_RULES"):
                         txt = self.variable.symbol + "\u2209" # not an element of
                         txt += "[" if self.operator_min==0 else "\u27E6" # exclusive or inclusive left square bracket
                         txt += f"{self.min}, {self.max}"

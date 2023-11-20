@@ -1,5 +1,3 @@
-from curses import start_color
-from tracemalloc import start
 import pandas as pd
 import numpy as np
 
@@ -12,7 +10,6 @@ from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.selection_rule.skope_rule import skope_rules
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
 
-import antakia.config as config
 from antakia.rules import Rule
 import antakia.utils as utils
 from antakia.gui.widgets import (
@@ -22,9 +19,10 @@ from antakia.gui.widgets import (
     app_widget,
     region_colors
 )
-from antakia.gui.highdimexplorer import HighDimExplorer
+from antakia.gui.highdimexplorer import HighDimExplorer, ProjectedValues
 from antakia.gui.ruleswidget import RulesWidget
 
+import os
 import logging
 import random
 logger = logging.getLogger(__name__)
@@ -75,9 +73,9 @@ class GUI:
         self.vs_hde = HighDimExplorer(
             DimReducMethod.scale_value_space(self.X, self.y),
             y,
-            config.DEFAULT_VS_PROJECTION,
-            config.DEFAULT_VS_DIMENSION,
-            config.INIT_FIG_WIDTH / 2,
+            int(os.environ.get("DEFAULT_VS_PROJECTION")),
+            int(os.environ.get("DEFAULT_VS_DIMENSION")),
+            int(os.environ.get("INIT_FIG_WIDTH"))/2,
             40, # border size
             self.selection_changed)
         self.vs_rules_wgt = self.es_rules_wgt = None
@@ -87,9 +85,9 @@ class GUI:
         self.es_hde = HighDimExplorer(
             X,
             y,
-            config.DEFAULT_ES_PROJECTION,
-            config.DEFAULT_VS_DIMENSION, # We use the same dimension as the VS HDE for now
-            config.INIT_FIG_WIDTH / 2,
+            int(os.environ.get("DEFAULT_VS_PROJECTION")), 
+            int(os.environ.get("DEFAULT_VS_DIMENSION")), # We use the same dimension as the VS HDE for now
+            int(os.environ.get("INIT_FIG_WIDTH"))/2,
             40, # border size
             self.selection_changed,
             self.new_eplanation_values_required,
@@ -123,14 +121,17 @@ class GUI:
         display(splash_widget)
 
         # We trigger VS proj computation :
-        get_widget(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X.shape} x 4"
+        get_widget(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(int(os.environ.get('DEFAULT_VS_PROJECTION')))} on {self.X.shape} x 4"
         self.vs_hde.compute_projs(False, self.update_splash_screen)
 
         # We trigger ES explain computation if needed :
         if self.es_hde.pv_list[1] is None: # No imported explanation values
             # We compute default explanations :
-            index = 1 if config.DEFAULT_EXPLANATION_METHOD == ExplanationMethod.SHAP else 3
-            get_widget(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
+            index = 1 if os.getenv== ExplanationMethod.SHAP else 3
+            get_widget(splash_widget, "120").v_model = f"{ExplanationMethod.explain_method_as_str(int(os.environ.get('DEFAULT_EXPLANATION_METHOD')))} on {self.X.shape}"
+
+
+
             self.es_hde.pv_list[0] = ProjectedValues(self.new_eplanation_values_required(index, self.update_splash_screen))
         else:
             get_widget(splash_widget, "120").v_model = "Imported values"
@@ -164,15 +165,30 @@ class GUI:
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
 
-    def update_substitution_table(self, region_dict:dict):
+    def update_substitution_table(self, region_dict:dict)-> bool:
         get_widget(app_widget,"450001").color = region_colors[region_dict["num"]-1%len(region_colors)]
         get_widget(app_widget,"450001").children=[str(region_dict["num"])]
-        get_widget(app_widget,"450002").children=[f"{Rule.multi_rules_to_string(region_dict['rules']) if region_dict['rules'] is not None else 'auto-cluster'}, {len(region_dict['indexes'])} points, {round(100*len(region_dict['indexes'])/len(self.X))}% of the dataset"]
-
+        vHtml = get_widget(app_widget,"450002")
+        vHtml.class_='ml-2 black--text'
+        vHtml.tag = 'h3'
+        vHtml.children=[f"{Rule.multi_rules_to_string(region_dict['rules']) if region_dict['rules'] is not None else 'auto-cluster'}, {len(region_dict['indexes'])} points, {round(100*len(region_dict['indexes'])/len(self.X))}% of the dataset"]
+        
         perfs = InterpretableModels().get_models_performance(self.model, self.X.loc[region_dict["indexes"]], self.y.loc[region_dict["indexes"]])
-        perfs = perfs.reset_index().rename(columns={'index':'Sub-model'})
-        perfs['Sub-model'] = perfs['Sub-model'].str.replace('_',' ').str.capitalize()
-        get_widget(app_widget,"45001").items = perfs.to_dict("records")
+
+        if perfs is not None :
+            # TODO : format cells in SubModelTable
+            def series_to_str(series:pd.Series)->str:
+                return series.apply(lambda x: f"{x:.2f}")
+
+            for col in perfs.columns:
+                perfs[col] = series_to_str(perfs[col])
+            perfs = perfs.reset_index().rename(columns={'index':'Sub-model'})
+            perfs['Sub-model'] = perfs['Sub-model'].str.replace('_',' ').str.capitalize()
+            get_widget(app_widget,"45001").items = perfs.to_dict("records")
+            return True
+        else:
+            get_widget(app_widget,"45001").items = []
+            return False
 
 
     def update_regions_table(self):
@@ -289,6 +305,9 @@ class GUI:
             get_widget(app_widget,"4303").disabled = True
             # We enable HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(False)
+            # We enable tab 1 and force the view on it
+            get_widget(app_widget,"40").disabled = False
+            get_widget(app_widget,"4").v_model=0
             self.es_hde.disable_widgets(False)
             # We disable the selection datatable :
             get_widget(app_widget,"4320").disabled = True
@@ -376,8 +395,8 @@ class GUI:
         # We wire the input event on the figureSizeSlider (050100)
         get_widget(app_widget,"03000").on_event("input", fig_size_changed)
         # We set the init value to default :
-        get_widget(app_widget,"03000").v_model=config.INIT_FIG_WIDTH
-
+        get_widget(app_widget,"03000").v_model=int(os.environ.get("INIT_FIG_WIDTH"))
+        
         # --------- ColorChoiceBtnToggle ------------
         def change_color(widget, event, data):
             """
@@ -409,7 +428,7 @@ class GUI:
             self.vs_hde.set_dimension(3 if data else 2)
             self.es_hde.set_dimension(3 if data else 2)
 
-        get_widget(app_widget, "10").v_model == config.DEFAULT_VS_DIMENSION
+        get_widget(app_widget, "10").v_model == os.environ.get("DEFAULT_VS_DIMENSION")
         get_widget(app_widget, "10").on_event("change", switch_dimension)
 
         # ------------- Tab 1 Selection ----------------
@@ -487,9 +506,8 @@ class GUI:
             # UI rules :
             # We force tab 2
             get_widget(app_widget,"4").v_model=1
-            # We disable tabs 1 and 2
-            get_widget(app_widget,"40").disabled=True
-            get_widget(app_widget,"41").disabled=True
+            # We disable tabs 1
+            get_widget(app_widget,"40").disabled=False
             # We clear the RulesWidget
             rules_widget.disable(True)
             rules_widget.init_rules(None, None, None)
@@ -500,8 +518,6 @@ class GUI:
             # We clear HDEs 'rule traces'
             hde.display_rules(None)
 
-            # We enable the 'Skope-rules' button
-            get_widget(app_widget,"4301").disabled = False
 
         # We wire the click event on the 'Valildate rules' button
         get_widget(app_widget, "4303").on_event("click", validate_rules)
@@ -531,9 +547,15 @@ class GUI:
         def substitute_clicked(widget, event, data):
             assert self.validated_region is not None
             # We enable and show the substiution tab
-            get_widget(app_widget,"42").disabled=True
+            get_widget(app_widget,"42").disabled=False
             get_widget(app_widget,"4").v_model=2
-            self.update_substitution_table(self.region_list[self.validated_region-1])
+            substitute_success = self.update_substitution_table(self.region_list[self.validated_region-1])
+            if not substitute_success:
+                vHtml = get_widget(app_widget,"450002")
+                vHtml.class_='ml-2 red--text'
+                vHtml.tag = 'h3'
+                vHtml.children = [" : region too small for substitution"]
+        
 
         # We wire events on the 'substitute' button:
         get_widget(app_widget,"440100").on_event("click", substitute_clicked)
@@ -636,7 +658,7 @@ class GUI:
 
             # We use this GUI attribute to store the selected sub-model
             # TODO : read the selected sub-model from the SubModelTable
-            self.validated_sub_model = data["item"] if is_selected else None
+            self.validated_sub_model = data["item"]["Sub-model"] if is_selected else None
             get_widget(app_widget,"45010").disabled = True if not is_selected else False
 
 
@@ -644,12 +666,17 @@ class GUI:
         get_widget(app_widget,"45001").set_callback(sub_model_selected)
 
         def validate_sub_model(widget, event, data):
+            self.validated_sub_model
+
             get_widget(app_widget,"45010").disabled = True
-            logger.debug(f"validate_sub_model : region={self.validated_sub_model}")
+            
             # We udpate the region
-            # self.region_list[self.selected_region-1]["model"] = self.selected_sub_model
+            self.region_list[self.validated_region-1]["model"] = self.validated_sub_model
             # update_table
+            self.update_regions_table()
             # Force tab 2 / disable tab 1
+            get_widget(app_widget,"4").v_model=1
+            get_widget(app_widget,"42").disabled=True
 
 
         # We wire a ckick event on the "validate sub-model" button :

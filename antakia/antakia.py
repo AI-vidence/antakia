@@ -1,5 +1,7 @@
 import pandas as pd
 
+from dotenv import load_dotenv
+
 from antakia.data import ExplanationMethod, Variable, is_valid_model
 from antakia.gui.gui import GUI
 
@@ -32,6 +34,9 @@ class AntakIA():
         Parameters:
         X : a pd.DataFrame
         """
+
+        config = load_dotenv() 
+
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
         

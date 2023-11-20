@@ -13,6 +13,9 @@ pyvenv.cfg
 *.code-workspace
 .idea/
 
+# environnement variables
+.env
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
