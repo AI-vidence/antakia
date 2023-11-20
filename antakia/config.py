@@ -12,5 +12,4 @@ INIT_FIG_WIDTH = int(os.environ.get('INIT_FIG_WIDTH', 1800))
 USE_INTERVALS_FOR_RULES = os.environ.get('USE_INTERVALS_FOR_RULES', 'True') == 'True'
 
 
-SHOW_LOG_MODULE_WIDGET = True
-# os.environ.get('SHOW_LOG_MODULE_WIDGET', 'False') == 'True'
+SHOW_LOG_MODULE_WIDGET = os.environ.get('SHOW_LOG_MODULE_WIDGET', 'False') == 'True'

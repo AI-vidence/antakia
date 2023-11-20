@@ -20,7 +20,7 @@ class AutoCluster(LongTask):
         self.cluster_algo = ShapBasedKmeans(X, progress_updated)
 
     def compute(self, shap_values: pd.DataFrame, n_clusters='auto') -> pd.Series:
-        clusters = self.cluster_algo.process(shap_values, n_clusters)
+        clusters = self.cluster_algo.compute(shap_values, n_clusters)
         clusters = pd.Series(clusters, index=self.X.index, name='cluster')
         # clusters = rule_clusters(X, clusters, cluster_fct)
         clusters = reassign_clusters(clusters)

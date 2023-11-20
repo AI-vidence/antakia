@@ -584,7 +584,7 @@ class GUI:
 
             ac = AutoCluster(self.X, lambda x:None)
 
-            found_clusters = ac.process(
+            found_clusters = ac.compute(
                 self.es_hde.get_current_X().loc[not_rules_indexes_list],
                 # We read the number of clusters from the Slider
                 get_widget(app_widget,"440130").v_model
