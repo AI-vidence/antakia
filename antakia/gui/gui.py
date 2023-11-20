@@ -8,7 +8,7 @@ from IPython.display import display
 
 from antakia.data import DimReducMethod, LongTask,ExplanationMethod
 from antakia.compute.explanations import compute_explanations
-from antakia.compute.auto_cluster.auto_cluster import auto_cluster
+from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.selection_rule.skope_rule import skope_rules
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
 
@@ -69,7 +69,7 @@ class GUI:
         self.y_pred = model.predict(X)
         self.variables = variables
 
-        
+
 
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
@@ -81,17 +81,17 @@ class GUI:
             40, # border size
             self.selection_changed)
         self.vs_rules_wgt = self.es_rules_wgt = None
-        
+
         # We create our ES HDE :
 
         self.es_hde = HighDimExplorer(
             X,
             y,
-            config.DEFAULT_ES_PROJECTION, 
+            config.DEFAULT_ES_PROJECTION,
             config.DEFAULT_VS_DIMENSION, # We use the same dimension as the VS HDE for now
             config.INIT_FIG_WIDTH / 2,
             40, # border size
-            self.selection_changed, 
+            self.selection_changed,
             self.new_eplanation_values_required,
             X_exp if X_exp is not None else pd.DataFrame(), # passing an empty df meebns it's an ES HDE
             )
@@ -112,7 +112,7 @@ class GUI:
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget,"4320").disabled = True
 
-        
+
     def show_splash_screen(self):
         """ Displays the splash screen and updates it during the first computations.
         """
@@ -121,7 +121,7 @@ class GUI:
         get_widget(splash_widget, "210").color = "light blue"
         get_widget(splash_widget, "210").v_model = 100
         display(splash_widget)
-        
+
         # We trigger VS proj computation :
         get_widget(splash_widget, "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X.shape} x 4"
         self.vs_hde.compute_projs(False, self.update_splash_screen)
@@ -137,7 +137,7 @@ class GUI:
 
         # THen we trigger ES proj computation :
         self.es_hde.compute_projs(False, self.update_splash_screen)
-        
+
         splash_widget.close()
 
         self.show_app()
@@ -146,7 +146,7 @@ class GUI:
         """ 
         Updates progress bars of the splash screen
         """
-        
+
         if isinstance(caller, ExplanationMethod):
             # It's an explanation 
             progress_linear = get_widget(splash_widget, "110")
@@ -154,7 +154,7 @@ class GUI:
         else:  # It's a projection
             progress_linear = get_widget(splash_widget, "210")
             number = 4 # (VS/ES) x (2D/3D)
-        
+
         if progress_linear.color == "light blue":
             progress_linear.color = "blue"
             progress_linear.v_model = 0
@@ -168,7 +168,7 @@ class GUI:
         get_widget(app_widget,"450001").color = region_colors[region_dict["num"]-1%len(region_colors)]
         get_widget(app_widget,"450001").children=[str(region_dict["num"])]
         get_widget(app_widget,"450002").children=[f"{Rule.multi_rules_to_string(region_dict['rules']) if region_dict['rules'] is not None else 'auto-cluster'}, {len(region_dict['indexes'])} points, {round(100*len(region_dict['indexes'])/len(self.X))}% of the dataset"]
-        
+
         perfs = InterpretableModels().get_models_performance(self.model, self.X.loc[region_dict["indexes"]], self.y.loc[region_dict["indexes"]])
         perfs = perfs.reset_index().rename(columns={'index':'Sub-model'})
         perfs['Sub-model'] = perfs['Sub-model'].str.replace('_',' ').str.capitalize()
@@ -207,10 +207,10 @@ class GUI:
         get_widget(app_widget,"4400100").items = temp_items
         # We populate the regions DataTable :
         get_widget(app_widget,"4400110").items = temp_items
-        
+
         region_stats = self.regions_stats()
         get_widget(app_widget,"44002").children=[f"{region_stats['regions']} {'regions' if region_stats['regions']>1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"]
-        
+
         # It seems HDEs need to display regions each time we udpate the table :
         self.vs_hde.display_regions(self.region_list)
         self.es_hde.display_regions(self.region_list)
@@ -224,7 +224,7 @@ class GUI:
         Returns the last region number
         """
         max_num = 0
-        for region in self.region_list: 
+        for region in self.region_list:
             if region["num"] > max_num:
                 max_num = region["num"]
         return max_num
@@ -255,11 +255,11 @@ class GUI:
         """
         return compute_explanations(
             self.X,
-            self.model, 
+            self.model,
             explain_method,
             callback
         )
-    
+
     def selection_changed(self, caller:HighDimExplorer, new_selection_indexes: list):
         """ Called when the selection of one HighDimExplorer changes
         """
@@ -271,7 +271,7 @@ class GUI:
         self.es_hde.display_rules(None)
         self.region_list = []
         self.update_regions_table()
-    
+
         # Selection (empty or not) we reset both RulesWidgets
         self.vs_rules_wgt.disable(True)
         self.es_rules_wgt.disable(True)
@@ -294,7 +294,7 @@ class GUI:
             get_widget(app_widget,"4320").disabled = True
 
             self.selection_ids = []
-        else: 
+        else:
             # Selection is not empty anymore / changes
             self.selection_ids = new_selection_indexes
 
@@ -329,7 +329,7 @@ class GUI:
         # We update the selection status :
         change_widget(app_widget,"4300000", selection_status_str_1)
         change_widget(app_widget,"430010", selection_status_str_2)
-        
+
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_indexes: list, skr:bool=False):
         """
@@ -348,7 +348,7 @@ class GUI:
         get_widget(app_widget, "4302").disabled = rules_widget.current_index <1
         # We disable the 'validate rules' button if RsW has less than 1 rule
         get_widget(app_widget, "4303").disabled = rules_widget.current_index < 0
-        
+
     def show_app(self):
         # AppBar
 
@@ -377,7 +377,7 @@ class GUI:
         get_widget(app_widget,"03000").on_event("input", fig_size_changed)
         # We set the init value to default :
         get_widget(app_widget,"03000").v_model=config.INIT_FIG_WIDTH
-        
+
         # --------- ColorChoiceBtnToggle ------------
         def change_color(widget, event, data):
             """
@@ -481,7 +481,7 @@ class GUI:
                 "indexes": Rule.rules_to_indexes(rules_list, self.X),
                 "model": None
                 })
-            
+
             # And update the rules table (tab 2)
             self.update_regions_table()
             # UI rules :
@@ -552,7 +552,7 @@ class GUI:
                 if region_dict["num"] == self.validated_region:
                     self.region_list.remove(region_dict)
                     break
-            
+
             self.update_regions_table()
             # THere is no more selected region
             self.validated_region = None
@@ -575,20 +575,21 @@ class GUI:
                 # UI rules :
                 # region_list coverage is > 80% : we need to clear it to do another auto-cluster
                 self.region_list = []
-    
+
             # We assemble indices ot all existing regions :
             rules_indexes_list=[Rule.rules_to_indexes(region["rules"], self.X) for region in self.region_list]
 
             # We call the auto_cluster with remaing X and explained(X) :
             not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
 
-            found_clusters = auto_cluster(
-                self.X.loc[not_rules_indexes_list],
+            ac = AutoCluster(self.X, lambda x:None)
+
+            found_clusters = ac.process(
                 self.es_hde.get_current_X().loc[not_rules_indexes_list],
                 # We read the number of clusters from the Slider
                 get_widget(app_widget,"440130").v_model
                 ) # type: ignore
-            
+
 
             clusters = self.max_num_region()+found_clusters+1
             clusters.name = 'cluster'
@@ -618,7 +619,7 @@ class GUI:
 
         # We wire events on the 'auto-cluster' button :
         get_widget(app_widget,"440130").on_event("change", num_cluster_changed)
-        
+
         self.update_regions_table()
 
         # ------------- Tab 3 : substitution -----------

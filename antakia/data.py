@@ -32,7 +32,7 @@ class LongTask(ABC):
     progress:int
     """
 
-    def __init__(self, X: pd.DataFrame, progress_updated: callable = None):
+    def __init__(self, X: pd.DataFrame=None, progress_updated: callable = None):
         if X is None:
             raise ValueError("You must provide a dataframe for a LongTask")
         self.X = X
