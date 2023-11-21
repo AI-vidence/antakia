@@ -45,6 +45,7 @@ pacmap = "^0.7.1"
 python-dotenv = "^1.0.0"
 pygam = "^0.9.0"
 interpret = "^0.4.4"
+tomaster = "^0.0.5"
 
 
 [project.urls]
