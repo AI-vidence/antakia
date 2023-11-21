@@ -1,3 +1,6 @@
+import pandas as pd
+
+
 class NotFittedError(Exception):
     pass
 
@@ -14,7 +17,11 @@ class MLModel:
             self.fitted = True
             return res
 
-    def predict(self, *args, **kwargs):
+    def predict(self, X, *args, **kwargs):
         if self.fitted:
-            return self.model.predict(*args, **kwargs)
+            pred = self.model.predict(X, *args, **kwargs)
+            if isinstance(pred, (pd.DataFrame, pd.Series)):
+                return pred
+            else:
+                return pd.Series(pred, index=X.index)
         raise NotFittedError()
