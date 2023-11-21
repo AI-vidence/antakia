@@ -38,7 +38,10 @@ def get_widget(root_widget: Widget, address: str) -> Widget:
         except IndexError:
             raise IndexError(f"Nothing found @{address} in this {root_widget.__class__.__name__}")
     else:
-        return root_widget.children[int(address[0])]
+        if isinstance(root_widget, v.Tooltip):
+            return root_widget.v_slots[0]["children"]
+        else:
+            return root_widget.children[int(address[0])]
 
 
 def _get_parent(root_widget: Widget, address: str) -> Widget:
@@ -72,7 +75,7 @@ def show_tree(parent: Widget, filter: str= "", address:str=""):
         child = parent.children[i]
         if filter in child.__class__.__name__:
             print(f"{' ' * 3 * len(address)} {child.__class__.__name__} @{address}{str(i)}")
-        if not isinstance(child, widgets.Image) and not isinstance(child, str) and not isinstance(child, v.Html) and not isinstance(parent.children[i], widgets.HTML) and not isinstance(child, FigureWidget) and not isinstance(child, RegionDataTable):
+        if not isinstance(child, widgets.Image) and not isinstance(child, str) and not isinstance(child, v.Html) and not isinstance(parent.children[i], widgets.HTML) and not isinstance(child, FigureWidget) and not isinstance(child, ColorTable) and not isinstance(child, SubModelTable):
             show_tree(child, filter, address=f"{address}{i}")
 
 def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
@@ -301,12 +304,13 @@ splash_widget = v.Layout(
 app_widget = v.Col(
     children = [
         v.AppBar(  # Top bar # 0
+            class_="white",
             children=[
                 v.Layout( # 00
                     children=[
                         widgets.Image(  # 000
                             value=open(
-                                files("antakia").joinpath("assets/logo_ai-vidence.png"), # type: ignore
+                                files("antakia").joinpath("assets/logo_antakia_horizontal.png"), # type: ignore
                                 "rb",
                             ).read(),
                             height=str(864 / 20) + "px",
@@ -316,7 +320,7 @@ app_widget = v.Col(
                 ),
                 v.Html( # 01
                     tag="h2", 
-                    children=["AntakIA"], # 010
+                    children=[""], # 010
                     class_="blue-darken-3--text"
                     ),  
                 v.Spacer(),  # 02
@@ -325,14 +329,15 @@ app_widget = v.Col(
                         {
                             "name": "activator",
                             "variable": "props",
-                            "children": v.Btn(
-                                v_on="props.on",
-                                icon=True,
-                                size="x-large",
-                                children=[v.Icon(children=["mdi-tune"])],
-                                class_="ma-2 pa-3",
-                                elevation="0",
-                            ),
+                            "children": 
+                                v.Btn(
+                                    v_on="props.on", 
+                                    icon=True,
+                                    size="x-large",
+                                    children=[v.Icon(children=["mdi-tune"])],
+                                    class_="ma-2 pa-3",
+                                    elevation="0",
+                                ),
                         }
                     ],
                     children=[
@@ -358,40 +363,89 @@ app_widget = v.Col(
                     v_model=False,
                     close_on_content_click=False,
                     offset_y=True,
-                )
-            ],
-        ),
+                ), # End V.Menu
+            ], # End AppBar children
+        ), # End AppBar
         v.Row(  # Top buttons bar # 1
             class_="mt-3 align-center",
             children=[
-                v.Switch( # 10 # Dimension switch
-                    class_="ml-6 mr-2",
-                    v_model=False,
-                    label="2D/3D",
-                ),
+                v.Tooltip( # 10
+                    bottom=True, 
+                    v_slots=[
+                        {
+                        'name': 'activator',
+                        'variable': 'tooltip',
+                        'children': 
+                            v.Switch( # 100 # Dimension switch
+                                v_on='tooltip.on', 
+                                class_="ml-6 mr-2",
+                                v_model=False,
+                                label="2D/3D",
+                            ),
+                        } # End v_slots dict
+                    ], # End v_slots list
+                    children=['Change dimensions']
+                ), # End v.Tooltip
                 v.BtnToggle( # 11
                     class_="mr-3",
                     mandatory=True,
                     v_model="Y",
                     children=[
-                        v.Btn(  # 110
-                            icon=True,
-                            children=[
-                                v.Icon(children=["mdi-alpha-y-circle-outline"])
-                            ],
-                            value="y",
-                            v_model=True,
+                        v.Tooltip( # 110
+                            bottom=True, 
+                            v_slots=[
+                                {
+                                'name': 'activator',
+                                'variable': 'tooltip',
+                                'children': 
+                                    v.Btn(  # 1100
+                                        v_on='tooltip.on', 
+                                        icon=True,
+                                        children=[
+                                            v.Icon(children=["mdi-alpha-y-circle-outline"])
+                                        ],
+                                        value="y",
+                                        v_model=True,
+                                    ),
+                                }
+                            ], 
+                            children=['Display target values']
                         ),
-                        v.Btn(  # 111
-                            icon=True,
-                            children=[v.Icon(children=["mdi-alpha-y-circle"])],
-                            value="y^",
-                            v_model=True,
+                    v.Tooltip( # 111
+                            bottom=True, 
+                            v_slots=[
+                                {
+                                'name': 'activator',
+                                'variable': 'tooltip',
+                                'children': 
+                                    v.Btn(  # 1110
+                                        v_on='tooltip.on', 
+                                        icon=True,
+                                        children=[v.Icon(children=["mdi-alpha-y-circle"])],
+                                        value="y^",
+                                        v_model=True,
+                                    ),
+                                }
+                            ], 
+                            children=['Display predicted values']
                         ),
-                        v.Btn(  # 112
-                            icon=True,
-                            children=[v.Icon(children=["mdi-delta"])],
-                            value="residual",
+                    v.Tooltip( # 112
+                            bottom=True, 
+                            v_slots=[
+                                {
+                                'name': 'activator',
+                                'variable': 'tooltip',
+                                'children': 
+                                    v.Btn(  # 1120
+                                        v_on='tooltip.on', 
+                                        icon=True,
+                                        children=[v.Icon(children=["mdi-delta"])],
+                                        value="residual",
+                                        v_model=True,
+                                    ),
+                                }
+                            ], 
+                            children=['Display residual values']
                         ),
                     ],
                 ),
@@ -762,17 +816,29 @@ app_widget = v.Col(
                                         )
                                     ],
                                 ),
-                                v.Btn( # 4301 Skope button
-                                    class_="ma-1 primary white--text",
-                                    children=[
-                                        v.Icon(
-                                            class_="mr-2",
-                                            children=[
-                                                "mdi-axis-arrow"
-                                            ],
-                                        ),
-                                        "Skope rules",
-                                    ],
+                                v.Tooltip( # 4301
+                                    bottom=True, 
+                                    v_slots=[
+                                        {
+                                        'name': 'activator',
+                                        'variable': 'tooltip',
+                                        'children': 
+                                            v.Btn( # 43010 Skope button
+                                                v_on='tooltip.on',
+                                                class_="ma-1 primary white--text",
+                                                children=[
+                                                    v.Icon(
+                                                        class_="mr-2",
+                                                        children=[
+                                                            "mdi-axis-arrow"
+                                                        ],
+                                                    ),
+                                                    "Skope rules",
+                                                ],
+                                            ), 
+                                        }
+                                    ], 
+                                    children=['Find a rule to match the selection']
                                 ),
                                 v.Btn( # 4302
                                     class_="ma-1",
@@ -786,18 +852,30 @@ app_widget = v.Col(
                                         "Undo",
                                     ],
                                 ),
-                                v.Btn(  # 4303
-                                    class_="ma-1 green white--text",
-                                    children=[
-                                        v.Icon(
-                                            class_="mr-2",
-                                            children=[
-                                                "mdi-check"
-                                            ],
-                                        ),
-                                        "Validate rules",
-                                    ],
-                                )
+                                v.Tooltip( # 4303
+                                    bottom=True, 
+                                    v_slots=[
+                                        {
+                                        'name': 'activator',
+                                        'variable': 'tooltip',
+                                        'children': 
+                                            v.Btn( # 43030 Skope button
+                                                v_on='tooltip.on',
+                                                class_="ma-1 green white--text",
+                                                children=[
+                                                    v.Icon(
+                                                        class_="mr-2",
+                                                        children=[
+                                                            "mdi-check"
+                                                        ],
+                                                    ),
+                                                    "Validate rules",
+                                                ],
+                                            ), 
+                                        }
+                                    ], 
+                                    children=['Promote current rules as a region']
+                                ),
                             ]
                         ), # End Buttons row
                         v.Row( # tab 1 / row #2 : 2 RulesWidgets # 431
@@ -1055,17 +1133,29 @@ app_widget = v.Col(
                                         v.Row( #44010
                                             class_="flex-column",
                                             children=[
-                                                v.Btn( #440100
-                                                    class_="ml-3 mt-8 green white--text",
-                                                    children=[
-                                                        v.Icon(
-                                                            class_="mr-2",
-                                                            children=[
-                                                                "mdi-swap-horizontal-circle-outline"
-                                                            ],
-                                                        ),
-                                                        "Substitute",
-                                                    ],
+                                                v.Tooltip( #440100
+                                                    bottom=True, 
+                                                    v_slots=[
+                                                        {
+                                                        'name': 'activator',
+                                                        'variable': 'tooltip',
+                                                        'children': 
+                                                            v.Btn( #4401000
+                                                                v_on='tooltip.on',
+                                                                class_="ml-3 mt-8 green white--text",
+                                                                children=[
+                                                                    v.Icon(
+                                                                        class_="mr-2",
+                                                                        children=[
+                                                                            "mdi-swap-horizontal-circle-outline"
+                                                                        ],
+                                                                    ),
+                                                                    "Substitute",
+                                                                ],
+                                                            )
+                                                        }
+                                                    ], 
+                                                    children=['Find an explicable surrogale model on this region']
                                                 )
                                             ]
                                         ),
@@ -1095,31 +1185,55 @@ app_widget = v.Col(
                                         v.Row( # 44020
                                             class_="flex-column",
                                             children=[
-                                                v.Btn( # 440200
-                                                    class_="ml-3 mt-8 primary",
-                                                    children=[
-                                                        v.Icon( # 4402000
-                                                            class_="mr-2",
-                                                            children=[
-                                                                "mdi-auto-fix" 
-                                                            ],
-                                                        ),
-                                                        "Auto-clustering",
-                                                    ],
+                                                v.Tooltip( # 440200
+                                                    bottom=True, 
+                                                    v_slots=[
+                                                        {
+                                                        'name': 'activator',
+                                                        'variable': 'tooltip',
+                                                        'children': 
+                                                            v.Btn( # 4402000
+                                                                v_on='tooltip.on',
+                                                                class_="ml-3 mt-8 primary",
+                                                                children=[
+                                                                    v.Icon( # 44020000
+                                                                        class_="mr-2",
+                                                                        children=[
+                                                                            "mdi-auto-fix" 
+                                                                        ],
+                                                                    ),
+                                                                    "Auto-clustering",
+                                                                ],
+                                                            )
+                                                        }
+                                                    ], 
+                                                    children=['Find homogeneous regions in both spaces']
                                                 )
                                             ]
                                         ),
                                         v.Row( # 44021
                                             class_="flex-column",
                                             children=[
-                                                v.Slider( # 440210
-                                                    class_="mt-10",
-                                                    v_model=6,
-                                                    min=2,
-                                                    max=12,
-                                                    thumb_color='blue', # marker color
-                                                    step=1,
-                                                    thumb_label="always"
+                                                v.Tooltip( # 440210
+                                                    bottom=True, 
+                                                    v_slots=[
+                                                        {
+                                                        'name': 'activator',
+                                                        'variable': 'tooltip',
+                                                        'children': 
+                                                            v.Slider( # 4402100
+                                                                v_on='tooltip.on', 
+                                                                class_="mt-10",
+                                                                v_model=6,
+                                                                min=2,
+                                                                max=12,
+                                                                thumb_color='blue', # marker color
+                                                                step=1,
+                                                                thumb_label="always"
+                                                            ),
+                                                        }
+                                                    ], 
+                                                    children=['Numner of clusters you expect to find']
                                                 ),
                                                 v.Checkbox( # 440211
                                                     class_="ma-2",
@@ -1178,17 +1292,29 @@ app_widget = v.Col(
                                 v.Sheet( # Col2 #4501
                                     class_="ml-4 d-flex flex-column",
                                     children=[
-                                        v.Btn( # 45010
-                                            class_="ma-1 mt-12 green white--text",
-                                            children=[
-                                                v.Icon(
-                                                    class_="mr-2",
-                                                    children=[
-                                                        "mdi-check"
-                                                    ],
-                                                ),
-                                                "Validate sub-model",
-                                            ],
+                                        v.Tooltip( #45010
+                                            bottom=True, 
+                                            v_slots=[
+                                                {
+                                                'name': 'activator',
+                                                'variable': 'tooltip',
+                                                'children': 
+                                                    v.Btn( # 450100
+                                                        v_on='tooltip.on', 
+                                                        class_="ma-1 mt-12 green white--text",
+                                                        children=[
+                                                            v.Icon(
+                                                                class_="mr-2",
+                                                                children=[
+                                                                    "mdi-check"
+                                                                ],
+                                                            ),
+                                                            "Validate sub-model",
+                                                        ],
+                                                    ),
+                                                }
+                                            ], 
+                                            children=['Chose this submodel']
                                         ),
                                         v.ProgressLinear( # 45011
                                                     style_="width: 80%",
