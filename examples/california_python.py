@@ -1,6 +1,6 @@
 import pandas as pd
 
-from antakia.compute.auto_cluster.auto_cluster import auto_cluster
+from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
 
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
@@ -25,9 +25,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 model = GradientBoostingRegressor(random_state=9)
 model.fit(X, y)
 
-from antakia.data import ExplanationMethod
 
-from antakia.antakia import AntakIA
 
 variables_df = pd.DataFrame(
     {'col_index': [0, 1, 2, 3, 4, 5, 6, 7],
@@ -42,24 +40,10 @@ variables_df = pd.DataFrame(
 )
 # We call AntakIA with already computed SHAP values and a description of X variables :
 
-
-clusters = auto_cluster(
-    X,
-    shapValues
-)
+clusters = AutoCluster(X, lambda x:None).compute(shap_values=shapValues,n_clusters=6)
 clusters.name = 'cluster'
 num_clusters = clusters.nunique()
 
 region_list = []
 cluster_grp = clusters.reset_index().groupby('cluster')['index'].agg(list)
-<<<<<<< HEAD
-for i in range(num_clusters):
-    mask = clusters==i
-    im = InterpretableModels()
-    perfs = im.get_models_performance(model, X.loc[mask,:], y.loc[mask])
 
-    print(perfs)
-=======
-for _, cluster in cluster_grp.items():
-    region_list.append({"rules": None, "indexes": cluster, "model": None})
->>>>>>> temp-branch
