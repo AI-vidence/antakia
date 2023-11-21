@@ -50,17 +50,24 @@ class InterpretableModels:
     def _train_models(self, X, y):
         Parallel(n_jobs=1)(delayed(model.fit)(X, y) for model_name, model in self.models.items() if not model.fitted)
 
-    def get_models_performance(self, customer_model, X:pd.DataFrame, y:pd.Series, task_type='regression'):
-        if len(X)<=50 or len(X.T)>=len(X):
+    def get_models_performance(self, customer_model, X: pd.DataFrame, y: pd.Series, task_type='regression'):
+        if len(X) <= 50 or len(X.T) >= len(X):
             return
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
         self._init_scores(task_type)
         self._init_models(task_type)
-        self.models['customer_model'] = MLModel(customer_model, 'customer_model', True)
+        if customer_model is not None:
+            self.models['customer_model'] = MLModel(customer_model, 'customer_model', True)
         self._train_models(X_train, y_train)
         for model_name, model in self.models.items():
             y_pred = model.predict(X_test)
             for score_name, score in self.scores.items():
-                self.perfs.loc[model_name, score_name] = score(y_pred, y_test)
+                self.perfs.loc[model_name, score_name] = score(y_test, y_pred)
 
         return self.perfs
+
+
+if __name__ == '__main__':
+    X = pd.read_csv('../../../examples/X.csv').set_index('Unnamed: 0')
+    y = pd.read_csv('../../../examples/y.csv').set_index('Unnamed: 0')
+    InterpretableModels().get_models_performance(None, X, y.iloc[:, 0])
