@@ -181,4 +181,5 @@ def compute_projection(X: pd.DataFrame, dimreduc_method: int, dimension: int, ca
     default_kwargs.update(kwargs)
     dim_reduc_kwargs = {k: v for k, v in default_kwargs.items() if k in dim_reduc.allowed_kwargs}
     proj_values = dim_reduc(X, dimension, callback).compute(**dim_reduc_kwargs)
+    proj_values.index=X.index
     return proj_values

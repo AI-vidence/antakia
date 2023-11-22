@@ -219,6 +219,10 @@ class GUI:
                 vHtml.tag = 'h3'
                 vHtml.children = [" Region too small for substitution !"]
                 get_widget(app_widget,"45001").items = []
+                # We stop the progress bar
+                prog_circular.disabled = True
+                prog_circular.color = "grey"
+                prog_circular.indeterminate = False
         else:
             # We're disabled
             vHtml.class_='ml-2 grey--text italic '
@@ -319,7 +323,8 @@ class GUI:
     def selection_changed(self, caller:HighDimExplorer, new_selection_indexes: list):
         """ Called when the selection of one HighDimExplorer changes
         """
-        selection_status_str = ""
+
+        assert utils.in_index(new_selection_indexes, self.X) is True
 
         # UI rules :
         # Selection (empty or not) we remove any rule or region trace from HDEs
@@ -371,7 +376,7 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column } for column in self.X.columns],
-                    items=self.X.iloc[new_selection_indexes].to_dict("records"),
+                    items=self.X.loc[new_selection_indexes].to_dict("records"),
                     hide_default_footer=False,
                     disable_sort=False,
                 )

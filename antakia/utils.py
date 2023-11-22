@@ -82,3 +82,36 @@ def overlap_handler(ens_potatoes, liste):
         ens_potatoes[i].setIndexes(gliste[i])
     return ens_potatoes
 
+def in_index(indexes:list, X:pd.DataFrame) -> bool:
+    """
+    Checks if a list of indexes is in the index of a DataFrame
+    """
+    for i in range(len(indexes)):
+        try:
+            if not indexes[i] in X.index:
+                return False
+        except Exception as e:
+            return False
+    return True
+
+def rows_to_indexes(X: pd.DataFrame, rows_list: list) -> list:
+    """
+    Converts DataFrame row numbers to Index numbers
+    """
+    return [X.index[row_number] for row_number in rows_list]
+
+
+def indexes_to_rows(X: pd.DataFrame, indexes_list: list) -> list:
+    """
+    Converts DataFrame Index numbers to row numbers
+    """
+    row_ids_list = []
+    for index in indexes_list:
+        if index in X.index:
+            row_ids_list.append(X.index.get_loc(index))
+        else:
+            raise KeyError(f"Index {index} not found in DataFrame index")
+
+    return row_ids_list
+    
+

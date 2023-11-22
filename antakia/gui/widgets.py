@@ -4,7 +4,7 @@ import pandas as pd
 from ipywidgets import Layout, widgets
 from ipywidgets.widgets import Widget
 import ipyvuetify as v
-from plotly.graph_objects import FigureWidget, Histogram, Scatter
+from plotly.graph_objects import FigureWidget, Histogram, Scattergl
 import seaborn as sns
 import traitlets
 
@@ -725,12 +725,12 @@ app_widget = v.Col(
                             children=[
                                 FigureWidget( 
                                     data=[
-                                        Scatter(
+                                        Scattergl(
                                             x=pd.DataFrame({'X': np.random.normal(0, 1, 500)*2})['X'],
                                             y=pd.DataFrame({'Y': np.random.normal(0, 1, 500)*2})['Y'],
                                             mode="markers",
                                             marker=dict(
-                                            color=pd.Series(np.random.randint(0, 5, size=500)),
+                                                color=pd.Series(np.random.randint(0, 5, size=500)),
                                             ),
                                         ),
                                     ],
@@ -758,7 +758,7 @@ app_widget = v.Col(
                             children=[
                                 FigureWidget( 
                                     data=[
-                                        Scatter(
+                                        Scattergl(
                                             x=pd.DataFrame({'X': np.random.normal(0, 1, 500)*2})['X'],
                                             y=pd.DataFrame({'Y': np.random.normal(0, 1, 500)*2})['Y'],
                                             mode="markers",

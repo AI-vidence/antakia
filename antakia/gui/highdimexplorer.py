@@ -236,8 +236,6 @@ class HighDimExplorer:
             # And we're done
             return
 
-        
-
         def _display_zone_on_figure(fig: FigureWidget, trace_id:int, colors: list):
             """
             Draws one zone on one figure using the passed colors
@@ -265,8 +263,9 @@ class HighDimExplorer:
         colors = ["grey"] * self.pv_list[0].X.shape[0]
 
         for zone_id in range(len(zone_indices_list)):
-            # zone_indices = utils.indexes_to_rows(self.pv_list[0].X, zone_indices_list[zone_id])
             zone_indices = zone_indices_list[zone_id]
+            # Let's convert those indexes to row numbers :
+            zone_indices = utils.indexes_to_rows(self.pv_list[0].X, zone_indices)
             if len(zone_indices) > 0:
                 zone_color = colors_list[zone_id]
                 for zone_index in zone_indices:
@@ -474,15 +473,18 @@ class HighDimExplorer:
         """Called whenever the user selects dots on the scatter plot"""
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
 
-        if len(points.point_inds) > 0:
+        # We convert selected rows in indexes
+        self._current_selection = utils.rows_to_indexes(self.pv_list[0].X, points.point_inds)
+
+        if len(self._current_selection) > 0:
             # NOTE : Plotly doesn't allow to show selection on Scatter3d
             self._has_lasso = True
 
             # We tell the GUI
             # NOTE : here we convert row ids to dataframe indexes
-            self.selection_changed(self, points.point_inds)
+            self.selection_changed(self, self._current_selection)
 
-        self._current_selection = points.point_inds
+        assert utils.in_index(self._current_selection, self.pv_list[0].X) is True  
 
     def _deselection_event(self, trace, points, append: bool = False):
         """Called on deselection"""
@@ -510,7 +512,7 @@ class HighDimExplorer:
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure(2)
-            self.figure_2D.data[0].selectedpoints = new_selection_indexes
+            self.figure_2D.data[0].selectedpoints = utils.indexes_to_rows(self.pv_list[0].X,new_selection_indexes)
             self._current_selection = new_selection_indexes
             return
 
@@ -547,25 +549,39 @@ class HighDimExplorer:
         hde_marker = None
         if dim == 2:
             if self.is_value_space():
-                hde_marker = dict(color=self._y, colorscale="Viridis", colorbar=dict(
-                thickness=20))
+                hde_marker = dict(
+                        color=self._y, 
+                        colorscale="Viridis", 
+                        colorbar=
+                            dict(
+                                thickness=20
+                            )
+                        )
             else:
                 hde_marker = dict(color=self._y, colorscale="Viridis")
         else:
             if self.is_value_space():
                 hde_marker = dict(color=self._y, colorscale="Viridis", colorbar=dict(
-                thickness=20), size=3)
+                thickness=20), size=2)
+            else:
+                hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
 
         if dim == 2:
             fig = FigureWidget(
-                data=Scattergl( # Trace 0 for dots
-                    x=x,
-                    y=y,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
+                data=[
+                    Scattergl( # Trace 0 for dots
+                        x=x,
+                        y=y,
+                        mode="markers",
+                        marker=hde_marker,
+                        customdata=self._y,
+                        hovertemplate="%{customdata:.3f}",
+                    )
+                ],
+                layout={
+                    'height': 300,
+                    'margin': {'t': 0, 'b': 0},
+                }
             )
             fig.add_trace(
                 Scattergl( # Trace 1 for rules
@@ -588,15 +604,17 @@ class HighDimExplorer:
             ) 
         else:
             fig = FigureWidget(
-                data=Scatter3d( # Trace 0 for dots
-                    x=x,
-                    y=y,
-                    z=z,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
+                data=[
+                    Scatter3d( # Trace 0 for dots
+                        x=x,
+                        y=y,
+                        z=z,
+                        mode="markers",
+                        marker=hde_marker,
+                        customdata=self._y,
+                        hovertemplate="%{customdata:.3f}",
+                    )
+                ]
             )
             fig.add_trace(
                 Scatter3d( # Trace 1 for rules
