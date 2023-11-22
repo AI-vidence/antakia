@@ -7,7 +7,7 @@ from skrules import SkopeRules
 
 from antakia.data import Variable
 from antakia.rules import Rule
-from antakia.utils import indexes_to_rows
+import antakia.utils as utils
 
 
 def skope_rules(df_indexes: list, base_space_df: pd.DataFrame, variables: list = None, precision: float = 0.7,
@@ -22,7 +22,12 @@ def skope_rules(df_indexes: list, base_space_df: pd.DataFrame, variables: list =
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         y_train = np.zeros(len(base_space_df))
-        y_train[indexes_to_rows(base_space_df, df_indexes)] = 1  # our target
+        
+        # We convert df_indexes in row_indexes
+        assert utils.in_index(df_indexes, base_space_df) is True
+
+        df_rows = utils.indexes_to_rows(base_space_df, df_indexes)
+        y_train[df_rows] = 1  # our target
 
         if variables is None:
             variables = Variable.guess_variables(base_space_df)

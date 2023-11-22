@@ -176,13 +176,17 @@ class Rule():
 
         if rules_list is None or len(rules_list) == 0:
             return []
+        
+        if len(rules_list) == 1:
+            return rules_list[0].get_matching_indexes(base_space_df)
 
-        indexes = []
-        for rule in rules_list:
-            matching_indexes = rule.get_matching_indexes(base_space_df)
-            for index in matching_indexes:
-                if index not in indexes:
-                    indexes.append(index)
+        def intersection(lst1, lst2):
+            lst3 = [value for value in lst1 if value in lst2]
+            return lst3
+
+        indexes = rules_list[0].get_matching_indexes(base_space_df)
+        for i in range(1, len(rules_list)):
+            indexes = intersection(indexes, rules_list[i].get_matching_indexes(base_space_df))
 
         return indexes
     

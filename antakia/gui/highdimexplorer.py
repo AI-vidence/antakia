@@ -5,117 +5,17 @@ from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 
 from antakia.compute.dim_reduction import compute_projection
-from antakia.data import DimReducMethod, ExplanationMethod
+from antakia.data import DimReducMethod, ExplanationMethod, ProjectedValues
 
 from antakia.rules import Rule
 from antakia.gui.widgets import get_widget, app_widget, region_colors
 import logging as logging
+
 import antakia.utils as utils
+from antakia.data import ProjectedValues
 
 logger = logging.getLogger(__name__)
 utils.conf_logger(logger)
-
-class ProjectedValues:
-    """
-    A class to hold a Dataframe X, and its projected values (with various dimensionality reduction methods).
-
-    Instance attributes
-    ------------------
-    X  : pandas.Dataframe
-        The dataframe to be used by AntakIA
-    _X_proj : a dict with four values :
-        - key DimReducMethod.PCA : a dict with :
-            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PCA-projected X values
-            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PCA-projected X values
-        - key DimReducMethod.TSNE : a dict with :
-            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D TSNE-projected X values
-            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D TSNE-projected X values
-        - key DimReducMethod.UMAP : a dict with :
-            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D UMAP-projected X values
-            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D UMAP-projected X values
-        - key DimReducMethod.PaCMAP : a dict with :
-            - key DimReducMethod.DIM_TWO : a pandas Dataframe with 2D PaCMAP-projected X values
-            - key DimReducMethod.DIM_THREE :  a pandas Dataframe with 3D PaCMAP-projected X values
-    """
-
-    def __init__(self, X: pd.DataFrame):
-        """
-        Constructor of the class ProjectedValues.
-
-        Parameters
-        ----------
-        X : pandas.Dataframe
-            The dataframe provided by the user.
-        """
-        self.X = X
-        self._X_proj = {}
-
-    def __str__(self):
-        text = f"X's shape : {self.X.shape}"
-        for proj_method in DimReducMethod.dimreduc_methods_as_list():
-            for dim in [2, 3]:
-                if self.is_available(proj_method, dim):
-                    text += f"\n{DimReducMethod.dimreduc_method_as_str(proj_method)}/{DimReducMethod.dimension_as_str(dim)} : {self.get_proj_values(proj_method, dim).shape}"
-        return text
-
-    def get_length(self) -> int:
-        return self.X.shape[0]
-
-    def get_proj_values(self, dimreduc_method: int, dimension: int) -> pd.DataFrame:
-        """Returns de projected X values using a dimensionality reduction method and target dimension (2 or 3)
-
-        Args:
-            dimreduc_method (int): the dimensionality reduction method
-            dimension (int, optional): Defaults to DimReducMethod.DIM_TWO.
-
-        Returns:
-            pd.DataFrame: the projected X values. May be None
-        """
-        if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
-            raise ValueError("Bad dimensionality reduction method")
-        if not DimReducMethod.is_valid_dim_number(dimension):
-            raise ValueError(dimension, " is a bad dimension number")
-
-        if (
-                dimreduc_method not in self._X_proj
-                or dimension not in self._X_proj[dimreduc_method]
-                or self._X_proj[dimreduc_method][dimension] is None
-        ):
-            # ProjectedValues is a "datastore", its role is not trigger projection computations
-            return None
-        else:
-            return self._X_proj[dimreduc_method][dimension]
-
-    def is_available(self, dimreduc_method: int, dimension: int) -> bool:
-        return self.get_proj_values(dimreduc_method, dimension) is not None
-
-    def set_proj_values(
-            self, dimreduc_method: int, dimension: int, values: pd.DataFrame
-    ):
-        """Set X_proj alues for this dimensionality reduction and  dimension."""
-
-        # TODO we may want to check values.shape and raise value error if it does not match
-        if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
-            raise ValueError("Bad dimensionality reduction method")
-        if not DimReducMethod.is_valid_dim_number(dimension):
-            raise ValueError("Bad dimension number")
-
-        if dimreduc_method not in self._X_proj:
-            self._X_proj[
-                dimreduc_method
-            ] = {}  # We create a new dict for this dimreduc_method
-        if dimension not in self._X_proj[dimreduc_method]:
-            self._X_proj[dimreduc_method][
-                dimension
-            ] = {}  # We create a new dict for this dimension
-
-        self._X_proj[dimreduc_method][dimension] = values
-
-    def get_shape(self):
-        """Returns the shape of the used dataset"""
-        return self.X.shape
-
-# ----------------------------------------------
 
 class HighDimExplorer:
     """
@@ -336,8 +236,6 @@ class HighDimExplorer:
             # And we're done
             return
 
-        
-
         def _display_zone_on_figure(fig: FigureWidget, trace_id:int, colors: list):
             """
             Draws one zone on one figure using the passed colors
@@ -365,7 +263,9 @@ class HighDimExplorer:
         colors = ["grey"] * self.pv_list[0].X.shape[0]
 
         for zone_id in range(len(zone_indices_list)):
-            zone_indices = utils.indexes_to_rows(self.pv_list[0].X, zone_indices_list[zone_id])
+            zone_indices = zone_indices_list[zone_id]
+            # Let's convert those indexes to row numbers :
+            zone_indices = utils.indexes_to_rows(self.pv_list[0].X, zone_indices)
             if len(zone_indices) > 0:
                 zone_color = colors_list[zone_id]
                 for zone_index in zone_indices:
@@ -573,17 +473,18 @@ class HighDimExplorer:
         """Called whenever the user selects dots on the scatter plot"""
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
 
-        if len(points.point_inds) > 0:
+        # We convert selected rows in indexes
+        self._current_selection = utils.rows_to_indexes(self.pv_list[0].X, points.point_inds)
+
+        if len(self._current_selection) > 0:
             # NOTE : Plotly doesn't allow to show selection on Scatter3d
             self._has_lasso = True
 
             # We tell the GUI
             # NOTE : here we convert row ids to dataframe indexes
-            self.selection_changed(
-                self,
-                utils.rows_to_indexes(self.get_current_X(), points.point_inds))
+            self.selection_changed(self, self._current_selection)
 
-        self._current_selection = points.point_inds
+        assert utils.in_index(self._current_selection, self.pv_list[0].X) is True  
 
     def _deselection_event(self, trace, points, append: bool = False):
         """Called on deselection"""
@@ -611,12 +512,13 @@ class HighDimExplorer:
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure(2)
-            self.figure_2D.data[0].selectedpoints = utils.indexes_to_rows(self.get_current_X(), new_selection_indexes)
+            self.figure_2D.data[0].selectedpoints = utils.indexes_to_rows(self.pv_list[0].X,new_selection_indexes)
             self._current_selection = new_selection_indexes
             return
 
         # We set the new selection on our figures :
-        self.figure_2D.update_traces(selectedpoints=utils.indexes_to_rows(self.get_current_X(), new_selection_indexes))
+        # self.figure_2D.update_traces(selectedpoints=utils.indexes_to_rows(self.get_current_X(), new_selection_indexes))
+        self.figure_2D.update_traces(selectedpoints=new_selection_indexes)
 
         # We store the new selection :
         self._current_selection = new_selection_indexes
@@ -644,18 +546,42 @@ class HighDimExplorer:
                         self._get_projection_method(), dim
                     )[2]
 
-        hde_marker = dict(color=self._y, colorscale="Viridis")
+        hde_marker = None
+        if dim == 2:
+            if self.is_value_space():
+                hde_marker = dict(
+                        color=self._y, 
+                        colorscale="Viridis", 
+                        colorbar=
+                            dict(
+                                thickness=20
+                            )
+                        )
+            else:
+                hde_marker = dict(color=self._y, colorscale="Viridis")
+        else:
+            if self.is_value_space():
+                hde_marker = dict(color=self._y, colorscale="Viridis", colorbar=dict(
+                thickness=20), size=2)
+            else:
+                hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
 
         if dim == 2:
             fig = FigureWidget(
-                data=Scattergl( # Trace 0 for dots
-                    x=x,
-                    y=y,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
+                data=[
+                    Scattergl( # Trace 0 for dots
+                        x=x,
+                        y=y,
+                        mode="markers",
+                        marker=hde_marker,
+                        customdata=self._y,
+                        hovertemplate="%{customdata:.3f}",
+                    )
+                ],
+                layout={
+                    'height': 300,
+                    'margin': {'t': 0, 'b': 0},
+                }
             )
             fig.add_trace(
                 Scattergl( # Trace 1 for rules
@@ -678,15 +604,17 @@ class HighDimExplorer:
             ) 
         else:
             fig = FigureWidget(
-                data=Scatter3d( # Trace 0 for dots
-                    x=x,
-                    y=y,
-                    z=z,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
+                data=[
+                    Scatter3d( # Trace 0 for dots
+                        x=x,
+                        y=y,
+                        z=z,
+                        mode="markers",
+                        marker=hde_marker,
+                        customdata=self._y,
+                        hovertemplate="%{customdata:.3f}",
+                    )
+                ]
             )
             fig.add_trace(
                 Scatter3d( # Trace 1 for rules

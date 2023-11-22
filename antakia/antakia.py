@@ -35,7 +35,7 @@ class AntakIA():
         X : a pd.DataFrame
         """
 
-        config = load_dotenv() 
+        load_dotenv() 
 
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
