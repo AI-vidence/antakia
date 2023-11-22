@@ -371,8 +371,7 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column } for column in self.X.columns],
-                    # IMPORTANT note : df.loc(index_ids) vs df.iloc(row_ids)
-                    items=self.X.loc[new_selection_indexes].to_dict("records"),
+                    items=self.X.iloc[new_selection_indexes].to_dict("records"),
                     hide_default_footer=False,
                     disable_sort=False,
                 )
@@ -655,9 +654,14 @@ class GUI:
             # We call the auto_cluster with remaing X and explained(X) :
             not_rules_indexes_list = [index for index in self.X.index if index not in rules_indexes_list]
 
-            ac = AutoCluster(self.X, update_ac_progress_bar)
+            vs_proj_3d_df = self.vs_hde.pv_list[0].get_proj_values(self.vs_hde._get_projection_method(), 3)
+            es_proj_3d_df = self.es_hde.pv_list[self.es_hde.current_pv].get_proj_values(self.es_hde._get_projection_method(), 3)
+
+            ac = AutoCluster(
+                vs_proj_3d_df, 
+                update_ac_progress_bar)
             found_clusters = ac.compute(
-                self.es_hde.get_current_X().loc[not_rules_indexes_list],
+                es_proj_3d_df,
                 # We send 'auto' or we read the number of clusters from the Slider
                 'auto' if get_widget(app_widget, '440211').v_model else get_widget(app_widget,"4402100").v_model
                 ) # type: ignore
