@@ -20,13 +20,12 @@ def skope_rules(df_indexes: list, base_space_df: pd.DataFrame, variables: list =
     recall for SKR binary classifer : defaults to 0.7
     """
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        y_train = np.zeros(len(base_space_df))
-        
+        warnings.simplefilter("ignore")        
         # We convert df_indexes in row_indexes
         assert utils.in_index(df_indexes, base_space_df) is True
-
         df_rows = utils.indexes_to_rows(base_space_df, df_indexes)
+
+        y_train = np.zeros(len(base_space_df))
         y_train[df_rows] = 1  # our target
 
         if variables is None:

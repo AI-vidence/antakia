@@ -170,11 +170,13 @@ dim_reduc_factory = {
 }
 
 
-def compute_projection(X: pd.DataFrame, dimreduc_method: int, dimension: int, callback: callable = None,
+def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dimension: int, callback: callable = None,
                        **kwargs) -> pd.DataFrame:
     if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(
             dimension):
         raise ValueError("Cannot compute proj method #", dimreduc_method, " in ", dimension, " dimensions")
+    
+    X= DimReducMethod.scale_value_space(X,y)
 
     dim_reduc = dim_reduc_factory.get(dimreduc_method)
     default_kwargs = {'random_state': 9}

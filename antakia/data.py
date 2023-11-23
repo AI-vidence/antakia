@@ -246,7 +246,7 @@ class DimReducMethod(LongTask):
 
         self.publish_progress(100)
         return X_red
-    
+     
     @classmethod
     def scale_value_space(cls, X: pd.DataFrame, y:pd.Series) -> pd.DataFrame:
         """

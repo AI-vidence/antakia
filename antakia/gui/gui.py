@@ -9,11 +9,11 @@ from IPython.display import display
 from antakia.data import DimReducMethod, LongTask,ExplanationMethod
 from antakia.compute.explanations import compute_explanations
 from antakia.compute.auto_cluster.auto_cluster import AutoCluster
-from antakia.compute.selection_rule.skope_rule import skope_rules
+from antakia.compute.skope_rule.skope_rule import skope_rules
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
 import antakia.config as config
 from antakia.rules import Rule
-import antakia.utils as utils
+
 from antakia.gui.widgets import (
     get_widget,
     change_widget,
@@ -25,7 +25,9 @@ from antakia.gui.highdimexplorer import HighDimExplorer, ProjectedValues
 from antakia.gui.ruleswidget import RulesWidget
 
 import os
+
 import logging
+import antakia.utils as utils
 logger = logging.getLogger(__name__)
 utils.conf_logger(logger)
 
@@ -56,7 +58,6 @@ class GUI:
         a region is a dict : {'num':int, 'rules': list of rules, 'indexes', 'model': str, 'score': str}
         if the list of rules is None, the region has been defined with auto-cluster
         num start at 1
-    selected_region : int, the selected region number; starts at 1. This is a hack to avoid using the ColorTable selection
     validated_rules_region, validated_region, validated_sub_model
 
     """
@@ -70,8 +71,8 @@ class GUI:
 
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
-            DimReducMethod.scale_value_space(self.X, self.y),
-            y,
+            self.X,
+            self.y,
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,
             int(config.INIT_FIG_WIDTH/2),
@@ -83,8 +84,8 @@ class GUI:
         # We create our ES HDE :
 
         self.es_hde = HighDimExplorer(
-            X,
-            y,
+            self.X,
+            self.y,
             config.DEFAULT_VS_PROJECTION, 
             config.DEFAULT_VS_DIMENSION, # We use the same dimension as the VS HDE for now
             int(config.INIT_FIG_WIDTH/2),
@@ -488,6 +489,7 @@ class GUI:
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
             skr_rules_list, skr_score_dict = skope_rules(self.selection_ids, hde.get_current_X(), self.variables)
+
             if len(skr_rules_list) > 0: # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button
@@ -776,8 +778,6 @@ class GUI:
             # We udpate the region
             self.region_list[self.selected_region_num-1]["model"] = self.validated_sub_model_dict["Sub-model"]
             self.region_list[self.selected_region_num-1]["score"] = f"{score_name} : {score_val:.2f}"
-            logger.debug(f"Region updated : score : {self.region_list[self.selected_region_num-1]['model']}")
-            logger.debug(f"Region updated : score : {self.region_list[self.selected_region_num-1]['score']}")
 
             # update_table
             self.update_regions_table()

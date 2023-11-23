@@ -303,6 +303,7 @@ class HighDimExplorer:
                 2,
                 compute_projection(
                     self.pv_list[self.current_pv].X,
+                    self._y, 
                     self._get_projection_method(),
                     2,
                     callback,
@@ -318,6 +319,7 @@ class HighDimExplorer:
                 3,
                 compute_projection(
                     self.pv_list[self.current_pv].X,
+                    self._y,
                     self._get_projection_method(),
                     3,
                     callback,

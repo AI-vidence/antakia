@@ -167,10 +167,9 @@ class RuleWidget:
             barmode="overlay",
             bargap=0.1,
             # width=600,
-            # width=0.9 * int(fig_size),
             showlegend=False,
             margin=dict(l=0, r=0, t=0, b=0),
-            # height=400,
+            height=200,
         )
 
         change_widget(self.root_widget, "11", self.figure)
@@ -325,12 +324,15 @@ class RulesWidget:
                 break
         
         # The list of our 'rules model' 'predicted positives'
-        rules_indexes = Rule.rules_to_indexes(self.get_current_rules_list(), self.X)
+        new_rules_indexes = Rule.rules_to_indexes(new_rules_list, self.X)
         # self.selection_ids = the list of the true positives (i.e. in the selection)
 
-        precision = len(set(rules_indexes).intersection(set(self.selection_ids))) / len(rules_indexes)
-        recall = len(set(rules_indexes).intersection(set(self.selection_ids))) / len(self.selection_ids)
-        f1 = 2 * (precision * recall) / (precision + recall)
+        try:
+            precision = len(set(new_rules_indexes).intersection(set(self.selection_ids))) / len(new_rules_indexes)
+            recall = len(set(new_rules_indexes).intersection(set(self.selection_ids))) / len(self.selection_ids)
+            f1 = 2 * (precision * recall) / (precision + recall)
+        except ZeroDivisionError:
+            precision = recall = f1 = -1
 
         new_score_dict = {"precision": precision, "recall": recall, "f1": f1}
 
@@ -341,10 +343,10 @@ class RulesWidget:
 
         # We update each of our RuleWidgets
         for rw in self.rule_widget_list:
-            rw.update(rules_indexes)
+            rw.update(new_rules_indexes)
 
         # We notify the GUI and tell there are new rules to draw
-        self.new_rules_defined(self,rules_indexes)
+        self.new_rules_defined(self,new_rules_indexes)
 
     def undo(self):
         """
@@ -447,8 +449,12 @@ class RulesWidget:
             scores_txt = "Precision = n/a, recall = n/a, f1_score = n/a"
             css = "ml-7 grey--text"
         else:
-            scores_txt = "Precision : " + "{:.2f}".format(self.get_current_scores_dict()['precision']) + ", recall : " + "{:.2f}".format(self.get_current_scores_dict()['recall']) + ", f1_score : " + "{:.2f}".format(self.get_current_scores_dict()['f1'])
-            css = "ml-7 black--text"
+            if self.get_current_scores_dict()['precision'] == -1:
+                scores_txt = "No point of the dataset matches the new rules"
+                css = "ml-7 red--text"
+            else:
+                scores_txt = "Precision : " + "{:.2f}".format(self.get_current_scores_dict()['precision']) + ", recall : " + "{:.2f}".format(self.get_current_scores_dict()['recall']) + ", f1_score : " + "{:.2f}".format(self.get_current_scores_dict()['f1'])
+                css = "ml-7 black--text"
         change_widget(self.root_widget, "01", v.Html(class_=css, tag="li", children=[scores_txt]))
 
     def _show_rules(self):
@@ -459,9 +465,9 @@ class RulesWidget:
             rules_txt = "N/A"
             css = "ml-7 grey--text"
         else:
-            rules_txt = ""
-            for rule in self.get_current_rules_list():
-                rules_txt += f"{rule} / "
+            rules_txt = f"{self.get_current_rules_list()[0]}"
+            for i in range(1, len(self.get_current_rules_list())):
+                rules_txt += f", {self.get_current_rules_list()[i]}"
             css = "ml-7 blue--text"
 
         change_widget(self.root_widget, "02", v.Html(class_=css, tag="li", children=[rules_txt]))
