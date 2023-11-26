@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import pandas as pd
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from antakia.utils.checks import is_valid_model
@@ -35,7 +36,7 @@ class AntakIA():
 
     def __init__(self, X: pd.DataFrame, y: pd.Series, model,
                  variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
-                 X_exp: pd.DataFrame | None = None):
+                 X_exp: pd.DataFrame | None = None, score: callable | str = 'mse'):
         """
         AntakiIA constructor.
 
@@ -51,6 +52,7 @@ class AntakIA():
         self.X = X
         self.y = y
         self.model = model
+        self.score = score
         self.Y_pred = model.predict(X)
 
         # It's common to have column names ending with _shap, so we remove them
@@ -72,4 +74,4 @@ class AntakIA():
         self.regions = []
 
     def start_gui(self) -> GUI:
-        return GUI(self.X, self.y, self.model, self.variables, self.X_exp).show_splash_screen()
+        return GUI(self.X, self.y, self.model, self.variables, self.X_exp, self.score).show_splash_screen()

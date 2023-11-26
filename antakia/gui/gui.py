@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pandas as pd
 
 import ipyvuetify as v
@@ -66,12 +67,14 @@ class GUI:
 
     """
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, variables: DataVariables, X_exp: pd.DataFrame = None):
+    def __init__(self, X: pd.DataFrame, y: pd.Series, model, variables: DataVariables, X_exp: pd.DataFrame = None,
+                 score: callable | str = 'mse'):
         self.X = X
         self.y = y
         self.model = model
         self.y_pred = model.predict(X)
         self.variables: DataVariables = variables
+        self.score = score
 
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
@@ -577,8 +580,8 @@ class GUI:
             # We update the substitution table once to show the name of the region
             self.update_substitution_table(region, pd.DataFrame())
 
-            perfs = InterpretableModels().get_models_performance(self.model, self.X.loc[region.mask],
-                                                                 self.y.loc[region.mask])
+            perfs = InterpretableModels(self.score).get_models_performance(self.model, self.X.loc[region.mask],
+                                                                           self.y.loc[region.mask])
 
             # We update the substitution table a second time to show the results
             self.update_substitution_table(region, perfs)
@@ -726,12 +729,13 @@ class GUI:
             # get_widget(app_widget,"45001").items[self.validated_sub_model]
 
             score_val = 0
-            score_name = ""
-            for score_key in ["MSE", "MAE", "R2"]:
-                if float(self.validated_sub_model_dict[score_key]) > score_val:
-                    # TODO changer ça, c'est pas adapté
-                    score_val = float(self.validated_sub_model_dict[score_key])
-                    score_name = score_key
+            if isinstance(self.score, str):
+                score_name = self.score.upper()
+            elif callable(self.score):
+                score_name = self.score.__name__.upper()
+            if float(self.validated_sub_model_dict[score_name]) > score_val:
+                # TODO changer ça, c'est pas adapté
+                score_val = float(self.validated_sub_model_dict[score_name])
 
             get_widget(app_widget, "450100").disabled = True
 

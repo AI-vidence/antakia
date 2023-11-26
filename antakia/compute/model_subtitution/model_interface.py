@@ -14,7 +14,8 @@ from antakia.compute.model_subtitution.regression_models import LinearRegression
 
 
 class InterpretableModels:
-    def __init__(self):
+    def __init__(self, custom_score):
+        self.custom_score = custom_score
         self.models = {}
         self.scores = {}
         self.perfs = pd.DataFrame()
@@ -42,10 +43,12 @@ class InterpretableModels:
             self.scores = {
                 'ACC': accuracy_score,
                 'F1': f1_score,
-                'precision': precision_score,
-                'recall': recall_score,
+                'precision'.upper(): precision_score,
+                'recall'.upper(): recall_score,
                 'R2': r2_score
             }
+        if callable(self.custom_score):
+            self.scores[self.custom_score.__name__.upper()] = self.custom_score
 
     def _train_models(self, X, y):
         Parallel(n_jobs=1)(delayed(model.fit)(X, y) for model_name, model in self.models.items() if not model.fitted)
@@ -64,7 +67,10 @@ class InterpretableModels:
             for score_name, score in self.scores.items():
                 self.perfs.loc[model_name, score_name] = score(y_test, y_pred)
 
-        return self.perfs
+        if isinstance(self.custom_score, str):
+            return self.perfs.sort_values(self.custom_score, ascending=False)
+        else:
+            return self.perfs.sort_values(self.custom_score.__name__.upper(), ascending=False)
 
 
 if __name__ == '__main__':
