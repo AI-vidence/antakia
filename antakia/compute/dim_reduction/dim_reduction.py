@@ -4,7 +4,7 @@ import umap
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 
-from antakia.data import DimReducMethod
+from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
 
 # ===========================================================

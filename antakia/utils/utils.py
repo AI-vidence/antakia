@@ -1,0 +1,79 @@
+"""
+Utils module for the antakia package.
+"""
+import time
+
+import numpy as np
+import pandas as pd
+
+
+def overlap_handler(ens_potatoes, liste):
+    # function that allows you to manage conflicts in the list of regions.
+    # indeed, as soon as a region is added to the list of regions, the points it contains are removed from the other regions
+    # TODO use np/pd to reimplement this
+    gliste = [x.indexes for x in ens_potatoes]
+    for i in range(len(gliste)):
+        a = 0
+        for j in range(len(gliste[i])):
+            if gliste[i][j - a] in liste:
+                gliste[i].pop(j - a)
+                a += 1
+    for i in range(len(ens_potatoes)):
+        ens_potatoes[i].setIndexes(gliste[i])
+    return ens_potatoes
+
+
+def in_index(indexes: list, X: pd.DataFrame) -> bool:
+    """
+    Checks if a list of indexes is in the index of a DataFrame
+    """
+    try:
+        X.loc[indexes]
+        return True
+    except KeyError:
+        return False
+
+
+def rows_to_mask(X: pd.DataFrame, rows_list: list) -> pd.Series:
+    """
+    Converts DataFrame row numbers to Index numbers
+    """
+    mask = pd.Series(np.zeros(len(X)), index=X.index)
+    mask.iloc[rows_list] = 1
+    return mask.astype(bool)
+
+
+def indexes_to_rows(X: pd.DataFrame, indexes_list: list) -> list:
+    """
+    Converts DataFrame Index numbers to row numbers
+    """
+    index = pd.Series(np.arange(len(X)), index=X.index)
+    return index.loc[indexes_list].tolist()
+
+
+def mask_to_rows(mask: pd.Series) -> list:
+    return mask[mask].index.to_list()
+
+
+def mask_to_index(mask: pd.Series) -> list:
+    return mask[mask].index.tolist()
+
+
+def timeit(method):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        if 'log_time' in kw:
+            name = kw.get('log_name', method.__name__.upper())
+            kw['log_time'][name] = int((te - ts) * 1000)
+        else:
+            print('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
+        return result
+
+    return timed
+
+
+# First color can't be blue, reserved for the rules
+region_colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
+colors = region_colors

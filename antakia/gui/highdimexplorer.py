@@ -1,21 +1,25 @@
-import re
-import pandas as pd
+from __future__ import annotations
 
+import pandas as pd
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 
-from antakia.compute.dim_reduction import compute_projection
-from antakia.data import DimReducMethod, ExplanationMethod, ProjectedValues
+from antakia.compute.dim_reduction.dim_reduction import compute_projection
+from antakia.compute.explanation.explanation_method import ExplanationMethod
+from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
+from antakia.gui.region import Region, RegionSet
 
-from antakia.rules import Rule
-from antakia.gui.widgets import get_widget, app_widget, region_colors
+from antakia.gui.widgets import get_widget, app_widget
+
+import antakia.utils.utils as utils
+from antakia.data_handler.projected_values import ProjectedValues
+
 import logging as logging
-
-import antakia.utils as utils
-from antakia.data import ProjectedValues
+from antakia.utils.logging import conf_logger
 
 logger = logging.getLogger(__name__)
-utils.conf_logger(logger)
+conf_logger(logger)
+
 
 class HighDimExplorer:
     """
@@ -127,7 +131,7 @@ class HighDimExplorer:
         # app_widget holds the UI for the PaCMAP params:
 
         self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = get_widget(app_widget,
-                                                                                              "150" if self.is_value_space() else "180")
+                                                                                              "150" if self.is_value_space else "180")
         # We init PaCMAP params for both sides
         self._proj_params[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = {
             "previous": {
@@ -140,7 +144,7 @@ class HighDimExplorer:
             },
         }
         # We wire events on PaCMAP sliders only (for now):
-        if self.is_value_space():
+        if self.is_value_space:
             get_widget(app_widget, "15000").on_event("change", self._proj_params_changed)
             get_widget(app_widget, "15001").on_event("change", self._proj_params_changed)
             get_widget(app_widget, "15002").on_event("change", self._proj_params_changed)
@@ -149,7 +153,7 @@ class HighDimExplorer:
             get_widget(app_widget, "18001").on_event("change", self._proj_params_changed)
             get_widget(app_widget, "18002").on_event("change", self._proj_params_changed)
 
-        if not self.is_value_space():
+        if not self.is_value_space:
             self.get_explanation_select().items = [
                 {"text": "Imported", "disabled": self.pv_list[1] is None},
                 {"text": "SHAP", "disabled": True},
@@ -177,7 +181,7 @@ class HighDimExplorer:
         self.create_figure(2)
         self.create_figure(3)
 
-        self._current_selection = []
+        self._current_selection = pd.Series([False] * len(X), index=X.index)
         self._has_lasso = False
 
     # ---- Methods ------
@@ -192,31 +196,25 @@ class HighDimExplorer:
             self.get_explanation_select().disabled = is_disabled
             self.get_compute_menu().disabled = is_disabled
 
-    def display_rules(self, indexes_list: list):
+    def display_one_region(self, mask: pd.Series | None, color='blue'):
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
-        if indexes_list is  None:
-            indexes_list = []
-        
-        self._display_zones([indexes_list], ["blue"])
+        logger.info(f'display_one_region in - {mask} - {color}')
+        rs = RegionSet(self.get_current_X())
+        rs.add_region(mask=mask, color=color)
+        self._display_zones(rs, 1)
+        logger.info('display_one_region out')
 
-
-    def display_regions(self, region_list: list):
+    @utils.timeit
+    def display_regions(self, region_set: RegionSet):
         """"
         Displays each region in a different color
         """
-        if region_list is None:
-            region_list = []
+        logger.info(f'{len(region_set)} regions to display')
+        self._display_zones(region_set, 2)
 
-        index_list = []
-        color_list = []
-        for i in range(len(region_list)):
-            index_list.append(region_list[i]["indexes"])
-            color_list.append(region_colors[i % len(region_colors)])
-        self._display_zones(index_list, color_list)
-
-    def _display_zones(self, zone_indices_list:list, colors_list:list):
+    def _display_zones(self, region_set: RegionSet, trace_id):
         """
         Paint on our extra scatter one or more zones (list of pv_list[0].X indexes) using
         the passed colors. Zones may be regions or rules
@@ -224,30 +222,33 @@ class HighDimExplorer:
         Common method for display_rules and display_regions
         """
         # We use two extra traces in the figure : the rules and the regions traces
-        
+
         # We detect the trace of the figure we'll paint on
-        trace_id = 1 if len(zone_indices_list) == 1 and colors_list[0] == "blue" else 2
-            
-        if len(zone_indices_list) == 0 or len(zone_indices_list[0]) == 0:
-            
+        #        trace_id = 1 if len(region_set) == 1 and region_set.get(0).color == "blue" else 2
+
+        if len(region_set) == 0 or not region_set.get(0).mask.any():
+            logger.info('_display_zones 1')
             # We need to clean the trace - we just hide it
             self.figure_2D.data[trace_id].visible = False
             self.figure_3D.data[trace_id].visible = False
             # And we're done
+            logger.info('_display_zones out')
             return
 
-        def _display_zone_on_figure(fig: FigureWidget, trace_id:int, colors: list):
+        @utils.timeit
+        def _display_zone_on_figure(fig: FigureWidget, trace_id: int, colors: list):
             """
             Draws one zone on one figure using the passed colors
             """
-            dim = 2 if isinstance(fig.data[0],Scattergl) else 3
+            logger.info('_display_zone_on_figure 1')
+            dim = 2 if isinstance(fig.data[0], Scattergl) else 3
 
-            x=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
-            y=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
+            x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
+            y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
             if dim == 3:
-                z=self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
+                z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
             else:
-                z=None
+                z = None
 
             with fig.batch_update():
                 fig.data[trace_id].x = x
@@ -257,21 +258,15 @@ class HighDimExplorer:
                 fig.layout.width = self.fig_size
                 fig.data[trace_id].marker.color = colors
             fig.data[trace_id].visible = True  # in case it was hidden
-            
-        
-        # List of color names, 1 per point. Initialized to grey
-        colors = ["grey"] * self.pv_list[0].X.shape[0]
+            logger.info('_display_zone_on_figure 2')
 
-        for zone_id in range(len(zone_indices_list)):
-            zone_indices = zone_indices_list[zone_id]
-            # Let's convert those indexes to row numbers :
-            zone_indices = utils.indexes_to_rows(self.pv_list[0].X, zone_indices)
-            if len(zone_indices) > 0:
-                zone_color = colors_list[zone_id]
-                for zone_index in zone_indices:
-                    colors[zone_index] = zone_color    
-                _display_zone_on_figure(self.figure_2D, trace_id, colors)
-                _display_zone_on_figure(self.figure_3D, trace_id, colors)
+        # List of color names, 1 per point. Initialized to grey
+        logger.info(f'{region_set.to_dict()}')
+        colors = region_set.get_color_serie()
+
+        _display_zone_on_figure(self.figure_2D, trace_id, colors)
+        _display_zone_on_figure(self.figure_3D, trace_id, colors)
+        logger.info('_display_zones out')
 
     def compute_projs(self, params_changed: bool = False, callback: callable = None):
         """
@@ -303,7 +298,7 @@ class HighDimExplorer:
                 2,
                 compute_projection(
                     self.pv_list[self.current_pv].X,
-                    self._y, 
+                    self._y,
                     self._get_projection_method(),
                     2,
                     callback,
@@ -335,9 +330,9 @@ class HighDimExplorer:
         self.get_proj_params_menu().disabled = True
 
         # We determine which param changed :
-        if widget == get_widget(app_widget, "15000" if self.is_value_space() else "18000"):
+        if widget == get_widget(app_widget, "15000" if self.is_value_space else "18000"):
             changed_param = 'n_neighbors'
-        elif widget == get_widget(app_widget, "15001" if self.is_value_space() else "18001"):
+        elif widget == get_widget(app_widget, "15001" if self.is_value_space else "18001"):
             changed_param = 'MN_ratio'
         else:
             changed_param = 'FP_ratio'
@@ -361,7 +356,7 @@ class HighDimExplorer:
         Each proj computation consists in 2 (2D and 3D) tasks.
         So progress of each task in divided by 2 and summed together
         """
-        prog_circular = get_widget(app_widget, "16") if self.is_value_space() else get_widget(app_widget, "19")
+        prog_circular = get_widget(app_widget, "16") if self.is_value_space else get_widget(app_widget, "19")
 
         if prog_circular.color == "grey":
             prog_circular.color = "blue"
@@ -476,9 +471,10 @@ class HighDimExplorer:
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
 
         # We convert selected rows in indexes
-        self._current_selection = utils.rows_to_indexes(self.pv_list[0].X, points.point_inds)
+        logger.info(f'selection event start')
+        self._current_selection = utils.rows_to_mask(self.pv_list[0].X, points.point_inds)
 
-        if len(self._current_selection) > 0:
+        if self._current_selection.any():
             # NOTE : Plotly doesn't allow to show selection on Scatter3d
             self._has_lasso = True
 
@@ -486,25 +482,23 @@ class HighDimExplorer:
             # NOTE : here we convert row ids to dataframe indexes
             self.selection_changed(self, self._current_selection)
 
-        assert utils.in_index(self._current_selection, self.pv_list[0].X) is True  
-
     def _deselection_event(self, trace, points, append: bool = False):
         """Called on deselection"""
         # We tell the GUI
-        self._current_selection = []
+        self._current_selection = utils.rows_to_mask(self.pv_list[0].X, [])
         self._has_lasso = False
-        self.selection_changed(self, [])
+        self.selection_changed(self, self._current_selection)
 
-    def set_selection(self, new_selection_indexes: list):
+    def set_selection(self, new_selection_mask: pd.Series):
         """
         Called by tne UI when a new selection occured on the other HDE
         """
-
-        if len(self._current_selection) == 0 and len(new_selection_indexes) == 0:
+        logger.info(f'set selection in : {self.get_space_name()}')
+        if not self._current_selection.any() and not new_selection_mask.any():
             return
 
-        if len(self._current_selection) > 0 and len(new_selection_indexes) == 0:
-            self._current_selection = []
+        if not new_selection_mask.any():
+            self._current_selection = new_selection_mask
             # We have to rebuild our figure:
             self.create_figure(2)
             return
@@ -514,16 +508,12 @@ class HighDimExplorer:
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure(2)
-            self.figure_2D.data[0].selectedpoints = utils.indexes_to_rows(self.pv_list[0].X,new_selection_indexes)
-            self._current_selection = new_selection_indexes
-            return
+        logger.info(f'{new_selection_mask.sum()}')
+        # self.figure_2D.data[0].selectedpoints = utils.mask_to_index(new_selection_mask)
+        self.figure_2D.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask), overwrite=True)
+        self._current_selection = new_selection_mask
 
-        # We set the new selection on our figures :
-        # self.figure_2D.update_traces(selectedpoints=utils.indexes_to_rows(self.get_current_X(), new_selection_indexes))
-        self.figure_2D.update_traces(selectedpoints=new_selection_indexes)
-
-        # We store the new selection :
-        self._current_selection = new_selection_indexes
+        logger.info('set selection out')
 
     def create_figure(self, dim: int):
         """
@@ -550,28 +540,28 @@ class HighDimExplorer:
 
         hde_marker = None
         if dim == 2:
-            if self.is_value_space():
+            if self.is_value_space:
                 hde_marker = dict(
-                        color=self._y, 
-                        colorscale="Viridis", 
-                        colorbar=
-                            dict(
-                                thickness=20
-                            )
-                        )
+                    color=self._y,
+                    colorscale="Viridis",
+                    colorbar=
+                    dict(
+                        thickness=20
+                    )
+                )
             else:
                 hde_marker = dict(color=self._y, colorscale="Viridis")
         else:
-            if self.is_value_space():
+            if self.is_value_space:
                 hde_marker = dict(color=self._y, colorscale="Viridis", colorbar=dict(
-                thickness=20), size=2)
+                    thickness=20), size=2)
             else:
                 hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
 
         if dim == 2:
             fig = FigureWidget(
                 data=[
-                    Scattergl( # Trace 0 for dots
+                    Scattergl(  # Trace 0 for dots
                         x=x,
                         y=y,
                         mode="markers",
@@ -586,7 +576,7 @@ class HighDimExplorer:
                 }
             )
             fig.add_trace(
-                Scattergl( # Trace 1 for rules
+                Scattergl(  # Trace 1 for rules
                     x=x,
                     y=y,
                     mode="markers",
@@ -596,18 +586,18 @@ class HighDimExplorer:
                 )
             )
             fig.add_trace(
-                Scattergl( # Trace 2 for regions
+                Scattergl(  # Trace 2 for regions
                     x=x,
                     y=y,
                     mode="markers",
                     marker=hde_marker,
                     customdata=self._y,
                 )
-            ) 
+            )
         else:
             fig = FigureWidget(
                 data=[
-                    Scatter3d( # Trace 0 for dots
+                    Scatter3d(  # Trace 0 for dots
                         x=x,
                         y=y,
                         z=z,
@@ -619,7 +609,7 @@ class HighDimExplorer:
                 ]
             )
             fig.add_trace(
-                Scatter3d( # Trace 1 for rules
+                Scatter3d(  # Trace 1 for rules
                     x=x,
                     y=y,
                     z=z,
@@ -628,9 +618,9 @@ class HighDimExplorer:
                     customdata=self._y,
                     hovertemplate="%{customdata:.3f}",
                 )
-                )
+            )
             fig.add_trace(
-                Scatter3d( # Trace 2 for regions
+                Scatter3d(  # Trace 2 for regions
                     x=x,
                     y=y,
                     z=z,
@@ -639,7 +629,7 @@ class HighDimExplorer:
                     customdata=self._y,
                     hovertemplate="%{customdata:.3f}",
                 )
-            ) 
+            )
 
         fig.update_layout(dragmode=False if self._selection_disabled else "lasso")
         fig.update_traces(
@@ -668,10 +658,10 @@ class HighDimExplorer:
         self.redraw_figure(self.figure_3D, color)
 
     def redraw_figure(
-        self,
-        fig: FigureWidget,
-        color: pd.Series = None,
-        opacity_values: pd.Series = None
+            self,
+            fig: FigureWidget,
+            color: pd.Series = None,
+            opacity_values: pd.Series = None
     ):
 
         dim = (
@@ -699,13 +689,13 @@ class HighDimExplorer:
         """
        Called at startup by the GUI
        """
-        return get_widget(app_widget, "14") if self.is_value_space() else get_widget(app_widget, "17")
+        return get_widget(app_widget, "14") if self.is_value_space else get_widget(app_widget, "17")
 
     def get_projection_prog_circ(self) -> v.ProgressCircular:
         """
        Called at startup by the GUI
        """
-        return get_widget(app_widget, "16") if self.is_value_space() else get_widget(app_widget, "19")
+        return get_widget(app_widget, "16") if self.is_value_space else get_widget(app_widget, "19")
 
     def get_compute_menu(self):
         """
@@ -734,7 +724,7 @@ class HighDimExplorer:
         Called at startup by the GUI
         """
         # We return
-        proj_params_menu = get_widget(app_widget, "15") if self.is_value_space() else get_widget(app_widget, "18")
+        proj_params_menu = get_widget(app_widget, "15") if self.is_value_space else get_widget(app_widget, "18")
         # We neet to set a Card, depending on the projection method
         if self._get_projection_method() == DimReducMethod.dimreduc_method_as_int('PaCMAP'):
             proj_params_menu.children = [self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')]]
@@ -742,6 +732,7 @@ class HighDimExplorer:
 
         return proj_params_menu
 
+    @property
     def is_value_space(self) -> bool:
         return len(self.pv_list) == 1
 
@@ -749,7 +740,7 @@ class HighDimExplorer:
         """
         For debug purposes only. Not very reliable.
         """
-        return "VS" if self.is_value_space() else "ES"
+        return "VS" if self.is_value_space else "ES"
 
     def get_current_X(self) -> pd.DataFrame:
         return self.pv_list[self.current_pv].X

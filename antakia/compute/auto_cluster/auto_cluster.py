@@ -9,7 +9,7 @@ from antakia.compute.auto_cluster.shap_based_kmeans import ShapBasedKmeans
 from antakia.compute.auto_cluster.shap_based_hdbscan import ShapBasedHdbscan
 from antakia.compute.auto_cluster.shap_based_tomaster import ShapBasedTomato
 from antakia.compute.auto_cluster.utils import reassign_clusters, _invert_list
-from antakia.data import LongTask
+from antakia.utils.long_task import LongTask
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=UserWarning)
@@ -19,7 +19,8 @@ class AutoCluster(LongTask):
 
     def __init__(self, X: pd.DataFrame, progress_updated: Callable):
         super().__init__(X, progress_updated)
-        self.cluster_algo = ShapBasedTomato(X, progress_updated)
+        assert len(X) > 50
+        self.cluster_algo = ShapBasedHdbscan(X, progress_updated)
 
     def compute(self, shap_values: pd.DataFrame, n_clusters='auto') -> pd.Series:
         self.publish_progress(0)
@@ -49,4 +50,4 @@ if __name__ == '__main__':
     shapValues = df.iloc[:, [10, 11, 12, 13, 14, 15, 16, 17]]  # the SHAP values`
     shapValues.columns = [col.replace('_shap', '') for col in shapValues.columns]
 
-    AutoCluster(X, lambda x,y,z:None).compute(shap_values=shapValues)
+    AutoCluster(X, lambda x, y, z: None).compute(shap_values=shapValues)

@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+from typing import List, Dict, Any
+
 import pandas as pd
 
 from dotenv import load_dotenv
+load_dotenv()
 
-from antakia.data import ExplanationMethod, Variable, is_valid_model
+from antakia.utils.checks import is_valid_model
+from antakia.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
 
 
@@ -27,7 +33,9 @@ class AntakIA():
 
     """
 
-    def __init__(self, X:pd.DataFrame, y:pd.Series, model, variables=None, X_exp:pd.DataFrame=None):
+    def __init__(self, X: pd.DataFrame, y: pd.Series, model,
+                 variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
+                 X_exp: pd.DataFrame | None = None):
         """
         AntakiIA constructor.
 
@@ -35,28 +43,26 @@ class AntakIA():
         X : a pd.DataFrame
         """
 
-        load_dotenv() 
+        load_dotenv()
 
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
-        
+
         self.X = X
         self.y = y
         self.model = model
         self.Y_pred = model.predict(X)
-        self.variables = variables
 
         # It's common to have column names ending with _shap, so we remove them
         X_exp.columns = X_exp.columns.str.replace('_shap', '')
         self.X_exp = X_exp
-        
 
-        if self.variables is not None:
-            if isinstance(self.variables, list):
-                self.variables = Variable.import_variable_list(variables)
+        if variables is not None:
+            if isinstance(variables, list):
+                self.variables: DataVariables = Variable.import_variable_list(variables)
                 if len(self.variables) != len(X[0].columns):
                     raise ValueError("Provided variable list must be the same length of the dataframe")
-            elif isinstance(self.variables, pd.DataFrame):
+            elif isinstance(variables, pd.DataFrame):
                 self.variables = Variable.import_variable_df(variables)
             else:
                 raise ValueError("Provided variable list must be a list or a pandas DataFrame")
@@ -65,5 +71,5 @@ class AntakIA():
 
         self.regions = []
 
-    def start_gui(self)-> GUI:
+    def start_gui(self) -> GUI:
         return GUI(self.X, self.y, self.model, self.variables, self.X_exp).show_splash_screen()

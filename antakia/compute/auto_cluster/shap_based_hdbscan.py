@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.cluster import HDBSCAN,AgglomerativeClustering
 from sklearn.metrics import silhouette_score, calinski_harabasz_score
 
-from antakia.data import LongTask
+from antakia.utils.long_task import LongTask
 
 
 class ShapBasedHdbscan(LongTask):

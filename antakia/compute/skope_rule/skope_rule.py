@@ -5,13 +5,17 @@ import numpy as np
 import pandas as pd
 from skrules import SkopeRules
 
-from antakia.data import Variable
-from antakia.rules import Rule
-import antakia.utils as utils
+from antakia.utils.variable import Variable, DataVariables
+from antakia.data_handler.rules import Rule
+import antakia.utils.utils as utils
 
+import logging as logging
+from antakia.utils.logging import conf_logger
+logger = logging.getLogger(__name__)
+conf_logger(logger)
 
-def skope_rules(df_indexes: list, base_space_df: pd.DataFrame, variables: list = None, precision: float = 0.7,
-                recall: float = 0.7) -> list:
+def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: DataVariables = None, precision: float = 0.7,
+                recall: float = 0.7, random_state=42) -> (list, dict):
     """
     variables : list of Variables of the app
     df_indexes : list of (DataFrame) indexes for the points selected in the GUI
@@ -20,20 +24,16 @@ def skope_rules(df_indexes: list, base_space_df: pd.DataFrame, variables: list =
     recall for SKR binary classifer : defaults to 0.7
     """
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore")        
+        warnings.simplefilter("ignore")
+        logger.info('skope_rules in')
         # We convert df_indexes in row_indexes
-        assert utils.in_index(df_indexes, base_space_df) is True
-        df_rows = utils.indexes_to_rows(base_space_df, df_indexes)
-
-        y_train = np.zeros(len(base_space_df))
-        y_train[df_rows] = 1  # our target
-
+        y_train = df_mask.astype(int)
         if variables is None:
             variables = Variable.guess_variables(base_space_df)
 
         sk_classifier = SkopeRules(
-            feature_names=Variable.vars_to_sym_list(variables),
-            random_state=42,
+            feature_names=variables.sym_list(),
+            random_state=random_state,
             n_estimators=5,
             recall_min=recall,
             precision_min=precision,
@@ -48,18 +48,13 @@ def skope_rules(df_indexes: list, base_space_df: pd.DataFrame, variables: list =
         rules_list, score_dict = Rule._extract_rules(sk_classifier.rules_, base_space_df, variables)
 
         if len(rules_list) >= 0:
-            Rule._combine_rule_list(rules_list)
+            rules_list = Rule.combine_rule_list(rules_list)
 
         # We remove infinity in rules : we convert in simple rule if inf present
         # We had to wait for _combine_rule_list to proceed
-        for rule in rules_list:
-            if rule.min == -math.inf:
-                rule.min = None
-                rule.operator_min = None
-            if rule.max == math.inf:
-                rule.max = None
-                rule.operator_max = None
+        logger.info('skope_rules out')
         return rules_list, score_dict
 
     else:
+        logger.info('skope_rules out')
         return [], {}

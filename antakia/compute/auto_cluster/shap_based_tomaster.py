@@ -6,7 +6,7 @@ import pandas as pd
 from tomaster import tomato
 from sklearn.metrics import silhouette_score, calinski_harabasz_score
 
-from antakia.data import LongTask
+from antakia.utils.long_task import LongTask
 
 
 class ShapBasedTomato(LongTask):
