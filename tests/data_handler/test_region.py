@@ -1,8 +1,7 @@
-import numpy as np
 import pandas as pd
 
 from antakia.data_handler.rules import Rule
-from antakia.gui.region import RegionSet, Region
+from antakia.data_handler.region import RegionSet, Region
 from antakia.utils.variable import Variable
 
 

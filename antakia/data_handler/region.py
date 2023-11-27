@@ -3,10 +3,12 @@ from __future__ import annotations
 import pandas as pd
 
 from antakia.data_handler.rules import Rule
-from antakia.utils.utils import region_colors, timeit
+from antakia.utils.utils import timeit
 
 
 class Region:
+    region_colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
+
     def __init__(self, X, rules: list[Rule] | None = None, mask: pd.Series | None = None, color=None):
         self.X = X
         self.num = -1
@@ -26,8 +28,12 @@ class Region:
     @property
     def color(self):
         if self._color is None:
-            return region_colors[self.num % len(region_colors)]
+            return self.region_colors[self.num % len(self.region_colors)]
         return self._color
+
+    @color.setter
+    def color(self, c):
+        self._color = c
 
     def set_model(self, model, score):
         self.model = model

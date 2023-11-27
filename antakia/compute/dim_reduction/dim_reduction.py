@@ -2,7 +2,7 @@ import pacmap
 import pandas as pd
 import umap
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
+from openTSNE import TSNE
 
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
@@ -33,6 +33,11 @@ class PCADimReduc(DimReducMethod):
                                'power_iteration_normalizer', 'random_state']
 
 
+class TSNEwrapper(TSNE):
+    def fit_transform(self, X):
+        return pd.DataFrame(self.fit(X))
+
+
 class TSNEDimReduc(DimReducMethod):
     """
     T-SNE computation class.
@@ -42,7 +47,7 @@ class TSNEDimReduc(DimReducMethod):
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         super().__init__(
             self.dimreduc_method,
-            TSNE,
+            TSNEwrapper,
             dimension,
             X,
             progress_updated=callback,
@@ -175,13 +180,13 @@ def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dime
     if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(
             dimension):
         raise ValueError("Cannot compute proj method #", dimreduc_method, " in ", dimension, " dimensions")
-    
-    X= DimReducMethod.scale_value_space(X,y)
+
+    X = DimReducMethod.scale_value_space(X, y)
 
     dim_reduc = dim_reduc_factory.get(dimreduc_method)
     default_kwargs = {'random_state': 9}
     default_kwargs.update(kwargs)
     dim_reduc_kwargs = {k: v for k, v in default_kwargs.items() if k in dim_reduc.allowed_kwargs}
     proj_values = dim_reduc(X, dimension, callback).compute(**dim_reduc_kwargs)
-    proj_values.index=X.index
+    proj_values.index = X.index
     return proj_values

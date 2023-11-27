@@ -48,6 +48,7 @@ interpret = "^0.4.4"
 voila = "^0.5.5"
 tomaster = "^0.0.5"
 mkdocs = "^1.5.3"
+opentsne = "^1.0.0"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -127,8 +127,9 @@ class RuleWidget:
                 style_="width: 150px",
                 multiple=True,
             )
-        min_ = self.X[self.rule.variable.symbol].min()
-        max_ = self.X[self.rule.variable.symbol].max()
+        min_ = float(self.X[self.rule.variable.symbol].min())
+        max_ = float(self.X[self.rule.variable.symbol].max())
+        step = (max_ - min_) / 100
         if self.rule.rule_type == 1:  # var < max
             change_widget(self.root_widget, "00",
                           f"{self.rule.variable.symbol} lesser than {'or equal to ' if self.rule.operator_max == 0 else ''}:")
@@ -139,7 +140,7 @@ class RuleWidget:
                 color='green',  # outside color
                 track_color='red',  # inside color
                 thumb_color='blue',  # marker color
-                step=0.1,  # TODO we could divide the spread by 50 ?
+                step=step,  # TODO we could divide the spread by 50 ?
                 thumb_label="always"
             )
         if self.rule.rule_type == 2:  # var > min
@@ -152,7 +153,7 @@ class RuleWidget:
                 color='red',  # greater color
                 track_color='green',  # lesser color
                 thumb_color='blue',  # marker color
-                step=0.1,  # TODO set according to the variable distribution
+                step=step,  # TODO set according to the variable distribution
                 thumb_label="always"
             )
         if self.rule.is_inner_interval_rule:
@@ -160,7 +161,7 @@ class RuleWidget:
             return v.RangeSlider(
                 min=min_,
                 max=max_,
-                step=0.1,
+                step=step,
                 color='green',  # outside color
                 track_color='red',  # inside color
                 thumb_color='blue',  # marker color
@@ -171,7 +172,7 @@ class RuleWidget:
         return v.RangeSlider(
             min=min_,
             max=max_,
-            step=0.1,
+            step=step,
             color='red',  # inside color
             track_color='green',  # outside color
             thumb_color='blue',
@@ -365,7 +366,8 @@ class RulesWidget:
         Restore the previous rules
         """
         # We remove last rules item from the db:
-        self.rules_db.pop(-1)
+        if len(self.rules_db)>1:
+            self.rules_db.pop(-1)
         self.set_rules_info()
 
         # We compute again the rules mask

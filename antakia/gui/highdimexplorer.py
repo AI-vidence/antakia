@@ -7,7 +7,7 @@ import ipyvuetify as v
 from antakia.compute.dim_reduction.dim_reduction import compute_projection
 from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
-from antakia.gui.region import Region, RegionSet
+from antakia.data_handler.region import RegionSet
 
 from antakia.gui.widgets import get_widget, app_widget
 
@@ -196,7 +196,7 @@ class HighDimExplorer:
             self.get_explanation_select().disabled = is_disabled
             self.get_compute_menu().disabled = is_disabled
 
-    def display_one_region(self, mask: pd.Series | None, color='blue'):
+    def display_rule_set(self, mask: pd.Series | None, color='blue'):
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
@@ -261,7 +261,6 @@ class HighDimExplorer:
             logger.info('_display_zone_on_figure 2')
 
         # List of color names, 1 per point. Initialized to grey
-        logger.info(f'{region_set.to_dict()}')
         colors = region_set.get_color_serie()
 
         _display_zone_on_figure(self.figure_2D, trace_id, colors)

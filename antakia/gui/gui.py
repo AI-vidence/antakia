@@ -4,7 +4,7 @@ import pandas as pd
 import ipyvuetify as v
 from IPython.display import display
 
-from antakia.gui.region import Region, RegionSet
+from antakia.data_handler.region import Region, RegionSet
 from antakia.utils.long_task import LongTask
 from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
@@ -67,7 +67,8 @@ class GUI:
 
     """
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, variables: DataVariables, X_exp: pd.DataFrame = None,
+    def __init__(self, X: pd.DataFrame, y: pd.Series, model, variables: DataVariables,
+                 X_exp: pd.DataFrame | None = None,
                  score: callable | str = 'mse'):
         self.X = X
         self.y = y
@@ -294,8 +295,8 @@ class GUI:
 
         # UI rules :
         # Selection (empty or not) we remove any rule or region trace from HDEs
-        self.vs_hde.display_one_region(None)
-        self.es_hde.display_one_region(None)
+        self.vs_hde.display_rule_set(None)
+        self.es_hde.display_rule_set(None)
         self.region_set.pop_last()
         self.update_regions_table()
 
@@ -360,7 +361,7 @@ class GUI:
         change_widget(app_widget, "430010", selection_status_str_2)
         logger.info('selection changed exit')
 
-    def new_rules_defined(self, rules_widget: RulesWidget, df_indexes: pd.Series, skr: bool = False):
+    def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series, skr: bool = False):
         """
         Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
         The function asks the HDEs to display the rules result
@@ -373,8 +374,8 @@ class GUI:
         self.es_hde.set_dimension(2)
 
         # We sent to the proper HDE the rules_indexes to render :
-        self.vs_hde.display_one_region(df_indexes) if rules_widget.is_value_space else self.es_hde.display_one_region(
-            df_indexes)
+        self.vs_hde.display_rule_set(df_mask) if rules_widget.is_value_space else self.es_hde.display_rule_set(
+            df_mask)
 
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num < 1
@@ -487,13 +488,13 @@ class GUI:
         def undo(widget, event, data):
             if self.vs_rules_wgt.rules_num > 0:
                 self.vs_rules_wgt.undo()
-                if self.vs_rules_wgt.rules_num == 0:
+                if self.vs_rules_wgt.rules_num == 1:
                     # We disable the 'undo' button
                     get_widget(app_widget, "4302").disabled = True
             else:
                 # TODO : pourquoi on annule d'abord le VS puis l'ES?
                 self.es_rules_wgt.undo()
-                if self.es_rules_wgt.rules_num == 0:
+                if self.es_rules_wgt.rules_num == 1:
                     # We disable the 'undo' button
                     get_widget(app_widget, "4302").disabled = True
 
@@ -538,7 +539,7 @@ class GUI:
             # We disable the 'validate rules' button
             get_widget(app_widget, "43030").disabled = True
             # We clear HDEs 'rule traces'
-            hde.display_one_region(None)
+            hde.display_rule_set(None)
 
         # We wire the click event on the 'Valildate rules' button
         get_widget(app_widget, "43030").on_event("click", validate_rules)
@@ -649,7 +650,7 @@ class GUI:
             )  # type: ignore
 
             for cluster_num in found_clusters.unique():
-                self.region_set.add_region(mask=found_clusters == cluster_num)
+                self.region_set.add_region(mask=(found_clusters == cluster_num))
 
             self.update_regions_table()
 

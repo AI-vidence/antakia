@@ -21,7 +21,6 @@ class ShapBasedHdbscan(LongTask):
     def cluster(self, x_scaled, shap, n_clusters):
         X2 = pd.concat([x_scaled, shap], axis=1)
         clusters = self.n_cluster(X2, n_clusters)
-        score = self.score_cluster(X2, clusters)
         return clusters
 
     @staticmethod

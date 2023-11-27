@@ -14,13 +14,20 @@ from antakia.utils.long_task import LongTask
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=UserWarning)
 
+auto_cluster_factory = {
+    'kmeans': ShapBasedKmeans,
+    'hdbscan': ShapBasedHdbscan,
+    'tomato': ShapBasedTomato,
+}
+
 
 class AutoCluster(LongTask):
 
-    def __init__(self, X: pd.DataFrame, progress_updated: Callable):
+    def __init__(self, X: pd.DataFrame, progress_updated: Callable, method='hdbscan'):
         super().__init__(X, progress_updated)
         assert len(X) > 50
-        self.cluster_algo = ShapBasedHdbscan(X, progress_updated)
+        assert auto_cluster_factory[method]
+        self.cluster_algo = auto_cluster_factory[method](X, progress_updated)
 
     def compute(self, shap_values: pd.DataFrame, n_clusters='auto') -> pd.Series:
         self.publish_progress(0)

@@ -75,5 +75,4 @@ def timeit(method):
 
 
 # First color can't be blue, reserved for the rules
-region_colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
-colors = region_colors
+colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
