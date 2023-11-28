@@ -35,7 +35,7 @@ class PCADimReduc(DimReducMethod):
 
 class TSNEwrapper(TSNE):
     def fit_transform(self, X):
-        return pd.DataFrame(self.fit(X))
+        return pd.DataFrame(self.fit(X.values), index=X.index)
 
 
 class TSNEDimReduc(DimReducMethod):
@@ -61,6 +61,7 @@ class TSNEDimReduc(DimReducMethod):
                                'random_state', 'method', 'angle', 'n_jobs'
                                ]
 
+    @classmethod
     def parameters(cls):
         return {
             'perplexity': {
@@ -106,6 +107,7 @@ class UMAPDimReduc(DimReducMethod):
                                'dens_var_shift', 'output_dens', 'disconnection_distance', 'precomputed_knn',
                                ]
 
+    @classmethod
     def parameters(cls):
         return {
             'n_neighbors': {
@@ -145,6 +147,7 @@ class PaCMAPDimReduc(DimReducMethod):
                                'pair_FP', 'distance', 'lr', 'num_iters', 'apply_pca', 'intermediate',
                                'intermediate_snapshots', 'random_state']
 
+    @classmethod
     def parameters(cls):
         return {
             'n_neighbors': {
