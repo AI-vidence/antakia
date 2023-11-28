@@ -584,13 +584,26 @@ class GUI:
 
             #UI rules :
             # If selected, we enable the 'substitute' and 'delete' buttons and vice-versa
-            get_widget(app_widget,"4401000").disabled = not is_selected
-            get_widget(app_widget,"440110").disabled = not is_selected
+            get_widget(app_widget,"4401100").disabled = not is_selected
+            get_widget(app_widget,"440120").disabled = not is_selected
+            # if selected, we enable the 'find rules' button
+            get_widget(app_widget, "4401000").disabled = not is_selected
             # If no region selected, we empty the substitution table:
             if not is_selected:
                 self.update_substitution_table(None, None, True)
 
         get_widget(app_widget,"4400100").set_callback(region_selected)
+
+
+        def find_rules_from_region(widget, event, data):
+            pass
+        
+
+
+        # We wire events on the 'find rules' button:
+        get_widget(app_widget,"4401000").on_event("click", find_rules_from_region)
+        # Disabled at start-up
+        get_widget(app_widget, "4401000").disabled = True
 
         def substitute_clicked(widget, event, data):
             assert self.selected_region_num is not None
@@ -609,12 +622,12 @@ class GUI:
         
 
         # We wire events on the 'substitute' button:
-        get_widget(app_widget,"4401000").on_event("click", substitute_clicked)
+        get_widget(app_widget,"4401100").on_event("click", substitute_clicked)
 
         # UI rules :
         # The 'substitute' button is disabled at startup; it'es enabled when a region is selected 
         # and disabled if no region is selected or when substitute is pressed
-        get_widget(app_widget, "4401000").disabled = True
+        get_widget(app_widget, "4401100").disabled = True
 
         def delete_region_clicked(widget, event, data):
             """
@@ -632,15 +645,17 @@ class GUI:
             self.update_regions_table()
             # THere is no more selected region
             self.selected_region_num = None
-            get_widget(app_widget,"440110").disabled = True
-            get_widget(app_widget, "4401000").disabled = True
+            get_widget(app_widget,"440120").disabled = True
+            get_widget(app_widget, "4401100").disabled = True
+            # We clear the substitution table
+            self.update_substitution_table(None, None, True)
 
         # We wire events on the 'delete' button:
-        get_widget(app_widget,"440110").on_event("click", delete_region_clicked)
+        get_widget(app_widget,"440120").on_event("click", delete_region_clicked)
 
         # UI rules :
         # The 'delete' button is disabled at startup
-        get_widget(app_widget, "440110").disabled = True
+        get_widget(app_widget, "440120").disabled = True
 
 
         def auto_cluster_clicked(widget, event, data):

@@ -833,12 +833,12 @@ app_widget = v.Col(
                                                             "mdi-axis-arrow"
                                                         ],
                                                     ),
-                                                    "Skope rules",
+                                                    "Find rules",
                                                 ],
                                             ), 
                                         }
                                     ], 
-                                    children=['Find a rule to match the selection']
+                                    children=['Find rules with variables to match the selection']
                                 ),
                                 v.Btn( # 4302
                                     class_="ma-1",
@@ -1142,6 +1142,35 @@ app_widget = v.Col(
                                                         'children': 
                                                             v.Btn( #4401000
                                                                 v_on='tooltip.on',
+                                                                class_="ml-3 mt-8 primary white--text",
+                                                                children=[
+                                                                    v.Icon(
+                                                                        class_="mr-2",
+                                                                        children=[
+                                                                            "mdi-axis-arrow"
+                                                                        ],
+                                                                    ),
+                                                                    "Find rules",
+                                                                ],
+                                                            )
+                                                        }
+                                                    ], 
+                                                    children=['Find rules with variables to define the']
+                                                )
+                                            ]
+                                        ),
+                                        v.Row( #44011
+                                            class_="flex-column",
+                                            children=[
+                                                v.Tooltip( #440110
+                                                    bottom=True, 
+                                                    v_slots=[
+                                                        {
+                                                        'name': 'activator',
+                                                        'variable': 'tooltip',
+                                                        'children': 
+                                                            v.Btn( #4401100
+                                                                v_on='tooltip.on',
                                                                 class_="ml-3 mt-8 green white--text",
                                                                 children=[
                                                                     v.Icon(
@@ -1159,10 +1188,10 @@ app_widget = v.Col(
                                                 )
                                             ]
                                         ),
-                                        v.Row( #44011
+                                        v.Row( #44012
                                             class_="flex-column",
                                             children=[
-                                                v.Btn( #440110
+                                                v.Btn( #440120
                                                     class_="ml-3 mt-3 grey",
                                                     children=[
                                                         v.Icon(
