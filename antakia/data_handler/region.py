@@ -3,15 +3,15 @@ from __future__ import annotations
 import pandas as pd
 
 from antakia.data_handler.rules import Rule
-from antakia.utils.utils import timeit
+from antakia.utils.utils import colors
 
 
 class Region:
-    region_colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
+    region_colors = colors
 
     def __init__(self, X, rules: list[Rule] | None = None, mask: pd.Series | None = None, color=None):
         self.X = X
-        self.num = -1
+        self.num = 0
         self.rules = rules
         if mask is None:
             if rules is not None:
@@ -28,7 +28,7 @@ class Region:
     @property
     def color(self):
         if self._color is None:
-            return self.region_colors[self.num % len(self.region_colors)]
+            return self.region_colors[self.num - 1 % len(self.region_colors)]
         return self._color
 
     @color.setter
@@ -68,16 +68,16 @@ class RegionSet:
 
     def get_num(self):
         if len(self.regions) == 0:
-            return 0
+            return 1
         else:
-            for i in range(len(self.regions)):
+            for i in range(1, len(self.regions) + 1):
                 if self.regions.get(i) is None:
                     return i
-            return len(self.regions)
+            return len(self.regions) + 1
 
     def get_max_num(self):
         if not len(self.regions):
-            return -1
+            return 0
         return max(self.insert_order)
 
     def add(self, region: Region):

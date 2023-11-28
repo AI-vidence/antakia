@@ -92,10 +92,6 @@ class ProjectedValues:
             self._X_proj[
                 dimreduc_method
             ] = {}  # We create a new dict for this dimreduc_method
-        if dimension not in self._X_proj[dimreduc_method]:
-            self._X_proj[dimreduc_method][
-                dimension
-            ] = {}  # We create a new dict for this dimension
 
         self._X_proj[dimreduc_method][dimension] = values
 
