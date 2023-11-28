@@ -24,19 +24,19 @@ def test_regions():
         rules=[rule1, rule2]
     )
     rs.add(region)
-    assert rs.get(0) == region
+    assert rs.get(1) == region
     assert len(rs) == 1
-    assert rs.get_max_num() == 0
-    assert rs.get_num() == 1
+    assert rs.get_max_num() == 1
+    assert rs.get_num() == 2
 
     color = rs.get_color_serie()
     assert (color == pd.Series(['grey', 'red', 'red', 'grey', 'grey'])).all()
 
     rs.clear_unvalidated()
     rs.add_region([rule1, rule2], color='blue')
-    assert rs.get_max_num() == 0
-    assert rs.get_num() == 1
-    assert rs.get(0).color == 'blue'
+    assert rs.get_max_num() == 1
+    assert rs.get_num() == 2
+    assert rs.get(1).color == 'blue'
 
     color = rs.get_color_serie()
     assert (color == pd.Series(['grey', 'blue', 'blue', 'grey', 'grey'])).all()
@@ -46,5 +46,3 @@ def test_regions():
     rs.add_region([rule3], color='blue')
     rs.stats()
 
-
-test_regions()

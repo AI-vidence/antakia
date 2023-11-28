@@ -223,9 +223,8 @@ class HighDimExplorer:
         # We use two extra traces in the figure : the rules and the regions traces
 
         # We detect the trace of the figure we'll paint on
-        #        trace_id = 1 if len(region_set) == 1 and region_set.get(0).color == "blue" else 2
 
-        if len(region_set) == 0 or not region_set.get(0).mask.any():
+        if len(region_set) == 0 or not region_set.get(1).mask.any():
             # We need to clean the trace - we just hide it
             self.figure_2D.data[trace_id].visible = False
             self.figure_3D.data[trace_id].visible = False
