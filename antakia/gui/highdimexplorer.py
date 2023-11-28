@@ -13,6 +13,7 @@ from antakia.data_handler.region import RegionSet
 from antakia.gui.widgets import get_widget, app_widget
 
 import antakia.utils.utils as utils
+import antakia.config as config
 from antakia.data_handler.projected_values import ProjectedValues
 
 import logging as logging
@@ -662,10 +663,10 @@ class HighDimExplorer:
             2 if isinstance(fig.data[0], Scattergl) else 3
         )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
 
-        x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim).loc[self.mask,0]
-        y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim).loc[self.mask,1]
+        x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
+        y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
         if dim == 3:
-            z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[self.mask,2]
+            z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
 
         with fig.batch_update():
             fig.data[0].x = x
@@ -738,14 +739,3 @@ class HighDimExplorer:
 
     def get_current_X(self) -> pd.DataFrame:
         return self.pv_list[self.current_pv].X
-
-
-    @property
-    def mask(self) -> pd.Series:
-        """
-        Returns the mask corresponding to the current selection
-        """
-        if self._mask is None:
-            self._mask = pd.Series([False] * len(self.get_current_X()), index=self.get_current_X().index)
-            self._mask.loc[np.random.choice(self.get_current_X().index, size=5000, replace=False)] = True
-        return self._mask

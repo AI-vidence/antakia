@@ -367,8 +367,8 @@ class GUI:
         self.es_hde.set_dimension(2)
 
         # We sent to the proper HDE the rules_indexes to render :
-        self.vs_hde.display_one_region(df_indexes) if rules_widget.is_value_space else self.es_hde.display_one_region(
-            df_indexes)
+        self.vs_hde.display_rules(df_mask) if rules_widget.is_value_space else self.es_hde.display_rules(
+            df_mask)
 
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num < 1
@@ -521,7 +521,7 @@ class GUI:
             # We disable the 'validate rules' button
             get_widget(app_widget, "43030").disabled = True
             # We clear HDEs 'rule traces'
-            hde.display_one_region(None)
+            hde.display_rules(None)
 
         # We wire the click event on the 'Valildate rules' button
         get_widget(app_widget, "43030").on_event("click", validate_rules)

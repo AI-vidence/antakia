@@ -7,6 +7,7 @@ DEFAULT_VS_PROJECTION = int(os.environ.get('DEFAULT_VS_PROJECTION', 4))
 DEFAULT_ES_PROJECTION = int(os.environ.get('DEFAULT_ES_PROJECTION', 4))
 
 INIT_FIG_WIDTH = int(os.environ.get('INIT_FIG_WIDTH', 1800))
+MAX_DOTS = int(os.environ.get('MAX_DOTS', 5000))
 
 # Rule format
 USE_INTERVALS_FOR_RULES = os.environ.get('USE_INTERVALS_FOR_RULES', 'True') == 'True'
