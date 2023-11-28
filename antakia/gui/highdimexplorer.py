@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
+from sklearn.neighbors import KNeighborsClassifier
 
 from antakia.compute.dim_reduction.dim_reduction import compute_projection
 from antakia.compute.explanation.explanation_method import ExplanationMethod
@@ -82,6 +83,7 @@ class HighDimExplorer:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
 
+        self._mask = None
         self.selection_changed = selection_changed
         self.new_eplanation_values_required = new_eplanation_values_required
 
@@ -205,7 +207,6 @@ class HighDimExplorer:
         rs.add_region(mask=mask, color=color)
         self._display_zones(rs, 1)
 
-
     def display_regions(self, region_set: RegionSet):
         """"
         Displays each region in a different color
@@ -231,16 +232,20 @@ class HighDimExplorer:
             # And we're done
             return
 
-        def _display_zone_on_figure(fig: FigureWidget, trace_id: int, colors: list):
+        @utils.timeit
+        def _display_zone_on_figure(fig: FigureWidget, trace_id: int, colors: pd.Series):
             """
             Draws one zone on one figure using the passed colors
             """
             dim = 2 if isinstance(fig.data[0], Scattergl) else 3
 
-            x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
-            y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
+            values = self.get_current_X_proj(dim)
+            colors = colors[self.mask]
+
+            x = values[0]
+            y = values[1]
             if dim == 3:
-                z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
+                z = values[2]
             else:
                 z = None
 
@@ -271,12 +276,8 @@ class HighDimExplorer:
         if self.pv_list[self.current_pv] is None:
             projected_dots_2D = projected_dots_3D = None
         else:
-            projected_dots_2D = self.pv_list[self.current_pv].get_proj_values(
-                self._get_projection_method(), 2
-            )
-            projected_dots_3D = self.pv_list[self.current_pv].get_proj_values(
-                self._get_projection_method(), 3
-            )
+            projected_dots_2D = self.get_current_X_proj(2)
+            projected_dots_3D = self.get_current_X_proj(3)
 
         if params_changed:
             kwargs = self._proj_params[self._get_projection_method()]["current"][self.get_space_name()]
@@ -462,8 +463,7 @@ class HighDimExplorer:
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
 
         # We convert selected rows in indexes
-        self._current_selection = utils.rows_to_mask(self.pv_list[0].X, points.point_inds)
-
+        self._current_selection = self.selection_to_mask(points.point_inds, dim=self._current_dim)
         if self._current_selection.any():
             # NOTE : Plotly doesn't allow to show selection on Scatter3d
             self._has_lasso = True
@@ -502,12 +502,11 @@ class HighDimExplorer:
             self.figure_2D.data[0].selectedpoints = utils.mask_to_rows(new_selection_mask)
             self._current_selection = new_selection_mask
             return
-        
+
         # We set the new selection on our figures :
         self.figure_2D.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask))
         # We store the new selection
         self._current_selection = new_selection_mask
-
 
     def create_figure(self, dim: int):
         """
@@ -517,20 +516,15 @@ class HighDimExplorer:
         x = y = z = None
 
         if self.pv_list[self.current_pv] is not None:
-            proj_values = self.pv_list[self.current_pv].get_proj_values(
-                self._get_projection_method(), dim
-            )
+            proj_values = self.get_current_X_proj(dim)
             if proj_values is not None:
-                x = self.pv_list[self.current_pv].get_proj_values(
-                    self._get_projection_method(), dim
-                )[0]
-                y = self.pv_list[self.current_pv].get_proj_values(
-                    self._get_projection_method(), dim
-                )[1]
+                x = proj_values[0]
+                y = proj_values[1]
                 if dim == 3:
-                    z = self.pv_list[self.current_pv].get_proj_values(
-                        self._get_projection_method(), dim
-                    )[2]
+                    z = proj_values[2]
+        else:
+            pass
+            # TODO
 
         hde_marker = None
         if dim == 2:
@@ -662,10 +656,13 @@ class HighDimExplorer:
             2 if isinstance(fig.data[0], Scattergl) else 3
         )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
 
-        x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim).loc[self.mask,0]
-        y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim).loc[self.mask,1]
+        projection = self.get_current_X_proj(dim)
+        if color is not None:
+            color = color.loc[self.mask]
+        x = projection[0]
+        y = projection[1]
         if dim == 3:
-            z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[self.mask,2]
+            z = projection[2]
 
         with fig.batch_update():
             fig.data[0].x = x
@@ -739,13 +736,34 @@ class HighDimExplorer:
     def get_current_X(self) -> pd.DataFrame:
         return self.pv_list[self.current_pv].X
 
-
     @property
-    def mask(self) -> pd.Series:
-        """
-        Returns the mask corresponding to the current selection
-        """
+    def mask(self):
         if self._mask is None:
-            self._mask = pd.Series([False] * len(self.get_current_X()), index=self.get_current_X().index)
-            self._mask.loc[np.random.choice(self.get_current_X().index, size=5000, replace=False)] = True
+            limit = 5000
+            X = self.get_current_X()
+            if len(X) > limit:
+                indices = np.random.choice(self.get_current_X().index, size=limit)
+                self._mask = pd.Series([False] * len(X), index=X.index)
+                self._mask.loc[indices] = True
+            else:
+                self._mask = pd.Series([True] * len(X), index=X.index)
         return self._mask
+
+    def get_current_X_proj(self, dim: int, masked: bool = True) -> pd.DataFrame | None:
+        X = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)
+        if X is None:
+            return
+        if masked:
+            return X.loc[self.mask]
+        return self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)
+
+    def selection_to_mask(self, row_numbers, dim):
+        selection = utils.rows_to_mask(self.pv_list[0].X.loc[self.mask], row_numbers)
+        X_train = self.get_current_X_proj(dim)
+        knn = KNeighborsClassifier().fit(X_train, selection)
+        X_predict = self.get_current_X_proj(dim, masked=False)
+        guessed_selection = pd.Series(knn.predict(X_predict), index=X_predict.index)
+        print('mean', selection.mean(), guessed_selection.mean())
+        print('len', len(selection), len(guessed_selection))
+        # KNN extrapolation
+        return guessed_selection.astype(bool)
