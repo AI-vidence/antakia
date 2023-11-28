@@ -25,7 +25,6 @@ def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: Data
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        logger.info('skope_rules in')
         # We convert df_indexes in row_indexes
         y_train = df_mask.astype(int)
         if variables is None:
@@ -52,9 +51,7 @@ def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: Data
 
         # We remove infinity in rules : we convert in simple rule if inf present
         # We had to wait for _combine_rule_list to proceed
-        logger.info('skope_rules out')
         return rules_list, score_dict
 
     else:
-        logger.info('skope_rules out')
         return [], {}

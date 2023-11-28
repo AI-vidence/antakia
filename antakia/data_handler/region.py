@@ -99,7 +99,6 @@ class RegionSet:
     def get_colors(self):
         return [self.regions[num].color for num in self.insert_order]
 
-    @timeit
     def get_color_serie(self):
         color = pd.Series(["grey"] * len(self.X), index=self.X.index)
         for num in self.insert_order:

@@ -205,9 +205,7 @@ class RuleWidget:
             else:
                 min_ = data
                 max_ = None
-        logger.info(str((min_, self.rule.operator_min, self.rule.variable, self.rule.operator_max, max_, cat_values)))
         new_rule = Rule(min_, self.rule.operator_min, self.rule.variable, self.rule.operator_max, max_, cat_values)
-        logger.info(str(new_rule))
         self.rule = new_rule
         self.rule_updated(new_rule)
 
@@ -305,7 +303,6 @@ class RulesWidget:
         """
         Called to set rules or clear them. To update, use update_rule
         """
-        logger.info('init_rules in')
         self.selection_mask = selection_mask
 
         self.is_disabled = False
@@ -322,7 +319,6 @@ class RulesWidget:
 
         # We notify the GUI and ask to draw the rules on HDEs
         self.new_rules_defined(self, rules_mask, True)
-        logger.info('init_rules out')
 
     def update_rule(self, new_rule: Rule):
         """

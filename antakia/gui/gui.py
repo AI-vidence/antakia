@@ -178,7 +178,6 @@ class GUI:
         """
         Called twice to update table
         """
-        logger.info('update_substitution_table')
 
         # Region v.HTML
         get_widget(app_widget, "450000").class_ = "mr-2 black--text" if not disable else "mr-2 grey--text"
@@ -244,17 +243,12 @@ class GUI:
             # We clear items int the SubModelTable
             get_widget(app_widget, "45001").items = []
 
-        logger.info('update_substitution_table exit')
-
-    @timeit
     def update_regions_table(self):
         # TODO : lenteurs
         """
         Called to empty / fill the RegionDataTable with our >WXC V
         """
-        logger.info('update_regions_table')
         temp_items = self.region_set.to_dict()
-        logger.info(f'{temp_items}')
 
         # We populate the ColorTable :
         get_widget(app_widget, "4400100").items = temp_items
@@ -272,7 +266,6 @@ class GUI:
         # UI rules :
         # If regions coverage > 80%, we disable the 'auto-cluster' button
         get_widget(app_widget, "4402000").disabled = region_stats['coverage'] > 80
-        logger.info('update_regions_table exit')
 
     def new_eplanation_values_required(self, explain_method: int, callback: callable = None) -> pd.DataFrame:
         """
@@ -291,16 +284,14 @@ class GUI:
     def selection_changed(self, caller: HighDimExplorer, new_selection_mask: pd.Series):
         """ Called when the selection of one HighDimExplorer changes
         """
-        logger.info('selection_changed')
 
         # UI rules :
         # Selection (empty or not) we remove any rule or region trace from HDEs
-        self.vs_hde.display_rule_set(None)
-        self.es_hde.display_rule_set(None)
+        self.vs_hde.display_rules(None)
+        self.es_hde.display_rules(None)
         self.region_set.pop_last()
         self.update_regions_table()
 
-        logger.info('selection_changed 2')
         # Selection (empty or not) we reset both RulesWidgets
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
@@ -308,7 +299,6 @@ class GUI:
         self.selection_mask = new_selection_mask
 
         if not new_selection_mask.any():
-
             # UI rules :
             # We disable the Skope button
             get_widget(app_widget, "43010").disabled = True
@@ -324,9 +314,8 @@ class GUI:
             get_widget(app_widget, "4320").disabled = True
 
         else:
-            logger.info('selection_changed 3')
             # Selection is not empty anymore / changes
-            # UI rules : we update the selection status :
+            # UI rules :
             # We enable the SkopeButton
             get_widget(app_widget, "43010").disabled = False
             # We disable HDEs
@@ -347,26 +336,30 @@ class GUI:
                     disable_sort=False,
                 )
             )
-        # We syncrhonize selection between the two HighDimExplorers
-        other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
-        other_hde.set_selection(new_selection_mask)
         # We store the new selection
         self.selection_mask = new_selection_mask
+        # We synchronize selection between the two HighDimExplorers
+        other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
+        other_hde.set_selection(self.selection_mask)
 
-        # UI rules :
+        # UI rules :  
         # We update the selection status :
         selection_status_str_1 = f"{new_selection_mask.sum()} point selected"
         selection_status_str_2 = f"{100 * new_selection_mask.mean():.2f}% of the  dataset"
         change_widget(app_widget, "4300000", selection_status_str_1)
         change_widget(app_widget, "430010", selection_status_str_2)
-        logger.info('selection changed exit')
+
+    def fig_size_changed(self, widget, event, data):
+        """ Called when the figureSizeSlider changed"""
+        self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model / 2)
+        self.vs_hde.redraw()
+        self.es_hde.redraw()
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series, skr: bool = False):
         """
         Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
         The function asks the HDEs to display the rules result
         """
-        logger.info('new_rules_defined')
         # We make sure we're in 2D :
         get_widget(app_widget, "100").v_model == 2  # Switch button
         # TODO : pourquoi on passe en dim 2 ici ?
@@ -374,8 +367,8 @@ class GUI:
         self.es_hde.set_dimension(2)
 
         # We sent to the proper HDE the rules_indexes to render :
-        self.vs_hde.display_rule_set(df_mask) if rules_widget.is_value_space else self.es_hde.display_rule_set(
-            df_mask)
+        self.vs_hde.display_one_region(df_indexes) if rules_widget.is_value_space else self.es_hde.display_one_region(
+            df_indexes)
 
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num < 1
@@ -400,14 +393,10 @@ class GUI:
         change_widget(app_widget, "13", self.es_hde.get_compute_menu())
 
         # ------------------ figure size ---------------
-        def fig_size_changed(widget, event, data):
-            """ Called when the figureSizeSlider changed"""
-            self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model / 2)
-            self.vs_hde.redraw()
-            self.es_hde.redraw()
+        
 
         # We wire the input event on the figureSizeSlider (050100)
-        get_widget(app_widget, "03000").on_event("input", fig_size_changed)
+        get_widget(app_widget, "03000").on_event("input", self.fig_size_changed)
         # We set the init value to default :
         get_widget(app_widget, "03000").v_model = int(os.environ.get("INIT_FIG_WIDTH"))
 
@@ -452,7 +441,6 @@ class GUI:
         change_widget(app_widget, "4311", self.es_rules_wgt.root_widget)
 
         def compute_skope_rules(widget, event, data):
-            logger.info('compute sk in')
             # if clicked, selection can't be empty
             # Let's disable the Skope button. I will be re-enabled if a new selection occurs
             get_widget(app_widget, "43010").disabled = True
@@ -460,22 +448,16 @@ class GUI:
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
             skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.get_current_X(), self.variables)
-            logger.info(f'{skr_rules_list}')
-            logger.info(f'{skr_score_dict}')
             if len(skr_rules_list) > 0:  # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button
-                logger.info('info 1')
                 get_widget(app_widget, "43030").disabled = False
-                logger.info('info 2')
                 # We enable RulesWidet and init it wit the rules
                 rsw.enable()
-                logger.info('info 3')
                 rsw.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
             else:
                 # No skr found
                 rsw.show_msg("No Skope rules found", "red--text")
-            logger.info('compute sk out')
 
         # We wire the click event on the 'Skope-rules' button
         get_widget(app_widget, "43010").on_event("click", compute_skope_rules)
@@ -539,7 +521,7 @@ class GUI:
             # We disable the 'validate rules' button
             get_widget(app_widget, "43030").disabled = True
             # We clear HDEs 'rule traces'
-            hde.display_rule_set(None)
+            hde.display_one_region(None)
 
         # We wire the click event on the 'Valildate rules' button
         get_widget(app_widget, "43030").on_event("click", validate_rules)
@@ -554,7 +536,6 @@ class GUI:
         # ------------- Tab 2 : regions -----------
 
         def region_selected(data):
-            logger.info(data)
             is_selected = data["value"]
 
             # We use this GUI attribute to store the selected region
@@ -572,7 +553,6 @@ class GUI:
         get_widget(app_widget, "4400100").set_callback(region_selected)
 
         def substitute_clicked(widget, event, data):
-            logger.info(f'{self.selected_region_num}')
             assert self.selected_region_num is not None
             get_widget(app_widget, "4").v_model = 2
 

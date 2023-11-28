@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+import numpy as np
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 
@@ -196,22 +197,19 @@ class HighDimExplorer:
             self.get_explanation_select().disabled = is_disabled
             self.get_compute_menu().disabled = is_disabled
 
-    def display_rule_set(self, mask: pd.Series | None, color='blue'):
+    def display_rules(self, mask: pd.Series | None, color='blue'):
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
-        logger.info(f'display_one_region in - {mask} - {color}')
         rs = RegionSet(self.get_current_X())
         rs.add_region(mask=mask, color=color)
         self._display_zones(rs, 1)
-        logger.info('display_one_region out')
 
-    @utils.timeit
+
     def display_regions(self, region_set: RegionSet):
         """"
         Displays each region in a different color
         """
-        logger.info(f'{len(region_set)} regions to display')
         self._display_zones(region_set, 2)
 
     def _display_zones(self, region_set: RegionSet, trace_id):
@@ -227,20 +225,16 @@ class HighDimExplorer:
         #        trace_id = 1 if len(region_set) == 1 and region_set.get(0).color == "blue" else 2
 
         if len(region_set) == 0 or not region_set.get(0).mask.any():
-            logger.info('_display_zones 1')
             # We need to clean the trace - we just hide it
             self.figure_2D.data[trace_id].visible = False
             self.figure_3D.data[trace_id].visible = False
             # And we're done
-            logger.info('_display_zones out')
             return
 
-        @utils.timeit
         def _display_zone_on_figure(fig: FigureWidget, trace_id: int, colors: list):
             """
             Draws one zone on one figure using the passed colors
             """
-            logger.info('_display_zone_on_figure 1')
             dim = 2 if isinstance(fig.data[0], Scattergl) else 3
 
             x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
@@ -258,14 +252,12 @@ class HighDimExplorer:
                 fig.layout.width = self.fig_size
                 fig.data[trace_id].marker.color = colors
             fig.data[trace_id].visible = True  # in case it was hidden
-            logger.info('_display_zone_on_figure 2')
 
         # List of color names, 1 per point. Initialized to grey
         colors = region_set.get_color_serie()
 
         _display_zone_on_figure(self.figure_2D, trace_id, colors)
         _display_zone_on_figure(self.figure_3D, trace_id, colors)
-        logger.info('_display_zones out')
 
     def compute_projs(self, params_changed: bool = False, callback: callable = None):
         """
@@ -470,7 +462,6 @@ class HighDimExplorer:
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
 
         # We convert selected rows in indexes
-        logger.info(f'selection event start')
         self._current_selection = utils.rows_to_mask(self.pv_list[0].X, points.point_inds)
 
         if self._current_selection.any():
@@ -492,8 +483,9 @@ class HighDimExplorer:
         """
         Called by tne UI when a new selection occured on the other HDE
         """
-        logger.info(f'set selection in : {self.get_space_name()}')
+
         if not self._current_selection.any() and not new_selection_mask.any():
+            # New selection is empty. We already have an empty selection : nothing to do
             return
 
         if not new_selection_mask.any():
@@ -507,12 +499,15 @@ class HighDimExplorer:
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure(2)
-        logger.info(f'{new_selection_mask.sum()}')
-        # self.figure_2D.data[0].selectedpoints = utils.mask_to_index(new_selection_mask)
-        self.figure_2D.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask), overwrite=True)
+            self.figure_2D.data[0].selectedpoints = utils.mask_to_rows(new_selection_mask)
+            self._current_selection = new_selection_mask
+            return
+        
+        # We set the new selection on our figures :
+        self.figure_2D.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask))
+        # We store the new selection
         self._current_selection = new_selection_mask
 
-        logger.info('set selection out')
 
     def create_figure(self, dim: int):
         """
@@ -667,10 +662,10 @@ class HighDimExplorer:
             2 if isinstance(fig.data[0], Scattergl) else 3
         )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
 
-        x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[0]
-        y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[1]
+        x = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim).loc[self.mask,0]
+        y = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim).loc[self.mask,1]
         if dim == 3:
-            z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[2]
+            z = self.pv_list[self.current_pv].get_proj_values(self._get_projection_method(), dim)[self.mask,2]
 
         with fig.batch_update():
             fig.data[0].x = x
@@ -743,3 +738,14 @@ class HighDimExplorer:
 
     def get_current_X(self) -> pd.DataFrame:
         return self.pv_list[self.current_pv].X
+
+
+    @property
+    def mask(self) -> pd.Series:
+        """
+        Returns the mask corresponding to the current selection
+        """
+        if self._mask is None:
+            self._mask = pd.Series([False] * len(self.get_current_X()), index=self.get_current_X().index)
+            self._mask.loc[np.random.choice(self.get_current_X().index, size=5000, replace=False)] = True
+        return self._mask
