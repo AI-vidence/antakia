@@ -137,8 +137,10 @@ class DimReducMethod(LongTask):
         return X_red
 
     @classmethod
-    def scale_value_space(cls, X: pd.DataFrame, y:pd.Series) -> pd.DataFrame:
+    def scale_value_space(cls, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         """
         Scale the values in X to be between 0 and 1.
         """
-        return  (X-X.mean())/X.std()*np.abs(X.corrwith(y))
+        std = X.std()
+        std[std == 0] = 1
+        return (X - X.mean()) / std * np.abs(X.corrwith(y))
