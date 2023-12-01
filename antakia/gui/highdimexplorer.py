@@ -53,7 +53,6 @@ class HighDimExplorer:
     Widgets :
     figure_2D and figure_3D : FigureWidget
         Plotly scatter plot
-    _selection_disabled : bool
     container : a thin v.Container wrapper around the current Figure. Allows us to swap between 2D and 3D figures alone (without GUI)
     _proj_params_cards : dict of VBox,  parameters for dimreduc methods
     fig_size : int
@@ -189,6 +188,11 @@ class HighDimExplorer:
         self._has_lasso = False
 
     # ---- Methods ------
+
+    def disable_selection(self, is_disabled: bool):
+        self.figure_2D.update_layout(
+            dragmode = False if is_disabled else "lasso"
+        )
 
     def disable_widgets(self, is_disabled: bool):
         """
@@ -639,7 +643,7 @@ class HighDimExplorer:
 
         self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
 
-    def redraw(self, color: pd.Series = None, opacity_values: pd.Series = None):
+    def redraw(self, color: pd.Series = None):
         """
         Redraws the 2D and 3D figures. FigureWidgets are not recreated.
         """
@@ -649,8 +653,7 @@ class HighDimExplorer:
     def redraw_figure(
             self,
             fig: FigureWidget,
-            color: pd.Series = None,
-            opacity_values: pd.Series = None
+            color: pd.Series = None
     ):
 
         dim = (
@@ -673,8 +676,6 @@ class HighDimExplorer:
             fig.layout.width = self.fig_size
             if color is not None:
                 fig.data[0].marker.color = color
-            if opacity_values is not None:
-                fig.data[0].marker.opacity = opacity_values
             fig.data[0].customdata = color
 
     def get_projection_select(self):

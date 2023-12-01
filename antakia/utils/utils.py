@@ -73,6 +73,12 @@ def timeit(method):
 
     return timed
 
+def format_df(X: pd.DataFrame) -> pd.DataFrame:
+    """
+    Formats a DataFrame to be used by the algorithms
+    """
+    return X.map(lambda x: round(x, 2) if isinstance(x, float) else x)
+
 
 # First color can't be blue, reserved for the rules
 colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]

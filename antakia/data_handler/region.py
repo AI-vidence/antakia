@@ -66,7 +66,7 @@ class RegionSet:
         self.insert_order = []
         self.X = X
 
-    def get_num(self):
+    def get_new_num(self):
         if len(self.regions) == 0:
             return 1
         else:
@@ -81,7 +81,7 @@ class RegionSet:
         return max(self.insert_order)
 
     def add(self, region: Region):
-        num = self.get_num()
+        num = self.get_new_num()
         self.regions[num] = region
         self.insert_order.append(num)
         region.num = num

@@ -27,7 +27,7 @@ def test_regions():
     assert rs.get(1) == region
     assert len(rs) == 1
     assert rs.get_max_num() == 1
-    assert rs.get_num() == 2
+    assert rs.get_new_num() == 2
 
     color = rs.get_color_serie()
     assert (color == pd.Series(['grey', 'red', 'red', 'grey', 'grey'])).all()
@@ -35,7 +35,7 @@ def test_regions():
     rs.clear_unvalidated()
     rs.add_region([rule1, rule2], color='blue')
     assert rs.get_max_num() == 1
-    assert rs.get_num() == 2
+    assert rs.get_new_num() == 2
     assert rs.get(1).color == 'blue'
 
     color = rs.get_color_serie()

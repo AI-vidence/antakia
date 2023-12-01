@@ -61,10 +61,7 @@ class AntakIA():
         if X_exp is not None:
             # It's common to have column names ending with _shap, so we remove them
             X_exp.columns = X_exp.columns.str.replace('_shap', '')
-            self.X_exp = X_exp
-        else:
-            X_exp = shap.TreeExplainer(model).shap_values(X)
-            self.X_exp = pd.DataFrame(X_exp, index=X.index, columns=X.columns)
+        self.X_exp = X_exp
 
         if variables is not None:
             if isinstance(variables, list):
