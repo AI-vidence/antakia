@@ -85,7 +85,6 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,
             int(config.INIT_FIG_WIDTH / 2),
-            40,  # border size
             self.selection_changed,
         )  # type: ignore
         self.vs_rules_wgt = self.es_rules_wgt = None
@@ -98,10 +97,9 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,  # We use the same dimension as the VS HDE for now
             int(config.INIT_FIG_WIDTH / 2),
-            40,  # border size
             self.selection_changed,
             self.new_eplanation_values_required,
-            X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df meebns it's an ES HDE
+            X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df (vs None) tells it's an ES HDE
         )
 
         self.vs_rules_wgt = RulesWidget(self.X, self.variables, True, self.new_rules_defined)
@@ -135,18 +133,20 @@ class GUI:
         self.vs_hde.compute_projs(False, self.update_splash_screen)
 
         # We trigger ES explain computation if needed :
-        if self.es_hde.pv_list[1] is None:  # No imported explanation values
+        if self.es_hde.pv_dict['imported_explanations'] is None:  # No imported explanation values
             # We compute default explanations :
-            index = 1 if os.getenv == ExplanationMethod.SHAP else 3
+            explain_method = config.DEFAULT_EXPLANATION_METHOD
             get_widget(
                 splash_widget, "120"
             ).v_model = (
                 f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
             )
 
-            self.es_hde.pv_list[0] = ProjectedValues(
-                self.new_eplanation_values_required(index, self.update_splash_screen)
+            self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
+            self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
+                self.new_eplanation_values_required(explain_method, self.update_splash_screen)
             )
+
         else:
             get_widget(splash_widget, "120").v_model = "Imported values"
 
@@ -331,7 +331,7 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=utils.format_df(self.X.loc[new_selection_mask]).to_dict("records"), #TODO fix this
+                    items=utils.format_df(self.X.loc[new_selection_mask]).to_dict("records"),  # TODO fix this
                     hide_default_footer=False,
                     disable_sort=False,
                 ),
@@ -405,7 +405,7 @@ class GUI:
             Allows change the color of the dots
             """
 
-            # Color : a pd.Series with one color value par row 
+            # Color : a pd.Series with one color value par row
 
             color = None
 
@@ -631,8 +631,8 @@ class GUI:
             for mask in rules_mask_list:
                 not_rules_indexes_list &= ~mask
 
-            vs_proj_3d_df = self.vs_hde.pv_list[0].get_proj_values(self.vs_hde._get_projection_method(), 3)
-            es_proj_3d_df = self.es_hde.pv_list[self.es_hde.current_pv].get_proj_values(
+            vs_proj_3d_df = self.vs_hde.pv_dict[0].get_proj_values(self.vs_hde._get_projection_method(), 3)
+            es_proj_3d_df = self.es_hde.pv_dict[self.es_hde.current_pv].get_proj_values(
                 self.es_hde._get_projection_method(), 3
             )
 
