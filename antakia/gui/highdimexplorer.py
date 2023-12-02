@@ -158,23 +158,12 @@ class HighDimExplorer:
             get_widget(app_widget, "18002").on_event("change", self._proj_params_changed)
 
         if not self.is_value_space:
-            self.get_explanation_select().items = [
-                {"text": "Imported", "disabled": self.pv_dict['imported_explanations'] is None},
-                {"text": "SHAP", "disabled": True},
-                {"text": "LIME", "disabled": True},
-            ]
-
-            self.get_explanation_select().on_event("change", self.explanation_select_changed)
             self.update_explanation_select()
-
-            # SHAP compute button :
-            get_widget(app_widget, "13000203").on_event(
-                "click", self.compute_btn_clicked
-            )
-            # LIME compute button :
-            get_widget(app_widget, "13000303").on_event(
-                "click", self.compute_btn_clicked
-            )
+            self.get_explanation_select().on_event("change", self.explanation_select_changed)
+            
+            get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
+            get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
+            self.update_compute_menu()
 
         #  Now we can init figures 2 and 3D
         self.fig_size = fig_size
@@ -402,9 +391,25 @@ class HighDimExplorer:
         self.current_pv = chosen_pv_index
         self.redraw()
 
+    def get_compute_menu(self):
+        """
+       Called at startup by the GUI (only ES HDE)
+       """
+        return get_widget(app_widget, "13")
+    
+    def update_compute_menu(self):
+        we_have_computed_shap = self.pv_dict['computed_shap'] is not None
+        get_widget(app_widget, "130000").disabled = we_have_computed_shap
+        get_widget(app_widget, "13000203").disabled = we_have_computed_shap
+        
+        we_have_computed_lime = self.pv_dict['computed_lime'] is not None
+        get_widget(app_widget, "130001").disabled = we_have_computed_lime
+        get_widget(app_widget, "13000303").disabled = we_have_computed_lime
+        
+
     def compute_btn_clicked(self, widget, event, data):
         """
-        Called  when new explanation computed values are wanted
+        Called when new explanation computed values are wanted
         """
         # This compute btn is no longer useful / clickable
         widget.disabled = True
@@ -421,6 +426,7 @@ class HighDimExplorer:
         # We compute proj for this new PV :
         self.compute_projs(False, self.update_progress_circular)
         self.update_explanation_select()
+        self.update_compute_menu()
         self.redraw_figure(self.figure_3D)
 
     def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float):
@@ -688,12 +694,6 @@ class HighDimExplorer:
        """
         return get_widget(app_widget, "16") if self.is_value_space else get_widget(app_widget, "19")
 
-    def get_compute_menu(self):
-        """
-       Called at startup by the GUI (only ES HDE)
-       """
-        return get_widget(app_widget, "13")
-
     def get_explanation_select(self):
         """
        Called at startup by the GUI (only ES HE)
@@ -707,7 +707,7 @@ class HighDimExplorer:
         self.get_explanation_select().items = [
             {"text": "Imported", "disabled": self.pv_dict['imported_explanations'] is None},
             {"text": "SHAP", "disabled": self.pv_dict['computed_shap'] is None},
-            {"text": "LIME", "disabled": self.pv_dict['computed_shap'] is None},
+            {"text": "LIME", "disabled": self.pv_dict['computed_lime'] is None},
         ]
 
     def get_proj_params_menu(self):

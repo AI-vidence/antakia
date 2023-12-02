@@ -144,9 +144,8 @@ class GUI:
             self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
                 self.new_eplanation_values_required(explain_method, self.update_splash_screen)
             )
-
-        else:
-            get_widget(splash_widget, "120").v_model = "Imported values"
+            self.es_hde.update_explanation_select()
+            self.es_hde.update_compute_menu()
 
         # THen we trigger ES proj computation :
         self.es_hde.compute_projs(False, self.update_splash_screen)
