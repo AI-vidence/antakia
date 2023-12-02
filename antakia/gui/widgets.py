@@ -854,7 +854,7 @@ app_widget = v.Col(
                                                                          "mdi-axis-arrow"
                                                                      ],
                                                                  ),
-                                                                 "Skope rules",
+                                                                 "Find rules",
                                                              ],
                                                          ),
                                                  }

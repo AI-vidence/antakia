@@ -23,8 +23,7 @@ from antakia.gui.ruleswidget import RulesWidget
 import os
 
 import logging
-from antakia.utils.logging import conf_logger
-from antakia.utils.utils import format_df
+from antakia.utils.logging import conf_logger 
 from antakia.utils.variable import DataVariables
 
 logger = logging.getLogger(__name__)
@@ -121,9 +120,9 @@ class GUI:
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
         get_widget(splash_widget, "110").color = "light blue"
-        get_widget(splash_widget, "110").v_model = 100
+        get_widget(splash_widget, "110").v_model = 0
         get_widget(splash_widget, "210").color = "light blue"
-        get_widget(splash_widget, "210").v_model = 100
+        get_widget(splash_widget, "210").v_model = 0
         display(splash_widget)
 
         # We trigger VS proj computation :
@@ -140,8 +139,7 @@ class GUI:
                 splash_widget, "120"
             ).v_model = (
                 f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
-            )
-
+            ) 
             self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
             self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
                 self.new_eplanation_values_required(explain_method, self.update_splash_screen)
@@ -161,7 +159,7 @@ class GUI:
         """
         Updates progress bars of the splash screen
         """
-
+        # We select the proper progress bar :
         if isinstance(caller, ExplanationMethod):
             # It's an explanation
             progress_linear = get_widget(splash_widget, "110")
@@ -174,7 +172,10 @@ class GUI:
             progress_linear.color = "blue"
             progress_linear.v_model = 0
 
-        progress_linear.v_model = round(progress / number)
+        if isinstance(caller, ExplanationMethod):
+            progress_linear.v_model = round(progress / number)
+        else:
+            progress_linear.v_model += round(progress / number)
 
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
@@ -331,7 +332,7 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=utils.format_df(self.X.loc[new_selection_mask]).to_dict("records"),  # TODO fix this
+                    items=self.X.loc[new_selection_mask].to_dict("records"), 
                     hide_default_footer=False,
                     disable_sort=False,
                 ),
