@@ -21,6 +21,7 @@ from antakia.data_handler.projected_values import ProjectedValues
 from antakia.gui.ruleswidget import RulesWidget
 
 import os
+import copy
 
 import logging
 from antakia.utils.logging import conf_logger 
@@ -331,6 +332,8 @@ class GUI:
             self.es_hde.disable_widgets(True)
             # We show and fill the selection datatable :
             get_widget(app_widget, "4320").disabled = False
+            sel_df = copy.copy((self.X.loc[new_selection_mask]))
+            sel_df=round(sel_df, 3)
             change_widget(
                 app_widget,
                 "432010",
@@ -338,7 +341,7 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=self.X.loc[new_selection_mask].to_dict("records"), 
+                    items=sel_df.to_dict("records"), 
                     hide_default_footer=False,
                     disable_sort=False,
                 ),
