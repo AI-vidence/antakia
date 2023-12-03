@@ -170,6 +170,7 @@ class HighDimExplorer:
         self._selection_disabled = False
 
         self.container = v.Container()
+        self.container.class_="flex-fill"
 
         self.create_figure(2)
         self.create_figure(3)
@@ -541,17 +542,20 @@ class HighDimExplorer:
                 hde_marker = dict(
                     color=self._y,
                     colorscale="Viridis",
-                    colorbar=
-                    dict(
-                        thickness=20
-                    )
+                    # colorbar=
+                    # dict(
+                    #     thickness=20
+                    # )
                 )
             else:
                 hde_marker = dict(color=self._y, colorscale="Viridis")
         else:
             if self.is_value_space:
-                hde_marker = dict(color=self._y, colorscale="Viridis", colorbar=dict(
-                    thickness=20), size=2)
+                hde_marker = dict(color=self._y, 
+                                  colorscale="Viridis", 
+                                #   colorbar=dict(
+                                #       thickness=20), 
+                                      size=2)
             else:
                 hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
 
@@ -566,11 +570,7 @@ class HighDimExplorer:
                         customdata=self._y,
                         hovertemplate="%{customdata:.3f}",
                     )
-                ],
-                layout={
-                    'height': 300,
-                    'margin': {'t': 0, 'b': 0},
-                }
+                ]
             )
             fig.add_trace(
                 Scattergl(  # Trace 1 for rules
@@ -634,7 +634,16 @@ class HighDimExplorer:
             unselected={"marker": {"opacity": 0.1}},
             selector=dict(type="scatter"),
         )
-        fig.update_layout(margin=dict(t=0), width=self.fig_size)
+        fig.update_layout(
+            margin=dict(
+                t=0,
+                b=0,
+                l=0,
+                r=0
+                ),
+            width=self.fig_size,
+            height=round(self.fig_size/2),
+        )
         fig._config = fig._config | {"displaylogo": False}
         fig._config = fig._config | {'displayModeBar': True}
 

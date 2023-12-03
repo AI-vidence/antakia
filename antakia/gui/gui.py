@@ -138,7 +138,7 @@ class GUI:
             get_widget(
                 splash_widget, "120"
             ).v_model = (
-                f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
+                f"Computing {ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
             ) 
             self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
             self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
@@ -146,6 +146,13 @@ class GUI:
             )
             self.es_hde.update_explanation_select()
             self.es_hde.update_compute_menu()
+        else:
+            get_widget(
+                splash_widget, "120"
+            ).v_model = (
+                f"Imported explained values {self.X.shape}"
+            ) 
+            
 
         # THen we trigger ES proj computation :
         self.es_hde.compute_projs(False, self.update_splash_screen)
