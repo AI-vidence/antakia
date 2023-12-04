@@ -641,10 +641,8 @@ class GUI:
             for mask in rules_mask_list:
                 not_rules_indexes_list &= ~mask
 
-            vs_proj_3d_df = self.vs_hde.pv_dict[0].get_proj_values(self.vs_hde._get_projection_method(), 3)
-            es_proj_3d_df = self.es_hde.pv_dict[self.es_hde.current_pv].get_proj_values(
-                self.es_hde._get_projection_method(), 3
-            )
+            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
+            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
 
             ac = AutoCluster(vs_proj_3d_df.loc[not_rules_indexes_list], update_ac_progress_bar)
             found_clusters = ac.compute(
