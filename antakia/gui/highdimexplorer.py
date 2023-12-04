@@ -206,7 +206,7 @@ class HighDimExplorer:
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
-        rs = RegionSet(self.get_current_X())
+        rs = RegionSet(self.current_X)
         rs.add_region(mask=mask, color=color)
         self._display_zones(rs, 1)
 
@@ -533,7 +533,7 @@ class HighDimExplorer:
         """
         x = y = z = None
 
-        if self.get_current_X() is not None:
+        if self.current_X is not None:
             proj_values = self.get_current_X_proj(dim)
             if proj_values is not None:
                 x = proj_values[0]
@@ -743,7 +743,8 @@ class HighDimExplorer:
         """
         return "VS" if self.is_value_space else "ES"
 
-    def get_current_X(self) -> pd.DataFrame | None:
+    @property
+    def current_X(self) -> pd.DataFrame | None:
         if self.current_pv is None:
             return None  # When we're an ES HDE and no explanation have been importer nor computed yet
         return self.pv_dict[self.current_pv].X
@@ -751,14 +752,14 @@ class HighDimExplorer:
     @property
     def mask(self):
         if self._mask is None:
+            X = self.current_X
+            self._mask = pd.Series([False] * len(X), index=X.index)
             limit = config.MAX_DOTS
-            X = self.get_current_X()
             if len(X) > limit:
-                indices = np.random.choice(self.get_current_X().index, size=limit)
-                self._mask = pd.Series([False] * len(X), index=X.index)
+                indices = np.random.choice(X.index, size=limit, replace=False)
                 self._mask.loc[indices] = True
             else:
-                self._mask = pd.Series([True] * len(X), index=X.index)
+                self._mask.loc[:] = True
         return self._mask
 
     def get_current_X_proj(self, dim: int, masked: bool = True) -> pd.DataFrame | None:

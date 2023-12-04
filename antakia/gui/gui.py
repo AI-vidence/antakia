@@ -103,7 +103,7 @@ class GUI:
         )
 
         self.vs_rules_wgt = RulesWidget(self.X, self.variables, True, self.new_rules_defined)
-        self.es_rules_wgt = RulesWidget(self.es_hde.get_current_X(), self.variables, False, self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.variables, False, self.new_rules_defined)
         # We set empty rules for now :
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
@@ -459,7 +459,7 @@ class GUI:
 
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
-            skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.get_current_X(), self.variables)
+            skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
             if len(skr_rules_list) > 0:  # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button

@@ -184,12 +184,12 @@ def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dime
             dimension):
         raise ValueError("Cannot compute proj method #", dimreduc_method, " in ", dimension, " dimensions")
 
-    X = DimReducMethod.scale_value_space(X, y)
+    X_scaled = DimReducMethod.scale_value_space(X, y)
 
     dim_reduc = dim_reduc_factory.get(dimreduc_method)
     default_kwargs = {'random_state': 9}
     default_kwargs.update(kwargs)
     dim_reduc_kwargs = {k: v for k, v in default_kwargs.items() if k in dim_reduc.allowed_kwargs}
-    proj_values = dim_reduc(X, dimension, callback).compute(**dim_reduc_kwargs)
+    proj_values = dim_reduc(X_scaled, dimension, callback).compute(**dim_reduc_kwargs)
     proj_values.index = X.index
     return proj_values
