@@ -1,58 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://ai-vidence.com/documentation-antakia/</loc>
-         <lastmod>2023-09-22</lastmod>
+         <loc>https://example.com/</loc>
+         <lastmod>2023-12-04</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://ai-vidence.com/documentation-antakia/about/</loc>
-         <lastmod>2023-09-22</lastmod>
+         <loc>https://example.com/about/</loc>
+         <lastmod>2023-12-04</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://ai-vidence.com/documentation-antakia/getting-started/</loc>
-         <lastmod>2023-09-22</lastmod>
+         <loc>https://example.com/credits/</loc>
+         <lastmod>2023-12-04</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://ai-vidence.com/documentation-antakia/usage/</loc>
-         <lastmod>2023-09-22</lastmod>
+         <loc>https://example.com/explain/</loc>
+         <lastmod>2023-12-04</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://ai-vidence.com/documentation-antakia/documentation/</loc>
-         <lastmod>2023-09-22</lastmod>
+         <loc>https://example.com/install/</loc>
+         <lastmod>2023-12-04</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://ai-vidence.com/documentation-antakia/documentation/antakia/</loc>
-         <lastmod>2023-09-22</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://ai-vidence.com/documentation-antakia/documentation/compute/</loc>
-         <lastmod>2023-09-22</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://ai-vidence.com/documentation-antakia/documentation/dataset/</loc>
-         <lastmod>2023-09-22</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://ai-vidence.com/documentation-antakia/documentation/gui/</loc>
-         <lastmod>2023-09-22</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://ai-vidence.com/documentation-antakia/documentation/potato/</loc>
-         <lastmod>2023-09-22</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://ai-vidence.com/documentation-antakia/documentation/utils/</loc>
-         <lastmod>2023-09-22</lastmod>
+         <loc>https://example.com/usage/</loc>
+         <lastmod>2023-12-04</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>
