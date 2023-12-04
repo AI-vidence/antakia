@@ -63,14 +63,14 @@ class HighDimExplorer:
 
     def __init__(
             self,
-            X: pd.DataFrame, # The original_values
+            X: pd.DataFrame,  # The original_values
             y: pd.Series,
-            init_proj: int, # see config.py
+            init_proj: int,  # see config.py
             init_dim: int,
             fig_size: int,
             selection_changed: callable,
-            new_eplanation_values_required: callable = None, # (ES only)
-            X_exp: pd.DataFrame = None, # The imported_explanations (ES only)
+            new_eplanation_values_required: callable = None,  # (ES only)
+            X_exp: pd.DataFrame = None,  # The imported_explanations (ES only)
     ):
         """
         Instantiate a new HighDimExplorer.
@@ -91,23 +91,30 @@ class HighDimExplorer:
         # IMPORTANT : if x_exp is not None : we know it's an ES HDE
         self.is_value_space = X_exp is None
 
-        self.pv_dict = {}
         # pv_dict is a dict of ProjectedValues objects
         # Keys can be : 'original_values', 'imported_explanations', 'computed_shap', 'computed_lime'
         # VS HDE has as only on PV, pv_divt['original_values']
         # ES HDE has 3 extra PVs : 'imported_explanations', 'computed_shap', 'computed_lime'
-        self.pv_dict['original_values']=ProjectedValues(X)
         if not self.is_value_space:
+            self.pv_dict = {
+                'original_values': ProjectedValues(X),
+                'imported_explanations': None,
+                'computed_shap': None,
+                'computed_lime': None
+            }
             if len(X_exp) > 0:
                 # We set the imported PV:
-                self.pv_dict['imported_explanations']=ProjectedValues(X_exp)
+                self.pv_dict['imported_explanations'] = ProjectedValues(X_exp)
                 self.current_pv = 'imported_explanations'
             else:
-                self.pv_dict['imported_explanations']=None
+                self.pv_dict['imported_explanations'] = None
                 self.current_pv = None  # We have nothing to display yet
-            self.pv_dict['computed_shap']=None
-            self.pv_dict['computed_lime']=None
+            self.pv_dict['computed_shap'] = None
+            self.pv_dict['computed_lime'] = None
         else:
+            self.pv_dict = {
+                'original_values': ProjectedValues(X),
+            }
             # We are a VS HDE
             self.current_pv = 'original_values'
 
@@ -160,7 +167,7 @@ class HighDimExplorer:
         if not self.is_value_space:
             self.update_explanation_select()
             self.get_explanation_select().on_event("change", self.explanation_select_changed)
-            
+
             get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
             get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
             self.update_compute_menu()
@@ -170,7 +177,7 @@ class HighDimExplorer:
         self._selection_disabled = False
 
         self.container = v.Container()
-        self.container.class_="flex-fill"
+        self.container.class_ = "flex-fill"
 
         self.create_figure(2)
         self.create_figure(3)
@@ -182,7 +189,7 @@ class HighDimExplorer:
 
     def disable_selection(self, is_disabled: bool):
         self.figure_2D.update_layout(
-            dragmode = False if is_disabled else "lasso"
+            dragmode=False if is_disabled else "lasso"
         )
 
     def disable_widgets(self, is_disabled: bool):
@@ -384,12 +391,11 @@ class HighDimExplorer:
         # Remember : impossible items ine thee Select are disabled = we have the desired values
 
         if data == "Imported":
-            chosen_pv_index = 1
+            self.current_pv = 'imported_explanations'
         elif data == "SHAP":
-            chosen_pv_index = 2
+            self.current_pv = 'computed_shap'
         else:  # LIME
-            chosen_pv_index = 3
-        self.current_pv = chosen_pv_index
+            self.current_pv = 'computed_lime'
         self.redraw()
 
     def get_compute_menu(self):
@@ -397,16 +403,15 @@ class HighDimExplorer:
        Called at startup by the GUI (only ES HDE)
        """
         return get_widget(app_widget, "13")
-    
+
     def update_compute_menu(self):
         we_have_computed_shap = self.pv_dict['computed_shap'] is not None
         get_widget(app_widget, "130000").disabled = we_have_computed_shap
         get_widget(app_widget, "13000203").disabled = we_have_computed_shap
-        
+
         we_have_computed_lime = self.pv_dict['computed_lime'] is not None
         get_widget(app_widget, "130001").disabled = we_have_computed_lime
         get_widget(app_widget, "13000303").disabled = we_have_computed_lime
-        
 
     def compute_btn_clicked(self, widget, event, data):
         """
@@ -423,7 +428,7 @@ class HighDimExplorer:
         self.current_pv = 'computed_shap' if desired_explain_method == ExplanationMethod.SHAP else 'computed_lime'
         self.pv_dict[self.current_pv] = ProjectedValues(
             self.new_eplanation_values_required(desired_explain_method, self.update_progress_linear))
-        
+
         # We compute proj for this new PV :
         self.compute_projs(False, self.update_progress_circular)
         self.update_explanation_select()
@@ -551,11 +556,11 @@ class HighDimExplorer:
                 hde_marker = dict(color=self._y, colorscale="Viridis")
         else:
             if self.is_value_space:
-                hde_marker = dict(color=self._y, 
-                                  colorscale="Viridis", 
-                                #   colorbar=dict(
-                                #       thickness=20), 
-                                      size=2)
+                hde_marker = dict(color=self._y,
+                                  colorscale="Viridis",
+                                  #   colorbar=dict(
+                                  #       thickness=20),
+                                  size=2)
             else:
                 hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
 
@@ -640,9 +645,9 @@ class HighDimExplorer:
                 b=0,
                 l=0,
                 r=0
-                ),
+            ),
             width=self.fig_size,
-            height=round(self.fig_size/2),
+            height=round(self.fig_size / 2),
         )
         fig._config = fig._config | {"displaylogo": False}
         fig._config = fig._config | {'displayModeBar': True}
@@ -740,7 +745,7 @@ class HighDimExplorer:
 
     def get_current_X(self) -> pd.DataFrame | None:
         if self.current_pv is None:
-            return None # When we're an ES HDE and no explanation have been importer nor computed yet
+            return None  # When we're an ES HDE and no explanation have been importer nor computed yet
         return self.pv_dict[self.current_pv].X
 
     @property
