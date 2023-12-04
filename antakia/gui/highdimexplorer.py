@@ -234,7 +234,6 @@ class HighDimExplorer:
             # And we're done
             return
 
-        @utils.timeit
         def _display_zone_on_figure(fig: FigureWidget, trace_id: int, colors: pd.Series):
             """
             Draws one zone on one figure using the passed colors

@@ -259,7 +259,7 @@ class GUI:
     def update_regions_table(self):
         # TODO : lenteurs
         """
-        Called to empty / fill the RegionDataTable with our >WXC V
+        Called to empty / fill the RegionDataTable
         """
         temp_items = self.region_set.to_dict()
 
@@ -458,6 +458,7 @@ class GUI:
 
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
+
             skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
             skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
             if len(skr_rules_list) > 0:  # SKR rules found
