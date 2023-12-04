@@ -260,7 +260,7 @@ class GUI:
     def update_regions_table(self):
         # TODO : lenteurs
         """
-        Called to empty / fill the RegionDataTable with our >WXC V
+        Called to empty / fill the RegionDataTable
         """
         temp_items = self.region_set.to_dict()
 
@@ -459,7 +459,12 @@ class GUI:
 
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
+<<<<<<< HEAD
             skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
+=======
+            logger.debug(f"compute_skope_rules : selection_mask : {self.selection_mask.sum()} points")
+            skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.get_current_X(), self.variables)
+>>>>>>> 5aaa2143 (troncate long rules descriptions - see confg)
             if len(skr_rules_list) > 0:  # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button
