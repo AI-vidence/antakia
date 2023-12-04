@@ -222,10 +222,9 @@ class HighDimExplorer:
         the passed colors. Zones may be regions or rules
         if index_list is None, we restore the original color
         Common method for display_rules and display_regions
+        trace_id : (0 for default scatter plot) 1 for rules and 2 for regions
         """
-        # We use two extra traces in the figure : the rules and the regions traces
-
-        # We detect the trace of the figure we'll paint on
+        # We use two extra traces in the figure : the rules and the regions traces (1 and 2)
 
         if len(region_set) == 0 or not region_set.get(1).mask.any():
             # We need to clean the trace - we just hide it
@@ -257,6 +256,7 @@ class HighDimExplorer:
                     fig.data[trace_id].z = z
                 fig.layout.width = self.fig_size
                 fig.data[trace_id].marker.color = colors
+            fig.data[trace_id].showlegend = False  # otherwise, labels appear on the right
             fig.data[trace_id].visible = True  # in case it was hidden
 
         # List of color names, 1 per point. Initialized to grey
@@ -609,6 +609,7 @@ class HighDimExplorer:
                     )
                 ]
             )
+            
             fig.add_trace(
                 Scatter3d(  # Trace 1 for rules
                     x=x,
@@ -636,7 +637,7 @@ class HighDimExplorer:
         fig.update_traces(
             selected={"marker": {"opacity": 1.0}},
             unselected={"marker": {"opacity": 0.1}},
-            selector=dict(type="scatter"),
+            selector=dict(type="scatter")
         )
         fig.update_layout(
             margin=dict(
@@ -650,6 +651,10 @@ class HighDimExplorer:
         )
         fig._config = fig._config | {"displaylogo": False}
         fig._config = fig._config | {'displayModeBar': True}
+        # We don't want the name of the trace to appear :
+        for trace_id in [0, 1, 2]:
+            fig.data[trace_id].showlegend = False 
+    
 
         if dim == 2:
             self.figure_2D = fig
