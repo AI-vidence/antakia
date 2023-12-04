@@ -4,6 +4,7 @@ import pandas as pd
 
 from antakia.data_handler.rules import Rule
 from antakia.utils.utils import colors
+
 import antakia.config as cfg
 
 class Region:
