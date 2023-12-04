@@ -141,6 +141,6 @@ class RegionSet:
         stats = {
             'regions': len(self),
             'points': union_mask.sum(),
-            'coverage': round(100 * union_mask.mean())
+            'coverage': round(100 * union_mask.mean()),
         }
         return stats

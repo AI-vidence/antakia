@@ -24,7 +24,7 @@ import os
 import copy
 
 import logging
-from antakia.utils.logging import conf_logger 
+from antakia.utils.logging import conf_logger
 from antakia.utils.variable import DataVariables
 
 logger = logging.getLogger(__name__)
@@ -63,13 +63,13 @@ class GUI:
     """
 
     def __init__(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        model,
-        variables: DataVariables,
-        X_exp: pd.DataFrame | None = None,
-        score: callable | str = "mse",
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            model,
+            variables: DataVariables,
+            X_exp: pd.DataFrame | None = None,
+            score: callable | str = "mse",
     ):
         self.X = X
         self.y = y
@@ -102,8 +102,8 @@ class GUI:
             X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df (vs None) tells it's an ES HDE
         )
 
-        self.vs_rules_wgt = RulesWidget(self.X, self.variables, True, self.new_rules_defined)
-        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.variables, False, self.new_rules_defined)
+        self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True, self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.y, self.variables, False, self.new_rules_defined)
         # We set empty rules for now :
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
@@ -140,7 +140,7 @@ class GUI:
                 splash_widget, "120"
             ).v_model = (
                 f"Computing {ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
-            ) 
+            )
             self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
             self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
                 self.new_eplanation_values_required(explain_method, self.update_splash_screen)
@@ -152,10 +152,9 @@ class GUI:
                 splash_widget, "120"
             ).v_model = (
                 f"Imported explained values {self.X.shape}"
-            ) 
-            
+            )
 
-        # THen we trigger ES proj computation :
+            # THen we trigger ES proj computation :
         self.es_hde.compute_projs(False, self.update_splash_screen)
 
         splash_widget.close()
@@ -333,7 +332,7 @@ class GUI:
             # We show and fill the selection datatable :
             get_widget(app_widget, "4320").disabled = False
             sel_df = copy.copy((self.X.loc[new_selection_mask]))
-            sel_df=round(sel_df, 3)
+            sel_df = round(sel_df, 3)
             change_widget(
                 app_widget,
                 "432010",
@@ -341,7 +340,7 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=sel_df.to_dict("records"), 
+                    items=sel_df.to_dict("records"),
                     hide_default_footer=False,
                     disable_sort=False,
                 ),
@@ -460,6 +459,7 @@ class GUI:
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
             skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
+            skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
             if len(skr_rules_list) > 0:  # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button

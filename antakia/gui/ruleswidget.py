@@ -32,7 +32,7 @@ class RuleWidget:
     rule_updated : callable of RulesWidget
     """
 
-    def __init__(self, rule: Rule, X: pd.DataFrame, values_space: bool, init_rules_mask: pd.Series,
+    def __init__(self, rule: Rule, X: pd.DataFrame, y, values_space: bool, init_rules_mask: pd.Series,
                  rule_updated: callable):
         self.rule = rule
         self.X = X
@@ -249,12 +249,14 @@ class RulesWidget:
     def __init__(
             self,
             X: pd.DataFrame,
+            y: pd.Series,
             variables: DataVariables,
             values_space: bool,
             new_rules_defined: callable = None,
     ):
 
         self.X = X
+        self.y = y
         self.variables: DataVariables = variables
         self.rules_mask = None
         self.is_value_space = values_space
@@ -340,10 +342,11 @@ class RulesWidget:
             precision = (new_rules_mask & self.selection_mask).sum() / new_rules_mask.sum()
             recall = (new_rules_mask & self.selection_mask).sum() / self.selection_mask.sum()
             f1 = 2 * (precision * recall) / (precision + recall)
+            target_avg = self.y[new_rules_mask].mean()
         except ZeroDivisionError:
             precision = recall = f1 = -1
 
-        new_score_dict = {"precision": precision, "recall": recall, "f1": f1}
+        new_score_dict = {"precision": precision, "recall": recall, "f1": f1, 'target_avg': target_avg}
 
         self._put_in_db(new_rules_list, new_score_dict)
 
@@ -362,7 +365,7 @@ class RulesWidget:
         Restore the previous rules
         """
         # We remove last rules item from the db:
-        if len(self.rules_db)>1:
+        if len(self.rules_db) > 1:
             self.rules_db.pop(-1)
         self.set_rules_info()
 
@@ -416,8 +419,9 @@ class RulesWidget:
         if self.get_current_rules_list() is None or len(self.get_current_rules_list()) == 0:
             self.rule_widget_list = []
         else:
-            self.rule_widget_list = [RuleWidget(rule, self.X, self.is_value_space, init_rules_mask, self.update_rule)
-                                     for rule in self.get_current_rules_list()]
+            self.rule_widget_list = [
+                RuleWidget(rule, self.X, self.y, self.is_value_space, init_rules_mask, self.update_rule)
+                for rule in self.get_current_rules_list()]
             get_widget(self.root_widget, "1").children = [rule_widget.root_widget for rule_widget in
                                                           self.rule_widget_list]
 
@@ -465,7 +469,8 @@ class RulesWidget:
                 scores_txt = "Precision : " + "{:.2f}".format(
                     self.get_current_scores_dict()['precision']) + ", recall : " + "{:.2f}".format(
                     self.get_current_scores_dict()['recall']) + ", f1_score : " + "{:.2f}".format(
-                    self.get_current_scores_dict()['f1'])
+                    self.get_current_scores_dict()['f1'])+ ", target_avg : " + "{:.2f}".format(
+                    self.get_current_scores_dict()['target_avg'])
                 css = "ml-7 black--text"
         change_widget(self.root_widget, "01", v.Html(class_=css, tag="li", children=[scores_txt]))
 
