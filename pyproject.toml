@@ -42,18 +42,22 @@ skope-rules = {git = "https://github.com/scikit-learn-contrib/skope-rules.git"}
 pandas = "2.1.2"
 jupyter = "^1.0.0"
 pacmap = "^0.7.1"
-python-dotenv = "^1.0.0"
 pygam = "^0.9.0"
 interpret = "^0.4.4"
 voila = "^0.5.5"
 tomaster = "^0.0.5"
 mkdocs = "^1.5.3"
 opentsne = "^1.0.0"
+python-dotenv = "^1.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
 mock = "^5.1.0"
 pytest = "^7.4.3"
+
+
+[tool.poetry.group.demo.dependencies]
+catboost = "^1.2.2"
 
 [project.urls]
 Website = "https://ai-vidence.com/"

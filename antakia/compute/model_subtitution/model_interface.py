@@ -15,7 +15,7 @@ from antakia.compute.model_subtitution.regression_models import LinearRegression
 
 class InterpretableModels:
     def __init__(self, custom_score):
-        self.custom_score = custom_score
+        self.custom_score = custom_score.upper()
         self.models = {}
         self.scores = {}
         self.perfs = pd.DataFrame()

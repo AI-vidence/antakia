@@ -15,21 +15,16 @@ from antakia.compute.model_subtitution.model_interface import InterpretableModel
 import antakia.config as config
 from antakia.data_handler.rules import Rule
 
-from antakia.gui.widgets import (
-    get_widget,
-    change_widget,
-    splash_widget,
-    app_widget
-)
+from antakia.gui.widgets import get_widget, change_widget, splash_widget, app_widget
 from antakia.gui.highdimexplorer import HighDimExplorer
 from antakia.data_handler.projected_values import ProjectedValues
 from antakia.gui.ruleswidget import RulesWidget
 
 import os
+import copy
 
 import logging
 from antakia.utils.logging import conf_logger
-from antakia.utils.utils import timeit
 from antakia.utils.variable import DataVariables
 
 logger = logging.getLogger(__name__)
@@ -50,7 +45,7 @@ class GUI:
 
     Instance Attributes
     ---------------------
-    X : Pandas DataFrame, the orignal dataset 
+    X : Pandas DataFrame, the orignal dataset
     y : Pandas Series, target values
     model : a model
     X_exp : a Pandas DataFrame, containing imported explanations
@@ -67,13 +62,19 @@ class GUI:
 
     """
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, variables: DataVariables,
-                 X_exp: pd.DataFrame | None = None,
-                 score: callable | str = 'mse'):
+    def __init__(
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            model,
+            variables: DataVariables,
+            X_exp: pd.DataFrame | None = None,
+            score: callable | str = "mse",
+    ):
         self.X = X
         self.y = y
         self.model = model
-        self.y_pred = pd.DataFrame(model.predict(X), index=X.index)
+        self.y_pred = pd.Series(model.predict(X), index=X.index)
         self.variables: DataVariables = variables
         self.score = score
 
@@ -84,8 +85,7 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,
             int(config.INIT_FIG_WIDTH / 2),
-            40,  # border size
-            self.selection_changed
+            self.selection_changed,
         )  # type: ignore
         self.vs_rules_wgt = self.es_rules_wgt = None
 
@@ -97,14 +97,13 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,  # We use the same dimension as the VS HDE for now
             int(config.INIT_FIG_WIDTH / 2),
-            40,  # border size
             self.selection_changed,
             self.new_eplanation_values_required,
-            X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df meebns it's an ES HDE
+            X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df (vs None) tells it's an ES HDE
         )
 
-        self.vs_rules_wgt = RulesWidget(self.X, self.variables, True, self.new_rules_defined)
-        self.es_rules_wgt = RulesWidget(self.es_hde.get_current_X(), self.variables, False, self.new_rules_defined)
+        self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True, self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.y, self.variables, False, self.new_rules_defined)
         # We set empty rules for now :
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
@@ -120,32 +119,42 @@ class GUI:
         get_widget(app_widget, "4320").disabled = True
 
     def show_splash_screen(self):
-        """ Displays the splash screen and updates it during the first computations.
-        """
+        """Displays the splash screen and updates it during the first computations."""
         get_widget(splash_widget, "110").color = "light blue"
-        get_widget(splash_widget, "110").v_model = 100
+        get_widget(splash_widget, "110").v_model = 0
         get_widget(splash_widget, "210").color = "light blue"
-        get_widget(splash_widget, "210").v_model = 100
+        get_widget(splash_widget, "210").v_model = 0
         display(splash_widget)
 
         # We trigger VS proj computation :
-        get_widget(splash_widget,
-                   "220").v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X.shape} x 4"
+        get_widget(
+            splash_widget, "220"
+        ).v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X.shape} x 4"
         self.vs_hde.compute_projs(False, self.update_splash_screen)
 
         # We trigger ES explain computation if needed :
-        if self.es_hde.pv_list[1] is None:  # No imported explanation values
+        if self.es_hde.pv_dict['imported_explanations'] is None:  # No imported explanation values
             # We compute default explanations :
-            index = 1 if os.getenv == ExplanationMethod.SHAP else 3
-            get_widget(splash_widget,
-                       "120").v_model = f"{ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
-
-            self.es_hde.pv_list[0] = ProjectedValues(
-                self.new_eplanation_values_required(index, self.update_splash_screen))
+            explain_method = config.DEFAULT_EXPLANATION_METHOD
+            get_widget(
+                splash_widget, "120"
+            ).v_model = (
+                f"Computing {ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
+            )
+            self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
+            self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
+                self.new_eplanation_values_required(explain_method, self.update_splash_screen)
+            )
+            self.es_hde.update_explanation_select()
+            self.es_hde.update_compute_menu()
         else:
-            get_widget(splash_widget, "120").v_model = "Imported values"
+            get_widget(
+                splash_widget, "120"
+            ).v_model = (
+                f"Imported explained values {self.X.shape}"
+            )
 
-        # THen we trigger ES proj computation :
+            # THen we trigger ES proj computation :
         self.es_hde.compute_projs(False, self.update_splash_screen)
 
         splash_widget.close()
@@ -153,12 +162,12 @@ class GUI:
         self.show_app()
 
     def update_splash_screen(self, caller: LongTask, progress: int, duration: float):
-        """ 
+        """
         Updates progress bars of the splash screen
         """
-
+        # We select the proper progress bar :
         if isinstance(caller, ExplanationMethod):
-            # It's an explanation 
+            # It's an explanation
             progress_linear = get_widget(splash_widget, "110")
             number = 1
         else:  # It's a projection
@@ -169,7 +178,10 @@ class GUI:
             progress_linear.color = "blue"
             progress_linear.v_model = 0
 
-        progress_linear.v_model = round(progress / number)
+        if isinstance(caller, ExplanationMethod):
+            progress_linear.v_model = round(progress / number)
+        else:
+            progress_linear.v_model += round(progress / number)
 
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
@@ -192,8 +204,8 @@ class GUI:
             # We're enabled
             if perfs is not None and perfs.shape[0] == 0:
                 # We tell to wait ...
-                vHtml.class_ = 'ml-2 grey--text italic '
-                vHtml.tag = 'h3'
+                vHtml.class_ = "ml-2 grey--text italic "
+                vHtml.tag = "h3"
                 vHtml.children = [f"Sub-models are being evaluated ..."]
                 prog_circular.disabled = False
                 prog_circular.color = "blue"
@@ -203,11 +215,12 @@ class GUI:
 
             elif perfs is not None and perfs.shape[0] > 0:
                 # We have results
-                vHtml.class_ = 'ml-2 black--text'
-                vHtml.tag = 'h3'
+                vHtml.class_ = "ml-2 black--text"
+                vHtml.tag = "h3"
                 vHtml.children = [
                     f"{Rule.multi_rules_to_string(region.rules) if region.rules is not None else 'auto-cluster'}, "
-                    f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"]
+                    f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"
+                ]
 
                 # We stop the progress bar
                 prog_circular.disabled = True
@@ -220,13 +233,13 @@ class GUI:
 
                 for col in perfs.columns:
                     perfs[col] = series_to_str(perfs[col])
-                perfs = perfs.reset_index().rename(columns={'index': 'Sub-model'})
-                perfs['Sub-model'] = perfs['Sub-model'].str.replace('_', ' ').str.capitalize()
+                perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
+                perfs["Sub-model"] = perfs["Sub-model"].str.replace("_", " ").str.capitalize()
                 get_widget(app_widget, "45001").items = perfs.to_dict("records")
             else:
                 # We have no results
-                vHtml.class_ = 'ml-2 red--text'
-                vHtml.tag = 'h3'
+                vHtml.class_ = "ml-2 red--text"
+                vHtml.tag = "h3"
                 vHtml.children = [" Region too small for substitution !"]
                 get_widget(app_widget, "45001").items = []
                 # We stop the progress bar
@@ -235,8 +248,8 @@ class GUI:
                 prog_circular.indeterminate = False
         else:
             # We're disabled
-            vHtml.class_ = 'ml-2 grey--text italic '
-            vHtml.tag = 'h3'
+            vHtml.class_ = "ml-2 grey--text italic "
+            vHtml.tag = "h3"
             vHtml.children = [f"No region selected for substitution"]
             prog_circular.disabled = True
             prog_circular.indeterminate = False
@@ -246,7 +259,7 @@ class GUI:
     def update_regions_table(self):
         # TODO : lenteurs
         """
-        Called to empty / fill the RegionDataTable with our >WXC V
+        Called to empty / fill the RegionDataTable
         """
         temp_items = self.region_set.to_dict()
 
@@ -257,7 +270,8 @@ class GUI:
 
         region_stats = self.region_set.stats()
         get_widget(app_widget, "44002").children = [
-            f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"]
+            f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"
+        ]
 
         # It seems HDEs need to display regions each time we udpate the table :
         self.vs_hde.display_regions(self.region_set)
@@ -265,7 +279,7 @@ class GUI:
 
         # UI rules :
         # If regions coverage > 80%, we disable the 'auto-cluster' button
-        get_widget(app_widget, "4402000").disabled = region_stats['coverage'] > 80
+        get_widget(app_widget, "4402000").disabled = region_stats["coverage"] > 80
 
     def new_eplanation_values_required(self, explain_method: int, callback: callable = None) -> pd.DataFrame:
         """
@@ -274,16 +288,10 @@ class GUI:
         - the ES HighDimExplorer (HDE) when the user wants to compute new explain values
         callback is a HDE function to update the progress linear
         """
-        return compute_explanations(
-            self.X,
-            self.model,
-            explain_method,
-            callback
-        )
+        return compute_explanations(self.X, self.model, explain_method, callback)
 
     def selection_changed(self, caller: HighDimExplorer, new_selection_mask: pd.Series):
-        """ Called when the selection of one HighDimExplorer changes
-        """
+        """Called when the selection of one HighDimExplorer changes"""
 
         # UI rules :
         # Selection (empty or not) we remove any rule or region trace from HDEs
@@ -307,7 +315,7 @@ class GUI:
             get_widget(app_widget, "43030").disabled = True
             # We enable HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(False)
-            # We display tab 1 
+            # We display tab 1
             get_widget(app_widget, "4").v_model = 0
             self.es_hde.disable_widgets(False)
             # We disable the selection datatable :
@@ -323,7 +331,8 @@ class GUI:
             self.es_hde.disable_widgets(True)
             # We show and fill the selection datatable :
             get_widget(app_widget, "4320").disabled = False
-            # TODO : format the cells, remove digits
+            sel_df = copy.copy((self.X.loc[new_selection_mask]))
+            sel_df = round(sel_df, 3)
             change_widget(
                 app_widget,
                 "432010",
@@ -331,10 +340,10 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=self.X.loc[new_selection_mask].to_dict("records"),
+                    items=sel_df.to_dict("records"),
                     hide_default_footer=False,
                     disable_sort=False,
-                )
+                ),
             )
         # We store the new selection
         self.selection_mask = new_selection_mask
@@ -342,7 +351,7 @@ class GUI:
         other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
         other_hde.set_selection(self.selection_mask)
 
-        # UI rules :  
+        # UI rules :
         # We update the selection status :
         selection_status_str_1 = f"{new_selection_mask.sum()} point selected"
         selection_status_str_2 = f"{100 * new_selection_mask.mean():.2f}% of the  dataset"
@@ -350,7 +359,7 @@ class GUI:
         change_widget(app_widget, "430010", selection_status_str_2)
 
     def fig_size_changed(self, widget, event, data):
-        """ Called when the figureSizeSlider changed"""
+        """Called when the figureSizeSlider changed"""
         self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model / 2)
         self.vs_hde.redraw()
         self.es_hde.redraw()
@@ -379,7 +388,7 @@ class GUI:
 
         # --------- Two HighDimExplorers ----------
 
-        # We attach each HighDimExplorers component to the app_graph:        
+        # We attach each HighDimExplorers component to the app_graph:
         change_widget(app_widget, "201", self.vs_hde.container),
         change_widget(app_widget, "14", self.vs_hde.get_projection_select())
         change_widget(app_widget, "16", self.vs_hde.get_projection_prog_circ())
@@ -401,19 +410,23 @@ class GUI:
         # --------- ColorChoiceBtnToggle ------------
         def change_color(widget, event, data):
             """
-                Called with the user clicks on the colorChoiceBtnToggle
-                Allows change the color of the dots
+            Called with the user clicks on the colorChoiceBtnToggle
+            Allows change the color of the dots
             """
-            self.color = None
-            if data == "y":
-                self.color = self.y
-            elif data == "y^":
-                self.color = self.y_pred
-            elif data == "residual":
-                self.color = (self.y - self.y_pred)
 
-            self.vs_hde.redraw(self.color)
-            self.es_hde.redraw(self.color)
+            # Color : a pd.Series with one color value par row
+
+            color = None
+
+            if data == "y":
+                color = self.y
+            elif data == "y^":
+                color = self.y_pred
+            elif data == "residual":
+                color = self.y - self.y_pred
+
+            self.vs_hde.redraw(color)
+            self.es_hde.redraw(color)
 
         # Set "change" event on the Button Toggle used to chose color
         get_widget(app_widget, "11").on_event("change", change_color)
@@ -439,12 +452,15 @@ class GUI:
 
         def compute_skope_rules(widget, event, data):
             # if clicked, selection can't be empty
-            # Let's disable the Skope button. I will be re-enabled if a new selection occurs
+            assert self.selection_mask.any()
+            # Let's disable the Skope button. It will be re-enabled if a new selection occurs
             get_widget(app_widget, "43010").disabled = True
 
             hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
             rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
-            skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.get_current_X(), self.variables)
+
+            skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
+            skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
             if len(skr_rules_list) > 0:  # SKR rules found
                 # UI rules :
                 # We enable the 'validate rule' button
@@ -454,7 +470,7 @@ class GUI:
                 rsw.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
             else:
                 # No skr found
-                rsw.show_msg("No Skope rules found", "red--text")
+                rsw.show_msg("No rules found", "red--text")
 
         # We wire the click event on the 'Skope-rules' button
         get_widget(app_widget, "43010").on_event("click", compute_skope_rules)
@@ -499,6 +515,11 @@ class GUI:
             # We add them to our region_set
 
             region = self.region_set.add_region(rules=rules_list)
+            # UI rules: we disable HDEs selection of we have one or more regions
+            if len(self.region_set) > 0:
+                self.vs_hde.disable_selection(True)
+                self.es_hde.disable_selection(True)
+
             region.validate()
 
             # And update the rules table (tab 2)
@@ -558,8 +579,9 @@ class GUI:
             # We update the substitution table once to show the name of the region
             self.update_substitution_table(region, pd.DataFrame())
 
-            perfs = InterpretableModels(self.score).get_models_performance(self.model, self.X.loc[region.mask],
-                                                                           self.y.loc[region.mask])
+            perfs = InterpretableModels(self.score).get_models_performance(
+                self.model, self.X.loc[region.mask], self.y.loc[region.mask]
+            )
 
             # We update the substitution table a second time to show the results
             self.update_substitution_table(region, perfs)
@@ -568,7 +590,7 @@ class GUI:
         get_widget(app_widget, "4401000").on_event("click", substitute_clicked)
 
         # UI rules :
-        # The 'substitute' button is disabled at startup; it'es enabled when a region is selected 
+        # The 'substitute' button is disabled at startup; it'es enabled when a region is selected
         # and disabled if no region is selected or when substitute is pressed
         get_widget(app_widget, "4401000").disabled = True
 
@@ -583,10 +605,15 @@ class GUI:
                 get_widget(app_widget, "43010").disabled = False
 
             self.update_regions_table()
-            # THere is no more selected region
+            # There is no more selected region
             self.selected_region_num = None
             get_widget(app_widget, "440110").disabled = True
             get_widget(app_widget, "4401000").disabled = True
+
+            # UI rules: if region table is emptye, HDE are selectable again
+            if len(self.region_set) == 0:
+                self.vs_hde.disable_selection(False)
+                self.es_hde.disable_selection(False)
 
         # We wire events on the 'delete' button:
         get_widget(app_widget, "440110").on_event("click", delete_region_clicked)
@@ -615,19 +642,23 @@ class GUI:
             for mask in rules_mask_list:
                 not_rules_indexes_list &= ~mask
 
-            vs_proj_3d_df = self.vs_hde.pv_list[0].get_proj_values(self.vs_hde._get_projection_method(), 3)
-            es_proj_3d_df = self.es_hde.pv_list[self.es_hde.current_pv].get_proj_values(
-                self.es_hde._get_projection_method(), 3)
+            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
+            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
 
             ac = AutoCluster(vs_proj_3d_df.loc[not_rules_indexes_list], update_ac_progress_bar)
             found_clusters = ac.compute(
                 es_proj_3d_df.loc[not_rules_indexes_list],
                 # We send 'auto' or we read the number of clusters from the Slider
-                'auto' if get_widget(app_widget, '440211').v_model else get_widget(app_widget, "4402100").v_model
+                "auto" if get_widget(app_widget, "440211").v_model else get_widget(app_widget, "4402100").v_model,
             )  # type: ignore
 
             for cluster_num in found_clusters.unique():
                 self.region_set.add_region(mask=(found_clusters == cluster_num))
+
+            # UI rules: we disable HDEs selection of we have one or more regions
+            if len(self.region_set) > 0:
+                self.vs_hde.disable_selection(True)
+                self.es_hde.disable_selection(True)
 
             self.update_regions_table()
 
@@ -641,7 +672,7 @@ class GUI:
 
             get_widget(app_widget, "440212").v_model = progress
             # We re-enable the button
-            get_widget(app_widget, "4402000").disabled = (progress == 100)
+            get_widget(app_widget, "4402000").disabled = progress == 100
 
         # We wire events on the 'auto-cluster' button :
         get_widget(app_widget, "4402000").on_event("click", auto_cluster_clicked)
@@ -695,14 +726,13 @@ class GUI:
 
             # We use this GUI attribute to store the selected sub-model
             # TODO : read the selected sub-model from the SubModelTable
-            self.validated_sub_model_dict = data['item'] if is_selected else None
+            self.validated_sub_model_dict = data["item"] if is_selected else None
             get_widget(app_widget, "450100").disabled = True if not is_selected else False
 
         # We wire a select event on the 'substitution table' :
         get_widget(app_widget, "45001").set_callback(sub_model_selected)
 
         def validate_sub_model(widget, event, data):
-
             # We get the sub-model data from the SubModelTable:
             # get_widget(app_widget,"45001").items[self.validated_sub_model]
 
@@ -719,10 +749,7 @@ class GUI:
 
             # We udpate the region
             region = self.region_set.get(self.selected_region_num)
-            region.set_model(
-                self.validated_sub_model_dict["Sub-model"],
-                f"{score_name} : {score_val:.2f}"
-            )
+            region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
 
             # update_table
             self.update_regions_table()

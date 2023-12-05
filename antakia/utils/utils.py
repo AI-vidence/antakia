@@ -4,6 +4,8 @@ Utils module for the antakia package.
 import time
 
 import numpy as np
+from functools import wraps
+
 import pandas as pd
 
 
@@ -72,6 +74,17 @@ def timeit(method):
         return result
 
     return timed
+
+
+def debug(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"Calling {func.__name__} with args: {args} and kwargs: {kwargs}")
+        result = func(*args, **kwargs)
+        print(f"{func.__name__} returned: {result}")
+        return result
+
+    return wrapper
 
 
 # First color can't be blue, reserved for the rules

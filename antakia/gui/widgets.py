@@ -743,6 +743,7 @@ app_widget = v.Col(
                             children=["Values space"]
                         ),
                         v.Container(  # VS HDE placeholder # 201
+                            class_="flex-fill yellow",
                             children=[
                                 FigureWidget(
                                     data=[
@@ -757,7 +758,7 @@ app_widget = v.Col(
                                     ],
                                     layout={
                                         'height': 300,
-                                        'margin': {'t': 0, 'b': 0},
+                                        'margin': {'t': 0, 'b': 0, 'l':0, 'r': 0},
                                         'width': 600
                                     }
                                 ),
@@ -776,6 +777,7 @@ app_widget = v.Col(
                             children=["Explanations space"]
                         ),
                         v.Container(  # 211
+                            class_="flex-fill ",
                             children=[
                                 FigureWidget(
                                     data=[
@@ -790,7 +792,7 @@ app_widget = v.Col(
                                     ],
                                     layout={
                                         'height': 300,
-                                        'margin': {'t': 0, 'b': 0},
+                                        'margin': {'t': 0, 'b': 0, 'l':0, 'r': 0},
                                         'width': 600
                                     }
                                 ),
@@ -854,7 +856,7 @@ app_widget = v.Col(
                                                                          "mdi-axis-arrow"
                                                                      ],
                                                                  ),
-                                                                 "Skope rules",
+                                                                 "Find rules",
                                                              ],
                                                          ),
                                                  }

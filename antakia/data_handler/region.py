@@ -5,6 +5,7 @@ import pandas as pd
 from antakia.data_handler.rules import Rule
 from antakia.utils.utils import colors
 
+import antakia.config as cfg
 
 class Region:
     region_colors = colors
@@ -40,11 +41,13 @@ class Region:
         self.score = score
 
     def to_dict(self):
+        rules_to_str= Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
+        rules_to_str = (rules_to_str[:cfg.MAX_RULES_DESCR_LENGTH] + '..') if len(rules_to_str) > cfg.MAX_RULES_DESCR_LENGTH else rules_to_str
         return {
             "Region": self.num,
-            "Rules": Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster",
+            "Rules": rules_to_str,
             "Points": self.mask.sum(),
-            "% dataset": f"{self.mask.mean() * 100}%",
+            "% dataset": f"{round(self.mask.mean() * 100,3)}%",
             "Sub-model": self.model,
             "Score": self.score,
             'color': self.color
@@ -66,7 +69,7 @@ class RegionSet:
         self.insert_order = []
         self.X = X
 
-    def get_num(self):
+    def get_new_num(self):
         if len(self.regions) == 0:
             return 1
         else:
@@ -81,7 +84,7 @@ class RegionSet:
         return max(self.insert_order)
 
     def add(self, region: Region):
-        num = self.get_num()
+        num = self.get_new_num()
         self.regions[num] = region
         self.insert_order.append(num)
         region.num = num
@@ -141,6 +144,6 @@ class RegionSet:
         stats = {
             'regions': len(self),
             'points': union_mask.sum(),
-            'coverage': round(100 * union_mask.mean())
+            'coverage': round(100 * union_mask.mean()),
         }
         return stats
