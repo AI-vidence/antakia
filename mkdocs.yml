@@ -1,8 +1,13 @@
 site_name: AntakIA. AI explained.
 
 site_url: https://example.com/
+
 nav:
   - Home: index.md
   - About: about.md
+  - Installation: install.md
+  - Usage: usage.md
+  - Explainability: explain.md
+  - Credits: credits.md
 
 theme: readthedocs
