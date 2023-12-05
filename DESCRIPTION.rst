@@ -1,1 +1,0 @@
-XAI made simple! - AI-vidence
