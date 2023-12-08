@@ -7,6 +7,7 @@ from antakia.utils.utils import colors
 
 import antakia.config as cfg
 
+
 class Region:
     region_colors = colors
 
@@ -41,13 +42,14 @@ class Region:
         self.score = score
 
     def to_dict(self):
-        rules_to_str= Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
-        rules_to_str = (rules_to_str[:cfg.MAX_RULES_DESCR_LENGTH] + '..') if len(rules_to_str) > cfg.MAX_RULES_DESCR_LENGTH else rules_to_str
+        rules_to_str = Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
+        rules_to_str = (rules_to_str[:cfg.MAX_RULES_DESCR_LENGTH] + '..') if len(
+            rules_to_str) > cfg.MAX_RULES_DESCR_LENGTH else rules_to_str
         return {
             "Region": self.num,
             "Rules": rules_to_str,
             "Points": self.mask.sum(),
-            "% dataset": f"{round(self.mask.mean() * 100,3)}%",
+            "% dataset": f"{round(self.mask.mean() * 100, 3)}%",
             "Sub-model": self.model,
             "Score": self.score,
             'color': self.color
@@ -84,10 +86,11 @@ class RegionSet:
         return max(self.insert_order)
 
     def add(self, region: Region):
-        num = self.get_new_num()
-        self.regions[num] = region
-        self.insert_order.append(num)
-        region.num = num
+        if region.num < 0 or self.get(region.num) is not None:
+            num = self.get_new_num()
+            region.num = num
+        self.regions[region.num] = region
+        self.insert_order.append(region.num)
 
     def remove(self, region_num):
         del self.regions[region_num]
@@ -119,6 +122,7 @@ class RegionSet:
         if mask is not None:
             mask = mask.reindex(self.X.index).fillna(False)
         region = Region(X=self.X, rules=rules, mask=mask, color=color)
+        region.num = -1
         self.add(region)
         return region
 
