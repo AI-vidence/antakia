@@ -226,7 +226,7 @@ class HighDimExplorer:
         """
         # We use two extra traces in the figure : the rules and the regions traces (1 and 2)
 
-        if len(region_set) == 0 or not region_set.get(1).mask.any():
+        if len(region_set) == 0 or not region_set.get(region_set.get_max_num()).mask.any():
             # We need to clean the trace - we just hide it
             self.figure_2D.data[trace_id].visible = False
             self.figure_3D.data[trace_id].visible = False
