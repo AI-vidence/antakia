@@ -207,7 +207,8 @@ class HighDimExplorer:
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
         rs = RegionSet(self.current_X)
-        rs.add_region(mask=mask, color=color)
+        if mask is not None and not mask.all() and mask.any():
+            rs.add_region(mask=mask, color=color)
         self._display_zones(rs, 1)
 
     def display_regions(self, region_set: RegionSet):
