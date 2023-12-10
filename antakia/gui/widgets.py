@@ -16,9 +16,6 @@ import logging
 
 from antakia.utils.utils import colors
 
-logger = logging.getLogger(__name__)
-conf_logger(logger)
-
 
 def get_widget(root_widget: Widget, address: str) -> Widget:
     """

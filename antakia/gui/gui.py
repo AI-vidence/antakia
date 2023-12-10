@@ -258,7 +258,6 @@ class GUI:
             get_widget(app_widget, "45001").items = []
 
     def update_regions_table(self):
-        # TODO : lenteurs
         """
         Called to empty / fill the RegionDataTable
         """
@@ -295,39 +294,32 @@ class GUI:
         """Called when the selection of one HighDimExplorer changes"""
 
         # UI rules :
-        # Selection (empty or not) we remove any rule or region trace from HDEs
+        # If new selection (empty or not) : if exist, we remove any 'pending rule'
         self.vs_hde.display_rules(None)
-        self.es_hde.display_rules(None)
-        self.region_set.pop_last()
-        self.update_regions_table()
-
-        # Selection (empty or not) we reset both RulesWidgets
         self.vs_rules_wgt.disable()
+        self.es_hde.display_rules(None)
         self.es_rules_wgt.disable()
 
-        self.selection_mask = new_selection_mask
-
         if not new_selection_mask.any():
+            # Selection is empty
             # UI rules :
-            # We disable the Skope button
+            # We disable the 'Find-rules' button
             get_widget(app_widget, "43010").disabled = True
             # We disable 'undo' and 'validate rules' buttons
             get_widget(app_widget, "4302").disabled = True
             get_widget(app_widget, "43030").disabled = True
-            # We enable HDEs (proj select, explain select etc.)
+            # We enable both HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(False)
-            # We display tab 1
-            get_widget(app_widget, "4").v_model = 0
             self.es_hde.disable_widgets(False)
             # We disable the selection datatable :
             get_widget(app_widget, "4320").disabled = True
 
         else:
-            # Selection is not empty anymore / changes
+            # Selection is not empty anymore or changes
             # UI rules :
-            # We enable the SkopeButton
+            # We enable the 'Find-rules' button
             get_widget(app_widget, "43010").disabled = False
-            # We disable HDEs
+            # We disable HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(True)
             self.es_hde.disable_widgets(True)
             # We show and fill the selection datatable :
@@ -346,13 +338,13 @@ class GUI:
                     disable_sort=False,
                 ),
             )
+        
         # We store the new selection
         self.selection_mask = new_selection_mask
         # We synchronize selection between the two HighDimExplorers
         other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
         other_hde.set_selection(self.selection_mask)
 
-        # UI rules :
         # We update the selection status :
         selection_status_str_1 = f"{new_selection_mask.sum()} point selected"
         selection_status_str_2 = f"{100 * new_selection_mask.mean():.2f}% of the  dataset"
@@ -460,6 +452,8 @@ class GUI:
         
         # We wire the click event on 'Tab 1'
         get_widget(app_widget, "40").on_event("click", tab_one_rules)
+        # We call it at startup :
+        tab_one_rules(get_widget(app_widget, "40"), 'soft', None)
         
         # We add our 2 RulesWidgets to the GUI :
         change_widget(app_widget, "4310", self.vs_rules_wgt.root_widget)
@@ -536,11 +530,13 @@ class GUI:
             # And update the rules table (tab 2)
             self.update_regions_table()
             # UI rules :
-            # We clear selection
-            self.es_hde._deselection_event(None, None, False)
-            self.vs_hde._deselection_event(None, None, False)
-            # We force tab 2
-            get_widget(app_widget, "4").v_model = 1
+            for hde in [self.vs_hde, self.es_hde]:
+                # We clear selection
+                hde._deselection_event(None, None, False)
+                # We display regions
+                hde.display_regionset(self.region_set)
+            # We show tab 2
+            tab_two_rules(get_widget(app_widget, "4"), 'soft', None)
 
             # We clear the RulesWidget
             rules_widget.disable()
@@ -565,6 +561,7 @@ class GUI:
         # ================ Tab 2 : regions ===============
 
         def tab_two_rules(widget, event, data):
+            widget.v_model = 1
             for hde in [self.vs_hde, self.es_hde]:
                 # In Tab 2, HDE only display traces 0 (original dots) and 2 and ('regions')
                 hde.show_trace(HighDimExplorer.VALUES_TRACE, True) 
@@ -596,9 +593,15 @@ class GUI:
 
         def substitute_clicked(widget, event, data):
             assert self.selected_region_num is not None
+
+            # We show tab 3 "substitution"
             get_widget(app_widget, "4").v_model = 2
 
             region = self.region_set.get(self.selected_region_num)
+            
+            # We display the region on HDEs
+            for hde in  [self.vs_hde, self.es_hde]:
+                hde.display_region(region)
 
             # We update the substitution table once to show the name of the region
             self.update_substitution_table(region, pd.DataFrame())
@@ -727,10 +730,13 @@ class GUI:
         # We wire events on the num cluster Slider
         get_widget(app_widget, "4402100").on_event("change", num_cluster_changed)
 
-        # UI rules : at startup, the slider is is disabled and the chckbox is checked
+        # UI rules : at startup, the slider is is disabled and the checkbox is checked
         get_widget(app_widget, "4402100").disabled = True
 
         self.update_regions_table()
+        # At startup, REGIONSET_TRACE is not visible  
+        for hde in [self.vs_hde, self.es_hde]:
+            hde.show_trace(HighDimExplorer.REGIONSET_TRACE, False)
 
         # ============== Tab 3 : substitution ==================
 
