@@ -9,7 +9,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from antakia.compute.dim_reduction.dim_reduction import compute_projection
 from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
-from antakia.data_handler.region import RegionSet
+from antakia.data_handler.region import Region, RegionSet
 
 from antakia.gui.widgets import get_widget, app_widget
 
@@ -32,9 +32,9 @@ class HighDimExplorer:
 
     Implemntation details :
     It handes projections computation itself when needed.
-    But, it asks GUI when another dataframe is asked for.
+    But, it asks GUI when another dataframe is asked for (eg. compute SHAP or LIME)
     It stores dataframes with the ProjectedValues class.
-    It stored the current projection method (in widget) but not the dimension
+    It stored the current projection method (in widget) but not the dimension (see _current_dim)
     Attributes are mostly privates (underscorred) since they are not meant to be used outside of the class.
 
     Attributes :
@@ -60,6 +60,12 @@ class HighDimExplorer:
     fig_size : int
 
     """
+
+    # Trace indexes : 0 for values, 1 for rules, 2 for regions
+    VALUES_TRACE = 0
+    RULES_TRACE = 1
+    REGIONSET_TRACE = 2
+    REGION_TRACE = 3
 
     def __init__(
             self,
@@ -192,9 +198,14 @@ class HighDimExplorer:
             dragmode=False if is_disabled else "lasso"
         )
 
+    def show_trace(self, trace_id: int, show:bool):
+        self.figure_2D.data[trace_id].visible = show
+        self.figure_3D.data[trace_id].visible = show
+
+
     def disable_widgets(self, is_disabled: bool):
         """
-        Called by GUI to enable/disable proj changes
+        Called by GUI to enable/disable proj changes and explaination computation or change
         """
         self.get_projection_select().disabled = is_disabled
         self.get_proj_params_menu().disabled = is_disabled
@@ -207,25 +218,29 @@ class HighDimExplorer:
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
         rs = RegionSet(self.current_X)
-        if mask is not None and not mask.all() and mask.any():
-            rs.add_region(mask=mask, color=color)
-        self._display_zones(rs, 1)
+        rs.add_region(mask=mask, color=color)
+        self._display_zones(rs, HighDimExplorer.RULES_TRACE)
 
-    def display_regions(self, region_set: RegionSet):
+    def display_regionset(self, region_set: RegionSet):
         """"
         Displays each region in a different color
         """
-        self._display_zones(region_set, 2)
+        self._display_zones(region_set, HighDimExplorer.REGIONSET_TRACE)
+
+    def display_region(self, region: Region):
+        rs = RegionSet(self.current_X)
+        rs.add_region(region)
+        self._display_zones(rs, HighDimExplorer.REGION_TRACE)
 
     def _display_zones(self, region_set: RegionSet, trace_id):
         """
-        Paint on our extra scatter one or more zones (list of pv_list[0].X indexes) using
-        the passed colors. Zones may be regions or rules
+        Paint on our extra scatter one or more zones using
+        the passed colors. Zones may be region(s) or rules
         if index_list is None, we restore the original color
         Common method for display_rules and display_regions
-        trace_id : (0 for default scatter plot) 1 for rules and 2 for regions
+        trace_id : (0 for default scatter plot) 1 for 'rules in progress' and 2 for 'regions' and 3 for 'region'
         """
-        # We use two extra traces in the figure : the rules and the regions traces (1 and 2)
+        # We use three extra traces in the figure : the rules, the regions and the region traces (1, 2 and 3)
 
         if len(region_set) == 0 or not region_set.get(region_set.get_max_num()).mask.any():
             # We need to clean the trace - we just hide it

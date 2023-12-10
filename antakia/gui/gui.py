@@ -1,4 +1,5 @@
 from __future__ import annotations
+from arrow import get
 import pandas as pd
 
 import ipyvuetify as v
@@ -274,8 +275,8 @@ class GUI:
         ]
 
         # It seems HDEs need to display regions each time we udpate the table :
-        self.vs_hde.display_regions(self.region_set)
-        self.es_hde.display_regions(self.region_set)
+        self.vs_hde.display_regionset(self.region_set)
+        self.es_hde.display_regionset(self.region_set)
 
         # UI rules :
         # If regions coverage > 80%, we disable the 'auto-cluster' button
@@ -384,30 +385,30 @@ class GUI:
         get_widget(app_widget, "43030").disabled = rules_widget.rules_num < 0
 
     def show_app(self):
-        # AppBar
+        # =================== AppBar ===================
 
-        # --------- Two HighDimExplorers ----------
-
-        # We attach each HighDimExplorers component to the app_graph:
-        change_widget(app_widget, "201", self.vs_hde.container),
-        change_widget(app_widget, "14", self.vs_hde.get_projection_select())
-        change_widget(app_widget, "16", self.vs_hde.get_projection_prog_circ())
-        change_widget(app_widget, "15", self.vs_hde.get_proj_params_menu())
-        change_widget(app_widget, "211", self.es_hde.container)
-        change_widget(app_widget, "17", self.es_hde.get_projection_select())
-        change_widget(app_widget, "19", self.es_hde.get_projection_prog_circ())
-        change_widget(app_widget, "18", self.es_hde.get_proj_params_menu())
-        change_widget(app_widget, "12", self.es_hde.get_explanation_select())
-        change_widget(app_widget, "13", self.es_hde.get_compute_menu())
-
-        # ------------------ figure size ---------------
+        # ------------------Figure size -----------------
 
         # We wire the input event on the figureSizeSlider (050100)
         get_widget(app_widget, "03000").on_event("input", self.fig_size_changed)
         # We set the init value to default :
         get_widget(app_widget, "03000").v_model = config.INIT_FIG_WIDTH
 
-        # --------- ColorChoiceBtnToggle ------------
+         # -------------- Dimension Switch --------------
+
+        def switch_dimension(widget, event, data):
+            """
+            Called when the switch changes.
+            We call the HighDimExplorer to update its figure and, enventually,
+            compute its proj
+            """
+            self.vs_hde.set_dimension(3 if data else 2)
+            self.es_hde.set_dimension(3 if data else 2)
+
+        get_widget(app_widget, "100").v_model == config.DEFAULT_VS_DIMENSION
+        get_widget(app_widget, "100").on_event("change", switch_dimension)
+
+        # -------------- ColorChoiceBtnToggle ------------
         def change_color(widget, event, data):
             """
             Called with the user clicks on the colorChoiceBtnToggle
@@ -431,21 +432,35 @@ class GUI:
         # Set "change" event on the Button Toggle used to chose color
         get_widget(app_widget, "11").on_event("change", change_color)
 
-        # ------- Dimension Switch ----------
-        def switch_dimension(widget, event, data):
-            """
-            Called when the switch changes.
-            We call the HighDimExplorer to update its figure and, enventually,
-            compute its proj
-            """
-            self.vs_hde.set_dimension(3 if data else 2)
-            self.es_hde.set_dimension(3 if data else 2)
+        # ============== HighDimExplorers ===============
 
-        get_widget(app_widget, "100").v_model == config.DEFAULT_VS_DIMENSION
-        get_widget(app_widget, "100").on_event("change", switch_dimension)
+        # We attach each HighDimExplorers component to the app_graph:
+        change_widget(app_widget, "201", self.vs_hde.container),
+        change_widget(app_widget, "14", self.vs_hde.get_projection_select())
+        change_widget(app_widget, "16", self.vs_hde.get_projection_prog_circ())
+        change_widget(app_widget, "15", self.vs_hde.get_proj_params_menu())
+        change_widget(app_widget, "211", self.es_hde.container)
+        change_widget(app_widget, "17", self.es_hde.get_projection_select())
+        change_widget(app_widget, "19", self.es_hde.get_projection_prog_circ())
+        change_widget(app_widget, "18", self.es_hde.get_proj_params_menu())
+        change_widget(app_widget, "12", self.es_hde.get_explanation_select())
+        change_widget(app_widget, "13", self.es_hde.get_compute_menu())   
 
-        # ------------- Tab 1 Selection ----------------
+        # ================ Tab 1 Selection ================
 
+        def tab_one_rules(widget, event, data):
+            for hde in [self.vs_hde, self.es_hde]:
+                # In Tab 1, HDE only display traces 0 (original dots) and 1 and ('rule-in-progress')
+                hde.show_trace(HighDimExplorer.VALUES_TRACE, True) 
+                hde.show_trace(HighDimExplorer.RULES_TRACE, True) 
+                hde.show_trace(HighDimExplorer.REGIONSET_TRACE, False)
+                hde.show_trace(HighDimExplorer.REGION_TRACE, False)
+                # and it's the only place where selection is allowed
+                hde.disable_selection(False)
+        
+        # We wire the click event on 'Tab 1'
+        get_widget(app_widget, "40").on_event("click", tab_one_rules)
+        
         # We add our 2 RulesWidgets to the GUI :
         change_widget(app_widget, "4310", self.vs_rules_wgt.root_widget)
         change_widget(app_widget, "4311", self.es_rules_wgt.root_widget)
@@ -472,12 +487,10 @@ class GUI:
                 # No skr found
                 rsw.show_msg("No rules found", "red--text")
 
-        # We wire the click event on the 'Skope-rules' button
+        # We wire the click event on the 'Find-rules' button
         get_widget(app_widget, "43010").on_event("click", compute_skope_rules)
         # UI rules :
-        # The Skope rules button is disabled at startup
-        # It's only enabled when a selection occurs - when the selection is empty, it's disabled again
-        # Startup status :
+        # The Find-rules button is disabled at startup. It's only enabled when a selection occurs - when the selection is empty, it's disabled again
         get_widget(app_widget, "43010").disabled = True
 
         def undo(widget, event, data):
@@ -501,8 +514,6 @@ class GUI:
         # Its enabled when rules graphs have been updated with rules
 
         def validate_rules(widget, event, data):
-            # We get the rules to validate
-            # TODO : changer la façon de récupérer les règles
             if self.vs_rules_wgt.rules_num >= 0:
                 rules_widget = self.vs_rules_wgt
                 hde = self.vs_hde
@@ -551,7 +562,20 @@ class GUI:
         # It's enabled when a SKR rules has been found and is disabled when the selection gets empty
         # or when validated is pressed
 
-        # ------------- Tab 2 : regions -----------
+        # ================ Tab 2 : regions ===============
+
+        def tab_two_rules(widget, event, data):
+            for hde in [self.vs_hde, self.es_hde]:
+                # In Tab 2, HDE only display traces 0 (original dots) and 2 and ('regions')
+                hde.show_trace(HighDimExplorer.VALUES_TRACE, True) 
+                hde.show_trace(HighDimExplorer.RULES_TRACE, False) 
+                hde.show_trace(HighDimExplorer.REGIONSET_TRACE, True)
+                hde.show_trace(HighDimExplorer.REGION_TRACE, False)
+                # and selection is not allowed
+                hde.disable_selection(True)
+        
+        # We wire the click event on 'Tab 2'
+        get_widget(app_widget, "41").on_event("click", tab_two_rules)
 
         def region_selected(data):
             is_selected = data["value"]
@@ -610,10 +634,6 @@ class GUI:
             get_widget(app_widget, "440110").disabled = True
             get_widget(app_widget, "4401000").disabled = True
 
-            # UI rules: if region table is emptye, HDE are selectable again
-            if len(self.region_set) == 0:
-                self.vs_hde.disable_selection(False)
-                self.es_hde.disable_selection(False)
 
         # We wire events on the 'delete' button:
         get_widget(app_widget, "440110").on_event("click", delete_region_clicked)
@@ -655,9 +675,6 @@ class GUI:
             for cluster_num in found_clusters.unique():
                 self.region_set.add_region(mask=(found_clusters == cluster_num))
 
-            # UI rules: we disable HDEs selection of we have one or more regions
-            if len(self.region_set) > 0:
-                self.vs_hde.disable_selection(True)
                 self.es_hde.disable_selection(True)
 
             self.update_regions_table()
@@ -715,7 +732,20 @@ class GUI:
 
         self.update_regions_table()
 
-        # ------------- Tab 3 : substitution -----------
+        # ============== Tab 3 : substitution ==================
+
+        def tab_three_rules(widget, event, data):
+            for hde in [self.vs_hde, self.es_hde]:
+                # In Tab 2, HDE only display traces 0 (original dots) and 2 and ('regions')
+                hde.show_trace(HighDimExplorer.VALUES_TRACE, True) 
+                hde.show_trace(HighDimExplorer.RULES_TRACE, False) 
+                hde.show_trace(HighDimExplorer.REGIONSET_TRACE, False)
+                hde.show_trace(HighDimExplorer.REGION_TRACE, True)
+                # and selection is not allowed
+                hde.disable_selection(True)
+        
+        # We wire the click event on 'Tab 3'
+        get_widget(app_widget, "42").on_event("click", tab_three_rules)
 
         # UI rules :
         # At startup the validate sub-model btn is disabled :
@@ -753,7 +783,7 @@ class GUI:
 
             # update_table
             self.update_regions_table()
-            # Force tab 2 / disable tab 1
+            # Show tab 2
             get_widget(app_widget, "4").v_model = 1
 
         # We wire a ckick event on the "validate sub-model" button :
