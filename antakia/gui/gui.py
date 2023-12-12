@@ -78,7 +78,11 @@ class GUI:
         self.y_pred = pd.Series(model.predict(X), index=X.index)
         self.variables: DataVariables = variables
         self.score = score
-
+        if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+            raise IndexError('X and X_exp must share the same index')
+        if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+            raise IndexError('X and y must share the same index')
+        print(len(X))
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
             self.X,
@@ -451,8 +455,6 @@ class GUI:
         # ================ Tab 1 Selection ================
 
         # We wire the click event on 'Tab 1'
-        get_widget(app_widget, "40").on_event("click", tab_one_rules)
-        
         get_widget(app_widget, "40").on_event("click", self.select_tab(1))
 
         # We add our 2 RulesWidgets to the GUI :
