@@ -165,6 +165,7 @@ class HighDimExplorer:
 
         self._current_selection = pd.Series([False] * len(X), index=X.index)
         self._has_lasso = False
+        self.active_tab = 0
 
     def wire(self, init_proj):
         self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
@@ -741,5 +742,10 @@ class HighDimExplorer:
         self.show_trace(HighDimExplorer.RULES_TRACE, tab == 1)
         self.show_trace(HighDimExplorer.REGIONSET_TRACE, tab == 2)
         self.show_trace(HighDimExplorer.REGION_TRACE, tab == 3)
+        self.show_trace(self.VALUES_TRACE, True)
+        self.show_trace(self.RULES_TRACE, tab == 1)
+        self.show_trace(self.REGIONSET_TRACE, tab == 2)
+        self.show_trace(self.REGION_TRACE, tab == 3)
         # and it's the only place where selection is allowed
         self.disable_selection(tab != 1)
+        self.active_tab = tab
