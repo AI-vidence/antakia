@@ -22,6 +22,7 @@ from antakia.data_handler.projected_values import ProjectedValues
 
 import logging as logging
 from antakia.utils.logging import conf_logger
+
 logger = logging.getLogger(__name__)
 conf_logger(logger)
 
@@ -64,15 +65,14 @@ class HighDimExplorer:
     """
 
     # Trace indexes : 0 for values, 1 for rules, 2 for regions
-    NUM_TRACES=4
+    NUM_TRACES = 4
     VALUES_TRACE = 0
     RULES_TRACE = 1
     REGIONSET_TRACE = 2
     REGION_TRACE = 3
 
-
     @staticmethod
-    def trace_name(trace_id:int)-> str:
+    def trace_name(trace_id: int) -> str:
         if trace_id == HighDimExplorer.VALUES_TRACE:
             return 'values trace'
         elif trace_id == HighDimExplorer.RULES_TRACE:
@@ -266,53 +266,48 @@ class HighDimExplorer:
         Common method for display_rules and display_regions
         trace_id : (0 for default scatter plot) 1 for 'rules in progress' and 2 for 'regions' and 3 for 'region'
         """
+
         # We use three extra traces in the figure : the rules, the regions and the region traces (1, 2 and 3)
 
-        if len(region_set) == 0 or not region_set.get(1).mask.any():
-            # We need to clean the trace - we just hide it
-            self.figure_2D.data[trace_id].visible = False
-            self.figure_3D.data[trace_id].visible = False
-            # And we're done
-            return
-
-        def _display_zone_on_figure(fig: FigureWidget, trace_id: int, colors: pd.Series):
-            """
-            Draws one zone on one figure using the passed colors
-            """
-
-            dim = 2 if isinstance(fig.data[0], Scattergl) else 3
-
-            values = self.get_current_X_proj(dim)
-            colors = colors[self.mask]
-
-            #  We won't plot data with transparent color
-            values = values.loc[colors != 'transparent']
-            colors = colors.loc[colors != 'transparent']
-
-            transparency = (len(self.pv_dict['original_values'].X) - len(colors)) / len(self.pv_dict['original_values'].X)
-
-            logger.debug(f"HDE.dzonf: {self.get_space_name()}/{dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure_2D.data[trace_id].visible if dim == 2 else self.figure_3D.data[trace_id].visible}, transparency:{round(100*transparency,2)}%")
-
-            x = values[0]
-            y = values[1]
-            if dim == 3:
-                z = values[2]
-            else:
-                z = None
-
-            with fig.batch_update():
-                fig.data[trace_id].x = x
-                fig.data[trace_id].y = y
-                if dim == 3:
-                    fig.data[trace_id].z = z
-                fig.layout.width = self.fig_size
-                fig.data[trace_id].marker.color = colors
-
-        # List of color names, 1 per point. 
+        # pd Series of color names, 1 per point.
         colors = region_set.get_color_serie()
 
-        _display_zone_on_figure(self.figure_2D, trace_id, colors)
-        _display_zone_on_figure(self.figure_3D, trace_id, colors)
+        self.set_color_all_dim(trace_id=trace_id, color=colors)
+
+    def set_color(self, fig: FigureWidget, trace_id: int, colors: pd.Series, dim):
+        """
+        Draws one zone on one figure using the passed colors
+        """
+
+        values = self.get_current_X_proj(dim)
+        colors = colors[self.mask]
+
+        #  We won't plot data with transparent color
+        values = values.loc[colors != 'transparent']
+        colors = colors.loc[colors != 'transparent']
+
+        transparency = (len(self.pv_dict['original_values'].X) - len(colors)) / len(
+            self.pv_dict['original_values'].X)
+
+        print(
+            f"HDE.dzonf: {self.get_space_name()}/{dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure_2D.data[trace_id].visible if dim == 2 else self.figure_3D.data[trace_id].visible}, transparency:{round(100 * transparency, 2)}%")
+
+        x = values[0]
+        y = values[1]
+        if dim == 3:
+            z = values[2]
+
+        with fig.batch_update():
+            fig.data[trace_id].x = x
+            fig.data[trace_id].y = y
+            if dim == 3:
+                fig.data[trace_id].z = z
+            fig.layout.width = self.fig_size
+            fig.data[trace_id].marker.color = colors
+
+    def set_color_all_dim(self, color, trace_id):
+        self.set_color(self.figure_2D, trace_id, color, dim=2)
+        self.set_color(self.figure_3D, trace_id, color, dim=3)
 
     def compute_projs(self, params_changed: bool = False, callback: callable = None):
         """
@@ -321,6 +316,7 @@ class HighDimExplorer:
         If needed, we compute them and store them in the PV
         The callback function may by GUI.update_splash_screen or HDE.update_progress_circular
         depending of the context.
+        # TODO compute on demand
         """
 
         if self.current_pv is None or self.pv_dict[self.current_pv] is None:
@@ -564,7 +560,8 @@ class HighDimExplorer:
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure(2)
-            self.figure_2D.data[0].selectedpoints = utils.mask_to_rows(new_selection_mask)
+            for trace in range(len(self.figure_2D.data)):
+                self.figure_2D.data[trace].selectedpoints = utils.mask_to_rows(new_selection_mask)
             self._current_selection = new_selection_mask
             return
 
@@ -643,25 +640,19 @@ class HighDimExplorer:
 
         self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
 
-    def redraw(self, color: pd.Series = None):
+    def redraw(self):
         """
         Redraws the 2D and 3D figures. FigureWidgets are not recreated.
         """
-        self.redraw_figure(self.figure_2D, color=color, dim=2)
-        self.redraw_figure(self.figure_3D, color=color, dim=3)
+        self.redraw_figure(self.figure_2D, dim=2)
+        self.redraw_figure(self.figure_3D, dim=3)
 
     def redraw_figure(
             self,
             fig: FigureWidget,
             dim,
-            color: pd.Series = None,
-            trace_id=0,
     ):
-
-
         projection = self.get_current_X_proj(dim)
-        if color is not None:
-            color = color.loc[self.mask]
         x = projection[0]
         y = projection[1]
         if dim == 3:
@@ -674,9 +665,6 @@ class HighDimExplorer:
                 if dim == 3:
                     fig.data[trace_id].z = z
             fig.layout.width = self.fig_size
-            if color is not None:
-                fig.data[0].marker.color = color
-            fig.data[0].customdata = color
 
     def get_projection_select(self):
         """
@@ -762,13 +750,10 @@ class HighDimExplorer:
         return guessed_selection.astype(bool)
 
     def set_tab(self, tab):
-        if tab > 1 and self.active_tab != tab:
-            self._deselection_event()
-            self.create_figure(2)
         self.show_trace(self.VALUES_TRACE, True)
         self.show_trace(self.RULES_TRACE, tab == 1)
         self.show_trace(self.REGIONSET_TRACE, tab == 2)
         self.show_trace(self.REGION_TRACE, tab == 3)
         # and it's the only place where selection is allowed
-        self.disable_selection(tab != 1)
+        self.disable_selection(tab > 1)
         self.active_tab = tab
