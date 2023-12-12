@@ -54,7 +54,7 @@ def indexes_to_rows(X: pd.DataFrame, indexes_list: list) -> list:
 
 
 def mask_to_rows(mask: pd.Series) -> list:
-    return mask[mask].index.to_list()
+    return mask_to_index(mask.reset_index(drop=True))
 
 
 def mask_to_index(mask: pd.Series) -> list:
