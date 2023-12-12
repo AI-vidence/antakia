@@ -646,8 +646,6 @@ class HighDimExplorer:
                 fig.data[trace_id].z = z
             fig.layout.width = self.fig_size
             if color is not None:
-                fig.data[0].marker.color = color
-            fig.data[0].customdata = color
                 fig.data[trace_id].marker.color = color
             fig.data[trace_id].customdata = color
 
@@ -735,3 +733,11 @@ class HighDimExplorer:
         print('len', len(selection), len(guessed_selection))
         # KNN extrapolation
         return guessed_selection.astype(bool)
+
+    def set_tab(self, tab):
+        self.show_trace(HighDimExplorer.VALUES_TRACE, True)
+        self.show_trace(HighDimExplorer.RULES_TRACE, tab == 1)
+        self.show_trace(HighDimExplorer.REGIONSET_TRACE, tab == 2)
+        self.show_trace(HighDimExplorer.REGION_TRACE, tab == 3)
+        # and it's the only place where selection is allowed
+        self.disable_selection(tab != 1)

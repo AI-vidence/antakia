@@ -554,14 +554,8 @@ class GUI:
 
     def select_tab(self, tab):
         def call_fct(*args):
-            for hde in [self.vs_hde, self.es_hde]:
-                hde.show_trace(HighDimExplorer.VALUES_TRACE, True)
-                hde.show_trace(HighDimExplorer.RULES_TRACE, tab == 1)
-                hde.show_trace(HighDimExplorer.REGIONSET_TRACE, tab == 2)
-                hde.show_trace(HighDimExplorer.REGION_TRACE, tab == 3)
-                # and it's the only place where selection is allowed
-                hde.disable_selection(tab != 1)
-
+            self.vs_hde.set_tab(tab)
+            self.es_hde.set_tab(tab)
         return call_fct
 
     # ==================== TAB 1 ==================== #
