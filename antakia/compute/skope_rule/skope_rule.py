@@ -9,10 +9,6 @@ from antakia.utils.variable import Variable, DataVariables
 from antakia.data_handler.rules import Rule
 import antakia.utils.utils as utils
 
-import logging as logging
-from antakia.utils.logging import conf_logger
-logger = logging.getLogger(__name__)
-conf_logger(logger)
 
 def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: DataVariables = None, precision: float = 0.7,
                 recall: float = 0.7, random_state=42) -> (list, dict):

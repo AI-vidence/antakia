@@ -12,10 +12,6 @@ import math
 from antakia.utils.variable import Variable, DataVariables
 from antakia.utils.logging import conf_logger
 
-logger = logging.getLogger(__name__)
-conf_logger(logger)
-
-
 class Rule:
     """ 
     A Rule is defined by a Variable, two operators and two range values (min, max)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 
 import pandas as pd
 import numpy as np
@@ -13,13 +14,14 @@ from antakia.data_handler.region import Region, RegionSet
 
 from antakia.gui.widgets import get_widget, app_widget
 
+from matplotlib.colors import to_rgb
+
 import antakia.utils.utils as utils
 import antakia.config as config
 from antakia.data_handler.projected_values import ProjectedValues
 
 import logging as logging
 from antakia.utils.logging import conf_logger
-
 logger = logging.getLogger(__name__)
 conf_logger(logger)
 
@@ -62,10 +64,25 @@ class HighDimExplorer:
     """
 
     # Trace indexes : 0 for values, 1 for rules, 2 for regions
+    NUM_TRACES=4
     VALUES_TRACE = 0
     RULES_TRACE = 1
     REGIONSET_TRACE = 2
     REGION_TRACE = 3
+
+
+    @staticmethod
+    def trace_name(trace_id:int)-> str:
+        if trace_id == HighDimExplorer.VALUES_TRACE:
+            return 'values trace'
+        elif trace_id == HighDimExplorer.RULES_TRACE:
+            return 'rules trace'
+        elif trace_id == HighDimExplorer.REGIONSET_TRACE:
+            return 'regionset trace'
+        elif trace_id == HighDimExplorer.REGION_TRACE:
+            return 'region trace'
+        else:
+            return "unknox trace"
 
     def __init__(
             self,
@@ -223,7 +240,11 @@ class HighDimExplorer:
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
         rs = RegionSet(self.current_X)
+        if mask is None:
+            mask = pd.Series([True] * len(self.current_X), index=self.current_X.index)
+            color = 'transparent'
         rs.add_region(mask=mask, color=color)
+
         self._display_zones(rs, HighDimExplorer.RULES_TRACE)
 
     def display_regionset(self, region_set: RegionSet):
@@ -234,7 +255,7 @@ class HighDimExplorer:
 
     def display_region(self, region: Region):
         rs = RegionSet(self.current_X)
-        rs.add_region(region)
+        rs.add(region)
         self._display_zones(rs, HighDimExplorer.REGION_TRACE)
 
     def _display_zones(self, region_set: RegionSet, trace_id):
@@ -247,7 +268,7 @@ class HighDimExplorer:
         """
         # We use three extra traces in the figure : the rules, the regions and the region traces (1, 2 and 3)
 
-        if len(region_set) == 0 or not region_set.get(region_set.get_max_num()).mask.any():
+        if len(region_set) == 0 or not region_set.get(1).mask.any():
             # We need to clean the trace - we just hide it
             self.figure_2D.data[trace_id].visible = False
             self.figure_3D.data[trace_id].visible = False
@@ -258,10 +279,19 @@ class HighDimExplorer:
             """
             Draws one zone on one figure using the passed colors
             """
+
             dim = 2 if isinstance(fig.data[0], Scattergl) else 3
 
             values = self.get_current_X_proj(dim)
             colors = colors[self.mask]
+
+            #  We won't plot data with transparent color
+            values = values.loc[colors != 'transparent']
+            colors = colors.loc[colors != 'transparent']
+
+            transparency = (len(self.pv_dict['original_values'].X) - len(colors)) / len(self.pv_dict['original_values'].X)
+
+            logger.debug(f"HDE.dzonf: {self.get_space_name()}/{dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure_2D.data[trace_id].visible if dim == 2 else self.figure_3D.data[trace_id].visible}, transparency:{round(100*transparency,2)}%")
 
             x = values[0]
             y = values[1]
@@ -277,14 +307,213 @@ class HighDimExplorer:
                     fig.data[trace_id].z = z
                 fig.layout.width = self.fig_size
                 fig.data[trace_id].marker.color = colors
-            fig.data[trace_id].showlegend = False  # otherwise, labels appear on the right
-            fig.data[trace_id].visible = True  # in case it was hidden
 
-        # List of color names, 1 per point. Initialized to grey
+        # List of color names, 1 per point. 
         colors = region_set.get_color_serie()
 
         _display_zone_on_figure(self.figure_2D, trace_id, colors)
         _display_zone_on_figure(self.figure_3D, trace_id, colors)
+    
+    def create_figure(self, dim: int):
+        """
+        Called by __init__ and by set_selection
+        Builds the FigureWidget for the given dimension
+        """
+        x = y = z = None
+
+        if self.current_X is not None:
+            proj_values = self.get_current_X_proj(dim)
+            if proj_values is not None:
+                x = proj_values[0]
+                y = proj_values[1]
+                if dim == 3:
+                    z = proj_values[2]
+
+        hde_marker = None
+        if dim == 2:
+            if self.is_value_space:
+                hde_marker = dict(
+                    color=self._y,
+                    colorscale="Viridis",
+                    # colorbar=
+                    # dict(
+                    #     thickness=20
+                    # )
+                )
+            else:
+                hde_marker = dict(color=self._y, colorscale="Viridis")
+        else:
+            if self.is_value_space:
+                hde_marker = dict(color=self._y,
+                                  colorscale="Viridis",
+                                  #   colorbar=dict(
+                                  #       thickness=20),
+                                  size=2)
+            else:
+                hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
+
+        if dim == 2:
+            fig = FigureWidget(
+                data=[
+                    Scattergl(  # Trace 0 for dots
+                        x=x,
+                        y=y,
+                        mode="markers",
+                        marker=hde_marker,
+                        customdata=self._y,
+                        hovertemplate="%{customdata:.3f}",
+                    )
+                ]
+            )
+            fig.add_trace(
+                Scattergl(  # Trace 1 for rules
+                    x=x,
+                    y=y,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                    hovertemplate="%{customdata:.3f}",
+                )
+            )
+            fig.add_trace(
+                Scattergl(  # Trace 2 for regionset
+                    x=x,
+                    y=y,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                )
+            )
+            fig.add_trace(
+                Scattergl(  # Trace 3for region
+                    x=x,
+                    y=y,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                )
+            )
+        else:
+            fig = FigureWidget(
+                data=[
+                    Scatter3d(  # Trace 0 for dots
+                        x=x,
+                        y=y,
+                        z=z,
+                        mode="markers",
+                        marker=hde_marker,
+                        customdata=self._y,
+                        hovertemplate="%{customdata:.3f}",
+                    )
+                ]
+            )
+            
+            fig.add_trace(
+                Scatter3d(  # Trace 1 for rules
+                    x=x,
+                    y=y,
+                    z=z,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                    hovertemplate="%{customdata:.3f}",
+                )
+            )
+            fig.add_trace(
+                Scatter3d(  # Trace 2 for regionset
+                    x=x,
+                    y=y,
+                    z=z,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                    hovertemplate="%{customdata:.3f}",
+                )
+            )
+            fig.add_trace(
+                Scatter3d(  # Trace 3 for region
+                    x=x,
+                    y=y,
+                    z=z,
+                    mode="markers",
+                    marker=hde_marker,
+                    customdata=self._y,
+                    hovertemplate="%{customdata:.3f}",
+                )
+            )
+
+        fig.update_layout(dragmode=False if self._selection_disabled else "lasso")
+        fig.update_traces(
+            selected={"marker": {"opacity": 1.0}},
+            unselected={"marker": {"opacity": 0.1}},
+            selector=dict(type="scatter")
+        )
+        fig.update_layout(
+            margin=dict(
+                t=0,
+                b=0,
+                l=0,
+                r=0
+            ),
+            width=self.fig_size,
+            height=round(self.fig_size / 2),
+        )
+        fig._config = fig._config | {"displaylogo": False}
+        fig._config = fig._config | {'displayModeBar': True}
+        # We don't want the name of the trace to appear :
+        for trace_id in [0, 1, 2]:
+            fig.data[trace_id].showlegend = False 
+    
+
+        if dim == 2:
+            self.figure_2D = fig
+            self.figure_2D.data[0].on_selection(self._selection_event)
+            self.figure_2D.data[0].on_deselect(self._deselection_event)
+        else:
+            self.figure_3D = fig
+
+        self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
+
+    def redraw(self, color: pd.Series = None, trace_id: int = None):
+        """
+        Redraws the 2D and 3D figures. FigureWidgets are not recreated.
+        color is only used to display y or y_hat or residuals
+        if trace_is not None, we only redraw this trace
+        """
+        self.redraw_figure(self.figure_2D, color)
+        self.redraw_figure(self.figure_3D, color)
+
+    def redraw_figure(
+            self,
+            fig: FigureWidget,
+            color: pd.Series = None,
+            trace_id: int = None
+    ):
+
+        dim = (
+            2 if isinstance(fig.data[0], Scattergl) else 3
+        )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
+
+        projection = self.get_current_X_proj(dim)
+        if color is not None:
+            color = color.loc[self.mask]
+        x = projection[0]
+        y = projection[1]
+        if dim == 3:
+            z = projection[2]
+
+
+        for t in range(HighDimExplorer.NUM_TRACES):
+            if trace_id is None or trace_id == t:
+                with fig.batch_update():
+                    fig.data[t].x = x
+                    fig.data[t].y = y
+                    if dim == 3:
+                        fig.data[t].z = z
+                    fig.layout.width = self.fig_size
+                    if color is not None:
+                        fig.data[t].marker.color = color
+                    fig.data[t].customdata = color
 
     def compute_projs(self, params_changed: bool = False, callback: callable = None):
         """
@@ -702,7 +931,7 @@ class HighDimExplorer:
     @property
     def current_X(self) -> pd.DataFrame | None:
         if self.current_pv is None:
-            return None  # When we're an ES HDE and no explanation have been importer nor computed yet
+            return None  # When we're an ES HDE and no explanation have been imported nor computed yet
         return self.pv_dict[self.current_pv].X
 
     @property

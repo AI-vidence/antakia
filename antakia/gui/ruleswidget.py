@@ -6,15 +6,10 @@ from plotly.graph_objects import FigureWidget, Histogram
 from antakia.data_handler.rules import Rule
 from antakia.gui.widgets import change_widget, get_widget, app_widget
 
-from antakia.utils.logging import conf_logger
-
 from copy import copy
-import logging
+
 
 from antakia.utils.variable import DataVariables
-
-logger = logging.getLogger(__name__)
-conf_logger(logger)
 
 
 class RuleWidget:

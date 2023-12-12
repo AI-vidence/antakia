@@ -263,7 +263,6 @@ class GUI:
             get_widget(app_widget, "45001").items = []
 
     def update_regions_table(self):
-        # TODO : lenteurs
         """
         Called to empty / fill the RegionDataTable
         """
@@ -300,39 +299,32 @@ class GUI:
         """Called when the selection of one HighDimExplorer changes"""
 
         # UI rules :
-        # Selection (empty or not) we remove any rule or region trace from HDEs
+        # If new selection (empty or not) : if exist, we remove any 'pending rule'
         self.vs_hde.display_rules(None)
-        self.es_hde.display_rules(None)
-        self.region_set.pop_last()
-        self.update_regions_table()
-
-        # Selection (empty or not) we reset both RulesWidgets
         self.vs_rules_wgt.disable()
+        self.es_hde.display_rules(None)
         self.es_rules_wgt.disable()
 
-        self.selection_mask = new_selection_mask
-
         if not new_selection_mask.any():
+            # Selection is empty
             # UI rules :
-            # We disable the Skope button
+            # We disable the 'Find-rules' button
             get_widget(app_widget, "43010").disabled = True
             # We disable 'undo' and 'validate rules' buttons
             get_widget(app_widget, "4302").disabled = True
             get_widget(app_widget, "43030").disabled = True
-            # We enable HDEs (proj select, explain select etc.)
+            # We enable both HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(False)
-            # We display tab 1
-            get_widget(app_widget, "4").v_model = 0
             self.es_hde.disable_widgets(False)
             # We disable the selection datatable :
             get_widget(app_widget, "4320").disabled = True
 
         else:
-            # Selection is not empty anymore / changes
+            # Selection is not empty anymore or changes
             # UI rules :
-            # We enable the SkopeButton
+            # We enable the 'Find-rules' button
             get_widget(app_widget, "43010").disabled = False
-            # We disable HDEs
+            # We disable HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(True)
             self.es_hde.disable_widgets(True)
             # We show and fill the selection datatable :
@@ -350,13 +342,13 @@ class GUI:
                     disable_sort=False,
                 ),
             )
+        
         # We store the new selection
         self.selection_mask = new_selection_mask
         # We synchronize selection between the two HighDimExplorers
         other_hde = self.es_hde if caller == self.vs_hde else self.vs_hde
         other_hde.set_selection(self.selection_mask)
 
-        # UI rules :
         # We update the selection status :
         selection_status_str_1 = f"{new_selection_mask.sum()} point selected"
         selection_status_str_2 = f"{100 * new_selection_mask.mean():.2f}% of the  dataset"
@@ -444,7 +436,6 @@ class GUI:
         get_widget(app_widget, "4302").disabled = True
 
         # Its enabled when rules graphs have been updated with rules
-
         # We wire the click event on the 'Valildate rules' button
         get_widget(app_widget, "43030").on_event("click", self.validate_rules)
 
@@ -498,10 +489,13 @@ class GUI:
         # We wire events on the num cluster Slider
         get_widget(app_widget, "4402100").on_event("change", num_cluster_changed)
 
-        # UI rules : at startup, the slider is is disabled and the chckbox is checked
+        # UI rules : at startup, the slider is is disabled and the checkbox is checked
         get_widget(app_widget, "4402100").disabled = True
 
         self.update_regions_table()
+        # At startup, REGIONSET_TRACE is not visible  
+        for hde in [self.vs_hde, self.es_hde]:
+            hde.show_trace(HighDimExplorer.REGIONSET_TRACE, False)
 
         # ============== Tab 3 : substitution ==================
 
