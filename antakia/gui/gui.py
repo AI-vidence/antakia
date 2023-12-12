@@ -82,7 +82,6 @@ class GUI:
             raise IndexError('X and X_exp must share the same index')
         if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
             raise IndexError('X and y must share the same index')
-        print(len(X))
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
             self.X,
@@ -620,8 +619,8 @@ class GUI:
         self.update_regions_table()
         # UI rules :
         # We clear selection
-        self.es_hde._deselection_event(None, None, False)
-        self.vs_hde._deselection_event(None, None, False)
+        self.es_hde._deselection_event()
+        self.vs_hde._deselection_event()
         # We force tab 2
         get_widget(app_widget, "4").v_model = 1
 

@@ -510,7 +510,7 @@ class HighDimExplorer:
             # NOTE : here we convert row ids to dataframe indexes
             self.selection_changed(self, self._current_selection)
 
-    def _deselection_event(self, trace, points, append: bool = False):
+    def _deselection_event(self, *args):
         """Called on deselection"""
         # We tell the GUI
         self._current_selection = utils.rows_to_mask(self.pv_dict['original_values'].X, [])
