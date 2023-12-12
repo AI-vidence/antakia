@@ -382,7 +382,8 @@ class GUI:
         self.es_hde.set_dimension(2)
 
         # We sent to the proper HDE the rules_indexes to render :
-        self.vs_hde.display_rules(df_mask) if rules_widget.is_value_space else self.es_hde.display_rules(df_mask)
+        self.vs_hde.display_rules(df_mask)
+        self.es_hde.display_rules(df_mask)
 
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num < 1
