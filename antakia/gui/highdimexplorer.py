@@ -129,29 +129,16 @@ class HighDimExplorer:
 
         self._y = y
 
-        self.get_projection_select().on_event("change", self.projection_select_changed)
-
-        # We initiate it in grey, not indeterminate :
-        self.get_projection_prog_circ().color = "grey"
-        self.get_projection_prog_circ().indeterminate = False
-        self.get_projection_prog_circ().v_model = 100
-
         # Since HDE is responsible for storing its current proj, we check init value :
         if init_proj not in DimReducMethod.dimreduc_methods_as_list():
             raise ValueError(
                 f"HDE.init: {init_proj} is not a valid projection method code"
             )
-        self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
-            init_proj
-        )
         # For each projection method, we store the widget (Card) that contains its parameters UI :
-        self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
         self._proj_params = {}  # A dict of dict of dict, see below. Nested keys
         # are 'DimReducMethod' (int), then 'previous' / 'current', then 'VS' / 'ES', then 'n_neighbors' / 'MN_ratio' / 'FP_ratio'
         # app_widget holds the UI for the PaCMAP params:
 
-        self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = get_widget(app_widget,
-                                                                                              "150" if self.is_value_space else "180")
         # We init PaCMAP params for both sides
         self._proj_params[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = {
             "previous": {
@@ -163,23 +150,8 @@ class HighDimExplorer:
                 "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
             },
         }
-        # We wire events on PaCMAP sliders only (for now):
-        if self.is_value_space:
-            get_widget(app_widget, "15000").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "15001").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "15002").on_event("change", self._proj_params_changed)
-        else:
-            get_widget(app_widget, "18000").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "18001").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "18002").on_event("change", self._proj_params_changed)
 
-        if not self.is_value_space:
-            self.update_explanation_select()
-            self.get_explanation_select().on_event("change", self.explanation_select_changed)
-
-            get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
-            get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
-            self.update_compute_menu()
+        self.wire(init_proj)
 
         #  Now we can init figures 2 and 3D
         self.fig_size = fig_size
@@ -193,6 +165,36 @@ class HighDimExplorer:
 
         self._current_selection = pd.Series([False] * len(X), index=X.index)
         self._has_lasso = False
+
+    def wire(self, init_proj):
+        self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
+        self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = get_widget(app_widget,
+                                                                                              "150" if self.is_value_space else "180")
+        # We initiate it in grey, not indeterminate :
+        proj_circ = self.get_projection_prog_circ()
+        proj_circ.color = "grey"
+        proj_circ.indeterminate = False
+        proj_circ.v_model = 100
+        self.get_projection_select().on_event("change", self.projection_select_changed)
+        self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
+            init_proj
+        )
+        # We wire events on PaCMAP sliders only (for now):
+        if self.is_value_space:
+            get_widget(app_widget, "15000").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "15001").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "15002").on_event("change", self._proj_params_changed)
+        else:
+            get_widget(app_widget, "18000").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "18001").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "18002").on_event("change", self._proj_params_changed)
+        if not self.is_value_space:
+            self.update_explanation_select()
+            self.get_explanation_select().on_event("change", self.explanation_select_changed)
+
+            get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
+            get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
+            self.update_compute_menu()
 
     # ---- Methods ------
 
