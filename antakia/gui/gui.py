@@ -86,6 +86,7 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,
             int(config.INIT_FIG_WIDTH / 2),
+            'VS',
             self.selection_changed,
         )  # type: ignore
         self.vs_rules_wgt = self.es_rules_wgt = None
@@ -98,6 +99,7 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,  # We use the same dimension as the VS HDE for now
             int(config.INIT_FIG_WIDTH / 2),
+            'ES',
             self.selection_changed,
             self.new_eplanation_values_required,
             X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df (vs None) tells it's an ES HDE

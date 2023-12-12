@@ -75,6 +75,7 @@ class HighDimExplorer:
             init_dim: int,
             fig_size: int,
             selection_changed: callable,
+            space_type: str,
             new_eplanation_values_required: callable = None,  # (ES only)
             X_exp: pd.DataFrame = None,  # The imported_explanations (ES only)
     ):
@@ -86,6 +87,9 @@ class HighDimExplorer:
             X_exp : imported explained dataset. Idem.
             init_proj, init_dim : int, int, used to initialize widgets
         """
+        if space_type not in ['ES', 'VS']:
+            raise ValueError(f"HDE.init: space_type must be 'ES' or 'VS', not {space_type}")
+        self.is_value_space = space_type == 'VS'
         if init_dim not in [2, 3]:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
@@ -95,7 +99,6 @@ class HighDimExplorer:
         self.new_eplanation_values_required = new_eplanation_values_required
 
         # IMPORTANT : if x_exp is not None : we know it's an ES HDE
-        self.is_value_space = X_exp is None
 
         # pv_dict is a dict of ProjectedValues objects
         # Keys can be : 'original_values', 'imported_explanations', 'computed_shap', 'computed_lime'
@@ -108,7 +111,7 @@ class HighDimExplorer:
                 'computed_shap': None,
                 'computed_lime': None
             }
-            if len(X_exp) > 0:
+            if X_exp is not None and len(X_exp) > 0:
                 # We set the imported PV:
                 self.pv_dict['imported_explanations'] = ProjectedValues(X_exp)
                 self.current_pv = 'imported_explanations'
@@ -198,10 +201,9 @@ class HighDimExplorer:
             dragmode=False if is_disabled else "lasso"
         )
 
-    def show_trace(self, trace_id: int, show:bool):
+    def show_trace(self, trace_id: int, show: bool):
         self.figure_2D.data[trace_id].visible = show
         self.figure_3D.data[trace_id].visible = show
-
 
     def disable_widgets(self, is_disabled: bool):
         """
@@ -625,7 +627,7 @@ class HighDimExplorer:
                     )
                 ]
             )
-            
+
             fig.add_trace(
                 Scatter3d(  # Trace 1 for rules
                     x=x,
@@ -669,8 +671,7 @@ class HighDimExplorer:
         fig._config = fig._config | {'displayModeBar': True}
         # We don't want the name of the trace to appear :
         for trace_id in [0, 1, 2]:
-            fig.data[trace_id].showlegend = False 
-    
+            fig.data[trace_id].showlegend = False
 
         if dim == 2:
             self.figure_2D = fig
