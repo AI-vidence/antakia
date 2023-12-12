@@ -313,207 +313,6 @@ class HighDimExplorer:
 
         _display_zone_on_figure(self.figure_2D, trace_id, colors)
         _display_zone_on_figure(self.figure_3D, trace_id, colors)
-    
-    def create_figure(self, dim: int):
-        """
-        Called by __init__ and by set_selection
-        Builds the FigureWidget for the given dimension
-        """
-        x = y = z = None
-
-        if self.current_X is not None:
-            proj_values = self.get_current_X_proj(dim)
-            if proj_values is not None:
-                x = proj_values[0]
-                y = proj_values[1]
-                if dim == 3:
-                    z = proj_values[2]
-
-        hde_marker = None
-        if dim == 2:
-            if self.is_value_space:
-                hde_marker = dict(
-                    color=self._y,
-                    colorscale="Viridis",
-                    # colorbar=
-                    # dict(
-                    #     thickness=20
-                    # )
-                )
-            else:
-                hde_marker = dict(color=self._y, colorscale="Viridis")
-        else:
-            if self.is_value_space:
-                hde_marker = dict(color=self._y,
-                                  colorscale="Viridis",
-                                  #   colorbar=dict(
-                                  #       thickness=20),
-                                  size=2)
-            else:
-                hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
-
-        if dim == 2:
-            fig = FigureWidget(
-                data=[
-                    Scattergl(  # Trace 0 for dots
-                        x=x,
-                        y=y,
-                        mode="markers",
-                        marker=hde_marker,
-                        customdata=self._y,
-                        hovertemplate="%{customdata:.3f}",
-                    )
-                ]
-            )
-            fig.add_trace(
-                Scattergl(  # Trace 1 for rules
-                    x=x,
-                    y=y,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
-            )
-            fig.add_trace(
-                Scattergl(  # Trace 2 for regionset
-                    x=x,
-                    y=y,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                )
-            )
-            fig.add_trace(
-                Scattergl(  # Trace 3for region
-                    x=x,
-                    y=y,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                )
-            )
-        else:
-            fig = FigureWidget(
-                data=[
-                    Scatter3d(  # Trace 0 for dots
-                        x=x,
-                        y=y,
-                        z=z,
-                        mode="markers",
-                        marker=hde_marker,
-                        customdata=self._y,
-                        hovertemplate="%{customdata:.3f}",
-                    )
-                ]
-            )
-            
-            fig.add_trace(
-                Scatter3d(  # Trace 1 for rules
-                    x=x,
-                    y=y,
-                    z=z,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
-            )
-            fig.add_trace(
-                Scatter3d(  # Trace 2 for regionset
-                    x=x,
-                    y=y,
-                    z=z,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
-            )
-            fig.add_trace(
-                Scatter3d(  # Trace 3 for region
-                    x=x,
-                    y=y,
-                    z=z,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
-            )
-
-        fig.update_layout(dragmode=False if self._selection_disabled else "lasso")
-        fig.update_traces(
-            selected={"marker": {"opacity": 1.0}},
-            unselected={"marker": {"opacity": 0.1}},
-            selector=dict(type="scatter")
-        )
-        fig.update_layout(
-            margin=dict(
-                t=0,
-                b=0,
-                l=0,
-                r=0
-            ),
-            width=self.fig_size,
-            height=round(self.fig_size / 2),
-        )
-        fig._config = fig._config | {"displaylogo": False}
-        fig._config = fig._config | {'displayModeBar': True}
-        # We don't want the name of the trace to appear :
-        for trace_id in [0, 1, 2]:
-            fig.data[trace_id].showlegend = False 
-    
-
-        if dim == 2:
-            self.figure_2D = fig
-            self.figure_2D.data[0].on_selection(self._selection_event)
-            self.figure_2D.data[0].on_deselect(self._deselection_event)
-        else:
-            self.figure_3D = fig
-
-        self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
-
-    def redraw(self, color: pd.Series = None, trace_id: int = None):
-        """
-        Redraws the 2D and 3D figures. FigureWidgets are not recreated.
-        color is only used to display y or y_hat or residuals
-        if trace_is not None, we only redraw this trace
-        """
-        self.redraw_figure(self.figure_2D, color)
-        self.redraw_figure(self.figure_3D, color)
-
-    def redraw_figure(
-            self,
-            fig: FigureWidget,
-            color: pd.Series = None,
-            trace_id: int = None
-    ):
-
-        dim = (
-            2 if isinstance(fig.data[0], Scattergl) else 3
-        )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
-
-        projection = self.get_current_X_proj(dim)
-        if color is not None:
-            color = color.loc[self.mask]
-        x = projection[0]
-        y = projection[1]
-        if dim == 3:
-            z = projection[2]
-
-
-        for t in range(HighDimExplorer.NUM_TRACES):
-            if trace_id is None or trace_id == t:
-                with fig.batch_update():
-                    fig.data[t].x = x
-                    fig.data[t].y = y
-                    if dim == 3:
-                        fig.data[t].z = z
-                    fig.layout.width = self.fig_size
-                    if color is not None:
-                        fig.data[t].marker.color = color
-                    fig.data[t].customdata = color
 
     def compute_projs(self, params_changed: bool = False, callback: callable = None):
         """
@@ -549,7 +348,7 @@ class HighDimExplorer:
                 ),
             )
 
-            self.redraw_figure(self.figure_2D)
+            self.redraw_figure(self.figure_2D, dim=2)
 
         if projected_dots_3D is None or params_changed:
             self.pv_dict[self.current_pv].set_proj_values(
@@ -564,7 +363,7 @@ class HighDimExplorer:
                     **kwargs
                 ),
             )
-            self.redraw_figure(self.figure_3D)
+            self.redraw_figure(self.figure_3D, dim=3)
 
     def _proj_params_changed(self, widget, event, data):
         """
@@ -654,13 +453,13 @@ class HighDimExplorer:
         return get_widget(app_widget, "13")
 
     def update_compute_menu(self):
-        we_have_computed_shap = self.pv_dict['computed_shap'] is not None
-        get_widget(app_widget, "130000").disabled = we_have_computed_shap
-        get_widget(app_widget, "13000203").disabled = we_have_computed_shap
+        is_shap_computed = self.pv_dict['computed_shap'] is not None
+        get_widget(app_widget, "130000").disabled = is_shap_computed
+        get_widget(app_widget, "13000203").disabled = is_shap_computed
 
-        we_have_computed_lime = self.pv_dict['computed_lime'] is not None
-        get_widget(app_widget, "130001").disabled = we_have_computed_lime
-        get_widget(app_widget, "13000303").disabled = we_have_computed_lime
+        is_lime_computed = self.pv_dict['computed_lime'] is not None
+        get_widget(app_widget, "130001").disabled = is_lime_computed
+        get_widget(app_widget, "13000303").disabled = is_lime_computed
 
     def compute_btn_clicked(self, widget, event, data):
         """
@@ -682,7 +481,7 @@ class HighDimExplorer:
         self.compute_projs(False, self.update_progress_circular)
         self.update_explanation_select()
         self.update_compute_menu()
-        self.redraw_figure(self.figure_3D)
+        self.redraw_figure(self.figure_3D, dim=3)
 
     def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float):
         """
@@ -698,7 +497,6 @@ class HighDimExplorer:
         progress_linear.v_model = progress
 
         if progress == 100:
-            tab = None
             if method.explanation_method == ExplanationMethod.SHAP:
                 tab = get_widget(app_widget, "130000")
                 progress_linear.indeterminate = False
@@ -713,7 +511,7 @@ class HighDimExplorer:
         At runtime, GUI calls this function and swap our 2 and 3D figures
         """
         self._current_dim = dim
-        self.container.children = [self.figure_2D] if dim == 2 else [self.figure_3D]
+        self.container.children = [self.figure_2D if dim == 2 else self.figure_3D]
 
     def _get_projection_method(self) -> int:
         # proj is stored in the proj Select widget
@@ -849,19 +647,17 @@ class HighDimExplorer:
         """
         Redraws the 2D and 3D figures. FigureWidgets are not recreated.
         """
-        self.redraw_figure(self.figure_2D, color)
-        self.redraw_figure(self.figure_3D, color)
+        self.redraw_figure(self.figure_2D, color=color, dim=2)
+        self.redraw_figure(self.figure_3D, color=color, dim=3)
 
     def redraw_figure(
             self,
             fig: FigureWidget,
+            dim,
             color: pd.Series = None,
-            trace_id=0
+            trace_id=0,
     ):
 
-        dim = (
-            2 if isinstance(fig.data[0], Scattergl) else 3
-        )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
 
         projection = self.get_current_X_proj(dim)
         if color is not None:
@@ -872,26 +668,27 @@ class HighDimExplorer:
             z = projection[2]
 
         with fig.batch_update():
-            fig.data[trace_id].x = x
-            fig.data[trace_id].y = y
-            if dim == 3:
-                fig.data[trace_id].z = z
+            for trace_id in range(len(fig.data)):
+                fig.data[trace_id].x = x
+                fig.data[trace_id].y = y
+                if dim == 3:
+                    fig.data[trace_id].z = z
             fig.layout.width = self.fig_size
             if color is not None:
-                fig.data[trace_id].marker.color = color
-            fig.data[trace_id].customdata = color
+                fig.data[0].marker.color = color
+            fig.data[0].customdata = color
 
     def get_projection_select(self):
         """
        Called at startup by the GUI
        """
-        return get_widget(app_widget, "14") if self.is_value_space else get_widget(app_widget, "17")
+        return get_widget(app_widget, "14" if self.is_value_space else "17")
 
     def get_projection_prog_circ(self) -> v.ProgressCircular:
         """
        Called at startup by the GUI
        """
-        return get_widget(app_widget, "16") if self.is_value_space else get_widget(app_widget, "19")
+        return get_widget(app_widget, "16" if self.is_value_space else "19")
 
     def get_explanation_select(self):
         """
@@ -914,7 +711,7 @@ class HighDimExplorer:
         Called at startup by the GUI
         """
         # We return
-        proj_params_menu = get_widget(app_widget, "15") if self.is_value_space else get_widget(app_widget, "18")
+        proj_params_menu = get_widget(app_widget, "15" if self.is_value_space else "18")
         # We neet to set a Card, depending on the projection method
         if self._get_projection_method() == DimReducMethod.dimreduc_method_as_int('PaCMAP'):
             proj_params_menu.children = [self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')]]
@@ -961,16 +758,13 @@ class HighDimExplorer:
         knn = KNeighborsClassifier().fit(X_train, selection)
         X_predict = self.get_current_X_proj(dim, masked=False)
         guessed_selection = pd.Series(knn.predict(X_predict), index=X_predict.index)
-        print('mean', selection.mean(), guessed_selection.mean())
-        print('len', len(selection), len(guessed_selection))
         # KNN extrapolation
         return guessed_selection.astype(bool)
 
     def set_tab(self, tab):
-        self.show_trace(HighDimExplorer.VALUES_TRACE, True)
-        self.show_trace(HighDimExplorer.RULES_TRACE, tab == 1)
-        self.show_trace(HighDimExplorer.REGIONSET_TRACE, tab == 2)
-        self.show_trace(HighDimExplorer.REGION_TRACE, tab == 3)
+        if tab > 1 and self.active_tab != tab:
+            self._deselection_event()
+            self.create_figure(2)
         self.show_trace(self.VALUES_TRACE, True)
         self.show_trace(self.RULES_TRACE, tab == 1)
         self.show_trace(self.REGIONSET_TRACE, tab == 2)
