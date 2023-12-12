@@ -86,8 +86,8 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,
             int(config.INIT_FIG_WIDTH / 2),
-            'VS',
             self.selection_changed,
+            'VS',
         )  # type: ignore
         self.vs_rules_wgt = self.es_rules_wgt = None
 
@@ -99,9 +99,9 @@ class GUI:
             config.DEFAULT_VS_PROJECTION,
             config.DEFAULT_VS_DIMENSION,  # We use the same dimension as the VS HDE for now
             int(config.INIT_FIG_WIDTH / 2),
-            'ES',
             self.selection_changed,
-            self.new_eplanation_values_required,
+            'ES',
+            self.new_explanation_values_required,
             X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df (vs None) tells it's an ES HDE
         )
 
@@ -146,7 +146,7 @@ class GUI:
             )
             self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
             self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
-                self.new_eplanation_values_required(explain_method, self.update_splash_screen)
+                self.new_explanation_values_required(explain_method, self.update_splash_screen)
             )
             self.es_hde.update_explanation_select()
             self.es_hde.update_compute_menu()
@@ -284,7 +284,7 @@ class GUI:
         # If regions coverage > 80%, we disable the 'auto-cluster' button
         get_widget(app_widget, "4402000").disabled = region_stats["coverage"] > 80
 
-    def new_eplanation_values_required(self, explain_method: int, callback: callable = None) -> pd.DataFrame:
+    def new_explanation_values_required(self, explain_method: int, callback: callable = None) -> pd.DataFrame:
         """
         Called either by :
         - the splash screen
