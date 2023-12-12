@@ -558,119 +558,50 @@ class HighDimExplorer:
                 if dim == 3:
                     z = proj_values[2]
 
-        hde_marker = None
-        if dim == 2:
-            if self.is_value_space:
-                hde_marker = dict(
-                    color=self._y,
-                    colorscale="Viridis",
-                    # colorbar=
-                    # dict(
-                    #     thickness=20
-                    # )
-                )
-            else:
-                hde_marker = dict(color=self._y, colorscale="Viridis")
-        else:
-            if self.is_value_space:
-                hde_marker = dict(color=self._y,
-                                  colorscale="Viridis",
-                                  #   colorbar=dict(
-                                  #       thickness=20),
-                                  size=2)
-            else:
-                hde_marker = dict(color=self._y, colorscale="Viridis", size=2)
+        hde_marker = {'color': self._y, 'colorscale': "Viridis"}
 
-        if dim == 2:
-            fig = FigureWidget(
-                data=[
-                    Scattergl(  # Trace 0 for dots
-                        x=x,
-                        y=y,
-                        mode="markers",
-                        marker=hde_marker,
-                        customdata=self._y,
-                        hovertemplate="%{customdata:.3f}",
-                    )
-                ]
-            )
-            fig.add_trace(
-                Scattergl(  # Trace 1 for rules
-                    x=x,
-                    y=y,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
-            )
-            fig.add_trace(
-                Scattergl(  # Trace 2 for regions
-                    x=x,
-                    y=y,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                )
-            )
-        else:
-            fig = FigureWidget(
-                data=[
-                    Scatter3d(  # Trace 0 for dots
-                        x=x,
-                        y=y,
-                        z=z,
-                        mode="markers",
-                        marker=hde_marker,
-                        customdata=self._y,
-                        hovertemplate="%{customdata:.3f}",
-                    )
-                ]
-            )
+        if dim == 3:
+            hde_marker['size'] = 2
 
-            fig.add_trace(
-                Scatter3d(  # Trace 1 for rules
-                    x=x,
-                    y=y,
-                    z=z,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
-            )
-            fig.add_trace(
-                Scatter3d(  # Trace 2 for regions
-                    x=x,
-                    y=y,
-                    z=z,
-                    mode="markers",
-                    marker=hde_marker,
-                    customdata=self._y,
-                    hovertemplate="%{customdata:.3f}",
-                )
-            )
+        fig_args = {
+            'x': x,
+            'y': y,
+            'mode': "markers",
+            'marker': hde_marker,
+            'customdata': self._y,
+            'hovertemplate': "%{customdata:.3f}",
+        }
+        if dim == 3:
+            fig_args['z'] = z
+            fig_builder = Scatter3d
+        else:
+            fig_builder = Scattergl
+
+        fig = FigureWidget(data=[fig_builder(**fig_args)])  # Trace 0 for dots
+        fig.add_trace(fig_builder(**fig_args))  # Trace 1 for rules
+        fig.add_trace(fig_builder(**fig_args))  # Trace 2 for region set
+        fig.add_trace(fig_builder(**fig_args))  # Trace 3 for region
 
         fig.update_layout(dragmode=False if self._selection_disabled else "lasso")
         fig.update_traces(
             selected={"marker": {"opacity": 1.0}},
             unselected={"marker": {"opacity": 0.1}},
-            selector=dict(type="scatter")
+            selector={'type': "scatter"}
         )
         fig.update_layout(
-            margin=dict(
-                t=0,
-                b=0,
-                l=0,
-                r=0
-            ),
+            margin={
+                't': 0,
+                'b': 0,
+                'l': 0,
+                'r': 0
+            },
             width=self.fig_size,
             height=round(self.fig_size / 2),
         )
         fig._config = fig._config | {"displaylogo": False}
         fig._config = fig._config | {'displayModeBar': True}
         # We don't want the name of the trace to appear :
-        for trace_id in [0, 1, 2]:
+        for trace_id in range(len(fig.data)):
             fig.data[trace_id].showlegend = False
 
         if dim == 2:
@@ -692,7 +623,8 @@ class HighDimExplorer:
     def redraw_figure(
             self,
             fig: FigureWidget,
-            color: pd.Series = None
+            color: pd.Series = None,
+            trace_id=0
     ):
 
         dim = (
@@ -708,14 +640,16 @@ class HighDimExplorer:
             z = projection[2]
 
         with fig.batch_update():
-            fig.data[0].x = x
-            fig.data[0].y = y
+            fig.data[trace_id].x = x
+            fig.data[trace_id].y = y
             if dim == 3:
-                fig.data[0].z = z
+                fig.data[trace_id].z = z
             fig.layout.width = self.fig_size
             if color is not None:
                 fig.data[0].marker.color = color
             fig.data[0].customdata = color
+                fig.data[trace_id].marker.color = color
+            fig.data[trace_id].customdata = color
 
     def get_projection_select(self):
         """
