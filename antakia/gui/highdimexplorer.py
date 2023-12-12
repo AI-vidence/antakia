@@ -76,7 +76,7 @@ class HighDimExplorer:
             fig_size: int,
             selection_changed: callable,
             space_type: str,
-            new_eplanation_values_required: callable = None,  # (ES only)
+            new_explanation_values_required: callable = None,  # (ES only)
             X_exp: pd.DataFrame = None,  # The imported_explanations (ES only)
     ):
         """
@@ -96,7 +96,7 @@ class HighDimExplorer:
 
         self._mask = None
         self.selection_changed = selection_changed
-        self.new_eplanation_values_required = new_eplanation_values_required
+        self.new_explanation_values_required = new_explanation_values_required
 
         # IMPORTANT : if x_exp is not None : we know it's an ES HDE
 
@@ -444,7 +444,7 @@ class HighDimExplorer:
 
         self.current_pv = 'computed_shap' if desired_explain_method == ExplanationMethod.SHAP else 'computed_lime'
         self.pv_dict[self.current_pv] = ProjectedValues(
-            self.new_eplanation_values_required(desired_explain_method, self.update_progress_linear))
+            self.new_explanation_values_required(desired_explain_method, self.update_progress_linear))
 
         # We compute proj for this new PV :
         self.compute_projs(False, self.update_progress_circular)
@@ -789,7 +789,7 @@ class HighDimExplorer:
             return
         if masked:
             return X.loc[self.mask]
-        return self.pv_dict[self.current_pv].get_proj_values(self._get_projection_method(), dim)
+        return X
 
     def selection_to_mask(self, row_numbers, dim):
         selection = utils.rows_to_mask(self.pv_dict['original_values'].X.loc[self.mask], row_numbers)
