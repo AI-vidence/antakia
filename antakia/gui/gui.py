@@ -605,10 +605,10 @@ class GUI:
             hde = self.es_hde
 
         rules_list = rules_widget.get_current_rules_list()
-        self.region_num_for_validated_rules = self.region_set.get_max_num() + 1
         # We add them to our region_set
 
         region = self.region_set.add_region(rules=rules_list)
+        self.region_num_for_validated_rules = region.num
         # UI rules: we disable HDEs selection of we have one or more regions
         if len(self.region_set) > 0:
             self.vs_hde.disable_selection(True)
