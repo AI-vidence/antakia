@@ -78,7 +78,10 @@ class GUI:
         self.y_pred = pd.Series(model.predict(X), index=X.index)
         self.variables: DataVariables = variables
         self.score = score
-
+        if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+            raise IndexError('X and X_exp must share the same index')
+        if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+            raise IndexError('X and y must share the same index')
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
             self.X,
@@ -87,6 +90,7 @@ class GUI:
             config.DEFAULT_VS_DIMENSION,
             int(config.INIT_FIG_WIDTH / 2),
             self.selection_changed,
+            'VS',
         )  # type: ignore
         self.vs_rules_wgt = self.es_rules_wgt = None
 
@@ -99,7 +103,8 @@ class GUI:
             config.DEFAULT_VS_DIMENSION,  # We use the same dimension as the VS HDE for now
             int(config.INIT_FIG_WIDTH / 2),
             self.selection_changed,
-            self.new_eplanation_values_required,
+            'ES',
+            self.new_explanation_values_required,
             X_exp if X_exp is not None else pd.DataFrame(),  # passing an empty df (vs None) tells it's an ES HDE
         )
 
@@ -144,7 +149,7 @@ class GUI:
             )
             self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
             self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
-                self.new_eplanation_values_required(explain_method, self.update_splash_screen)
+                self.new_explanation_values_required(explain_method, self.update_splash_screen)
             )
             self.es_hde.update_explanation_select()
             self.es_hde.update_compute_menu()
@@ -281,7 +286,7 @@ class GUI:
         # If regions coverage > 80%, we disable the 'auto-cluster' button
         get_widget(app_widget, "4402000").disabled = region_stats["coverage"] > 80
 
-    def new_eplanation_values_required(self, explain_method: int, callback: callable = None) -> pd.DataFrame:
+    def new_explanation_values_required(self, explain_method: int, callback: callable = None) -> pd.DataFrame:
         """
         Called either by :
         - the splash screen
@@ -324,8 +329,7 @@ class GUI:
             self.es_hde.disable_widgets(True)
             # We show and fill the selection datatable :
             get_widget(app_widget, "4320").disabled = False
-            sel_df = copy.copy((self.X.loc[new_selection_mask]))
-            sel_df = round(sel_df, 3)
+            X_rounded = copy.copy((self.X.loc[new_selection_mask])).round(3)
             change_widget(
                 app_widget,
                 "432010",
@@ -333,7 +337,7 @@ class GUI:
                     v_model=[],
                     show_select=False,
                     headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=sel_df.to_dict("records"),
+                    items=X_rounded.to_dict("records"),
                     hide_default_footer=False,
                     disable_sort=False,
                 ),
@@ -369,7 +373,8 @@ class GUI:
         self.es_hde.set_dimension(2)
 
         # We sent to the proper HDE the rules_indexes to render :
-        self.vs_hde.display_rules(df_mask) if rules_widget.is_value_space else self.es_hde.display_rules(df_mask)
+        self.vs_hde.display_rules(df_mask)
+        self.es_hde.display_rules(df_mask)
 
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num < 1
@@ -386,43 +391,15 @@ class GUI:
         # We set the init value to default :
         get_widget(app_widget, "03000").v_model = config.INIT_FIG_WIDTH
 
-         # -------------- Dimension Switch --------------
-
-        def switch_dimension(widget, event, data):
-            """
-            Called when the switch changes.
-            We call the HighDimExplorer to update its figure and, enventually,
-            compute its proj
-            """
-            self.vs_hde.set_dimension(3 if data else 2)
-            self.es_hde.set_dimension(3 if data else 2)
+        # -------------- Dimension Switch --------------
 
         get_widget(app_widget, "100").v_model == config.DEFAULT_VS_DIMENSION
-        get_widget(app_widget, "100").on_event("change", switch_dimension)
+        get_widget(app_widget, "100").on_event("change", self.switch_dimension)
 
         # -------------- ColorChoiceBtnToggle ------------
-        def change_color(widget, event, data):
-            """
-            Called with the user clicks on the colorChoiceBtnToggle
-            Allows change the color of the dots
-            """
-
-            # Color : a pd.Series with one color value par row
-
-            color = None
-
-            if data == "y":
-                color = self.y
-            elif data == "y^":
-                color = self.y_pred
-            elif data == "residual":
-                color = self.y - self.y_pred
-
-            self.vs_hde.redraw(color)
-            self.es_hde.redraw(color)
 
         # Set "change" event on the Button Toggle used to chose color
-        get_widget(app_widget, "11").on_event("change", change_color)
+        get_widget(app_widget, "11").on_event("change", self.change_color)
 
         # ============== HighDimExplorers ===============
 
@@ -436,120 +413,31 @@ class GUI:
         change_widget(app_widget, "19", self.es_hde.get_projection_prog_circ())
         change_widget(app_widget, "18", self.es_hde.get_proj_params_menu())
         change_widget(app_widget, "12", self.es_hde.get_explanation_select())
-        change_widget(app_widget, "13", self.es_hde.get_compute_menu())   
+        change_widget(app_widget, "13", self.es_hde.get_compute_menu())
 
         # ================ Tab 1 Selection ================
 
-        def tab_one_rules(widget, event, data):
-            for hde in [self.vs_hde, self.es_hde]:
-                # In Tab 1, HDE only display traces 0 (original dots) and 1 and ('rule-in-progress')
-                hde.show_trace(HighDimExplorer.VALUES_TRACE, True) 
-                hde.show_trace(HighDimExplorer.RULES_TRACE, True) 
-                hde.show_trace(HighDimExplorer.REGIONSET_TRACE, False)
-                hde.show_trace(HighDimExplorer.REGION_TRACE, False)
-                # and it's the only place where selection is allowed
-                hde.disable_selection(False)
-        
         # We wire the click event on 'Tab 1'
-        get_widget(app_widget, "40").on_event("click", tab_one_rules)
-        # We call it at startup :
-        tab_one_rules(get_widget(app_widget, "40"), 'soft', None)
-        
+        get_widget(app_widget, "40").on_event("click", self.select_tab(1))
+
         # We add our 2 RulesWidgets to the GUI :
         change_widget(app_widget, "4310", self.vs_rules_wgt.root_widget)
         change_widget(app_widget, "4311", self.es_rules_wgt.root_widget)
 
-        def compute_skope_rules(widget, event, data):
-            # if clicked, selection can't be empty
-            assert self.selection_mask.any()
-            # Let's disable the Skope button. It will be re-enabled if a new selection occurs
-            get_widget(app_widget, "43010").disabled = True
-
-            hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
-            rsw = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
-
-            skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
-            skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-            if len(skr_rules_list) > 0:  # SKR rules found
-                # UI rules :
-                # We enable the 'validate rule' button
-                get_widget(app_widget, "43030").disabled = False
-                # We enable RulesWidet and init it wit the rules
-                rsw.enable()
-                rsw.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
-            else:
-                # No skr found
-                rsw.show_msg("No rules found", "red--text")
-
         # We wire the click event on the 'Find-rules' button
-        get_widget(app_widget, "43010").on_event("click", compute_skope_rules)
+        get_widget(app_widget, "43010").on_event("click", self.compute_skope_rules)
         # UI rules :
         # The Find-rules button is disabled at startup. It's only enabled when a selection occurs - when the selection is empty, it's disabled again
         get_widget(app_widget, "43010").disabled = True
 
-        def undo(widget, event, data):
-            if self.vs_rules_wgt.rules_num > 0:
-                self.vs_rules_wgt.undo()
-                if self.vs_rules_wgt.rules_num == 1:
-                    # We disable the 'undo' button
-                    get_widget(app_widget, "4302").disabled = True
-            else:
-                # TODO : pourquoi on annule d'abord le VS puis l'ES?
-                self.es_rules_wgt.undo()
-                if self.es_rules_wgt.rules_num == 1:
-                    # We disable the 'undo' button
-                    get_widget(app_widget, "4302").disabled = True
-
         # We wire the ckick event on the 'Undo' button
-        get_widget(app_widget, "4302").on_event("click", undo)
+        get_widget(app_widget, "4302").on_event("click", self.undo_rules)
         # At start the button is disabled
         get_widget(app_widget, "4302").disabled = True
 
         # Its enabled when rules graphs have been updated with rules
-
-        def validate_rules(widget, event, data):
-            if self.vs_rules_wgt.rules_num >= 0:
-                rules_widget = self.vs_rules_wgt
-                hde = self.vs_hde
-            else:
-                rules_widget = self.es_rules_wgt
-                hde = self.es_hde
-
-            rules_list = rules_widget.get_current_rules_list()
-            self.region_num_for_validated_rules = self.region_set.get_max_num() + 1
-            # We add them to our region_set
-
-            region = self.region_set.add_region(rules=rules_list)
-            # UI rules: we disable HDEs selection of we have one or more regions
-            if len(self.region_set) > 0:
-                self.vs_hde.disable_selection(True)
-                self.es_hde.disable_selection(True)
-
-            region.validate()
-
-            # And update the rules table (tab 2)
-            self.update_regions_table()
-            # UI rules :
-            for hde in [self.vs_hde, self.es_hde]:
-                # We clear selection
-                hde._deselection_event(None, None, False)
-                # We display regions
-                hde.display_regionset(self.region_set)
-            # We show tab 2
-            tab_two_rules(get_widget(app_widget, "4"), 'soft', None)
-
-            # We clear the RulesWidget
-            rules_widget.disable()
-            rules_widget.init_rules(None, None, None)
-            # We disable the 'undo' button
-            get_widget(app_widget, "4302").disabled = True
-            # We disable the 'validate rules' button
-            get_widget(app_widget, "43030").disabled = True
-            # We clear HDEs 'rule traces'
-            hde.display_rules(None)
-
         # We wire the click event on the 'Valildate rules' button
-        get_widget(app_widget, "43030").on_event("click", validate_rules)
+        get_widget(app_widget, "43030").on_event("click", self.validate_rules)
 
         # UI rules :
         # The 'validate rules' button is disabled at startup
@@ -559,143 +447,28 @@ class GUI:
         # or when validated is pressed
 
         # ================ Tab 2 : regions ===============
-
-        def tab_two_rules(widget, event, data):
-            widget.v_model = 1
-            for hde in [self.vs_hde, self.es_hde]:
-                # In Tab 2, HDE only display traces 0 (original dots) and 2 and ('regions')
-                hde.show_trace(HighDimExplorer.VALUES_TRACE, True) 
-                hde.show_trace(HighDimExplorer.RULES_TRACE, False) 
-                hde.show_trace(HighDimExplorer.REGIONSET_TRACE, True)
-                hde.show_trace(HighDimExplorer.REGION_TRACE, False)
-                # and selection is not allowed
-                hde.disable_selection(True)
-        
         # We wire the click event on 'Tab 2'
-        get_widget(app_widget, "41").on_event("click", tab_two_rules)
+        get_widget(app_widget, "41").on_event("click", self.select_tab(2))
 
-        def region_selected(data):
-            is_selected = data["value"]
-
-            # We use this GUI attribute to store the selected region
-            # TODO : read the selected region from the ColorTable
-            self.selected_region_num = data["item"]["Region"] if is_selected else None
-
-            # UI rules :
-            # If selected, we enable the 'substitute' and 'delete' buttons and vice-versa
-            get_widget(app_widget, "4401000").disabled = not is_selected
-            get_widget(app_widget, "440110").disabled = not is_selected
-            # If no region selected, we empty the substitution table:
-            if not is_selected:
-                self.update_substitution_table(None, None, True)
-
-        get_widget(app_widget, "4400100").set_callback(region_selected)
-
-        def substitute_clicked(widget, event, data):
-            assert self.selected_region_num is not None
-
-            # We show tab 3 "substitution"
-            get_widget(app_widget, "4").v_model = 2
-
-            region = self.region_set.get(self.selected_region_num)
-            
-            # We display the region on HDEs
-            for hde in  [self.vs_hde, self.es_hde]:
-                hde.display_region(region)
-
-            # We update the substitution table once to show the name of the region
-            self.update_substitution_table(region, pd.DataFrame())
-
-            perfs = InterpretableModels(self.score).get_models_performance(
-                self.model, self.X.loc[region.mask], self.y.loc[region.mask]
-            )
-
-            # We update the substitution table a second time to show the results
-            self.update_substitution_table(region, perfs)
+        get_widget(app_widget, "4400100").set_callback(self.region_selected)
 
         # We wire events on the 'substitute' button:
-        get_widget(app_widget, "4401000").on_event("click", substitute_clicked)
+        get_widget(app_widget, "4401000").on_event("click", self.substitute_clicked)
 
         # UI rules :
         # The 'substitute' button is disabled at startup; it'es enabled when a region is selected
         # and disabled if no region is selected or when substitute is pressed
         get_widget(app_widget, "4401000").disabled = True
 
-        def delete_region_clicked(widget, event, data):
-            """
-            Called when the user clicks on the 'delete' (region) button
-            """
-            # Then we delete the regions in self.region_set
-            self.region_set.remove(self.selected_region_num)
-            # UI rules : if we deleted a region comming from the Skope rules, we re-enable the Skope button
-            if self.selected_region_num == self.region_num_for_validated_rules:
-                get_widget(app_widget, "43010").disabled = False
-
-            self.update_regions_table()
-            # There is no more selected region
-            self.selected_region_num = None
-            get_widget(app_widget, "440110").disabled = True
-            get_widget(app_widget, "4401000").disabled = True
-
-
         # We wire events on the 'delete' button:
-        get_widget(app_widget, "440110").on_event("click", delete_region_clicked)
+        get_widget(app_widget, "440110").on_event("click", self.delete_region_clicked)
 
         # UI rules :
         # The 'delete' button is disabled at startup
         get_widget(app_widget, "440110").disabled = True
 
-        def auto_cluster_clicked(widget, event, data):
-            """
-            Called when the user clicks on the 'auto-cluster' button
-            """
-            if self.region_set.stats()["coverage"] > 80:
-                # UI rules :
-                # region_set coverage is > 80% : we need to clear it to do another auto-cluster
-                self.region_set.clear_unvalidated()
-
-            # We disable the AC button. Il will be re-enabled when the AC progress is 100%
-            get_widget(app_widget, "4402000").disabled = True
-
-            # We assemble indices ot all existing regions :
-            rules_mask_list = self.region_set.get_masks()
-
-            # We call the auto_cluster with remaing X and explained(X) :
-            not_rules_indexes_list = pd.Series([True] * len(self.X), index=self.X.index)
-            for mask in rules_mask_list:
-                not_rules_indexes_list &= ~mask
-
-            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
-            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
-
-            ac = AutoCluster(vs_proj_3d_df.loc[not_rules_indexes_list], update_ac_progress_bar)
-            found_clusters = ac.compute(
-                es_proj_3d_df.loc[not_rules_indexes_list],
-                # We send 'auto' or we read the number of clusters from the Slider
-                "auto" if get_widget(app_widget, "440211").v_model else get_widget(app_widget, "4402100").v_model,
-            )  # type: ignore
-
-            for cluster_num in found_clusters.unique():
-                self.region_set.add_region(mask=(found_clusters == cluster_num))
-
-                self.es_hde.disable_selection(True)
-
-            self.update_regions_table()
-
-        def update_ac_progress_bar(caller, progress: float, duration: float):
-            """
-            Called by the AutoCluster to update the progress bar
-            """
-            # #TODO Hack because we do not reveive 100% at the end
-            if progress >= 96:
-                progress = 100
-
-            get_widget(app_widget, "440212").v_model = progress
-            # We re-enable the button
-            get_widget(app_widget, "4402000").disabled = progress == 100
-
         # We wire events on the 'auto-cluster' button :
-        get_widget(app_widget, "4402000").on_event("click", auto_cluster_clicked)
+        get_widget(app_widget, "4402000").on_event("click", self.auto_cluster_clicked)
 
         # UI rules :
         # The 'auto-cluster' button is disabled at startup
@@ -703,22 +476,8 @@ class GUI:
         # Checkbox automatic number of cluster is set to True at startup
         get_widget(app_widget, "440211").v_model = True
 
-        def checkbox_auto_cluster_clicked(widget, event, data):
-            """
-            Called when the user clicks on the 'auto-cluster' checkbox
-            """
-            # In any case, we enable the auto-cluster button
-            get_widget(app_widget, "4402000").disabled = False
-
-            # We reveive either True or {}
-            if data != True:
-                data = False
-
-            # IF true, we disable the Slider
-            get_widget(app_widget, "4402100").disabled = data
-
         # We wire select events on this checkbox :
-        get_widget(app_widget, "440211").on_event("change", checkbox_auto_cluster_clicked)
+        get_widget(app_widget, "440211").on_event("change", self.checkbox_auto_cluster_clicked)
 
         def num_cluster_changed(widget, event, data):
             """
@@ -740,62 +499,277 @@ class GUI:
 
         # ============== Tab 3 : substitution ==================
 
-        def tab_three_rules(widget, event, data):
-            for hde in [self.vs_hde, self.es_hde]:
-                # In Tab 2, HDE only display traces 0 (original dots) and 2 and ('regions')
-                hde.show_trace(HighDimExplorer.VALUES_TRACE, True) 
-                hde.show_trace(HighDimExplorer.RULES_TRACE, False) 
-                hde.show_trace(HighDimExplorer.REGIONSET_TRACE, False)
-                hde.show_trace(HighDimExplorer.REGION_TRACE, True)
-                # and selection is not allowed
-                hde.disable_selection(True)
-        
         # We wire the click event on 'Tab 3'
-        get_widget(app_widget, "42").on_event("click", tab_three_rules)
+        get_widget(app_widget, "42").on_event("click", self.select_tab(3))
 
         # UI rules :
         # At startup the validate sub-model btn is disabled :
         get_widget(app_widget, "450100").disabled = True
 
-        def sub_model_selected(data):
-            is_selected = data["value"]
-
-            # We use this GUI attribute to store the selected sub-model
-            # TODO : read the selected sub-model from the SubModelTable
-            self.validated_sub_model_dict = data["item"] if is_selected else None
-            get_widget(app_widget, "450100").disabled = True if not is_selected else False
-
         # We wire a select event on the 'substitution table' :
-        get_widget(app_widget, "45001").set_callback(sub_model_selected)
-
-        def validate_sub_model(widget, event, data):
-            # We get the sub-model data from the SubModelTable:
-            # get_widget(app_widget,"45001").items[self.validated_sub_model]
-
-            score_val = 0
-            if isinstance(self.score, str):
-                score_name = self.score.upper()
-            elif callable(self.score):
-                score_name = self.score.__name__.upper()
-            if float(self.validated_sub_model_dict[score_name]) > score_val:
-                # TODO changer ça, c'est pas adapté
-                score_val = float(self.validated_sub_model_dict[score_name])
-
-            get_widget(app_widget, "450100").disabled = True
-
-            # We udpate the region
-            region = self.region_set.get(self.selected_region_num)
-            region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
-
-            # update_table
-            self.update_regions_table()
-            # Show tab 2
-            get_widget(app_widget, "4").v_model = 1
+        get_widget(app_widget, "45001").set_callback(self.sub_model_selected)
 
         # We wire a ckick event on the "validate sub-model" button :
-        get_widget(app_widget, "450100").on_event("click", validate_sub_model)
+        get_widget(app_widget, "450100").on_event("click", self.validate_sub_model)
 
         # We disable the Substitution table at startup :
         self.update_substitution_table(None, None, True)
 
         display(app_widget)
+
+    def switch_dimension(self, widget, event, data):
+        """
+        Called when the switch changes.
+        We call the HighDimExplorer to update its figure and, enventually,
+        compute its proj
+        """
+        self.vs_hde.set_dimension(3 if data else 2)
+        self.es_hde.set_dimension(3 if data else 2)
+
+    def change_color(self, widget, event, data):
+        """
+        Called with the user clicks on the colorChoiceBtnToggle
+        Allows change the color of the dots
+        """
+
+        # Color : a pd.Series with one color value par row
+
+        color = None
+
+        if data == "y":
+            color = self.y
+        elif data == "y^":
+            color = self.y_pred
+        elif data == "residual":
+            color = self.y - self.y_pred
+
+        self.vs_hde.redraw(color)
+        self.es_hde.redraw(color)
+
+    def select_tab(self, tab):
+        def call_fct(*args):
+            self.vs_hde.set_tab(tab)
+            self.es_hde.set_tab(tab)
+        return call_fct
+
+    # ==================== TAB 1 ==================== #
+
+    def compute_skope_rules(self, *args):
+        # if clicked, selection can't be empty
+        assert self.selection_mask.any()
+        # Let's disable the Skope button. It will be re-enabled if a new selection occurs
+        get_widget(app_widget, "43010").disabled = True
+
+        hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
+        rules_widget = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
+
+        skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
+        skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
+        if len(skr_rules_list) > 0:  # SKR rules found
+            # UI rules :
+            # We enable the 'validate rule' button
+            get_widget(app_widget, "43030").disabled = False
+            # We enable RulesWidet and init it wit the rules
+            rules_widget.enable()
+            rules_widget.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
+        else:
+            # No skr found
+            rules_widget.show_msg("No rules found", "red--text")
+
+    def undo_rules(self, *args):
+        if self.vs_rules_wgt.rules_num > 0:
+            self.vs_rules_wgt.undo()
+            if self.vs_rules_wgt.rules_num == 1:
+                # We disable the 'undo' button
+                get_widget(app_widget, "4302").disabled = True
+        else:
+            # TODO : pourquoi on annule d'abord le VS puis l'ES?
+            self.es_rules_wgt.undo()
+            if self.es_rules_wgt.rules_num == 1:
+                # We disable the 'undo' button
+                get_widget(app_widget, "4302").disabled = True
+
+    def validate_rules(self, *args):
+        if self.vs_rules_wgt.rules_num >= 0:
+            rules_widget = self.vs_rules_wgt
+            hde = self.vs_hde
+        else:
+            rules_widget = self.es_rules_wgt
+            hde = self.es_hde
+
+        rules_list = rules_widget.get_current_rules_list()
+        # We add them to our region_set
+
+        region = self.region_set.add_region(rules=rules_list)
+        self.region_num_for_validated_rules = region.num
+        # UI rules: we disable HDEs selection of we have one or more regions
+        if len(self.region_set) > 0:
+            self.vs_hde.disable_selection(True)
+            self.es_hde.disable_selection(True)
+
+        region.validate()
+
+        # And update the rules table (tab 2)
+        self.update_regions_table()
+        # UI rules :
+        # We clear selection
+        self.es_hde._deselection_event()
+        self.vs_hde._deselection_event()
+        # We force tab 2
+        get_widget(app_widget, "4").v_model = 1
+
+        # We clear the RulesWidget
+        rules_widget.disable()
+        rules_widget.init_rules(None, None, None)
+        # We disable the 'undo' button
+        get_widget(app_widget, "4302").disabled = True
+        # We disable the 'validate rules' button
+        get_widget(app_widget, "43030").disabled = True
+        # We clear HDEs 'rule traces'
+        hde.display_rules(None)
+
+    # ==================== TAB 2 ==================== #
+
+    def checkbox_auto_cluster_clicked(self, widget, event, data):
+        """
+        Called when the user clicks on the 'auto-cluster' checkbox
+        """
+        # In any case, we enable the auto-cluster button
+        get_widget(app_widget, "4402000").disabled = False
+
+        # We reveive either True or {}
+        if data != True:
+            data = False
+
+        # IF true, we disable the Slider
+        get_widget(app_widget, "4402100").disabled = data
+
+    def auto_cluster_clicked(self, widget, event, data):
+        """
+        Called when the user clicks on the 'auto-cluster' button
+        """
+        if self.region_set.stats()["coverage"] > 80:
+            # UI rules :
+            # region_set coverage is > 80% : we need to clear it to do another auto-cluster
+            self.region_set.clear_unvalidated()
+
+        # We disable the AC button. Il will be re-enabled when the AC progress is 100%
+        get_widget(app_widget, "4402000").disabled = True
+
+        # We assemble indices ot all existing regions :
+        rules_mask_list = self.region_set.get_masks()
+
+        # We call the auto_cluster with remaing X and explained(X) :
+        not_rules_indexes_list = pd.Series([True] * len(self.X), index=self.X.index)
+        for mask in rules_mask_list:
+            not_rules_indexes_list &= ~mask
+
+        vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
+        es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
+
+        ac = AutoCluster(vs_proj_3d_df.loc[not_rules_indexes_list], self.update_ac_progress_bar)
+        found_clusters = ac.compute(
+            es_proj_3d_df.loc[not_rules_indexes_list],
+            # We send 'auto' or we read the number of clusters from the Slider
+            "auto" if get_widget(app_widget, "440211").v_model else get_widget(app_widget, "4402100").v_model,
+        )  # type: ignore
+
+        for cluster_num in found_clusters.unique():
+            self.region_set.add_region(mask=(found_clusters == cluster_num))
+
+            self.es_hde.disable_selection(True)
+
+        self.update_regions_table()
+
+    def update_ac_progress_bar(self, caller, progress: float, duration: float):
+        """
+        Called by the AutoCluster to update the progress bar
+        """
+        # #TODO Hack because we do not reveive 100% at the end
+        if progress >= 96:
+            progress = 100
+
+        get_widget(app_widget, "440212").v_model = progress
+        # We re-enable the button
+        get_widget(app_widget, "4402000").disabled = progress == 100
+
+    def region_selected(self, data):
+        is_selected = data["value"]
+
+        # We use this GUI attribute to store the selected region
+        # TODO : read the selected region from the ColorTable
+        self.selected_region_num = data["item"]["Region"] if is_selected else None
+
+        # UI rules :
+        # If selected, we enable the 'substitute' and 'delete' buttons and vice-versa
+        get_widget(app_widget, "4401000").disabled = not is_selected
+        get_widget(app_widget, "440110").disabled = not is_selected
+        # If no region selected, we empty the substitution table:
+        if not is_selected:
+            self.update_substitution_table(None, None, True)
+
+    def delete_region_clicked(self, widget, event, data):
+        """
+        Called when the user clicks on the 'delete' (region) button
+        """
+        # Then we delete the regions in self.region_set
+        self.region_set.remove(self.selected_region_num)
+        # UI rules : if we deleted a region comming from the Skope rules, we re-enable the Skope button
+        if self.selected_region_num == self.region_num_for_validated_rules:
+            get_widget(app_widget, "43010").disabled = False
+
+        self.update_regions_table()
+        # There is no more selected region
+        self.selected_region_num = None
+        get_widget(app_widget, "440110").disabled = True
+        get_widget(app_widget, "4401000").disabled = True
+
+    # ==================== TAB 3 ==================== #
+
+    def substitute_clicked(self, widget, event, data):
+        assert self.selected_region_num is not None
+        get_widget(app_widget, "4").v_model = 2
+
+        region = self.region_set.get(self.selected_region_num)
+
+        # We update the substitution table once to show the name of the region
+        self.update_substitution_table(region, pd.DataFrame())
+
+        perfs = InterpretableModels(self.score).get_models_performance(
+            self.model, self.X.loc[region.mask], self.y.loc[region.mask]
+        )
+
+        # We update the substitution table a second time to show the results
+        self.update_substitution_table(region, perfs)
+
+    def sub_model_selected(self, data):
+        is_selected = data["value"]
+
+        # We use this GUI attribute to store the selected sub-model
+        # TODO : read the selected sub-model from the SubModelTable
+        self.validated_sub_model_dict = data["item"] if is_selected else None
+        get_widget(app_widget, "450100").disabled = True if not is_selected else False
+
+    def validate_sub_model(self, widget, event, data):
+        # We get the sub-model data from the SubModelTable:
+        # get_widget(app_widget,"45001").items[self.validated_sub_model]
+
+        score_val = 0
+        if isinstance(self.score, str):
+            score_name = self.score.upper()
+        elif callable(self.score):
+            score_name = self.score.__name__.upper()
+        if float(self.validated_sub_model_dict[score_name]) > score_val:
+            # TODO changer ça, c'est pas adapté
+            score_val = float(self.validated_sub_model_dict[score_name])
+
+        get_widget(app_widget, "450100").disabled = True
+
+        # We udpate the region
+        region = self.region_set.get(self.selected_region_num)
+        region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
+
+        # update_table
+        self.update_regions_table()
+        # Show tab 2
+        get_widget(app_widget, "4").v_model = 1

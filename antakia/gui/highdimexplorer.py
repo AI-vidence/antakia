@@ -92,7 +92,8 @@ class HighDimExplorer:
             init_dim: int,
             fig_size: int,
             selection_changed: callable,
-            new_eplanation_values_required: callable = None,  # (ES only)
+            space_type: str,
+            new_explanation_values_required: callable = None,  # (ES only)
             X_exp: pd.DataFrame = None,  # The imported_explanations (ES only)
     ):
         """
@@ -103,16 +104,18 @@ class HighDimExplorer:
             X_exp : imported explained dataset. Idem.
             init_proj, init_dim : int, int, used to initialize widgets
         """
+        if space_type not in ['ES', 'VS']:
+            raise ValueError(f"HDE.init: space_type must be 'ES' or 'VS', not {space_type}")
+        self.is_value_space = space_type == 'VS'
         if init_dim not in [2, 3]:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
 
         self._mask = None
         self.selection_changed = selection_changed
-        self.new_eplanation_values_required = new_eplanation_values_required
+        self.new_explanation_values_required = new_explanation_values_required
 
         # IMPORTANT : if x_exp is not None : we know it's an ES HDE
-        self.is_value_space = X_exp is None
 
         # pv_dict is a dict of ProjectedValues objects
         # Keys can be : 'original_values', 'imported_explanations', 'computed_shap', 'computed_lime'
@@ -125,7 +128,7 @@ class HighDimExplorer:
                 'computed_shap': None,
                 'computed_lime': None
             }
-            if len(X_exp) > 0:
+            if X_exp is not None and len(X_exp) > 0:
                 # We set the imported PV:
                 self.pv_dict['imported_explanations'] = ProjectedValues(X_exp)
                 self.current_pv = 'imported_explanations'
@@ -143,29 +146,16 @@ class HighDimExplorer:
 
         self._y = y
 
-        self.get_projection_select().on_event("change", self.projection_select_changed)
-
-        # We initiate it in grey, not indeterminate :
-        self.get_projection_prog_circ().color = "grey"
-        self.get_projection_prog_circ().indeterminate = False
-        self.get_projection_prog_circ().v_model = 100
-
         # Since HDE is responsible for storing its current proj, we check init value :
         if init_proj not in DimReducMethod.dimreduc_methods_as_list():
             raise ValueError(
                 f"HDE.init: {init_proj} is not a valid projection method code"
             )
-        self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
-            init_proj
-        )
         # For each projection method, we store the widget (Card) that contains its parameters UI :
-        self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
         self._proj_params = {}  # A dict of dict of dict, see below. Nested keys
         # are 'DimReducMethod' (int), then 'previous' / 'current', then 'VS' / 'ES', then 'n_neighbors' / 'MN_ratio' / 'FP_ratio'
         # app_widget holds the UI for the PaCMAP params:
 
-        self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = get_widget(app_widget,
-                                                                                              "150" if self.is_value_space else "180")
         # We init PaCMAP params for both sides
         self._proj_params[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = {
             "previous": {
@@ -177,23 +167,8 @@ class HighDimExplorer:
                 "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
             },
         }
-        # We wire events on PaCMAP sliders only (for now):
-        if self.is_value_space:
-            get_widget(app_widget, "15000").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "15001").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "15002").on_event("change", self._proj_params_changed)
-        else:
-            get_widget(app_widget, "18000").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "18001").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "18002").on_event("change", self._proj_params_changed)
 
-        if not self.is_value_space:
-            self.update_explanation_select()
-            self.get_explanation_select().on_event("change", self.explanation_select_changed)
-
-            get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
-            get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
-            self.update_compute_menu()
+        self.wire(init_proj)
 
         #  Now we can init figures 2 and 3D
         self.fig_size = fig_size
@@ -207,6 +182,37 @@ class HighDimExplorer:
 
         self._current_selection = pd.Series([False] * len(X), index=X.index)
         self._has_lasso = False
+        self.active_tab = 0
+
+    def wire(self, init_proj):
+        self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
+        self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = get_widget(app_widget,
+                                                                                              "150" if self.is_value_space else "180")
+        # We initiate it in grey, not indeterminate :
+        proj_circ = self.get_projection_prog_circ()
+        proj_circ.color = "grey"
+        proj_circ.indeterminate = False
+        proj_circ.v_model = 100
+        self.get_projection_select().on_event("change", self.projection_select_changed)
+        self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
+            init_proj
+        )
+        # We wire events on PaCMAP sliders only (for now):
+        if self.is_value_space:
+            get_widget(app_widget, "15000").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "15001").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "15002").on_event("change", self._proj_params_changed)
+        else:
+            get_widget(app_widget, "18000").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "18001").on_event("change", self._proj_params_changed)
+            get_widget(app_widget, "18002").on_event("change", self._proj_params_changed)
+        if not self.is_value_space:
+            self.update_explanation_select()
+            self.get_explanation_select().on_event("change", self.explanation_select_changed)
+
+            get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
+            get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
+            self.update_compute_menu()
 
     # ---- Methods ------
 
@@ -215,10 +221,9 @@ class HighDimExplorer:
             dragmode=False if is_disabled else "lasso"
         )
 
-    def show_trace(self, trace_id: int, show:bool):
+    def show_trace(self, trace_id: int, show: bool):
         self.figure_2D.data[trace_id].visible = show
         self.figure_3D.data[trace_id].visible = show
-
 
     def disable_widgets(self, is_disabled: bool):
         """
@@ -671,7 +676,7 @@ class HighDimExplorer:
 
         self.current_pv = 'computed_shap' if desired_explain_method == ExplanationMethod.SHAP else 'computed_lime'
         self.pv_dict[self.current_pv] = ProjectedValues(
-            self.new_eplanation_values_required(desired_explain_method, self.update_progress_linear))
+            self.new_explanation_values_required(desired_explain_method, self.update_progress_linear))
 
         # We compute proj for this new PV :
         self.compute_projs(False, self.update_progress_circular)
@@ -734,7 +739,7 @@ class HighDimExplorer:
             # NOTE : here we convert row ids to dataframe indexes
             self.selection_changed(self, self._current_selection)
 
-    def _deselection_event(self, trace, points, append: bool = False):
+    def _deselection_event(self, *args):
         """Called on deselection"""
         # We tell the GUI
         self._current_selection = utils.rows_to_mask(self.pv_dict['original_values'].X, [])
@@ -769,6 +774,112 @@ class HighDimExplorer:
         self.figure_2D.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask))
         # We store the new selection
         self._current_selection = new_selection_mask
+
+    def create_figure(self, dim: int):
+        """
+        Called by __init__ and by set_selection
+        Builds the FigureWidget for the given dimension
+        """
+        x = y = z = None
+
+        if self.current_X is not None:
+            proj_values = self.get_current_X_proj(dim)
+            if proj_values is not None:
+                x = proj_values[0]
+                y = proj_values[1]
+                if dim == 3:
+                    z = proj_values[2]
+
+        hde_marker = {'color': self._y, 'colorscale': "Viridis"}
+
+        if dim == 3:
+            hde_marker['size'] = 2
+
+        fig_args = {
+            'x': x,
+            'y': y,
+            'mode': "markers",
+            'marker': hde_marker,
+            'customdata': self._y,
+            'hovertemplate': "%{customdata:.3f}",
+        }
+        if dim == 3:
+            fig_args['z'] = z
+            fig_builder = Scatter3d
+        else:
+            fig_builder = Scattergl
+
+        fig = FigureWidget(data=[fig_builder(**fig_args)])  # Trace 0 for dots
+        fig.add_trace(fig_builder(**fig_args))  # Trace 1 for rules
+        fig.add_trace(fig_builder(**fig_args))  # Trace 2 for region set
+        fig.add_trace(fig_builder(**fig_args))  # Trace 3 for region
+
+        fig.update_layout(dragmode=False if self._selection_disabled else "lasso")
+        fig.update_traces(
+            selected={"marker": {"opacity": 1.0}},
+            unselected={"marker": {"opacity": 0.1}},
+            selector={'type': "scatter"}
+        )
+        fig.update_layout(
+            margin={
+                't': 0,
+                'b': 0,
+                'l': 0,
+                'r': 0
+            },
+            width=self.fig_size,
+            height=round(self.fig_size / 2),
+        )
+        fig._config = fig._config | {"displaylogo": False}
+        fig._config = fig._config | {'displayModeBar': True}
+        # We don't want the name of the trace to appear :
+        for trace_id in range(len(fig.data)):
+            fig.data[trace_id].showlegend = False
+
+        if dim == 2:
+            self.figure_2D = fig
+            self.figure_2D.data[0].on_selection(self._selection_event)
+            self.figure_2D.data[0].on_deselect(self._deselection_event)
+        else:
+            self.figure_3D = fig
+
+        self.container.children = [self.figure_2D if self._current_dim == 2 else self.figure_3D]
+
+    def redraw(self, color: pd.Series = None):
+        """
+        Redraws the 2D and 3D figures. FigureWidgets are not recreated.
+        """
+        self.redraw_figure(self.figure_2D, color)
+        self.redraw_figure(self.figure_3D, color)
+
+    def redraw_figure(
+            self,
+            fig: FigureWidget,
+            color: pd.Series = None,
+            trace_id=0
+    ):
+
+        dim = (
+            2 if isinstance(fig.data[0], Scattergl) else 3
+        )  # dont' use self._current_dim: it may be 3D while we want to redraw figure_2D
+
+        projection = self.get_current_X_proj(dim)
+        if color is not None:
+            color = color.loc[self.mask]
+        x = projection[0]
+        y = projection[1]
+        if dim == 3:
+            z = projection[2]
+
+        with fig.batch_update():
+            fig.data[trace_id].x = x
+            fig.data[trace_id].y = y
+            if dim == 3:
+                fig.data[trace_id].z = z
+            fig.layout.width = self.fig_size
+            if color is not None:
+                fig.data[trace_id].marker.color = color
+            fig.data[trace_id].customdata = color
 
     def get_projection_select(self):
         """
@@ -842,7 +953,7 @@ class HighDimExplorer:
             return
         if masked:
             return X.loc[self.mask]
-        return self.pv_dict[self.current_pv].get_proj_values(self._get_projection_method(), dim)
+        return X
 
     def selection_to_mask(self, row_numbers, dim):
         selection = utils.rows_to_mask(self.pv_dict['original_values'].X.loc[self.mask], row_numbers)
@@ -854,3 +965,16 @@ class HighDimExplorer:
         print('len', len(selection), len(guessed_selection))
         # KNN extrapolation
         return guessed_selection.astype(bool)
+
+    def set_tab(self, tab):
+        self.show_trace(HighDimExplorer.VALUES_TRACE, True)
+        self.show_trace(HighDimExplorer.RULES_TRACE, tab == 1)
+        self.show_trace(HighDimExplorer.REGIONSET_TRACE, tab == 2)
+        self.show_trace(HighDimExplorer.REGION_TRACE, tab == 3)
+        self.show_trace(self.VALUES_TRACE, True)
+        self.show_trace(self.RULES_TRACE, tab == 1)
+        self.show_trace(self.REGIONSET_TRACE, tab == 2)
+        self.show_trace(self.REGION_TRACE, tab == 3)
+        # and it's the only place where selection is allowed
+        self.disable_selection(tab != 1)
+        self.active_tab = tab
