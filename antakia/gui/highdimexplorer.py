@@ -289,9 +289,6 @@ class HighDimExplorer:
         transparency = (len(self.pv_dict['original_values'].X) - len(colors)) / len(
             self.pv_dict['original_values'].X)
 
-        print(
-            f"HDE.dzonf: {self.get_space_name()}/{dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure_2D.data[trace_id].visible if dim == 2 else self.figure_3D.data[trace_id].visible}, transparency:{round(100 * transparency, 2)}%")
-
         x = values[0]
         y = values[1]
         if dim == 3:
@@ -303,6 +300,7 @@ class HighDimExplorer:
             if dim == 3:
                 fig.data[trace_id].z = z
             fig.layout.width = self.fig_size
+            logger.debug(colors)
             fig.data[trace_id].marker.color = colors
 
     def set_color_all_dim(self, color, trace_id):
