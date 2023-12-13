@@ -1,5 +1,4 @@
 from __future__ import annotations
-import re
 
 import pandas as pd
 import numpy as np
@@ -13,8 +12,6 @@ from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.region import Region, RegionSet
 
 from antakia.gui.widgets import get_widget, app_widget
-
-from matplotlib.colors import to_rgb
 
 import antakia.utils.utils as utils
 import antakia.config as config
@@ -300,8 +297,8 @@ class HighDimExplorer:
             if dim == 3:
                 fig.data[trace_id].z = z
             fig.layout.width = self.fig_size
-            logger.debug(colors)
             fig.data[trace_id].marker.color = colors
+            fig.data[trace_id].marker.opacity = 1 - transparency
 
     def set_color_all_dim(self, color, trace_id):
         self.set_color(self.figure_2D, trace_id, color, dim=2)
