@@ -26,6 +26,7 @@ class Region:
         self.score = None
         self._color = color
         self.validated = False
+        self.perfs: pd.DataFrame = None
 
     @property
     def color(self):
@@ -63,6 +64,9 @@ class Region:
 
     def validate(self):
         self.validated = True
+
+    def set_perfs(self, perfs: pd.DataFrame):
+        self.perfs = perfs
 
 
 class RegionSet:

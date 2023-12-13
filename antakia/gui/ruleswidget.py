@@ -233,7 +233,7 @@ class RulesWidget:
         [i][1] : the scores as a dict {"precision": ?, "recall": ?, "f1": ?}
     X : pd.DataFrame, values or explanations Dataframe depending on the context
     variables : list of Variable
-    selection_ids : list of indexes of the GUI selection (from X.index)
+    rules_mask : list of indexes of the GUI selection (from X.index)
     is_value_space : bool
     is_disabled : bool
     rules_mask : Dataframe mask of the rules
@@ -290,32 +290,37 @@ class RulesWidget:
         ]
         header_html.class_ = "ml-3 grey--text" if self.is_disabled else "ml-3"
 
-        self._show_score()
-        self._show_rules()
+        if not is_disabled:
+            self._show_score()
+            self._show_rules()
 
         # We set an empty ExpansionPanels :
         change_widget(self.root_widget, "1", v.ExpansionPanels())
 
-    def init_rules(self, rules_list: list, score_dict: dict, selection_mask: pd.Series):
+    def init_rules(self, rules_list: list, score_dict: dict, rules_mask: pd.Series):
         """
         Called to set rules or clear them. To update, use update_rule
         """
-        self.selection_mask = selection_mask
+        self.rules_mask = rules_mask
 
         self.is_disabled = False
         # We populate the db and ask to erase past rules
         self._put_in_db(rules_list, score_dict, True)
         # We set our card info
         self.set_rules_info()
-        self._show_score()
-        self._show_rules()
 
         # We create the RuleWidgets
-        rules_mask = Rule.rules_to_mask(self.get_current_rules_list(), self.X)
-        self._create_rule_widgets(rules_mask)
+        current_rules_mask = Rule.rules_to_mask(self.get_current_rules_list(), self.X)
+        self._create_rule_widgets(current_rules_mask)
 
         # We notify the GUI and ask to draw the rules on HDEs
         self.new_rules_defined(self, rules_mask, True)
+
+    def reset_widget(self):
+        self.disable()
+        self.rules_db = []
+        self.rule_widget_list = []
+        self.rules_mask = None
 
     def update_rule(self, new_rule: Rule):
         """
@@ -331,11 +336,11 @@ class RulesWidget:
 
         # The list of our 'rules model' 'predicted positives'
         new_rules_mask = Rule.rules_to_mask(new_rules_list, self.X)
-        # self.selection_ids = the list of the true positives (i.e. in the selection)
+
 
         try:
-            precision = (new_rules_mask & self.selection_mask).sum() / new_rules_mask.sum()
-            recall = (new_rules_mask & self.selection_mask).sum() / self.selection_mask.sum()
+            precision = (new_rules_mask & self.rules_mask).sum() / new_rules_mask.sum()
+            recall = (new_rules_mask & self.rules_mask).sum() / self.rules_mask.sum()
             f1 = 2 * (precision * recall) / (precision + recall)
             target_avg = self.y[new_rules_mask].mean()
         except ZeroDivisionError:

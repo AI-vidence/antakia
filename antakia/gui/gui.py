@@ -72,6 +72,7 @@ class GUI:
             X_exp: pd.DataFrame | None = None,
             score: callable | str = "mse",
     ):
+        self.tab = 1
         self.X = X
         self.y = y
         self.model = model
@@ -192,100 +193,6 @@ class GUI:
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
 
-    def update_substitution_table(self, region: Region, perfs: pd.DataFrame, disable: bool = False):
-        """
-        Called twice to update table
-        """
-
-        # Region v.HTML
-        get_widget(app_widget, "450000").class_ = "mr-2 black--text" if not disable else "mr-2 grey--text"
-        # v.Chip
-        get_widget(app_widget, "450001").color = region.color if not disable else "grey"
-        get_widget(app_widget, "450001").children = [str(region.num)] if not disable else ["-"]
-
-        vHtml = get_widget(app_widget, "450002")
-        prog_circular = get_widget(app_widget, "45011")
-
-        if not disable:
-            # We're enabled
-            if perfs is not None and perfs.shape[0] == 0:
-                # We tell to wait ...
-                vHtml.class_ = "ml-2 grey--text italic "
-                vHtml.tag = "h3"
-                vHtml.children = [f"Sub-models are being evaluated ..."]
-                prog_circular.disabled = False
-                prog_circular.color = "blue"
-                prog_circular.indeterminate = True
-                # We clear items int the SubModelTable
-                get_widget(app_widget, "45001").items = []
-
-            elif perfs is not None and perfs.shape[0] > 0:
-                # We have results
-                vHtml.class_ = "ml-2 black--text"
-                vHtml.tag = "h3"
-                vHtml.children = [
-                    f"{Rule.multi_rules_to_string(region.rules) if region.rules is not None else 'auto-cluster'}, "
-                    f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"
-                ]
-
-                # We stop the progress bar
-                prog_circular.disabled = True
-                prog_circular.color = "grey"
-                prog_circular.indeterminate = False
-
-                # TODO : format cells in SubModelTable
-                def series_to_str(series: pd.Series) -> str:
-                    return series.apply(lambda x: f"{x:.2f}")
-
-                for col in perfs.columns:
-                    perfs[col] = series_to_str(perfs[col])
-                perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
-                perfs["Sub-model"] = perfs["Sub-model"].str.replace("_", " ").str.capitalize()
-                get_widget(app_widget, "45001").items = perfs.to_dict("records")
-            else:
-                # We have no results
-                vHtml.class_ = "ml-2 red--text"
-                vHtml.tag = "h3"
-                vHtml.children = [" Region too small for substitution !"]
-                get_widget(app_widget, "45001").items = []
-                # We stop the progress bar
-                prog_circular.disabled = True
-                prog_circular.color = "grey"
-                prog_circular.indeterminate = False
-        else:
-            # We're disabled
-            vHtml.class_ = "ml-2 grey--text italic "
-            vHtml.tag = "h3"
-            vHtml.children = [f"No region selected for substitution"]
-            prog_circular.disabled = True
-            prog_circular.indeterminate = False
-            # We clear items int the SubModelTable
-            get_widget(app_widget, "45001").items = []
-
-    def update_regions_table(self):
-        """
-        Called to empty / fill the RegionDataTable
-        """
-        temp_items = self.region_set.to_dict()
-
-        # We populate the ColorTable :
-        get_widget(app_widget, "4400100").items = temp_items
-        # We populate the regions DataTable :
-        get_widget(app_widget, "4400110").items = temp_items
-
-        region_stats = self.region_set.stats()
-        get_widget(app_widget, "44002").children = [
-            f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"
-        ]
-
-        # It seems HDEs need to display regions each time we udpate the table :
-        self.vs_hde.display_regionset(self.region_set)
-        self.es_hde.display_regionset(self.region_set)
-
-        # UI rules :
-        # If regions coverage > 80%, we disable the 'auto-cluster' button
-        get_widget(app_widget, "4402000").disabled = region_stats["coverage"] > 80
-
     def new_explanation_values_required(self, explain_method: int, callback: callable = None) -> pd.DataFrame:
         """
         Called either by :
@@ -342,7 +249,7 @@ class GUI:
                     disable_sort=False,
                 ),
             )
-        
+
         # We store the new selection
         self.selection_mask = new_selection_mask
         # We synchronize selection between the two HighDimExplorers
@@ -377,9 +284,9 @@ class GUI:
         self.es_hde.display_rules(df_mask)
 
         # We disable the 'undo' button if RsW has less than 2 rules
-        get_widget(app_widget, "4302").disabled = rules_widget.rules_num < 1
+        get_widget(app_widget, "4302").disabled = rules_widget.rules_num <= 1
         # We disable the 'validate rules' button if RsW has less than 1 rule
-        get_widget(app_widget, "43030").disabled = rules_widget.rules_num < 0
+        get_widget(app_widget, "43030").disabled = rules_widget.rules_num <= 0
 
     def show_app(self):
         # =================== AppBar ===================
@@ -418,7 +325,7 @@ class GUI:
         # ================ Tab 1 Selection ================
 
         # We wire the click event on 'Tab 1'
-        get_widget(app_widget, "40").on_event("click", self.select_tab(1))
+        get_widget(app_widget, "40").on_event("click", self.select_tab_front(1))
 
         # We add our 2 RulesWidgets to the GUI :
         change_widget(app_widget, "4310", self.vs_rules_wgt.root_widget)
@@ -448,7 +355,7 @@ class GUI:
 
         # ================ Tab 2 : regions ===============
         # We wire the click event on 'Tab 2'
-        get_widget(app_widget, "41").on_event("click", self.select_tab(2))
+        get_widget(app_widget, "41").on_event("click", self.select_tab_front(2))
 
         get_widget(app_widget, "4400100").set_callback(self.region_selected)
 
@@ -492,15 +399,13 @@ class GUI:
         # UI rules : at startup, the slider is is disabled and the checkbox is checked
         get_widget(app_widget, "4402100").disabled = True
 
-        self.update_regions_table()
-        # At startup, REGIONSET_TRACE is not visible  
-        for hde in [self.vs_hde, self.es_hde]:
-            hde.show_trace(HighDimExplorer.REGIONSET_TRACE, False)
+        self.update_region_table()
+        # At startup, REGIONSET_TRACE is not visible
 
         # ============== Tab 3 : substitution ==================
 
         # We wire the click event on 'Tab 3'
-        get_widget(app_widget, "42").on_event("click", self.select_tab(3))
+        get_widget(app_widget, "42").on_event("click", self.select_tab_front(3))
 
         # UI rules :
         # At startup the validate sub-model btn is disabled :
@@ -513,8 +418,9 @@ class GUI:
         get_widget(app_widget, "450100").on_event("click", self.validate_sub_model)
 
         # We disable the Substitution table at startup :
-        self.update_substitution_table(None, None, True)
+        self.update_substitution_table(None)
 
+        self.select_tab_back(1)
         display(app_widget)
 
     def switch_dimension(self, widget, event, data):
@@ -543,18 +449,50 @@ class GUI:
         elif data == "residual":
             color = self.y - self.y_pred
 
-        self.vs_hde.redraw(color)
-        self.es_hde.redraw(color)
+        self.vs_hde.set_color_all_dim(color=color, trace_id=0)
+        self.es_hde.set_color_all_dim(color=color, trace_id=0)
+        self.select_tab_back(0)
 
-    def select_tab(self, tab):
+    def select_tab_front(self, tab):
         def call_fct(*args):
+            if self.tab == 1:
+                self.vs_hde._deselection_event()
+                self.es_hde._deselection_event()
+                self.vs_hde.create_figure(2)
+                self.es_hde.create_figure(2)
             self.vs_hde.set_tab(tab)
             self.es_hde.set_tab(tab)
+            self.tab = tab
+
         return call_fct
+
+    def select_tab_back(self, tab, *args):
+        print('tab_switch',self.tab, tab)
+        if self.tab == 1:
+            self.vs_hde._deselection_event()
+            self.es_hde._deselection_event()
+            self.vs_hde.create_figure(2)
+            self.es_hde.create_figure(2)
+        if tab == 2:
+            self.update_region_table()
+            self.vs_hde.display_regionset(self.region_set)
+            self.es_hde.display_regionset(self.region_set)
+        elif tab == 3:
+            region = self.region_set.get(self.selected_region_num)
+            self.update_substitution_table(region)
+            self.vs_hde.display_region(region)
+            self.es_hde.display_region(region)
+
+        get_widget(app_widget, "4").v_model = tab - 1
+        self.vs_hde.set_tab(tab)
+        self.es_hde.set_tab(tab)
+        self.tab = tab
 
     # ==================== TAB 1 ==================== #
 
     def compute_skope_rules(self, *args):
+        if self.tab != 1:
+            self.select_tab_back(1)
         # if clicked, selection can't be empty
         assert self.selection_mask.any()
         # Let's disable the Skope button. It will be re-enabled if a new selection occurs
@@ -577,6 +515,8 @@ class GUI:
             rules_widget.show_msg("No rules found", "red--text")
 
     def undo_rules(self, *args):
+        if self.tab != 1:
+            self.select_tab_back(1)
         if self.vs_rules_wgt.rules_num > 0:
             self.vs_rules_wgt.undo()
             if self.vs_rules_wgt.rules_num == 1:
@@ -590,12 +530,12 @@ class GUI:
                 get_widget(app_widget, "4302").disabled = True
 
     def validate_rules(self, *args):
+        if self.tab != 1:
+            self.select_tab_back(1)
         if self.vs_rules_wgt.rules_num >= 0:
             rules_widget = self.vs_rules_wgt
-            hde = self.vs_hde
         else:
             rules_widget = self.es_rules_wgt
-            hde = self.es_hde
 
         rules_list = rules_widget.get_current_rules_list()
         # We add them to our region_set
@@ -603,37 +543,53 @@ class GUI:
         region = self.region_set.add_region(rules=rules_list)
         self.region_num_for_validated_rules = region.num
         # UI rules: we disable HDEs selection of we have one or more regions
-        if len(self.region_set) > 0:
-            self.vs_hde.disable_selection(True)
-            self.es_hde.disable_selection(True)
-
+        # if len(self.region_set) > 0:
+        #    self.vs_hde.disable_selection(True)
+        #    self.es_hde.disable_selection(True)
+        # lock rule
         region.validate()
 
         # And update the rules table (tab 2)
-        self.update_regions_table()
         # UI rules :
         # We clear selection
-        self.es_hde._deselection_event()
-        self.vs_hde._deselection_event()
-        # We force tab 2
-        get_widget(app_widget, "4").v_model = 1
-
         # We clear the RulesWidget
-        rules_widget.disable()
-        rules_widget.init_rules(None, None, None)
+        # rules_widget.reset_widget()
+        # We force tab 2
+        self.select_tab_back(2)
+
         # We disable the 'undo' button
         get_widget(app_widget, "4302").disabled = True
         # We disable the 'validate rules' button
         get_widget(app_widget, "43030").disabled = True
-        # We clear HDEs 'rule traces'
-        hde.display_rules(None)
 
     # ==================== TAB 2 ==================== #
+
+    def update_region_table(self):
+        """
+        Called to empty / fill the RegionDataTable and refresh plots
+        """
+        temp_items = self.region_set.to_dict()
+
+        # We populate the ColorTable :
+        get_widget(app_widget, "4400100").items = temp_items
+        # We populate the regions DataTable :
+        get_widget(app_widget, "4400110").items = temp_items
+
+        region_stats = self.region_set.stats()
+        get_widget(app_widget, "44002").children = [
+            f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"
+        ]
+
+        # UI rules :
+        # If regions coverage > 80%, we disable the 'auto-cluster' button
+        get_widget(app_widget, "4402000").disabled = region_stats["coverage"] > 80
 
     def checkbox_auto_cluster_clicked(self, widget, event, data):
         """
         Called when the user clicks on the 'auto-cluster' checkbox
         """
+        if self.tab != 2:
+            self.select_tab_back(2)
         # In any case, we enable the auto-cluster button
         get_widget(app_widget, "4402000").disabled = False
 
@@ -648,6 +604,8 @@ class GUI:
         """
         Called when the user clicks on the 'auto-cluster' button
         """
+        if self.tab != 2:
+            self.select_tab_back(2)
         if self.region_set.stats()["coverage"] > 80:
             # UI rules :
             # region_set coverage is > 80% : we need to clear it to do another auto-cluster
@@ -677,9 +635,7 @@ class GUI:
         for cluster_num in found_clusters.unique():
             self.region_set.add_region(mask=(found_clusters == cluster_num))
 
-            self.es_hde.disable_selection(True)
-
-        self.update_regions_table()
+        self.select_tab_back(2)
 
     def update_ac_progress_bar(self, caller, progress: float, duration: float):
         """
@@ -694,6 +650,8 @@ class GUI:
         get_widget(app_widget, "4402000").disabled = progress == 100
 
     def region_selected(self, data):
+        if self.tab != 2:
+            self.select_tab_back(2)
         is_selected = data["value"]
 
         # We use this GUI attribute to store the selected region
@@ -704,21 +662,20 @@ class GUI:
         # If selected, we enable the 'substitute' and 'delete' buttons and vice-versa
         get_widget(app_widget, "4401000").disabled = not is_selected
         get_widget(app_widget, "440110").disabled = not is_selected
-        # If no region selected, we empty the substitution table:
-        if not is_selected:
-            self.update_substitution_table(None, None, True)
 
     def delete_region_clicked(self, widget, event, data):
         """
         Called when the user clicks on the 'delete' (region) button
         """
+        if self.tab != 2:
+            self.select_tab_back(2)
         # Then we delete the regions in self.region_set
         self.region_set.remove(self.selected_region_num)
         # UI rules : if we deleted a region comming from the Skope rules, we re-enable the Skope button
         if self.selected_region_num == self.region_num_for_validated_rules:
             get_widget(app_widget, "43010").disabled = False
 
-        self.update_regions_table()
+        self.select_tab_back(2)
         # There is no more selected region
         self.selected_region_num = None
         get_widget(app_widget, "440110").disabled = True
@@ -728,19 +685,89 @@ class GUI:
 
     def substitute_clicked(self, widget, event, data):
         assert self.selected_region_num is not None
-        get_widget(app_widget, "4").v_model = 2
-
         region = self.region_set.get(self.selected_region_num)
 
         # We update the substitution table once to show the name of the region
-        self.update_substitution_table(region, pd.DataFrame())
+        self.select_tab_back(3, region)
 
         perfs = InterpretableModels(self.score).get_models_performance(
             self.model, self.X.loc[region.mask], self.y.loc[region.mask]
         )
 
+        region.set_perfs(perfs)
+
         # We update the substitution table a second time to show the results
-        self.update_substitution_table(region, perfs)
+        self.update_substitution_table(region)
+
+    def update_substitution_table(self, region: Region):
+        """
+        Called twice to update table
+        """
+        disable = region is None
+        # Region v.HTML
+        get_widget(app_widget, "450000").class_ = "mr-2 black--text" if not disable else "mr-2 grey--text"
+        # v.Chip
+        get_widget(app_widget, "450001").color = region.color if not disable else "grey"
+        get_widget(app_widget, "450001").children = [str(region.num)] if not disable else ["-"]
+
+        vHtml = get_widget(app_widget, "450002")
+        prog_circular = get_widget(app_widget, "45011")
+
+        if not disable:
+            # We're enabled
+            if region.perfs is None:
+                # We tell to wait ...
+                vHtml.class_ = "ml-2 grey--text italic "
+                vHtml.tag = "h3"
+                vHtml.children = [f"Sub-models are being evaluated ..."]
+                prog_circular.disabled = False
+                prog_circular.color = "blue"
+                prog_circular.indeterminate = True
+                # We clear items int the SubModelTable
+                get_widget(app_widget, "45001").items = []
+            elif len(region.perfs) == 0:
+                # We have no results
+                vHtml.class_ = "ml-2 red--text"
+                vHtml.tag = "h3"
+                vHtml.children = [" Region too small for substitution !"]
+                get_widget(app_widget, "45001").items = []
+                # We stop the progress bar
+                prog_circular.disabled = True
+                prog_circular.color = "grey"
+                prog_circular.indeterminate = False
+            else:
+                # We have results
+                vHtml.class_ = "ml-2 black--text"
+                vHtml.tag = "h3"
+                vHtml.children = [
+                    f"{Rule.multi_rules_to_string(region.rules) if region.rules is not None else 'auto-cluster'}, "
+                    f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"
+                ]
+
+                # We stop the progress bar
+                prog_circular.disabled = True
+                prog_circular.color = "grey"
+                prog_circular.indeterminate = False
+
+                # TODO : format cells in SubModelTable
+                def series_to_str(series: pd.Series) -> str:
+                    return series.apply(lambda x: f"{x:.2f}")
+
+                perfs = region.perfs.copy()
+                for col in perfs.columns:
+                    perfs[col] = series_to_str(perfs[col])
+                perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
+                perfs["Sub-model"] = perfs["Sub-model"].str.replace("_", " ").str.capitalize()
+                get_widget(app_widget, "45001").items = perfs.to_dict("records")
+        else:
+            # We're disabled
+            vHtml.class_ = "ml-2 grey--text italic "
+            vHtml.tag = "h3"
+            vHtml.children = [f"No region selected for substitution"]
+            prog_circular.disabled = True
+            prog_circular.indeterminate = False
+            # We clear items int the SubModelTable
+            get_widget(app_widget, "45001").items = []
 
     def sub_model_selected(self, data):
         is_selected = data["value"]
@@ -769,7 +796,5 @@ class GUI:
         region = self.region_set.get(self.selected_region_num)
         region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
 
-        # update_table
-        self.update_regions_table()
         # Show tab 2
-        get_widget(app_widget, "4").v_model = 1
+        self.select_tab_back(2)
