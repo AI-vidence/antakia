@@ -11,7 +11,12 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://example.com/Theory%20behind%20AntakIA/</loc>
+         <loc>https://example.com/Theory_behind_AntakIA/</loc>
+         <lastmod>2023-12-14</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://example.com/Tutorial/</loc>
          <lastmod>2023-12-14</lastmod>
          <changefreq>daily</changefreq>
     </url>
