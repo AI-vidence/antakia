@@ -4,3 +4,6 @@ AntakIA is a software allowing you to explore a trained machine learning (ML) mo
 
 AntakIA is an open-source project by AI-vidence, a French company, showcasing our regional approach for AI explainability. Besides local and global explainability, we believe in a more relevant and intermediate scale to observe phenomena. We divide the multidimensional space of input values in regions where we can substitute the original 'black box' model with simmpler and explainable models. Because we split the space in smaller pieces, we named our approach from the antique city Antakia (in Türkiye nowadays) famous for its roman mosaics. 
 
+Coucou
+
+
