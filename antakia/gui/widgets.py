@@ -916,7 +916,7 @@ app_widget = v.Col(
                                                              class_="ml-7",
                                                              tag="li",
                                                              children=[
-                                                                 "Precision = 0.3, recall = 0.8, f1_score = 22"
+                                                                 "Precision = n/a, recall = n/a, f1_score = n/a"
                                                              ]
                                                          ),
                                                          v.Html(  # 431002 / 02
@@ -998,7 +998,7 @@ app_widget = v.Col(
                                                          v.Html(  # 431101
                                                              class_="ml-7",
                                                              tag="li",
-                                                             children=["Precision = 0.3, Recall = 0.8, F1 = 22"]
+                                                             children=["Precision = n/a, Recall = n/a, F1 = n/a"]
                                                          ),
                                                          v.Html(  # 431102
                                                              class_="ml-7",

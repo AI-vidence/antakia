@@ -1,5 +1,4 @@
 from __future__ import annotations
-from arrow import get
 import pandas as pd
 
 import ipyvuetify as v
@@ -18,10 +17,8 @@ from antakia.data_handler.rules import Rule
 
 from antakia.gui.widgets import get_widget, change_widget, splash_widget, app_widget
 from antakia.gui.highdimexplorer import HighDimExplorer
-from antakia.data_handler.projected_values import ProjectedValues
 from antakia.gui.ruleswidget import RulesWidget
 
-import os
 import copy
 
 import logging
@@ -137,7 +134,8 @@ class GUI:
         get_widget(
             splash_widget, "220"
         ).v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_VS_PROJECTION)} on {self.X.shape} x 4"
-        self.vs_hde.compute_projs(False, self.update_splash_screen)
+        self.vs_hde.get_current_X_proj(callback=self.update_splash_screen)
+        # self.vs_hde.compute_projs(False, self.update_splash_screen)
 
         # We trigger ES explain computation if needed :
         if self.es_hde.pv_dict['imported_explanations'] is None:  # No imported explanation values
@@ -148,12 +146,7 @@ class GUI:
             ).v_model = (
                 f"Computing {ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
             )
-            self.es_hde.current_pv = 'computed_shap' if explain_method == ExplanationMethod.SHAP else 'computed_lime'
-            self.es_hde.pv_dict[self.es_hde.current_pv] = ProjectedValues(
-                self.new_explanation_values_required(explain_method, self.update_splash_screen)
-            )
-            self.es_hde.update_explanation_select()
-            self.es_hde.update_compute_menu()
+            self.es_hde.compute_explanation(explain_method, self.update_splash_screen)
         else:
             get_widget(
                 splash_widget, "120"
@@ -162,7 +155,8 @@ class GUI:
             )
 
             # THen we trigger ES proj computation :
-        self.es_hde.compute_projs(False, self.update_splash_screen)
+        # self.es_hde.compute_projs(False, self.update_splash_screen)
+        self.es_hde.get_current_X_proj(callback=self.update_splash_screen)
 
         splash_widget.close()
 
@@ -179,7 +173,7 @@ class GUI:
             number = 1
         else:  # It's a projection
             progress_linear = get_widget(splash_widget, "210")
-            number = 4  # (VS/ES) x (2D/3D)
+            number = 2  # (VS/ES) x (2D/3D)
 
         if progress_linear.color == "light blue":
             progress_linear.color = "blue"
@@ -220,6 +214,11 @@ class GUI:
             # We disable 'undo' and 'validate rules' buttons
             get_widget(app_widget, "4302").disabled = True
             get_widget(app_widget, "43030").disabled = True
+
+            # we reset rules_widgets
+            self.es_rules_wgt.reset_widget()
+            self.vs_rules_wgt.reset_widget()
+
             # We enable both HDEs (proj select, explain select etc.)
             self.vs_hde.disable_widgets(False)
             self.es_hde.disable_widgets(False)
@@ -258,8 +257,8 @@ class GUI:
 
         # We update the selection status :
         selection_status_str_1 = f"{new_selection_mask.sum()} point selected"
-        selection_status_str_2 = f"{100 * new_selection_mask.mean():.2f}% of the  dataset"
         change_widget(app_widget, "4300000", selection_status_str_1)
+        selection_status_str_2 = f"{100 * new_selection_mask.mean():.2f}% of the  dataset"
         change_widget(app_widget, "430010", selection_status_str_2)
 
     def fig_size_changed(self, widget, event, data):
@@ -420,7 +419,7 @@ class GUI:
         # We disable the Substitution table at startup :
         self.update_substitution_table(None)
 
-        self.select_tab_back(1)
+        self.select_tab(1)
         display(app_widget)
 
     def switch_dimension(self, widget, event, data):
@@ -449,30 +448,22 @@ class GUI:
         elif data == "residual":
             color = self.y - self.y_pred
 
-        self.vs_hde.set_color_all_dim(color=color, trace_id=0)
-        self.es_hde.set_color_all_dim(color=color, trace_id=0)
-        self.select_tab_back(0)
+        self.vs_hde.set_color(color, 0)
+        self.es_hde.set_color(color, 0)
+        self.select_tab(0)
 
     def select_tab_front(self, tab):
         def call_fct(*args):
-            if self.tab == 1:
-                self.vs_hde._deselection_event()
-                self.es_hde._deselection_event()
-                self.vs_hde.create_figure(2)
-                self.es_hde.create_figure(2)
-            self.vs_hde.set_tab(tab)
-            self.es_hde.set_tab(tab)
-            self.tab = tab
+            self.select_tab(tab, front=True)
 
         return call_fct
 
-    def select_tab_back(self, tab, *args):
-        print('tab_switch',self.tab, tab)
+    def select_tab(self, tab, front=False):
         if self.tab == 1:
             self.vs_hde._deselection_event()
+            self.vs_hde.create_figure()
             self.es_hde._deselection_event()
-            self.vs_hde.create_figure(2)
-            self.es_hde.create_figure(2)
+            self.es_hde.create_figure()
         if tab == 2:
             self.update_region_table()
             self.vs_hde.display_regionset(self.region_set)
@@ -480,10 +471,12 @@ class GUI:
         elif tab == 3:
             region = self.region_set.get(self.selected_region_num)
             self.update_substitution_table(region)
+            if region is None:
+                region = Region(self.X)
             self.vs_hde.display_region(region)
             self.es_hde.display_region(region)
-
-        get_widget(app_widget, "4").v_model = tab - 1
+        if not front:
+            get_widget(app_widget, "4").v_model = tab - 1
         self.vs_hde.set_tab(tab)
         self.es_hde.set_tab(tab)
         self.tab = tab
@@ -492,7 +485,7 @@ class GUI:
 
     def compute_skope_rules(self, *args):
         if self.tab != 1:
-            self.select_tab_back(1)
+            self.select_tab(1)
         # if clicked, selection can't be empty
         assert self.selection_mask.any()
         # Let's disable the Skope button. It will be re-enabled if a new selection occurs
@@ -516,7 +509,7 @@ class GUI:
 
     def undo_rules(self, *args):
         if self.tab != 1:
-            self.select_tab_back(1)
+            self.select_tab(1)
         if self.vs_rules_wgt.rules_num > 0:
             self.vs_rules_wgt.undo()
             if self.vs_rules_wgt.rules_num == 1:
@@ -531,13 +524,13 @@ class GUI:
 
     def validate_rules(self, *args):
         if self.tab != 1:
-            self.select_tab_back(1)
+            self.select_tab(1)
         if self.vs_rules_wgt.rules_num >= 0:
             rules_widget = self.vs_rules_wgt
         else:
             rules_widget = self.es_rules_wgt
 
-        rules_list = rules_widget.get_current_rules_list()
+        rules_list = rules_widget.current_rules_list
         # We add them to our region_set
 
         region = self.region_set.add_region(rules=rules_list)
@@ -553,9 +546,9 @@ class GUI:
         # UI rules :
         # We clear selection
         # We clear the RulesWidget
-        # rules_widget.reset_widget()
+        rules_widget.reset_widget()
         # We force tab 2
-        self.select_tab_back(2)
+        self.select_tab(2)
 
         # We disable the 'undo' button
         get_widget(app_widget, "4302").disabled = True
@@ -589,7 +582,7 @@ class GUI:
         Called when the user clicks on the 'auto-cluster' checkbox
         """
         if self.tab != 2:
-            self.select_tab_back(2)
+            self.select_tab(2)
         # In any case, we enable the auto-cluster button
         get_widget(app_widget, "4402000").disabled = False
 
@@ -605,7 +598,7 @@ class GUI:
         Called when the user clicks on the 'auto-cluster' button
         """
         if self.tab != 2:
-            self.select_tab_back(2)
+            self.select_tab(2)
         if self.region_set.stats()["coverage"] > 80:
             # UI rules :
             # region_set coverage is > 80% : we need to clear it to do another auto-cluster
@@ -635,7 +628,7 @@ class GUI:
         for cluster_num in found_clusters.unique():
             self.region_set.add_region(mask=(found_clusters == cluster_num))
 
-        self.select_tab_back(2)
+        self.select_tab(2)
 
     def update_ac_progress_bar(self, caller, progress: float, duration: float):
         """
@@ -651,7 +644,7 @@ class GUI:
 
     def region_selected(self, data):
         if self.tab != 2:
-            self.select_tab_back(2)
+            self.select_tab(2)
         is_selected = data["value"]
 
         # We use this GUI attribute to store the selected region
@@ -668,14 +661,14 @@ class GUI:
         Called when the user clicks on the 'delete' (region) button
         """
         if self.tab != 2:
-            self.select_tab_back(2)
+            self.select_tab(2)
         # Then we delete the regions in self.region_set
         self.region_set.remove(self.selected_region_num)
         # UI rules : if we deleted a region comming from the Skope rules, we re-enable the Skope button
         if self.selected_region_num == self.region_num_for_validated_rules:
             get_widget(app_widget, "43010").disabled = False
 
-        self.select_tab_back(2)
+        self.select_tab(2)
         # There is no more selected region
         self.selected_region_num = None
         get_widget(app_widget, "440110").disabled = True
@@ -688,7 +681,7 @@ class GUI:
         region = self.region_set.get(self.selected_region_num)
 
         # We update the substitution table once to show the name of the region
-        self.select_tab_back(3, region)
+        self.select_tab(3)
 
         perfs = InterpretableModels(self.score).get_models_performance(
             self.model, self.X.loc[region.mask], self.y.loc[region.mask]
@@ -797,4 +790,4 @@ class GUI:
         region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
 
         # Show tab 2
-        self.select_tab_back(2)
+        self.select_tab(2)

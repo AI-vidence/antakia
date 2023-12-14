@@ -12,6 +12,7 @@ import math
 from antakia.utils.variable import Variable, DataVariables
 from antakia.utils.logging import conf_logger
 
+
 class Rule:
     """ 
     A Rule is defined by a Variable, two operators and two range values (min, max)
@@ -176,6 +177,14 @@ class Rule:
     @property
     def is_inner_interval_rule(self) -> bool:
         return self.rule_type == 3
+
+    @property
+    def include_equals(self):
+        if self.rule_type == 0:
+            return True
+        if self.rule_type <= 2:
+            return self.operator_min in (1, 3) or self.operator_max in (1, 3)
+        return abs(self.operator_min - 2) == 1 and abs(self.operator_max - 2) == 1
 
     def __repr__(self) -> str:
         if self.is_categorical_rule:
