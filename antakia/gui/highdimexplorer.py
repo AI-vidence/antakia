@@ -1,5 +1,4 @@
 from __future__ import annotations
-import re
 
 import pandas as pd
 import numpy as np
@@ -12,8 +11,6 @@ from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.region import Region, RegionSet
 
 from antakia.gui.widgets import get_widget, app_widget
-
-from matplotlib.colors import to_rgb
 
 import antakia.utils.utils as utils
 import antakia.config as config
@@ -330,7 +327,6 @@ class HighDimExplorer:
 
         logger.debug(
             f"HDE.dzonf: {self.get_space_name()}/{self._current_dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure.data[trace_id].visible}, transparency:{round(100 * transparency, 2)}%")
-
         x = values[0]
         y = values[1]
         if self._current_dim == 3:
@@ -343,6 +339,7 @@ class HighDimExplorer:
                 self.figure.data[trace_id].z = z
             self.figure.layout.width = self.fig_size
             self.figure.data[trace_id].marker.color = colors
+
 
     def _proj_params_changed(self, widget, event, data):
         """
