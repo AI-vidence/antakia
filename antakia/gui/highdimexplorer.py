@@ -540,9 +540,10 @@ class HighDimExplorer:
         return
 
     def update_selection(self):
-        for fig in self.figure.data:
-            fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
-            fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
+        if self.current_dim==2:
+            for fig in self.figure.data:
+                fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
+                fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
 
     @property
     def mask(self):
