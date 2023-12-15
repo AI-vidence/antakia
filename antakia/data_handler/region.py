@@ -27,6 +27,7 @@ class Region:
         self._color = color
         self.validated = False
         self.perfs: pd.DataFrame = None
+        self.auto_cluster = False
 
     @property
     def color(self):
@@ -122,11 +123,13 @@ class RegionSet:
     def get(self, i):
         return self.regions.get(i)
 
-    def add_region(self, rules=None, mask=None, color=None):
+    def add_region(self, rules=None, mask=None, color=None, auto_cluster=False):
+
         if mask is not None:
             mask = mask.reindex(self.X.index).fillna(False)
         region = Region(X=self.X, rules=rules, mask=mask, color=color)
         region.num = -1
+        region.auto_cluster = auto_cluster
         self.add(region)
         return region
 

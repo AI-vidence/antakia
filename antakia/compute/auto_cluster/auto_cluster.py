@@ -9,7 +9,10 @@ from antakia.compute.auto_cluster.shap_based_kmeans import ShapBasedKmeans
 from antakia.compute.auto_cluster.shap_based_hdbscan import ShapBasedHdbscan
 from antakia.compute.auto_cluster.shap_based_tomaster import ShapBasedTomato
 from antakia.compute.auto_cluster.utils import reassign_clusters, _invert_list
+from antakia.compute.skope_rule.skope_rule import skope_rules
+from antakia.data_handler.rules import Rule
 from antakia.utils.long_task import LongTask
+from antakia.utils.variable import DataVariables
 
 warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=UserWarning)
@@ -25,18 +28,44 @@ class AutoCluster(LongTask):
 
     def __init__(self, X: pd.DataFrame, progress_updated: Callable, method='hdbscan'):
         super().__init__(X, progress_updated)
-        assert len(X) > 50
         assert auto_cluster_factory[method]
         self.cluster_algo = auto_cluster_factory[method](X, progress_updated)
 
-    def compute(self, shap_values: pd.DataFrame, n_clusters='auto') -> pd.Series:
+    def clusters_to_rules(
+            self,
+            clusters: pd.Series,
+            variables: DataVariables = None,
+            precision: float = 0.7,
+            recall: float = 0.7,
+            random_state=42
+    ) -> list[list[Rule]]:
+        rules = []
+        new_clusters = clusters.unique()
+
+        extended_clusters = clusters.reindex(self.X.index).fillna(-1)
+
+        for cluster in new_clusters:
+            if cluster != -1:
+                cluster_mask = extended_clusters == cluster
+                rules_list, _ = skope_rules(cluster_mask, self.X, variables, precision, recall, random_state)
+                rules.append(rules_list)
+        return rules
+
+    def compute(
+            self,
+            X: pd.DataFrame,
+            shap_values: pd.DataFrame,
+            n_clusters: int | str = 'auto',
+            **kwargs
+    ) -> list[list[Rule]]:
+        assert len(X) > 50
         self.publish_progress(0)
-        clusters = self.cluster_algo.compute(shap_values, n_clusters)
-        clusters = pd.Series(clusters, index=self.X.index, name='cluster')
-        # clusters = rule_clusters(X, clusters, cluster_fct)
-        clusters = reassign_clusters(clusters)
+        clusters = self.cluster_algo.compute(X, shap_values, n_clusters)
+        clusters = pd.Series(clusters, index=X.index, name='cluster')
+        self.publish_progress(90)
+        rules = self.clusters_to_rules(clusters, **kwargs)
         self.publish_progress(100)
-        return clusters
+        return rules
 
 
 if __name__ == '__main__':

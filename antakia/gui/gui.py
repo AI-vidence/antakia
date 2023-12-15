@@ -579,10 +579,6 @@ class GUI:
             f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"
         ]
 
-        # UI rules :
-        # If regions coverage > 80%, we disable the 'auto-cluster' button
-        get_widget(app_widget, "4402000").disabled = region_stats["coverage"] > 80
-
     def checkbox_auto_cluster_clicked(self, widget, event, data):
         """
         Called when the user clicks on the 'auto-cluster' checkbox
@@ -603,6 +599,7 @@ class GUI:
         """
         Called when the user clicks on the 'auto-cluster' button
         """
+        get_widget(app_widget, "4402000").disabled = True
         if self.tab != 2:
             self.select_tab(2)
         if self.region_set.stats()["coverage"] > 80:
@@ -611,7 +608,6 @@ class GUI:
             self.region_set.clear_unvalidated()
 
         # We disable the AC button. Il will be re-enabled when the AC progress is 100%
-        get_widget(app_widget, "4402000").disabled = True
 
         # We assemble indices ot all existing regions :
         rules_mask_list = self.region_set.get_masks()
@@ -621,19 +617,24 @@ class GUI:
         for mask in rules_mask_list:
             not_rules_indexes_list &= ~mask
 
-        vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
-        es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
+        if len(not_rules_indexes_list) > 100:
 
-        ac = AutoCluster(vs_proj_3d_df.loc[not_rules_indexes_list], self.update_ac_progress_bar)
-        found_clusters = ac.compute(
-            es_proj_3d_df.loc[not_rules_indexes_list],
-            # We send 'auto' or we read the number of clusters from the Slider
-            "auto" if get_widget(app_widget, "440211").v_model else get_widget(app_widget, "4402100").v_model,
-        )  # type: ignore
+            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
+            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
 
-        for cluster_num in found_clusters.unique():
-            self.region_set.add_region(mask=(found_clusters == cluster_num))
+            ac = AutoCluster(self.X, self.update_ac_progress_bar)
+            found_clusters = ac.compute(
+                vs_proj_3d_df.loc[not_rules_indexes_list],
+                es_proj_3d_df.loc[not_rules_indexes_list],
+                # We send 'auto' or we read the number of clusters from the Slider
+                "auto" if get_widget(app_widget, "440211").v_model else get_widget(app_widget, "4402100").v_model,
+            )  # type: ignore
+            for rule_list in found_clusters:
+                self.region_set.add_region(rules=rule_list, auto_cluster=True)
+        else:
+            print('not enough points to cluster')
 
+        get_widget(app_widget, "4402000").disabled = False
         self.select_tab(2)
 
     def update_ac_progress_bar(self, caller, progress: float, duration: float):
@@ -646,7 +647,6 @@ class GUI:
 
         get_widget(app_widget, "440212").v_model = progress
         # We re-enable the button
-        get_widget(app_widget, "4402000").disabled = progress == 100
 
     def region_selected(self, data):
         if self.tab != 2:
