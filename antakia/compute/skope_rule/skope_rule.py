@@ -1,13 +1,10 @@
-import math
 import warnings
 
-import numpy as np
 import pandas as pd
 from skrules import SkopeRules
 
 from antakia.utils.variable import Variable, DataVariables
 from antakia.data_handler.rules import Rule
-import antakia.utils.utils as utils
 
 
 def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: DataVariables = None, precision: float = 0.7,
