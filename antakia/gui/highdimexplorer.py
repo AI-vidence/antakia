@@ -171,7 +171,7 @@ class HighDimExplorer:
         self.container = v.Container()
         self.container.class_ = "flex-fill"
 
-        self._current_selection = pd.Series([False] * len(X), index=X.index)
+        self._current_selection = utils.boolean_mask(X, True)
         self._has_lasso = False
         # traces to show
         self._visible = [True, False, False, False]
@@ -314,10 +314,11 @@ class HighDimExplorer:
         Draws one zone on one figure using the passed colors
         """
 
-        values = self.get_current_X_proj()
+        values = self.get_current_X_proj()[self.mask]
         colors = self._colors[trace_id]
         if colors is None:
             colors = self._y
+        colors = colors[self.mask]
 
         # logger.debug(
         #    f"HDE.dzonf: {self.get_space_name()}/{self._current_dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure.data[trace_id].visible}, transparency:{round(100 * transparency, 2)}%")
@@ -496,7 +497,8 @@ class HighDimExplorer:
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
 
         # We convert selected rows in mask
-        self._current_selection = utils.rows_to_mask(self.pv_dict['original_values'].X, points.point_inds)
+
+        self._current_selection = self.selection_to_mask(points.point_inds)
 
         if self._current_selection.any():
             # NOTE : Plotly doesn't allow to show selection on Scatter3d
@@ -509,7 +511,7 @@ class HighDimExplorer:
     def _deselection_event(self, *args):
         """Called on deselection"""
         # We tell the GUI
-        self._current_selection = utils.rows_to_mask(self.pv_dict['original_values'].X, [])
+        self._current_selection = utils.boolean_mask(self.pv_dict['original_values'].X, True)
         self._has_lasso = False
         self.display_rules()
         self.selection_changed(self, self._current_selection)
@@ -524,25 +526,52 @@ class HighDimExplorer:
             return
 
         if not new_selection_mask.any():
+            # deselection event
             self._current_selection = new_selection_mask
             # We have to rebuild our figure:
             self.create_figure()
             return
 
+        # selection event
+        self._current_selection = new_selection_mask
         if self._has_lasso:
             # We don't have lasso anymore
             self._has_lasso = False
             # We have to rebuild our figure:
             self.create_figure()
-            for trace in range(len(self.figure.data)):
-                self.figure.data[trace].selectedpoints = utils.mask_to_rows(new_selection_mask)
-            self._current_selection = new_selection_mask
             return
 
         # We set the new selection on our figures :
-        self.figure.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask))
+        self.figure.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask[self.mask]))
         # We store the new selection
-        self._current_selection = new_selection_mask
+
+    @property
+    def mask(self):
+        """
+        mask should be applied on each display (x,y,z,color, selection)
+        """
+        if self._mask is None:
+            X = self.current_X
+            self._mask = pd.Series([False] * len(X), index=X.index)
+            limit = config.MAX_DOTS
+            if len(X) > limit:
+                indices = np.random.choice(X.index, size=limit, replace=False)
+                self._mask.loc[indices] = True
+            else:
+                self._mask.loc[:] = True
+        return self._mask
+
+    def selection_to_mask(self, row_numbers):
+        """
+        to call between selection and setter
+        """
+        selection = utils.rows_to_mask(self.pv_dict['original_values'].X[self.mask], row_numbers)
+        X_train = self.get_current_X_proj()
+        knn = KNeighborsClassifier().fit(X_train, selection)
+        X_predict = self.get_current_X_proj(masked=False)
+        guessed_selection = pd.Series(knn.predict(X_predict), index=X_predict.index)
+        # KNN extrapolation
+        return guessed_selection.astype(bool)
 
     def create_figure(self):
         """
@@ -553,7 +582,7 @@ class HighDimExplorer:
         x = y = z = None
 
         if self.current_X is not None:
-            proj_values = self.get_current_X_proj()
+            proj_values = self.get_current_X_proj()[self.mask]
             if proj_values is not None:
                 x = proj_values[0]
                 y = proj_values[1]
@@ -561,7 +590,6 @@ class HighDimExplorer:
                     z = proj_values[2]
 
         hde_marker = {'color': self._y, 'colorscale': "Viridis"}
-
         if dim == 3:
             hde_marker['size'] = 2
 
@@ -570,7 +598,7 @@ class HighDimExplorer:
             'y': y,
             'mode': "markers",
             'marker': hde_marker,
-            'customdata': self._y,
+            'customdata': self._y[self.mask],
             'hovertemplate': "%{customdata:.3f}",
         }
         if dim == 3:
@@ -607,6 +635,7 @@ class HighDimExplorer:
             self.figure.data[trace_id].showlegend = False
             self.show_trace(trace_id, self._visible[trace_id])
             self.display_color(trace_id)
+            self.figure.data[trace_id].selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
 
         if dim == 2:
             # selection only on trace 0
@@ -687,37 +716,15 @@ class HighDimExplorer:
             return None  # When we're an ES HDE and no explanation have been imported nor computed yet
         return self.pv_dict[self.current_pv].X
 
-    # @property
-    # def mask(self):
-    #     if self._mask is None:
-    #         X = self.current_X
-    #         self._mask = pd.Series([False] * len(X), index=X.index)
-    #         limit = config.MAX_DOTS
-    #         if len(X) > limit:
-    #             indices = np.random.choice(X.index, size=limit, replace=False)
-    #             self._mask.loc[indices] = True
-    #         else:
-    #             self._mask.loc[:] = True
-    #     return self._mask
-
     def get_current_X_proj(self, dim=None, masked: bool = True, callback=None) -> pd.DataFrame | None:
         if dim is None:
             dim = self.current_dim
         X = self.pv_dict[self.current_pv].get_projection(self._get_projection_method(), dim, callback)
         if X is None:
             return
-        # if masked:
-        #    return X.loc[self.mask]
+        if masked:
+            return X.loc[self.mask]
         return X
-
-    def selection_to_mask(self, row_numbers, dim):
-        selection = utils.rows_to_mask(self.pv_dict['original_values'].X.loc[self.mask], row_numbers)
-        X_train = self.get_current_X_proj(dim)
-        knn = KNeighborsClassifier().fit(X_train, selection)
-        X_predict = self.get_current_X_proj(dim, masked=False)
-        guessed_selection = pd.Series(knn.predict(X_predict), index=X_predict.index)
-        # KNN extrapolation
-        return guessed_selection.astype(bool)
 
     def set_tab(self, tab):
         self.show_trace(self.VALUES_TRACE, True)

@@ -61,6 +61,10 @@ def mask_to_index(mask: pd.Series) -> list:
     return mask[mask].index.tolist()
 
 
+def boolean_mask(X: pd.DataFrame, value: bool = True):
+    return pd.Series([value] * len(X), index=X.index)
+
+
 def timeit(method):
     def timed(*args, **kw):
         ts = time.time()
