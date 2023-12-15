@@ -364,10 +364,13 @@ class Rule:
         Transforms a string into a list of rules
         """
         tokens = skrules[0]
+        precision = tokens[1][0]
+        recall = tokens[1][1]
+        f1 = precision * recall * 2 / (precision + recall)
         score_dict = {
-            "precision": round(tokens[1][0], 3),
-            "recall": round(tokens[1][1], 3),
-            "f1": round(tokens[1][2], 3),
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "f1": round(f1, 3),
         }
 
         tokens = tokens[0].split(" and ")
