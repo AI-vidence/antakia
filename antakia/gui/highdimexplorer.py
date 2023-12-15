@@ -494,6 +494,8 @@ class HighDimExplorer:
         to call between selection and setter
         """
         selection = utils.rows_to_mask(self.pv_dict['original_values'].X[self.mask], row_numbers)
+        if selection.mean() == 0:
+            return utils.boolean_mask(self.get_current_X_proj(masked=False), False)
         X_train = self.get_current_X_proj()
         knn = KNeighborsClassifier().fit(X_train, selection)
         X_predict = self.get_current_X_proj(masked=False)
@@ -502,22 +504,24 @@ class HighDimExplorer:
         return guessed_selection.astype(bool)
 
     def _selection_event(self, trace, points, selector, *args):
-        """Called whenever the user selects dots on the scatter plot"""
-        # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
-
-        # We convert selected rows in mask
         self.first_selection |= self._current_selection.all()
         self._current_selection &= self.selection_to_mask(points.point_inds)
-        self.create_figure()
-        self.selection_changed(self, self._current_selection)
+        if self._current_selection.any():
+            self.create_figure()
+            self.selection_changed(self, self._current_selection)
+        else:
+            self._deselection_event(rebuild=True)
 
-    def _deselection_event(self, *args):
+    def _deselection_event(self, *args, rebuild=False):
         """Called on deselection"""
         # We tell the GUI
         self.first_selection = False
         self._current_selection = utils.boolean_mask(self.pv_dict['original_values'].X, True)
         self.display_rules()
-        self.update_selection()
+        if rebuild:
+            self.create_figure()
+        else:
+            self.update_selection()
         self.selection_changed(self, self._current_selection)
 
     def set_selection(self, new_selection_mask: pd.Series):
