@@ -201,10 +201,6 @@ class GUI:
 
         # UI rules :
         # If new selection (empty or not) : if exist, we remove any 'pending rule'
-        self.vs_hde.display_rules(None)
-        self.vs_rules_wgt.disable()
-        self.es_hde.display_rules(None)
-        self.es_rules_wgt.disable()
 
         if not new_selection_mask.any():
             # Selection is empty
@@ -215,13 +211,18 @@ class GUI:
             get_widget(app_widget, "4302").disabled = True
             get_widget(app_widget, "43030").disabled = True
 
+            # We enable both HDEs (proj select, explain select etc.)
+            self.vs_hde.display_rules()
+            self.es_hde.display_rules()
+            self.vs_hde.disable_widgets(False)
+            self.es_hde.disable_widgets(False)
+
             # we reset rules_widgets
+            self.vs_rules_wgt.disable()
+            self.es_rules_wgt.disable()
             self.es_rules_wgt.reset_widget()
             self.vs_rules_wgt.reset_widget()
 
-            # We enable both HDEs (proj select, explain select etc.)
-            self.vs_hde.disable_widgets(False)
-            self.es_hde.disable_widgets(False)
             # We disable the selection datatable :
             get_widget(app_widget, "4320").disabled = True
 

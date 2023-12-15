@@ -261,17 +261,16 @@ class HighDimExplorer:
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
-    def display_rules(self, mask: pd.Series | None, color='blue'):
+    def display_rules(self, mask: pd.Series | None = None, color='blue'):
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
         rs = RegionSet(self.current_X)
         if mask is None:
-            mask = pd.Series([True] * len(self.current_X), index=self.current_X.index)
-            color = 'transparent'
-        rs.add_region(mask=mask, color=color)
-
-        self._colors[self.RULES_TRACE] = rs.get_color_serie()
+            self._colors[self.RULES_TRACE] = None
+        else:
+            rs.add_region(mask=mask, color=color)
+            self._colors[self.RULES_TRACE] = rs.get_color_serie()
 
         self._display_zones(self.RULES_TRACE)
 
@@ -319,17 +318,9 @@ class HighDimExplorer:
         colors = self._colors[trace_id]
         if colors is None:
             colors = self._y
-        b = colors != 'transparent'
 
-        #  We won't plot data with transparent color
-        values = values.loc[b]
-        colors = colors.loc[b]
-
-        transparency = (len(self.pv_dict['original_values'].X) - len(colors)) / len(
-            self.pv_dict['original_values'].X)
-
-        logger.debug(
-            f"HDE.dzonf: {self.get_space_name()}/{self._current_dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure.data[trace_id].visible}, transparency:{round(100 * transparency, 2)}%")
+        # logger.debug(
+        #    f"HDE.dzonf: {self.get_space_name()}/{self._current_dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure.data[trace_id].visible}, transparency:{round(100 * transparency, 2)}%")
 
         x = values[0]
         y = values[1]
@@ -520,6 +511,7 @@ class HighDimExplorer:
         # We tell the GUI
         self._current_selection = utils.rows_to_mask(self.pv_dict['original_values'].X, [])
         self._has_lasso = False
+        self.display_rules()
         self.selection_changed(self, self._current_selection)
 
     def set_selection(self, new_selection_mask: pd.Series):
