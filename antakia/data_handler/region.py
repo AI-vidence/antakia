@@ -76,7 +76,7 @@ class RegionSet:
         self.insert_order = []
         self.X = X
 
-    def get_new_num(self):
+    def get_new_num(self) -> int:
         if len(self.regions) == 0:
             return 1
         else:
@@ -85,46 +85,19 @@ class RegionSet:
                     return i
             return len(self.regions) + 1
 
-    def get_max_num(self):
+    def get_max_num(self) -> int:
         if not len(self.regions):
             return 0
         return max(self.insert_order)
 
-    def add(self, region: Region):
+    def add(self, region: Region) -> None:
         if region.num < 0 or self.get(region.num) is not None:
             num = self.get_new_num()
             region.num = num
         self.regions[region.num] = region
         self.insert_order.append(region.num)
 
-    def remove(self, region_num):
-        del self.regions[region_num]
-        self.insert_order.remove(region_num)
-
-    def to_dict(self):
-        return [self.regions[num].to_dict() for num in self.insert_order]
-
-    def get_masks(self):
-        return [self.regions[num].mask for num in self.insert_order]
-
-    def get_colors(self):
-        return [self.regions[num].color for num in self.insert_order]
-
-    def get_color_serie(self):
-        color = pd.Series(["grey"] * len(self.X), index=self.X.index)
-        for num in self.insert_order:
-            region = self.regions.get(num)
-            color[region.mask] = region.color
-        return color
-
-    def __len__(self):
-        return len(self.regions)
-
-    def get(self, i):
-        return self.regions.get(i)
-
-    def add_region(self, rules=None, mask=None, color=None, auto_cluster=False):
-
+    def add_region(self, rules=None, mask=None, color=None, auto_cluster=False) -> Region:
         if mask is not None:
             mask = mask.reindex(self.X.index).fillna(False)
         region = Region(X=self.X, rules=rules, mask=mask, color=color)
@@ -133,12 +106,42 @@ class RegionSet:
         self.add(region)
         return region
 
+    def extend(self, region_set: RegionSet) -> None:
+        for region in region_set.regions.values():
+            self.add_region(region.rules, region.mask, region._color, region.auto_cluster)
+
+    def remove(self, region_num) -> None:
+        del self.regions[region_num]
+        self.insert_order.remove(region_num)
+
+    def to_dict(self) -> list[dict]:
+        return [self.regions[num].to_dict() for num in self.insert_order]
+
+    def get_masks(self) -> list[pd.Series]:
+        return [self.regions[num].mask for num in self.insert_order]
+
+    def get_colors(self) -> list[str]:
+        return [self.regions[num].color for num in self.insert_order]
+
+    def get_color_serie(self) -> pd.Series:
+        color = pd.Series(["grey"] * len(self.X), index=self.X.index)
+        for num in self.insert_order:
+            region = self.regions.get(num)
+            color[region.mask] = region.color
+        return color
+
+    def __len__(self) -> int:
+        return len(self.regions)
+
+    def get(self, i) -> Region | None:
+        return self.regions.get(i)
+
     def clear_unvalidated(self):
         for i in list(self.regions.keys()):
             if not self.regions[i].validated:
                 self.remove(i)
 
-    def pop_last(self):
+    def pop_last(self) -> Region:
         if len(self.insert_order) > 0:
             num = self.insert_order[-1]
             if not self.regions[num].validated:

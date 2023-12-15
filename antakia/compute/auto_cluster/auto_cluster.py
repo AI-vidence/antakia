@@ -8,9 +8,8 @@ from numba.core.errors import NumbaDeprecationWarning
 from antakia.compute.auto_cluster.shap_based_kmeans import ShapBasedKmeans
 from antakia.compute.auto_cluster.shap_based_hdbscan import ShapBasedHdbscan
 from antakia.compute.auto_cluster.shap_based_tomaster import ShapBasedTomato
-from antakia.compute.auto_cluster.utils import reassign_clusters, _invert_list
 from antakia.compute.skope_rule.skope_rule import skope_rules
-from antakia.data_handler.rules import Rule
+from antakia.data_handler.region import RegionSet
 from antakia.utils.long_task import LongTask
 from antakia.utils.variable import DataVariables
 
@@ -38,18 +37,21 @@ class AutoCluster(LongTask):
             precision: float = 0.7,
             recall: float = 0.7,
             random_state=42
-    ) -> list[list[Rule]]:
-        rules = []
-        new_clusters = clusters.unique()
+    ) -> RegionSet:
 
+        new_clusters = clusters.unique()
         extended_clusters = clusters.reindex(self.X.index).fillna(-1)
+        region_set = RegionSet(self.X)
 
         for cluster in new_clusters:
             if cluster != -1:
                 cluster_mask = extended_clusters == cluster
                 rules_list, _ = skope_rules(cluster_mask, self.X, variables, precision, recall, random_state)
-                rules.append(rules_list)
-        return rules
+                if len(rules_list) > 0:
+                    r = region_set.add_region(rules=rules_list, auto_cluster=True)
+                else:
+                    region_set.add_region(mask=cluster_mask, auto_cluster=True)
+        return region_set
 
     def compute(
             self,
@@ -57,15 +59,15 @@ class AutoCluster(LongTask):
             shap_values: pd.DataFrame,
             n_clusters: int | str = 'auto',
             **kwargs
-    ) -> list[list[Rule]]:
+    ) -> RegionSet:
         assert len(X) > 50
         self.publish_progress(0)
         clusters = self.cluster_algo.compute(X, shap_values, n_clusters)
         clusters = pd.Series(clusters, index=X.index, name='cluster')
         self.publish_progress(90)
-        rules = self.clusters_to_rules(clusters, **kwargs)
+        new_regions = self.clusters_to_rules(clusters, **kwargs)
         self.publish_progress(100)
-        return rules
+        return new_regions
 
 
 if __name__ == '__main__':

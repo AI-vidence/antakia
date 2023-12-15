@@ -633,7 +633,6 @@ class HighDimExplorer:
         self.container.children = [self.figure]
 
     def redraw(self):
-        print('redraw')
         projection = self.get_current_X_proj()
         x = projection[0]
         y = projection[1]

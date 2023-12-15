@@ -578,6 +578,7 @@ class GUI:
         get_widget(app_widget, "44002").children = [
             f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"
         ]
+        get_widget(app_widget, "4402000").disabled = False
 
     def checkbox_auto_cluster_clicked(self, widget, event, data):
         """
@@ -623,14 +624,18 @@ class GUI:
             es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
 
             ac = AutoCluster(self.X, self.update_ac_progress_bar)
-            found_clusters = ac.compute(
+            if get_widget(app_widget, "440211").v_model:
+                cluster_num = "auto"
+            else:
+                cluster_num = get_widget(app_widget, "4402100").v_model - len(self.region_set)
+
+            found_regions = ac.compute(
                 vs_proj_3d_df.loc[not_rules_indexes_list],
                 es_proj_3d_df.loc[not_rules_indexes_list],
                 # We send 'auto' or we read the number of clusters from the Slider
-                "auto" if get_widget(app_widget, "440211").v_model else get_widget(app_widget, "4402100").v_model,
+                cluster_num,
             )  # type: ignore
-            for rule_list in found_clusters:
-                self.region_set.add_region(rules=rule_list, auto_cluster=True)
+            self.region_set.extend(found_regions)
         else:
             print('not enough points to cluster')
 
@@ -794,6 +799,7 @@ class GUI:
         # We udpate the region
         region = self.region_set.get(self.selected_region_num)
         region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
+        region.validate()
 
         # Show tab 2
         self.select_tab(2)
