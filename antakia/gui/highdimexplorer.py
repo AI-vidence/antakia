@@ -1,5 +1,4 @@
 from __future__ import annotations
-import re
 
 import pandas as pd
 import numpy as np
@@ -12,8 +11,6 @@ from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.region import Region, RegionSet
 
 from antakia.gui.widgets import get_widget, app_widget
-
-from matplotlib.colors import to_rgb
 
 import antakia.utils.utils as utils
 import antakia.config as config
@@ -172,7 +169,7 @@ class HighDimExplorer:
         self.container.class_ = "flex-fill"
 
         self._current_selection = utils.boolean_mask(X, True)
-        self._has_lasso = False
+        self.first_selection = False
         # traces to show
         self._visible = [True, False, False, False]
         # trace_colors
@@ -492,28 +489,35 @@ class HighDimExplorer:
             self.get_projection_select().v_model
         )
 
+    def selection_to_mask(self, row_numbers):
+        """
+        to call between selection and setter
+        """
+        selection = utils.rows_to_mask(self.pv_dict['original_values'].X[self.mask], row_numbers)
+        X_train = self.get_current_X_proj()
+        knn = KNeighborsClassifier().fit(X_train, selection)
+        X_predict = self.get_current_X_proj(masked=False)
+        guessed_selection = pd.Series(knn.predict(X_predict), index=X_predict.index)
+        # KNN extrapolation
+        return guessed_selection.astype(bool)
+
     def _selection_event(self, trace, points, selector, *args):
         """Called whenever the user selects dots on the scatter plot"""
         # We don't call GUI.selection_changed if 'selectedpoints' length is 0 : it's handled by -deselection_event
 
         # We convert selected rows in mask
-
-        self._current_selection = self.selection_to_mask(points.point_inds)
-
-        if self._current_selection.any():
-            # NOTE : Plotly doesn't allow to show selection on Scatter3d
-            self._has_lasso = True
-
-            # We tell the GUI
-            # NOTE : here we convert row ids to dataframe indexes
-            self.selection_changed(self, self._current_selection)
+        self.first_selection |= self._current_selection.all()
+        self._current_selection &= self.selection_to_mask(points.point_inds)
+        self.create_figure()
+        self.selection_changed(self, self._current_selection)
 
     def _deselection_event(self, *args):
         """Called on deselection"""
         # We tell the GUI
+        self.first_selection = False
         self._current_selection = utils.boolean_mask(self.pv_dict['original_values'].X, True)
-        self._has_lasso = False
         self.display_rules()
+        self.update_selection()
         self.selection_changed(self, self._current_selection)
 
     def set_selection(self, new_selection_mask: pd.Series):
@@ -521,29 +525,19 @@ class HighDimExplorer:
         Called by tne UI when a new selection occured on the other HDE
         """
 
-        if not self._current_selection.any() and not new_selection_mask.any():
+        if self._current_selection.all() and new_selection_mask.all():
             # New selection is empty. We already have an empty selection : nothing to do
-            return
-
-        if not new_selection_mask.any():
-            # deselection event
-            self._current_selection = new_selection_mask
-            # We have to rebuild our figure:
-            self.create_figure()
             return
 
         # selection event
         self._current_selection = new_selection_mask
-        if self._has_lasso:
-            # We don't have lasso anymore
-            self._has_lasso = False
-            # We have to rebuild our figure:
-            self.create_figure()
-            return
+        self.update_selection()
+        return
 
-        # We set the new selection on our figures :
-        self.figure.update_traces(selectedpoints=utils.mask_to_rows(new_selection_mask[self.mask]))
-        # We store the new selection
+    def update_selection(self):
+        for fig in self.figure.data:
+            fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
+            fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
 
     @property
     def mask(self):
@@ -560,18 +554,6 @@ class HighDimExplorer:
             else:
                 self._mask.loc[:] = True
         return self._mask
-
-    def selection_to_mask(self, row_numbers):
-        """
-        to call between selection and setter
-        """
-        selection = utils.rows_to_mask(self.pv_dict['original_values'].X[self.mask], row_numbers)
-        X_train = self.get_current_X_proj()
-        knn = KNeighborsClassifier().fit(X_train, selection)
-        X_predict = self.get_current_X_proj(masked=False)
-        guessed_selection = pd.Series(knn.predict(X_predict), index=X_predict.index)
-        # KNN extrapolation
-        return guessed_selection.astype(bool)
 
     def create_figure(self):
         """
@@ -635,7 +617,7 @@ class HighDimExplorer:
             self.figure.data[trace_id].showlegend = False
             self.show_trace(trace_id, self._visible[trace_id])
             self.display_color(trace_id)
-            self.figure.data[trace_id].selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
+        self.update_selection()
 
         if dim == 2:
             # selection only on trace 0

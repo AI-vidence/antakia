@@ -23,6 +23,7 @@ import copy
 
 import logging
 from antakia.utils.logging import conf_logger
+from antakia.utils.utils import boolean_mask
 from antakia.utils.variable import DataVariables
 
 logger = logging.getLogger(__name__)
@@ -116,7 +117,7 @@ class GUI:
         self.region_num_for_validated_rules = None  # tab 1 : number of the region created when validating rules
         self.selected_region_num = None  # tab 2 :  num of the region selected for substitution
         self.validated_sub_model_dict = None  # tab 3 : num of the sub-model validated for the region
-        self.selection_mask = pd.Series([False] * len(X), index=X.index)
+        self.selection_mask = boolean_mask(self.X, True)
 
         # UI rules :
         # We disable the selection datatable at startup (bottom of tab 1)
@@ -202,7 +203,7 @@ class GUI:
         # UI rules :
         # If new selection (empty or not) : if exist, we remove any 'pending rule'
 
-        if not new_selection_mask.any():
+        if new_selection_mask.all():
             # Selection is empty
             # UI rules :
             # We disable the 'Find-rules' button
@@ -257,9 +258,13 @@ class GUI:
         other_hde.set_selection(self.selection_mask)
 
         # We update the selection status :
-        selection_status_str_1 = f"{new_selection_mask.sum()} point selected"
+        if not self.selection_mask.all():
+            selection_status_str_1 = f"{self.selection_mask.sum()} point selected"
+            selection_status_str_2 = f"{100 * self.selection_mask.mean():.2f}% of the  dataset"
+        else:
+            selection_status_str_1 = f"0 point selected"
+            selection_status_str_2 = f"0% of the  dataset"
         change_widget(app_widget, "4300000", selection_status_str_1)
-        selection_status_str_2 = f"{100 * new_selection_mask.mean():.2f}% of the  dataset"
         change_widget(app_widget, "430010", selection_status_str_2)
 
     def fig_size_changed(self, widget, event, data):
@@ -488,12 +493,12 @@ class GUI:
         if self.tab != 1:
             self.select_tab(1)
         # if clicked, selection can't be empty
-        assert self.selection_mask.any()
+        assert not self.selection_mask.all()
         # Let's disable the Skope button. It will be re-enabled if a new selection occurs
         get_widget(app_widget, "43010").disabled = True
 
-        hde = self.vs_hde if self.vs_hde._has_lasso else self.es_hde
-        rules_widget = self.vs_rules_wgt if self.vs_hde._has_lasso else self.es_rules_wgt
+        hde = self.vs_hde if self.vs_hde.first_selection else self.es_hde
+        rules_widget = self.vs_rules_wgt if self.vs_hde.first_selection else self.es_rules_wgt
 
         skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
         skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
