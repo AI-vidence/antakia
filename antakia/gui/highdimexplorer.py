@@ -333,6 +333,7 @@ class HighDimExplorer:
             self.figure.layout.width = self.fig_size
             self.figure.data[trace_id].marker.color = colors
 
+
     def _proj_params_changed(self, widget, event, data):
         """
         Called when params slider changed"""
