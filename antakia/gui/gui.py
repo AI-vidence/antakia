@@ -118,7 +118,7 @@ class GUI:
         self.selected_region_num = None  # tab 2 :  num of the region selected for substitution
         self.validated_sub_model_dict = None  # tab 3 : num of the sub-model validated for the region
         self.selection_mask = boolean_mask(self.X, True)
-        self.substitution_model_training = False
+        self.substitution_model_training = False  # tab 3 : training flag
 
         # UI rules :
         # We disable the selection datatable at startup (bottom of tab 1)
@@ -479,7 +479,7 @@ class GUI:
             region = self.region_set.get(self.selected_region_num)
             self.update_substitution_table(region)
             if region is None:
-                region = ModelRegion(self.X, self.y, self.model)
+                region = ModelRegion(self.X, self.y, self.model, score=self.score)
             self.vs_hde.display_region(region)
             self.es_hde.display_region(region)
         if not front:
@@ -612,19 +612,15 @@ class GUI:
         # We disable the AC button. Il will be re-enabled when the AC progress is 100%
 
         # We assemble indices ot all existing regions :
-        rules_mask_list = self.region_set.get_masks()
-
+        region_set_mask = self.region_set.mask
+        not_rules_indexes_list = ~region_set_mask
         # We call the auto_cluster with remaing X and explained(X) :
-        not_rules_indexes_list = pd.Series([True] * len(self.X), index=self.X.index)
-        for mask in rules_mask_list:
-            not_rules_indexes_list &= ~mask
 
         if len(not_rules_indexes_list) > 100:
+            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False, callback=self.get_ac_progress_update(1))
+            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False, callback=self.get_ac_progress_update(2))
 
-            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
-            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
-
-            ac = AutoCluster(self.X, self.update_ac_progress_bar)
+            ac = AutoCluster(self.X, self.get_ac_progress_update(3))
             if get_widget(app_widget, "440211").v_model:
                 cluster_num = "auto"
             else:
@@ -640,19 +636,20 @@ class GUI:
         else:
             print('not enough points to cluster')
 
+        # We re-enable the button
         get_widget(app_widget, "4402000").disabled = False
         self.select_tab(2)
 
-    def update_ac_progress_bar(self, caller, progress: float, duration: float):
-        """
-        Called by the AutoCluster to update the progress bar
-        """
-        # #TODO Hack because we do not reveive 100% at the end
-        if progress >= 96:
-            progress = 100
+    def get_ac_progress_update(self, step):
+        def update_ac_progress_bar(caller, progress: float, duration: float):
+            """
+            Called by the AutoCluster to update the progress bar
+            """
+            total_steps = 3
+            progress = ((step - 1) * 100 + progress) / total_steps
+            get_widget(app_widget, "440212").v_model = progress
 
-        get_widget(app_widget, "440212").v_model = progress
-        # We re-enable the button
+        return update_ac_progress_bar
 
     def region_selected(self, data):
         if self.tab != 2:

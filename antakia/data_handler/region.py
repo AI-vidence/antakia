@@ -4,7 +4,7 @@ import pandas as pd
 
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
 from antakia.data_handler.rules import Rule
-from antakia.utils.utils import colors
+from antakia.utils.utils import colors, boolean_mask
 
 import antakia.config as cfg
 
@@ -91,7 +91,7 @@ class ModelRegion(Region):
 
     @property
     def perfs(self):
-        return self.interpretable_models.perfs.sort_values(self.interpretable_models.custom_score_str, ascending=False)
+        return self.interpretable_models.perfs.sort_values(self.interpretable_models.custom_score_str, ascending=True)
 
 
 class RegionSet:
@@ -144,6 +144,13 @@ class RegionSet:
     def get_masks(self) -> list[pd.Series]:
         return [self.regions[num].mask for num in self.insert_order]
 
+    @property
+    def mask(self):
+        union_mask = boolean_mask(self.X, False)
+        for mask in self.get_masks():
+            union_mask |= mask
+        return union_mask
+
     def get_colors(self) -> list[str]:
         return [self.regions[num].color for num in self.insert_order]
 
@@ -175,9 +182,7 @@ class RegionSet:
     def stats(self) -> dict:
         """ Computes the number of distinct points in the regions and the coverage in %
         """
-        union_mask = pd.Series([False] * len(self.X), index=self.X.index)
-        for mask in self.get_masks():
-            union_mask |= mask
+        union_mask = self.mask
 
         stats = {
             'regions': len(self),

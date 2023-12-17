@@ -28,9 +28,12 @@ class ProjectedValues:
         del self._projected_values[(projection_method, dimension)]
 
     def get_projection(self, projection_method, dimension, callback=None):
-        if self._projected_values.get((projection_method, dimension)) is None:
+        if not self.is_present(projection_method, dimension):
             self.compute(projection_method, dimension, callback)
         return self._projected_values[(projection_method, dimension)]
+
+    def is_present(self, projection_method, dimension):
+        return self._projected_values.get((projection_method, dimension)) is not None
 
     def compute(self, projection_method, dimension, callback=None):
         if callback is None:
