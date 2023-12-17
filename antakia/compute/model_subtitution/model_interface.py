@@ -13,6 +13,9 @@ from antakia.compute.model_subtitution.regression_models import LinearRegression
     EBM, DecisionTreeRegressor
 
 
+def pretty_model_name(model_name):
+    return model_name.replace('_', ' ').title()
+
 class InterpretableModels:
     available_scores = {
         'MSE': mean_squared_error,
@@ -23,7 +26,8 @@ class InterpretableModels:
         'precision'.upper(): precision_score,
         'recall'.upper(): recall_score,
     }
-    customer_model_name = 'customer_model'
+    customer_model_name = pretty_model_name('customer_model')
+
     def __init__(self, custom_score):
         if callable(custom_score):
             self.custom_score_str = custom_score.__name__.upper()
@@ -74,9 +78,10 @@ class InterpretableModels:
         for model_name, model in self.models.items():
             y_pred = model.predict(X_test)
             for score_name, score in self.scores.items():
-                self.perfs.loc[model_name, score_name] = score(y_test, y_pred)
+                self.perfs.loc[pretty_model_name(model_name), score_name] = score(y_test, y_pred)
 
-        self.perfs['delta'] = self.perfs[self.custom_score_str] - self.perfs.loc[self.customer_model_name, self.custom_score_str]
+        self.perfs['delta'] = self.perfs[self.custom_score_str] - self.perfs.loc[
+            self.customer_model_name, self.custom_score_str]
         return self.perfs.sort_values(self.custom_score_str, ascending=True)
 
 

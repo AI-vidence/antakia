@@ -4,7 +4,7 @@ import pandas as pd
 import ipyvuetify as v
 from IPython.display import display
 
-from antakia.data_handler.region import Region, RegionSet
+from antakia.data_handler.region import ModelRegionSet, ModelRegion
 from antakia.utils.long_task import LongTask
 from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
@@ -77,7 +77,6 @@ class GUI:
         self.y_pred = pd.Series(model.predict(X), index=X.index)
         self.variables: DataVariables = variables
         self.score = score
-        self.subtitute_models = InterpretableModels(self.score)
         if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
             raise IndexError('X and X_exp must share the same index')
         if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
@@ -114,11 +113,12 @@ class GUI:
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
 
-        self.region_set = RegionSet(self.X)
+        self.region_set = ModelRegionSet(self.X, self.y, self.model, self.score)
         self.region_num_for_validated_rules = None  # tab 1 : number of the region created when validating rules
         self.selected_region_num = None  # tab 2 :  num of the region selected for substitution
         self.validated_sub_model_dict = None  # tab 3 : num of the sub-model validated for the region
         self.selection_mask = boolean_mask(self.X, True)
+        self.substitution_model_training = False
 
         # UI rules :
         # We disable the selection datatable at startup (bottom of tab 1)
@@ -479,7 +479,7 @@ class GUI:
             region = self.region_set.get(self.selected_region_num)
             self.update_substitution_table(region)
             if region is None:
-                region = Region(self.X)
+                region = ModelRegion(self.X, self.y, self.model)
             self.vs_hde.display_region(region)
             self.es_hde.display_region(region)
         if not front:
@@ -568,7 +568,7 @@ class GUI:
         """
         Called to empty / fill the RegionDataTable and refresh plots
         """
-        temp_items = self.region_set.to_dict(score_name=self.subtitute_models.custom_score_str)
+        temp_items = self.region_set.to_dict()
 
         # We populate the ColorTable :
         get_widget(app_widget, "4400100").items = temp_items
@@ -691,20 +691,17 @@ class GUI:
     def substitute_clicked(self, widget, event, data):
         assert self.selected_region_num is not None
         region = self.region_set.get(self.selected_region_num)
+        if region is not None:
+            # We update the substitution table once to show the name of the region
+            self.substitution_model_training = True
+            self.select_tab(3)
+            region.train_subtitution_models()
 
-        # We update the substitution table once to show the name of the region
-        self.select_tab(3)
+            self.substitution_model_training = False
+            # We update the substitution table a second time to show the results
+            self.update_substitution_table(region)
 
-        perfs = self.subtitute_models.get_models_performance(
-            self.model, self.X.loc[region.mask], self.y.loc[region.mask]
-        )
-
-        region.set_perfs(perfs)
-
-        # We update the substitution table a second time to show the results
-        self.update_substitution_table(region)
-
-    def update_substitution_table(self, region: Region):
+    def update_substitution_table(self, region: ModelRegion):
         """
         Called twice to update table
         """
@@ -720,7 +717,7 @@ class GUI:
 
         if not disable:
             # We're enabled
-            if region.perfs is None:
+            if self.substitution_model_training:
                 # We tell to wait ...
                 vHtml.class_ = "ml-2 grey--text italic "
                 vHtml.tag = "h3"
@@ -789,7 +786,7 @@ class GUI:
 
         # We udpate the region
         region = self.region_set.get(self.selected_region_num)
-        region.set_model(self.validated_sub_model_dict["Sub-model"])
+        region.select_model(self.validated_sub_model_dict["Sub-model"])
         region.validate()
 
         # Show tab 2

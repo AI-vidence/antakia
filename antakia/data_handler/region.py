@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from antakia.compute.model_subtitution.model_interface import InterpretableModels
 from antakia.data_handler.rules import Rule
 from antakia.utils.utils import colors
 
@@ -22,10 +23,8 @@ class Region:
                 self.mask = pd.Series([False] * len(X), index=X.index)
         else:
             self.mask = mask
-        self.selected_model_name = None
         self._color = color
         self.validated = False
-        self.perfs: pd.DataFrame | None = None
         self.auto_cluster = False
 
     @property
@@ -38,10 +37,7 @@ class Region:
     def color(self, c):
         self._color = c
 
-    def set_model(self, model_name):
-        self.selected_model_name = model_name
-
-    def to_dict(self, score_name):
+    def to_dict(self):
         rules_to_str = Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
         rules_to_str = (rules_to_str[:cfg.MAX_RULES_DESCR_LENGTH] + '..') if len(
             rules_to_str) > cfg.MAX_RULES_DESCR_LENGTH else rules_to_str
@@ -55,12 +51,6 @@ class Region:
             'delta': None,
             'color': self.color
         }
-        if self.perfs is not None:
-            model_perf = self.perfs.loc[self.selected_model_name]
-            dict_form['Sub-model'] = self.selected_model_name
-            dict_form['Score'] = f"{score_name} : {model_perf[score_name]:.2f}"
-            dict_form['delta'] = f"delta_score : {model_perf['delta']}"
-
         return dict_form
 
     def num_points(self):
@@ -72,9 +62,36 @@ class Region:
     def validate(self):
         self.validated = True
 
-    def set_perfs(self, perfs: pd.DataFrame):
-        perfs.index = perfs.index.str.replace("_", " ").str.title()
-        self.perfs = perfs
+
+class ModelRegion(Region):
+    def __init__(self, X, y, model, rules: list[Rule] | None = None, mask: pd.Series | None = None, color=None,
+                 score=None):
+        super().__init__(X, rules, mask, color)
+        self.y = y
+        self.model = model
+        self.interpretable_models = InterpretableModels(score)
+        self.selected_model_name = None
+
+    def to_dict(self):
+        dict_form = super().to_dict()
+        if self.selected_model_name is not None:
+            perfs = self.interpretable_models.perfs
+            model_perf = perfs.loc[self.selected_model_name]
+            dict_form['Sub-model'] = self.selected_model_name
+            dict_form[
+                'Score'] = f"{self.interpretable_models.custom_score_str} : {model_perf[self.interpretable_models.custom_score_str]:.2f}"
+            dict_form['delta'] = f"delta_score : {model_perf['delta']}"
+        return dict_form
+
+    def select_model(self, model_name):
+        self.selected_model_name = model_name
+
+    def train_subtitution_models(self):
+        self.interpretable_models.get_models_performance(self.model, self.X.loc[self.mask], self.y.loc[self.mask])
+
+    @property
+    def perfs(self):
+        return self.interpretable_models.perfs.sort_values(self.interpretable_models.custom_score_str, ascending=False)
 
 
 class RegionSet:
@@ -121,8 +138,8 @@ class RegionSet:
         del self.regions[region_num]
         self.insert_order.remove(region_num)
 
-    def to_dict(self, score_name: str) -> list[dict]:
-        return [self.regions[num].to_dict(score_name) for num in self.insert_order]
+    def to_dict(self) -> list[dict]:
+        return [self.regions[num].to_dict() for num in self.insert_order]
 
     def get_masks(self) -> list[pd.Series]:
         return [self.regions[num].mask for num in self.insert_order]
@@ -168,3 +185,24 @@ class RegionSet:
             'coverage': round(100 * union_mask.mean()),
         }
         return stats
+
+
+class ModelRegionSet(RegionSet):
+    def __init__(self, X, y, model, score):
+        super().__init__(X)
+        self.y = y
+        self.model = model
+        self.score = score
+
+    def add_region(self, rules=None, mask=None, color=None, auto_cluster=False) -> Region:
+        if mask is not None:
+            mask = mask.reindex(self.X.index).fillna(False)
+        region = ModelRegion(X=self.X, y=self.y, model=self.model, score=self.score, rules=rules, mask=mask,
+                             color=color)
+        region.num = -1
+        region.auto_cluster = auto_cluster
+        self.add(region)
+        return region
+
+    def get(self, i) -> ModelRegion | None:
+        return super().get(i)
