@@ -30,7 +30,7 @@ class Region:
     @property
     def color(self):
         if self._color is None:
-            return self.region_colors[self.num - 1 % len(self.region_colors)]
+            return self.region_colors[(self.num - 1) % len(self.region_colors)]
         return self._color
 
     @color.setter
