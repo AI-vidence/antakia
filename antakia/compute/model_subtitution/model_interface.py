@@ -14,8 +14,24 @@ from antakia.compute.model_subtitution.regression_models import LinearRegression
 
 
 class InterpretableModels:
+    available_scores = {
+        'MSE': mean_squared_error,
+        'MAE': mean_absolute_error,
+        'R2': r2_score,
+        'ACC': accuracy_score,
+        'F1': f1_score,
+        'precision'.upper(): precision_score,
+        'recall'.upper(): recall_score,
+    }
+    customer_model_name = 'customer_model'
     def __init__(self, custom_score):
-        self.custom_score = custom_score.upper()
+        if callable(custom_score):
+            self.custom_score_str = custom_score.__name__.upper()
+            self.custom_score = custom_score
+        else:
+            self.custom_score_str = custom_score.upper()
+            self.custom_score = self.available_scores[custom_score.upper()]
+
         self.models = {}
         self.scores = {}
         self.perfs = pd.DataFrame()
@@ -34,21 +50,13 @@ class InterpretableModels:
 
     def _init_scores(self, task_type):
         if task_type == 'regression':
-            self.scores = {
-                'MSE': mean_squared_error,
-                'MAE': mean_absolute_error,
-                'R2': r2_score
-            }
+            scores_list = ['MSE', 'MAE', 'R2']
         else:
-            self.scores = {
-                'ACC': accuracy_score,
-                'F1': f1_score,
-                'precision'.upper(): precision_score,
-                'recall'.upper(): recall_score,
-                'R2': r2_score
-            }
-        if callable(self.custom_score):
-            self.scores[self.custom_score.__name__.upper()] = self.custom_score
+            scores_list = ['ACC', 'F1', 'precision'.upper(), 'recall'.upper(), 'R2']
+        self.scores = {
+            score: self.available_scores[score] for score in scores_list
+        }
+        self.scores[self.custom_score_str] = self.custom_score
 
     def _train_models(self, X, y):
         Parallel(n_jobs=1)(delayed(model.fit)(X, y) for model_name, model in self.models.items() if not model.fitted)
@@ -61,17 +69,15 @@ class InterpretableModels:
         self._init_scores(task_type)
         self._init_models(task_type)
         if customer_model is not None:
-            self.models['customer_model'] = MLModel(customer_model, 'customer_model', True)
+            self.models[self.customer_model_name] = MLModel(customer_model, self.customer_model_name, True)
         self._train_models(X_train, y_train)
         for model_name, model in self.models.items():
             y_pred = model.predict(X_test)
             for score_name, score in self.scores.items():
                 self.perfs.loc[model_name, score_name] = score(y_test, y_pred)
 
-        if isinstance(self.custom_score, str):
-            return self.perfs.sort_values(self.custom_score, ascending=False)
-        else:
-            return self.perfs.sort_values(self.custom_score.__name__.upper(), ascending=False)
+        self.perfs['delta'] = self.perfs[self.custom_score_str] - self.perfs.loc[self.customer_model_name, self.custom_score_str]
+        return self.perfs.sort_values(self.custom_score_str, ascending=True)
 
 
 if __name__ == '__main__':

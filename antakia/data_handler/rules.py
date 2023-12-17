@@ -405,7 +405,7 @@ class Rule:
         }
 
     @staticmethod
-    def rules_to_dict_list(rules_list: list) -> List[Dict[str, str]]:
+    def rules_to_dict_list(rules_list: list[Rule]) -> List[Dict[str, str]]:
         """""
         Returns a dict rep compatible with the v.DataTable widget
         """

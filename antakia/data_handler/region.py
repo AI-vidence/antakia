@@ -22,11 +22,10 @@ class Region:
                 self.mask = pd.Series([False] * len(X), index=X.index)
         else:
             self.mask = mask
-        self.model = None
-        self.score = None
+        self.selected_model_name = None
         self._color = color
         self.validated = False
-        self.perfs: pd.DataFrame = None
+        self.perfs: pd.DataFrame | None = None
         self.auto_cluster = False
 
     @property
@@ -39,23 +38,30 @@ class Region:
     def color(self, c):
         self._color = c
 
-    def set_model(self, model, score):
-        self.model = model
-        self.score = score
+    def set_model(self, model_name):
+        self.selected_model_name = model_name
 
-    def to_dict(self):
+    def to_dict(self, score_name):
         rules_to_str = Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
         rules_to_str = (rules_to_str[:cfg.MAX_RULES_DESCR_LENGTH] + '..') if len(
             rules_to_str) > cfg.MAX_RULES_DESCR_LENGTH else rules_to_str
-        return {
+        dict_form = {
             "Region": self.num,
             "Rules": rules_to_str,
             "Points": self.mask.sum(),
             "% dataset": f"{round(self.mask.mean() * 100, 3)}%",
-            "Sub-model": self.model,
-            "Score": self.score,
+            "Sub-model": None,
+            "Score": None,
+            'delta': None,
             'color': self.color
         }
+        if self.perfs is not None:
+            model_perf = self.perfs.loc[self.selected_model_name]
+            dict_form['Sub-model'] = self.selected_model_name
+            dict_form['Score'] = f"{score_name} : {model_perf[score_name]:.2f}"
+            dict_form['delta'] = f"delta_score : {model_perf['delta']}"
+
+        return dict_form
 
     def num_points(self):
         return self.mask.sum()
@@ -67,12 +73,13 @@ class Region:
         self.validated = True
 
     def set_perfs(self, perfs: pd.DataFrame):
+        perfs.index = perfs.index.str.replace("_", " ").str.title()
         self.perfs = perfs
 
 
 class RegionSet:
     def __init__(self, X):
-        self.regions = {}
+        self.regions: dict[int:Region] = {}
         self.insert_order = []
         self.X = X
 
@@ -114,8 +121,8 @@ class RegionSet:
         del self.regions[region_num]
         self.insert_order.remove(region_num)
 
-    def to_dict(self) -> list[dict]:
-        return [self.regions[num].to_dict() for num in self.insert_order]
+    def to_dict(self, score_name: str) -> list[dict]:
+        return [self.regions[num].to_dict(score_name) for num in self.insert_order]
 
     def get_masks(self) -> list[pd.Series]:
         return [self.regions[num].mask for num in self.insert_order]

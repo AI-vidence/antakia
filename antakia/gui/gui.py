@@ -77,6 +77,7 @@ class GUI:
         self.y_pred = pd.Series(model.predict(X), index=X.index)
         self.variables: DataVariables = variables
         self.score = score
+        self.subtitute_models = InterpretableModels(self.score)
         if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
             raise IndexError('X and X_exp must share the same index')
         if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
@@ -567,7 +568,7 @@ class GUI:
         """
         Called to empty / fill the RegionDataTable and refresh plots
         """
-        temp_items = self.region_set.to_dict()
+        temp_items = self.region_set.to_dict(score_name=self.subtitute_models.custom_score_str)
 
         # We populate the ColorTable :
         get_widget(app_widget, "4400100").items = temp_items
@@ -694,7 +695,7 @@ class GUI:
         # We update the substitution table once to show the name of the region
         self.select_tab(3)
 
-        perfs = InterpretableModels(self.score).get_models_performance(
+        perfs = self.subtitute_models.get_models_performance(
             self.model, self.X.loc[region.mask], self.y.loc[region.mask]
         )
 
@@ -761,7 +762,6 @@ class GUI:
                 for col in perfs.columns:
                     perfs[col] = series_to_str(perfs[col])
                 perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
-                perfs["Sub-model"] = perfs["Sub-model"].str.replace("_", " ").str.capitalize()
                 get_widget(app_widget, "45001").items = perfs.to_dict("records")
         else:
             # We're disabled
@@ -785,20 +785,11 @@ class GUI:
         # We get the sub-model data from the SubModelTable:
         # get_widget(app_widget,"45001").items[self.validated_sub_model]
 
-        score_val = 0
-        if isinstance(self.score, str):
-            score_name = self.score.upper()
-        elif callable(self.score):
-            score_name = self.score.__name__.upper()
-        if float(self.validated_sub_model_dict[score_name]) > score_val:
-            # TODO changer ça, c'est pas adapté
-            score_val = float(self.validated_sub_model_dict[score_name])
-
         get_widget(app_widget, "450100").disabled = True
 
         # We udpate the region
         region = self.region_set.get(self.selected_region_num)
-        region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
+        region.set_model(self.validated_sub_model_dict["Sub-model"])
         region.validate()
 
         # Show tab 2
