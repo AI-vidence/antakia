@@ -37,18 +37,23 @@ class Region:
     def color(self, c):
         self._color = c
 
-    def to_dict(self):
-        rules_to_str = Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
-        rules_to_str = (rules_to_str[:cfg.MAX_RULES_DESCR_LENGTH] + '..') if len(
-            rules_to_str) > cfg.MAX_RULES_DESCR_LENGTH else rules_to_str
+    @property
+    def name(self):
+        name = Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
+        if self.auto_cluster:
+            name = 'AC: ' + name
+        if len(name) > cfg.MAX_RULES_DESCR_LENGTH:
+            name = name[:cfg.MAX_RULES_DESCR_LENGTH - 2] + '..'
+
+        return name
+
+    def to_dict(self) -> dict[str, str | int | None]:
         dict_form = {
             "Region": self.num,
-            "Rules": rules_to_str,
+            "Rules": self.name,
             "Points": self.mask.sum(),
             "% dataset": f"{round(self.mask.mean() * 100, 3)}%",
             "Sub-model": None,
-            "Score": None,
-            'delta': None,
             'color': self.color
         }
         return dict_form
@@ -70,21 +75,15 @@ class ModelRegion(Region):
         self.y = y
         self.model = model
         self.interpretable_models = InterpretableModels(score)
-        self.selected_model_name = None
 
     def to_dict(self):
         dict_form = super().to_dict()
-        if self.selected_model_name is not None:
-            perfs = self.interpretable_models.perfs
-            model_perf = perfs.loc[self.selected_model_name]
-            dict_form['Sub-model'] = self.selected_model_name
-            dict_form[
-                'Score'] = f"{self.interpretable_models.custom_score_str} : {model_perf[self.interpretable_models.custom_score_str]:.2f}"
-            dict_form['delta'] = f"delta_score : {model_perf['delta']}"
+        if self.interpretable_models.selected_model is not None:
+            dict_form['Sub-model'] = self.interpretable_models.selected_model_str()
         return dict_form
 
     def select_model(self, model_name):
-        self.selected_model_name = model_name
+        self.interpretable_models.select_model(model_name)
 
     def train_subtitution_models(self):
         self.interpretable_models.get_models_performance(self.model, self.X.loc[self.mask], self.y.loc[self.mask])

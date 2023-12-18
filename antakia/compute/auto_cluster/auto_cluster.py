@@ -25,7 +25,7 @@ auto_cluster_factory = {
 
 class AutoCluster(LongTask):
 
-    def __init__(self, X: pd.DataFrame, progress_updated: Callable, method='hdbscan'):
+    def __init__(self, X: pd.DataFrame, progress_updated: Callable, method='tomato'):
         super().__init__(X, progress_updated)
         assert auto_cluster_factory[method]
         self.cluster_algo = auto_cluster_factory[method](X, progress_updated)
@@ -48,7 +48,7 @@ class AutoCluster(LongTask):
                 cluster_mask = extended_clusters == cluster
                 rules_list, _ = skope_rules(cluster_mask, self.X, variables, precision, recall, random_state)
                 if len(rules_list) > 0:
-                    r = region_set.add_region(rules=rules_list, auto_cluster=True)
+                    region_set.add_region(rules=rules_list, auto_cluster=True)
                 else:
                     region_set.add_region(mask=cluster_mask, auto_cluster=True)
         return region_set

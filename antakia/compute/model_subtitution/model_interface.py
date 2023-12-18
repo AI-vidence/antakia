@@ -11,10 +11,25 @@ from joblib import Parallel, delayed
 
 from antakia.compute.model_subtitution.regression_models import LinearRegression, LassoRegression, RidgeRegression, GaM, \
     EBM, DecisionTreeRegressor
+import re
 
 
 def pretty_model_name(model_name):
     return model_name.replace('_', ' ').title()
+
+
+def reduce_name(model_name):
+    parts = re.split('\W+', model_name)
+    name = ''
+    for part in parts:
+        name += part[0].upper()
+        for char in part[1:]:
+            if char.isupper():
+                name += char
+    if len(name) == 1:
+        return model_name[:2].capitalize()
+    return name
+
 
 class InterpretableModels:
     available_scores = {
@@ -39,6 +54,7 @@ class InterpretableModels:
         self.models = {}
         self.scores = {}
         self.perfs = pd.DataFrame()
+        self.selected_model = None
 
     def _get_available_models(self, task_type) -> List[type[MLModel]]:
         if task_type == 'regression':
@@ -83,6 +99,15 @@ class InterpretableModels:
         self.perfs['delta'] = self.perfs[self.custom_score_str] - self.perfs.loc[
             self.customer_model_name, self.custom_score_str]
         return self.perfs.sort_values(self.custom_score_str, ascending=True)
+
+    def select_model(self, model_name):
+        self.selected_model = model_name
+
+    def selected_model_str(self) -> str:
+        perf = self.perfs.loc[self.selected_model]
+        reduced_name = reduce_name(self.selected_model)
+        display_str = f'{reduced_name} - {self.custom_score_str}:{perf[self.custom_score_str]:.2f} ({perf["delta"]:.2f})'
+        return display_str
 
 
 if __name__ == '__main__':
