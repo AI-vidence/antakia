@@ -9,6 +9,7 @@ import pandas as pd
 import os
 import math
 
+from antakia.utils.utils import boolean_mask
 from antakia.utils.variable import Variable, DataVariables
 from antakia.utils.logging import conf_logger
 
@@ -247,11 +248,10 @@ class Rule:
         Returns a mask of indices matching the rules
         We assume rules_list contains rules, not list of rules
         """
-        res = pd.Series([True] * len(base_space_df), index=base_space_df.index)
-        if not (rules_list is None or len(rules_list) == 0):
+        res = boolean_mask(base_space_df, True)
+        if rules_list is not None:
             for rule in rules_list:
                 res &= rule.get_matching_indexes(base_space_df)
-
         return res
 
     @staticmethod
@@ -322,7 +322,7 @@ class Rule:
             return None
 
     @staticmethod
-    def combine_rules_var(rule_list: list[Rule]):
+    def combine_rules_var(rule_list: list[Rule]) -> list[Rule]:
         rule_list = rule_list[:]
         i = 0
         while i < len(rule_list):
@@ -338,7 +338,7 @@ class Rule:
         return rule_list
 
     @staticmethod
-    def combine_rule_list(rule_list: list):
+    def combine_rule_list(rule_list: list[Rule]) -> list[Rule]:
         """
         Try to combine all rules of the list into a smaller list of rules
         """
@@ -359,7 +359,7 @@ class Rule:
         return new_rules
 
     @staticmethod
-    def _extract_rules(skrules, X: pd.DataFrame, variables: DataVariables) -> (list['Rule'], dict):
+    def _extract_rules(skrules, X: pd.DataFrame, variables: DataVariables) -> (list[Rule], dict[str, float]):
         """
         Transforms a string into a list of rules
         """
@@ -395,7 +395,7 @@ class Rule:
 
         return rule_list, score_dict
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             'Variable': self.variable.symbol,
             'Unit': self.variable.unit,
@@ -405,7 +405,7 @@ class Rule:
         }
 
     @staticmethod
-    def rules_to_dict_list(rules_list: list) -> List[Dict[str, str]]:
+    def rules_to_dict_list(rules_list: list[Rule]) -> List[Dict[str, str]]:
         """""
         Returns a dict rep compatible with the v.DataTable widget
         """

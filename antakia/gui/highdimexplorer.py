@@ -333,7 +333,6 @@ class HighDimExplorer:
             self.figure.layout.width = self.fig_size
             self.figure.data[trace_id].marker.color = colors
 
-
     def _proj_params_changed(self, widget, event, data):
         """
         Called when params slider changed"""
@@ -540,9 +539,10 @@ class HighDimExplorer:
         return
 
     def update_selection(self):
-        for fig in self.figure.data:
-            fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
-            fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
+        if self.current_dim == 2:
+            for fig in self.figure.data:
+                fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
+                fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
 
     @property
     def mask(self):
@@ -632,7 +632,6 @@ class HighDimExplorer:
         self.container.children = [self.figure]
 
     def redraw(self):
-        print('redraw')
         projection = self.get_current_X_proj()
         x = projection[0]
         y = projection[1]
@@ -712,6 +711,11 @@ class HighDimExplorer:
         if masked:
             return X.loc[self.mask]
         return X
+
+    def proj_should_be_computed(self, dim=None):
+        if dim is None:
+            dim = self.current_dim
+        self.pv_dict[self.current_pv].is_present(self._get_projection_method(), dim)
 
     def set_tab(self, tab):
         self.show_trace(self.VALUES_TRACE, True)

@@ -91,5 +91,5 @@ def debug(func):
     return wrapper
 
 
-# First color can't be blue, reserved for the rules
-colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
+# First color can't be blue, reserved for the rules - grey is reserved to background
+colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "cyan", "black"]

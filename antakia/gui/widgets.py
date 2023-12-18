@@ -125,6 +125,7 @@ dummy_sub_models_df = pd.DataFrame(
         "MSE": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         "MAE": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         "R2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "delta": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     }
 )
 
@@ -137,8 +138,6 @@ dummy_regions_df = pd.DataFrame(
         "% dataset": ["5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%"],
         "Sub-model": ["Linear regression", "Random forest", "Gradient boost", "Linear regression", "Random forest",
                       "Gradient boost", "Linear regression", "Random forest", "Gradient boost", "Linear regression"],
-        "Score": ["MSE = 0.8", "MAE = 0.79", "MSE = 0.95", "MSE = 0.8", "MAE = 0.79", "MSE = 0.95", "MSE = 0.8",
-                  "MAE = 0.79", "MSE = 0.95", "MSE = 0.8"],
     }
 )
 

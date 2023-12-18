@@ -4,7 +4,7 @@ import pandas as pd
 import ipyvuetify as v
 from IPython.display import display
 
-from antakia.data_handler.region import Region, RegionSet
+from antakia.data_handler.region import ModelRegionSet, ModelRegion
 from antakia.utils.long_task import LongTask
 from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
@@ -113,11 +113,12 @@ class GUI:
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
 
-        self.region_set = RegionSet(self.X)
+        self.region_set = ModelRegionSet(self.X, self.y, self.model, self.score)
         self.region_num_for_validated_rules = None  # tab 1 : number of the region created when validating rules
         self.selected_region_num = None  # tab 2 :  num of the region selected for substitution
         self.validated_sub_model_dict = None  # tab 3 : num of the sub-model validated for the region
         self.selection_mask = boolean_mask(self.X, True)
+        self.substitution_model_training = False  # tab 3 : training flag
 
         # UI rules :
         # We disable the selection datatable at startup (bottom of tab 1)
@@ -478,7 +479,7 @@ class GUI:
             region = self.region_set.get(self.selected_region_num)
             self.update_substitution_table(region)
             if region is None:
-                region = Region(self.X)
+                region = ModelRegion(self.X, self.y, self.model, score=self.score)
             self.vs_hde.display_region(region)
             self.es_hde.display_region(region)
         if not front:
@@ -578,10 +579,7 @@ class GUI:
         get_widget(app_widget, "44002").children = [
             f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"
         ]
-
-        # UI rules :
-        # If regions coverage > 80%, we disable the 'auto-cluster' button
-        get_widget(app_widget, "4402000").disabled = region_stats["coverage"] > 80
+        get_widget(app_widget, "4402000").disabled = False
 
     def checkbox_auto_cluster_clicked(self, widget, event, data):
         """
@@ -603,6 +601,7 @@ class GUI:
         """
         Called when the user clicks on the 'auto-cluster' button
         """
+        get_widget(app_widget, "4402000").disabled = True
         if self.tab != 2:
             self.select_tab(2)
         if self.region_set.stats()["coverage"] > 80:
@@ -611,42 +610,46 @@ class GUI:
             self.region_set.clear_unvalidated()
 
         # We disable the AC button. Il will be re-enabled when the AC progress is 100%
-        get_widget(app_widget, "4402000").disabled = True
 
         # We assemble indices ot all existing regions :
-        rules_mask_list = self.region_set.get_masks()
-
+        region_set_mask = self.region_set.mask
+        not_rules_indexes_list = ~region_set_mask
         # We call the auto_cluster with remaing X and explained(X) :
-        not_rules_indexes_list = pd.Series([True] * len(self.X), index=self.X.index)
-        for mask in rules_mask_list:
-            not_rules_indexes_list &= ~mask
 
-        vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False)
-        es_proj_3d_df = self.es_hde.get_current_X_proj(3, False)
+        if len(not_rules_indexes_list) > 100:
+            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False, callback=self.get_ac_progress_update(1))
+            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False, callback=self.get_ac_progress_update(2))
 
-        ac = AutoCluster(vs_proj_3d_df.loc[not_rules_indexes_list], self.update_ac_progress_bar)
-        found_clusters = ac.compute(
-            es_proj_3d_df.loc[not_rules_indexes_list],
-            # We send 'auto' or we read the number of clusters from the Slider
-            "auto" if get_widget(app_widget, "440211").v_model else get_widget(app_widget, "4402100").v_model,
-        )  # type: ignore
+            ac = AutoCluster(self.X, self.get_ac_progress_update(3))
+            if get_widget(app_widget, "440211").v_model:
+                cluster_num = "auto"
+            else:
+                cluster_num = get_widget(app_widget, "4402100").v_model - len(self.region_set)
 
-        for cluster_num in found_clusters.unique():
-            self.region_set.add_region(mask=(found_clusters == cluster_num))
+            found_regions = ac.compute(
+                vs_proj_3d_df.loc[not_rules_indexes_list],
+                es_proj_3d_df.loc[not_rules_indexes_list],
+                # We send 'auto' or we read the number of clusters from the Slider
+                cluster_num,
+            )  # type: ignore
+            self.region_set.extend(found_regions)
+        else:
+            print('not enough points to cluster')
 
+        # We re-enable the button
+        get_widget(app_widget, "4402000").disabled = False
         self.select_tab(2)
 
-    def update_ac_progress_bar(self, caller, progress: float, duration: float):
-        """
-        Called by the AutoCluster to update the progress bar
-        """
-        # #TODO Hack because we do not reveive 100% at the end
-        if progress >= 96:
-            progress = 100
+    def get_ac_progress_update(self, step):
+        def update_ac_progress_bar(caller, progress: float, duration: float):
+            """
+            Called by the AutoCluster to update the progress bar
+            """
+            total_steps = 3
+            progress = ((step - 1) * 100 + progress) / total_steps
+            get_widget(app_widget, "440212").v_model = progress
 
-        get_widget(app_widget, "440212").v_model = progress
-        # We re-enable the button
-        get_widget(app_widget, "4402000").disabled = progress == 100
+        return update_ac_progress_bar
 
     def region_selected(self, data):
         if self.tab != 2:
@@ -685,20 +688,17 @@ class GUI:
     def substitute_clicked(self, widget, event, data):
         assert self.selected_region_num is not None
         region = self.region_set.get(self.selected_region_num)
+        if region is not None:
+            # We update the substitution table once to show the name of the region
+            self.substitution_model_training = True
+            self.select_tab(3)
+            region.train_subtitution_models()
 
-        # We update the substitution table once to show the name of the region
-        self.select_tab(3)
+            self.substitution_model_training = False
+            # We update the substitution table a second time to show the results
+            self.update_substitution_table(region)
 
-        perfs = InterpretableModels(self.score).get_models_performance(
-            self.model, self.X.loc[region.mask], self.y.loc[region.mask]
-        )
-
-        region.set_perfs(perfs)
-
-        # We update the substitution table a second time to show the results
-        self.update_substitution_table(region)
-
-    def update_substitution_table(self, region: Region):
+    def update_substitution_table(self, region: ModelRegion):
         """
         Called twice to update table
         """
@@ -714,7 +714,7 @@ class GUI:
 
         if not disable:
             # We're enabled
-            if region.perfs is None:
+            if self.substitution_model_training:
                 # We tell to wait ...
                 vHtml.class_ = "ml-2 grey--text italic "
                 vHtml.tag = "h3"
@@ -756,7 +756,6 @@ class GUI:
                 for col in perfs.columns:
                     perfs[col] = series_to_str(perfs[col])
                 perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
-                perfs["Sub-model"] = perfs["Sub-model"].str.replace("_", " ").str.capitalize()
                 get_widget(app_widget, "45001").items = perfs.to_dict("records")
         else:
             # We're disabled
@@ -780,20 +779,12 @@ class GUI:
         # We get the sub-model data from the SubModelTable:
         # get_widget(app_widget,"45001").items[self.validated_sub_model]
 
-        score_val = 0
-        if isinstance(self.score, str):
-            score_name = self.score.upper()
-        elif callable(self.score):
-            score_name = self.score.__name__.upper()
-        if float(self.validated_sub_model_dict[score_name]) > score_val:
-            # TODO changer ça, c'est pas adapté
-            score_val = float(self.validated_sub_model_dict[score_name])
-
         get_widget(app_widget, "450100").disabled = True
 
         # We udpate the region
         region = self.region_set.get(self.selected_region_num)
-        region.set_model(self.validated_sub_model_dict["Sub-model"], f"{score_name} : {score_val:.2f}")
+        region.select_model(self.validated_sub_model_dict["Sub-model"])
+        region.validate()
 
         # Show tab 2
         self.select_tab(2)
