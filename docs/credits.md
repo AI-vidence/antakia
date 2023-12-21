@@ -6,4 +6,6 @@ Quite a lot more to come ! and do have a look at this quite promising initiative
 
 - The great coding job has mainly been achieved at AI-vidence by Pierre Hulot (CSO) and Laurent Michel (CPO). Thanks to **SoyHuCe**, Weituo Dai, Antoine Edy, Xavier Lekeuka for paving the way :)
 
+- special thanks to the alpha and beta testers...
+
 And as many other french start ups, thanks also to BPIFrance, Mairie de Paris, Incubateur Telecom Paris to help get things started...
