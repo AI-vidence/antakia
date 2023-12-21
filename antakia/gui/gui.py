@@ -501,10 +501,10 @@ class GUI:
         assert not self.selection_mask.all()
         # Let's disable the Skope button. It will be re-enabled if a new selection occurs
         get_widget(app_widget, "43010").disabled = True
+        self.compute_skr_display(self.vs_hde, self.vs_rules_wgt)
+        self.compute_skr_display(self.es_hde, self.es_rules_wgt)
 
-        hde = self.vs_hde if self.vs_hde.first_selection else self.es_hde
-        rules_widget = self.vs_rules_wgt if self.vs_hde.first_selection else self.es_rules_wgt
-
+    def compute_skr_display(self, hde, rules_widget):
         skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
         skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
         if len(skr_rules_list) > 0:  # SKR rules found
@@ -536,20 +536,12 @@ class GUI:
     def validate_rules(self, *args):
         if self.tab != 1:
             self.select_tab(1)
-        if self.vs_rules_wgt.rules_num >= 0:
-            rules_widget = self.vs_rules_wgt
-        else:
-            rules_widget = self.es_rules_wgt
 
-        rules_list = rules_widget.current_rules_list
+        rules_list = self.vs_rules_wgt.current_rules_list
         # We add them to our region_set
 
         region = self.region_set.add_region(rules=rules_list)
         self.region_num_for_validated_rules = region.num
-        # UI rules: we disable HDEs selection of we have one or more regions
-        # if len(self.region_set) > 0:
-        #    self.vs_hde.disable_selection(True)
-        #    self.es_hde.disable_selection(True)
         # lock rule
         region.validate()
 
@@ -557,7 +549,8 @@ class GUI:
         # UI rules :
         # We clear selection
         # We clear the RulesWidget
-        rules_widget.reset_widget()
+        self.vs_rules_wgt.reset_widget()
+        self.es_rules_wgt.reset_widget()
         # We force tab 2
         self.select_tab(2)
 
