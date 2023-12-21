@@ -52,7 +52,7 @@ class Region:
             "Region": self.num,
             "Rules": self.name,
             "Points": self.mask.sum(),
-            "% dataset": f"{round(self.mask.mean() * 100, 3)}%",
+            "% dataset": f"{round(self.mask.mean() * 100, 2)}%",
             "Sub-model": None,
             'color': self.color
         }

@@ -73,8 +73,8 @@ class GUI:
         self.tab = 1
         self.X = X
         self.y = y
+        self._y_pred = None
         self.model = model
-        self.y_pred = pd.Series(model.predict(X), index=X.index)
         self.variables: DataVariables = variables
         self.score = score
         if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
@@ -91,8 +91,6 @@ class GUI:
             self.selection_changed,
             'VS',
         )  # type: ignore
-        self.vs_rules_wgt = self.es_rules_wgt = None
-
         # We create our ES HDE :
 
         self.es_hde = HighDimExplorer(
@@ -123,6 +121,12 @@ class GUI:
         # UI rules :
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget, "4320").disabled = True
+
+    @property
+    def y_pred(self):
+        if self._y_pred is None:
+            self._y_pred = pd.Series(self.model.predict(self.X), index=self.X.index)
+        return self._y_pred
 
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
@@ -270,9 +274,9 @@ class GUI:
 
     def fig_size_changed(self, widget, event, data):
         """Called when the figureSizeSlider changed"""
-        self.vs_hde.fig_size = self.es_hde.fig_size = round(widget.v_model / 2)
-        self.vs_hde.redraw()
-        self.es_hde.redraw()
+        self.vs_hde.fig_width = self.es_hde.fig_width = round(widget.v_model / 2)
+        self.vs_hde.update_fig_size()
+        self.es_hde.update_fig_size()
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series, skr: bool = False):
         """
