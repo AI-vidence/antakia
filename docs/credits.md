@@ -4,4 +4,6 @@ We are also very grateful to the **Confiance.AI** national french initiative, fo
 We also try the calculation of Banzhaf indices (not only Shapley) more stable and less computer intensive following our ongoing discussion with the **CRIL** (Centre de Recherche en Informatique de Lens, Pierre Marquis, Gilles Audemard, Jean-Marie Lagniez, Steve Bellart, Louenas Bounia). 
 Quite a lot more to come ! and do have a look at this quite promising initiative on X-AI by the CRIL : https://www.cril.univ-artois.fr/projects/expekctation/
 
-The great coding job is mainly achieved at AI-vidence by Pierre Hulot (CSO) and Laurent Michel (CPO). Thanks to SoyHuCe, Weituo Dai, Antoine Edy, Xavier Lekeuka for paving the way :)
+The great coding job is mainly achieved at AI-vidence by Pierre Hulot (CSO) and Laurent Michel (CPO). Thanks to **SoyHuCe**, Weituo Dai, Antoine Edy, Xavier Lekeuka for paving the way :)
+
+And as many other french start ups, thanks also to BPIFrance, Mairie de Paris, Incubateur Telecom Paris to help get things started...
