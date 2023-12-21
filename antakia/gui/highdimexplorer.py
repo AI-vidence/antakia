@@ -162,7 +162,8 @@ class HighDimExplorer:
         self.wire(init_proj)
 
         #  Now we can init figures 2 and 3D
-        self.fig_size = fig_size
+        self.fig_width = fig_size
+        self.fig_height = fig_size / 2
         self._selection_disabled = False
 
         self.container = v.Container()
@@ -176,8 +177,6 @@ class HighDimExplorer:
         self._colors: list[pd.Series | None] = [None, None, None, None]
 
         self.figure_2D = self.figure_3D = None
-
-        self.create_figure()
 
     def wire(self, init_proj):
         self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
@@ -310,28 +309,19 @@ class HighDimExplorer:
         """
         Draws one zone on one figure using the passed colors
         """
+        if self.figure is None:
+            self.create_figure()
+        else:
+            colors = self._colors[trace_id]
+            if colors is None:
+                colors = self._y
+            colors = colors[self.mask]
+            with self.figure.batch_update():
+                self.figure.data[trace_id].marker.color = colors
 
-        values = self.get_current_X_proj()[self.mask]
-        colors = self._colors[trace_id]
-        if colors is None:
-            colors = self._y
-        colors = colors[self.mask]
-
-        # logger.debug(
-        #    f"HDE.dzonf: {self.get_space_name()}/{self._current_dim}D, trace: {HighDimExplorer.trace_name(trace_id)} visible?: {self.figure.data[trace_id].visible}, transparency:{round(100 * transparency, 2)}%")
-
-        x = values[0]
-        y = values[1]
-        if self._current_dim == 3:
-            z = values[2]
-
-        with self.figure.batch_update():
-            self.figure.data[trace_id].x = x
-            self.figure.data[trace_id].y = y
-            if self._current_dim == 3:
-                self.figure.data[trace_id].z = z
-            self.figure.layout.width = self.fig_size
-            self.figure.data[trace_id].marker.color = colors
+    def update_fig_size(self):
+        self.figure.layout.width = self.fig_width
+        self.figure.layout.height = self.fig_height
 
     def _proj_params_changed(self, widget, event, data):
         """
@@ -389,8 +379,8 @@ class HighDimExplorer:
         # We disable proj params if  not PaCMAP:
         self.get_proj_params_menu().disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int(
             'PaCMAP')
-        self.get_projection_select().disabled = False
         self.redraw()
+        self.get_projection_select().disabled = False
 
     def explanation_select_changed(self, widget, event, data):
         """
@@ -612,9 +602,8 @@ class HighDimExplorer:
                 'l': 0,
                 'r': 0
             },
-            width=self.fig_size,
-            height=round(self.fig_size / 2),
         )
+        self.update_fig_size()
         self.figure._config = self.figure._config | {"displaylogo": False}
         self.figure._config = self.figure._config | {'displayModeBar': True}
         # We don't want the name of the trace to appear :
@@ -647,7 +636,7 @@ class HighDimExplorer:
                 self.figure.data[trace_id].showlegend = False
                 self.show_trace(trace_id, self._visible[trace_id])
                 self.display_color(trace_id)
-            self.figure.layout.width = self.fig_size
+            self.update_fig_size()
 
     def get_projection_select(self):
         """
