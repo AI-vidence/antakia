@@ -15,19 +15,16 @@ def test_rule_widget():
     var2 = Variable(0, 'var2', 'float')
     rule4 = Rule(10, '<=', var2, None, None)
 
-    data = pd.DataFrame(np.arange(100).reshape((-1, 2)), columns=['var1', 'var2'])
+    data = pd.DataFrame(np.arange(150).reshape((-1, 3)), columns=['var1', 'var2', 'y'])
     rules1 = [rule1, rule4]
     mask1 = rule1.rules_to_mask(rules1, data)
     rules2 = [rule2, rule4]
     mask2 = rule1.rules_to_mask(rules2, data)
 
-    rw = RuleWidget(rule1, data, True, mask1, lambda x: None)
+    rw = RuleWidget(rule1, data.iloc[:, :2], data.iloc[:, 2], True, mask1, lambda x: None)
 
     # add tests
 
     rw.update(mask2, rule1)
 
     # add tests
-
-
-

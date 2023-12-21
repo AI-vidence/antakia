@@ -16,9 +16,6 @@ import logging
 
 from antakia.utils.utils import colors
 
-logger = logging.getLogger(__name__)
-conf_logger(logger)
-
 
 def get_widget(root_widget: Widget, address: str) -> Widget:
     """
@@ -128,6 +125,7 @@ dummy_sub_models_df = pd.DataFrame(
         "MSE": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         "MAE": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         "R2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "delta": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     }
 )
 
@@ -140,8 +138,6 @@ dummy_regions_df = pd.DataFrame(
         "% dataset": ["5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%"],
         "Sub-model": ["Linear regression", "Random forest", "Gradient boost", "Linear regression", "Random forest",
                       "Gradient boost", "Linear regression", "Random forest", "Gradient boost", "Linear regression"],
-        "Score": ["MSE = 0.8", "MAE = 0.79", "MSE = 0.95", "MSE = 0.8", "MAE = 0.79", "MSE = 0.95", "MSE = 0.8",
-                  "MAE = 0.79", "MSE = 0.95", "MSE = 0.8"],
     }
 )
 
@@ -919,7 +915,7 @@ app_widget = v.Col(
                                                              class_="ml-7",
                                                              tag="li",
                                                              children=[
-                                                                 "Precision = 0.3, recall = 0.8, f1_score = 22"
+                                                                 "Precision = n/a, recall = n/a, f1_score = n/a"
                                                              ]
                                                          ),
                                                          v.Html(  # 431002 / 02
@@ -1001,7 +997,7 @@ app_widget = v.Col(
                                                          v.Html(  # 431101
                                                              class_="ml-7",
                                                              tag="li",
-                                                             children=["Precision = 0.3, Recall = 0.8, F1 = 22"]
+                                                             children=["Precision = n/a, Recall = n/a, F1 = n/a"]
                                                          ),
                                                          v.Html(  # 431102
                                                              class_="ml-7",

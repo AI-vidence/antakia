@@ -47,9 +47,6 @@ def conf_logger(logger: Logger, height: int = 160) -> Handler:
         logger.setLevel(INFO)
 
 
-logger = logging.getLogger(__name__)
-conf_logger(logger)
-
 def wrap_repr(widget: Widget, size: int = 200) -> str:
     text = widget.__repr__()
     if widget.layout is None:

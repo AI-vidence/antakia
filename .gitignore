@@ -23,3 +23,7 @@ ipython_config.py
 
 # Others
 /examples/catboost_info/
+
+# docs
+site/
+

@@ -76,6 +76,7 @@ class AntakIA():
             self.variables = Variable.guess_variables(X)
 
         self.regions = []
+        self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_exp, self.score)
 
     def start_gui(self) -> GUI:
-        return GUI(self.X, self.y, self.model, self.variables, self.X_exp, self.score).show_splash_screen()
+        return self.gui.show_splash_screen()

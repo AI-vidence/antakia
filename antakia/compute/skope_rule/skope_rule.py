@@ -1,21 +1,14 @@
-import math
 import warnings
 
-import numpy as np
 import pandas as pd
 from skrules import SkopeRules
 
 from antakia.utils.variable import Variable, DataVariables
 from antakia.data_handler.rules import Rule
-import antakia.utils.utils as utils
 
-import logging as logging
-from antakia.utils.logging import conf_logger
-logger = logging.getLogger(__name__)
-conf_logger(logger)
 
 def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: DataVariables = None, precision: float = 0.7,
-                recall: float = 0.7, random_state=42) -> (list, dict):
+                recall: float = 0.7, random_state=42) -> (list[Rule], dict[str,float]):
     """
     variables : list of Variables of the app
     df_indexes : list of (DataFrame) indexes for the points selected in the GUI

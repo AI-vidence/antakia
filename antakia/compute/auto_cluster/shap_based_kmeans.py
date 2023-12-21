@@ -11,8 +11,8 @@ class ShapBasedKmeans(LongTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def compute(self, shap_values: pd.DataFrame, n_clusters='auto') -> list:
-        x_scaled = self.scale(self.X, shap_values)
+    def compute(self, X, shap_values: pd.DataFrame, n_clusters='auto') -> list:
+        x_scaled = self.scale(X, shap_values)
         clusters = self.cluster(x_scaled, shap_values, n_clusters=n_clusters)
         return clusters
 

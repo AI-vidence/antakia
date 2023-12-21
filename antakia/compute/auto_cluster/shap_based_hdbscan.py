@@ -3,7 +3,7 @@ import math
 import mvlearn
 import numpy as np
 import pandas as pd
-from sklearn.cluster import HDBSCAN,AgglomerativeClustering
+from sklearn.cluster import HDBSCAN, AgglomerativeClustering
 from sklearn.metrics import silhouette_score, calinski_harabasz_score
 
 from antakia.utils.long_task import LongTask
@@ -13,8 +13,8 @@ class ShapBasedHdbscan(LongTask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def compute(self, shap_values: pd.DataFrame, n_clusters='auto') -> list:
-        x_scaled = self.scale(self.X, shap_values)
+    def compute(self, X, shap_values: pd.DataFrame, n_clusters='auto') -> list:
+        x_scaled = self.scale(X, shap_values)
         clusters = self.cluster(x_scaled, shap_values, n_clusters=n_clusters)
         return clusters
 
@@ -33,7 +33,7 @@ class ShapBasedHdbscan(LongTask):
 
     @staticmethod
     def n_cluster(X, n_clusters):
-        if n_clusters=='auto':
+        if n_clusters == 'auto':
             hdbscan = HDBSCAN(min_cluster_size=int(math.sqrt(len(X))))
             clusters = hdbscan.fit_predict(X)
         else:
