@@ -31,10 +31,10 @@ A `y.head()` will give you somethin like :
 ## The use case
 
 We can imagine several use cases where AntakIA could be very useful. For instance :
-* Let's say you're a real estate agent in California. A datascientist in your team has trained a wonderful ML model that is capable to predict the market value of any house in the state, as long as you provide sufficent data. You're amazed and want to unnderstand how this model works in order to gain insights of your market : what drives the price ? any segmentation ? So you decided to use AntakIA.
-* Or, you don't have such model. But you still want to have an accurate understanding of your market. Then you ask a datascientist to train a model. ANd then you use AntakIA on it.
+* Let's say you're a real estate agent in California. A data scientist in your team has trained a wonderful ML model that is capable of predicting the market value of any house in the state, as long as you provide sufficient data. You're amazed at the result and want to understand how this model works in order to gain insights of your market : what drives the price ? any segmentation ? So you decide to use AntakIA.
+* Or, you don't have such model. But you still want to have an accurate understanding of your market. Then you ask a data scientist to train a model. And then you use AntakIA on it.
 
-It's quite the same story : you have dataset `X`, you do a supervised training (`X`,`y`) to get a fitted model M. AntakIA will help you to understand how and why M can predict house values.
+It's quite the same story : you have dataset `X`, you do a supervised training (`X`,`y`) to get a fitted model M. AntakIA will help you understand how and why M can predict house values.
 
 ## Preparing the data
 
@@ -46,7 +46,7 @@ Let's analyze the first cells :
 import pandas as pd
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
 ````
-We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values calues (eg. SHAP values for the data and the model). So make this tutorial quicker and more pleaseant, our CSV file includes these values pre-computed.
+We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So as to make this tutorial quicker and more pleaseant, our CSV file includes pre-computed SHAP values.
 
 ```
 # Remove outliers:
