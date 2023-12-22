@@ -35,7 +35,12 @@ class RuleWidget:
         self.X = X
         self.values_space = values_space
         self.rule_updated = rule_updated
+        self.display_sliders = self.values_space
+        self.root_widget = None
 
+        self.build_widget(init_rules_mask)
+
+    def build_widget(self, init_rules_mask):
         # root_widget is an ExpansionPanel
         self.root_widget: v.ExpansionPanel = v.ExpansionPanel(
             children=[
@@ -65,14 +70,16 @@ class RuleWidget:
         get_widget(self.root_widget, "0").class_ = "blue lighten-4"
         self._set_panel_title()
         # We set the select widget (slider, rangeslider ...)
-        self.select_widget = self._get_select_widget()
-        self._set_select_widget_values()
-        self.select_widget.on_event("change", self._widget_value_changed)
-        change_widget(self.root_widget, "101", self.select_widget)
+        if self.display_sliders:
+            self.select_widget = self._build_select_widget()
+            self._set_select_widget_values()
+            self.select_widget.on_event("change", self._widget_value_changed)
+            change_widget(self.root_widget, "101", self.select_widget)
+        else:
+            change_widget(self.root_widget, "101", None)
 
         # Now we build the figure with 3 histograms :
         self._draw_histograms(init_rules_mask)
-        self.update(init_rules_mask)
 
     def _draw_histograms(self, init_rules_mask: pd.Series):
         base_args = {
@@ -102,6 +109,7 @@ class RuleWidget:
         # 3) X[var] with only CURRENT rule 'matching indexes'
         self.figure.add_trace(
             Histogram(
+                x=X_skr,
                 marker_color="blue",
                 **base_args
             )
@@ -210,7 +218,8 @@ class RuleWidget:
             self.rule = previous_rule
 
         # We update the selects
-        self._set_select_widget_values()
+        if self.display_sliders:
+            self._set_select_widget_values()
 
         # We update the third histogram only
         with self.figure.batch_update():
@@ -326,6 +335,9 @@ class RulesWidget:
 
         # The list of our 'rules model' 'predicted positives'
         new_rules_mask = Rule.rules_to_mask(new_rules_list, self.X)
+        self.update_from_mask(new_rules_mask, new_rules_list)
+
+    def update_from_mask(self, new_rules_mask, new_rules_list):
 
         try:
             precision = (new_rules_mask & self.rules_mask).sum() / new_rules_mask.sum()

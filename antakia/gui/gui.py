@@ -106,7 +106,7 @@ class GUI:
         )
 
         self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True, self.new_rules_defined)
-        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.y, self.variables, False, self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.y, self.variables, False)
         # We set empty rules for now :
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
@@ -292,6 +292,12 @@ class GUI:
         # We sent to the proper HDE the rules_indexes to render :
         self.vs_hde.display_rules(df_mask)
         self.es_hde.display_rules(df_mask)
+
+        # sync selection between rules_widgets
+        if rules_widget == self.vs_rules_wgt:
+            self.es_rules_wgt.update_from_mask(df_mask, [])
+        else:
+            self.vs_rules_wgt.update_from_mask(df_mask, [])
 
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num <= 1
