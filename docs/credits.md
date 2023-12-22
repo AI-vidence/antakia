@@ -3,6 +3,7 @@ Special thanks to Jean-Matthieu, for his great work developping **Skope-Rules**.
 - We are also very grateful to the **Confiance.AI** national french initiative, for helping us try this approach with great french industrial actors, to increase adoption and robustness of high risk models.
 - We also try the calculation of Banzhaf indices (not only Shapley) more stable and less computer intensive following our ongoing discussion with the **CRIL** (Centre de Recherche en Informatique de Lens, Pierre Marquis, Gilles Audemard, Jean-Marie Lagniez, Steve Bellart, Louenas Bounia). 
 Quite a lot more to come ! and do have a look at this quite promising initiative on X-AI by the CRIL : https://www.cril.univ-artois.fr/projects/expekctation/
+- Special thanks to the [Jupter project](https://jupyter.org) team. Without some particular AntakIA wouldn't be possible : [ipywidgets](https://github.com/jupyter-widgets/ipywidgets) or [ipyvuetify](https://github.com/widgetti/ipyvuetify) from the great [widgetti](https://github.com/widgetti) team ...
 
 - The great coding job has mainly been achieved at AI-vidence by Pierre Hulot (CSO) and Laurent Michel (CPO). Thanks to **SoyHuCe**, Weituo Dai, Antoine Edy, Xavier Lekeuka for paving the way :)
 
