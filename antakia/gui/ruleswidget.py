@@ -1,3 +1,6 @@
+import math
+
+import numpy as np
 import pandas as pd
 
 import ipyvuetify as v
@@ -60,7 +63,7 @@ class RuleWidget:
 
         # The variable name bg (ExpansionPanelHeader) is light blue
         get_widget(self.root_widget, "0").class_ = "blue lighten-4"
-
+        self._set_panel_title()
         # We set the select widget (slider, rangeslider ...)
         self.select_widget = self._get_select_widget()
         self._set_select_widget_values()
@@ -69,8 +72,6 @@ class RuleWidget:
 
         # Now we build the figure with 3 histograms :
         self._draw_histograms(init_rules_mask)
-
-        change_widget(self.root_widget, "11", self.figure)
         self.update(init_rules_mask)
 
     def _draw_histograms(self, init_rules_mask: pd.Series):
@@ -113,10 +114,24 @@ class RuleWidget:
             margin={'l': 0, 'r': 0, 't': 0, 'b': 0},
             height=200,
         )
+        # display
+        change_widget(self.root_widget, "11", self.figure)
 
-    def _get_select_widget(self):
+    def _set_panel_title(self):
         if self.rule.is_categorical_rule:
-            change_widget(self.root_widget, "00", f"{self.rule.variable.symbol} possible values :")
+            title = f"{self.rule.variable.symbol} possible values :"
+        elif self.rule.rule_type == 1:  # var < max
+            title = f"{self.rule.variable.symbol} lesser than {'or equal to ' if self.rule.include_equals else ''}:"
+        elif self.rule.rule_type == 2:  # var > min
+            title = f"{self.rule.variable.symbol} greater than {'or equal to ' if self.rule.include_equals else ''}:"
+        elif self.rule.is_inner_interval_rule:
+            title = f"{self.rule.variable.symbol} inside the interval:"
+        else:
+            title = f"{self.rule.variable.symbol} outside the interval:"
+        return change_widget(self.root_widget, "00", title)
+
+    def _build_select_widget(self):
+        if self.rule.is_categorical_rule:
             return v.Select(
                 label=self.rule.variable.symbol,
                 items=self.X[self.rule.variable.symbol].unique().tolist(),
@@ -125,33 +140,32 @@ class RuleWidget:
             )
         min_ = float(self.X[self.rule.variable.symbol].min())
         max_ = float(self.X[self.rule.variable.symbol].max())
+        step = (max_ - min_) / 100
+        round_value = round(math.log(step / 2) / math.log(10)) - 1
+        min_ = np.round(min_, -round_value)
+        max_ = np.round(max_, -round_value)
+        step = np.round(step, -round_value)
         slider_args = {
             'min': min_,
             'max': max_,
-            'step': (max_ - min_) / 100,
+            'step': step,
             'thumb_label': "always",
             'thumb_size': 30,
-            'thumb_color': 'blue',
+            'thumb_color': 'blue'
         }
         if self.rule.rule_type == 1:  # var < max
-            change_widget(self.root_widget, "00",
-                          f"{self.rule.variable.symbol} lesser than {'or equal to ' if self.rule.include_equals else ''}:")
             slider = v.Slider
             slider_args['color'] = 'green'
             slider_args['track_color'] = 'red'
         elif self.rule.rule_type == 2:  # var > min
-            change_widget(self.root_widget, "00",
-                          f"{self.rule.variable.symbol} greater than {'or equal to ' if self.rule.include_equals else ''}:")
             slider = v.Slider
             slider_args['color'] = 'red'
             slider_args['track_color'] = 'green'
         elif self.rule.is_inner_interval_rule:
-            change_widget(self.root_widget, "00", f"{self.rule.variable.symbol} inside the interval:")
             slider = v.RangeSlider
             slider_args['color'] = 'green'
             slider_args['track_color'] = 'red'
         else:
-            change_widget(self.root_widget, "00", f"{self.rule.variable.symbol} outside the interval:")
             slider = v.RangeSlider
             slider_args['color'] = 'red'
             slider_args['track_color'] = 'green'
@@ -291,9 +305,6 @@ class RulesWidget:
         current_rules_mask = Rule.rules_to_mask(self.current_rules_list, self.X)
         self._create_rule_widgets(current_rules_mask)
 
-        # We notify the GUI and ask to draw the rules on HDEs
-        self.new_rules_defined(self, rules_mask, True)
-
     def reset_widget(self):
         self.disable()
         self.rules_db = []
@@ -336,7 +347,8 @@ class RulesWidget:
             rw.update(new_rules_mask)
 
         # We notify the GUI and tell there are new rules to draw
-        self.new_rules_defined(self, new_rules_mask)
+        if self.new_rules_defined is not None:
+            self.new_rules_defined(self, new_rules_mask)
 
     def undo(self):
         """
@@ -362,7 +374,8 @@ class RulesWidget:
         # we refresh the widget
         self.refresh_widget()
         # We notify the GUI and tell there are new rules to draw
-        self.new_rules_defined(self, rules_mask)
+        if self.new_rules_defined is not None:
+            self.new_rules_defined(self, rules_mask)
 
     def _put_in_db(self, rules_list: list, score_dict: dict, erase_past: bool = False):
         if erase_past:
