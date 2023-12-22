@@ -6,8 +6,8 @@ This is the part 2 of our tutorial. We'll dive into the actual use of AntakIA. I
 
 ### A first glimpse of AntakIA
 
-> [!IMPORTANT]
-> The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say "regions", hence the regional explainability) where we can substitute the inital complex trained model (often reffered to as a black box) with simple and explainable models, one for each region.
+> **Note**
+The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say "regions", hence the regional explainability) where we can substitute the inital complex trained model (often reffered to as a black box) with simple and explainable models, one for each region.
  
 Then the main question is : how to define these regions ?
 
@@ -36,8 +36,40 @@ These dimensionality reduction technique can also project in 3D :
 
 ### The splash screen
 
+When you type ```atk.start_gui()``` the application shows a splash screen first :
+
+<div style="text-align:center"><img src="img/splash.png" height="180"></div>
+<br>
+AntakIA needs computed explanation values to display the ES.
+
+If you passed to AntakIA some pre-computed explanation values, such as `shap_values`, the you'll see in the splah screen that the first progress bar isn't active and its status is `ìmported explained values`. Otherwise you would have to wait for its computation.
+
+As we saw earlier, we also need to compute the dimensionality reductions for both VS and ES spaces. Since we display the values in 2D and 3D, we have 4 computations. That's what is shown on the second progres bar of the splash screen. Note we only compute projections for the default reduction technique.
+
+> [!NOTE]
+> You can put in your working directory an `.env` file with some default values for AntakIA. 
+
+Below is an example of such an `.env` file :
+
+```
+DEFAULT_EXPLANATION_METHOD = 1 # 1 for SHAP (default), 2 for LIM
+DEFAULT_VS_DIMENSION = 2 # 2 (default) or 32 # 2 or 3
+DEFAULT_ES_DIMENSION = 2 # idem
+DEFAULT_VS_PROJECTION = 4 # 1 for PCA, 2 for t-SNE, 3 for UMAP, 4 for PacMAP (default)
+DEFAULT_ES_PROJECTION = 4 # idem
+
+INIT_FIG_WIDTH = 1800 # default, in pixels
+MAX_DOTS = 5000 # default. Max dots to display, for you CPU sake
+
+# Rule format
+USE_INTERVALS_FOR_RULES = 'True' # intervals use the [a,b] notation
+MAX_RULES_DESCR_LENGTH = 100 # default. Number of character to display a rule description
+SHOW_LOG_MODULE_WIDGET = 'False' # default, a logging tool for debug
+```
 
 ### The main window
+
+
 
 ### Exploring the dataset with a dyadic view
 
