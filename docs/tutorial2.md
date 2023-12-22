@@ -69,14 +69,102 @@ SHOW_LOG_MODULE_WIDGET = 'False' # default, a logging tool for debug
 
 ### The main window
 
+Here is an explanation fo the main window generic tools :
+
+![](img/ui.png)
+
+## Understanding the Antakia worlflow
+
+AntakIA workflow can be summarized as below :
+1. find some points in one space such as the corresponding points in the other space aren't too sparse / are grouped
+2. find rules on the dataset variables that matches this selection
+3. adjust these rules according to your needs
+4. add this rules-defined zone to your list of "region"
+5. chose a submodel for substitution
+6. start again from step 1
+
+## Let's apply this method to our dataset :slightly_smiling_face:
+
+### 1. find a "good" selection
+
+The example below is a pretty good example :
+
+![](img/dyadic.png)
+
+As previously explained, the idea is to find regions homogenous if both spaces at the same time.
+
+Using the "lasso" tool, you can select points in one space, and then, see the corresponding selection in the other space.
+
+> **Note**
+If you want to empty your selection, just do a multiple click anywhere in a grey area.
 
 
-### Exploring the dataset with a dyadic view
+In this example, we see a region in the VS space, with a relatively homogeneous counterpart in the ES space.
 
-### Understanding the Antakia worlflow
+* Dots in VS are grouped : they are closed (the distance is small), so they are simular. In our example, this means we have selected block groups with similar attributes
+* Dots in the are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction
 
-## Finding a suitable region
 
-## Substitution the intial model with a surrogate model
+### 2. find rules matching our selection
+
+Whenever the selection is not empty, you'll see a blue "Find rules" button :
+
+<div style="text-align:center"><img src="img/find_rules.png" height="120"></div>
+
+You can click it. It launches an algoritm called [Skope rules](https://github.com/scikit-learn-contrib/skope-rules) the tries to find rules to describe your selection :
+
+![](img/rules.png)
+
+The dots in blue corresponds to the positives records of the rules found, for both VS and ES.
+
+Under the title "Rule(s) applied to the values space", you can read the rules that have been found :
+Here, it is `MedInc <= 7.409 and AveRooms >= 5.502 and Latitude <= 37.355`.
+
+> **Note**
+Rules have only been found in the VS. As a matter of fact, the Skope rules algorithm doesn't systematically find rules in both spaces. Here, it didn't find rules (expressed with a subset of our 8 variables) able to describe the ES selection (with explained values) effectively.
+
+### 3. Adjust the rules
+
+On the last picture, you see, under the rules, 3 slides to adjust the thresholds of the rules, one for each variable.
+
+Working with a "market expert" (real estate expert) you may adjust those threshold to match known values.
+
+### 4. Validate the region
+
+When you're done, you can click on the "validate rules" button
+
+When a set of rules has been validated, AntakIA show another tab named "Regions" :
+
+![](img/one_region.png)
+
+You see the region has been given a color, here : red.
+
+### 5. Substitution the intial model with a surrogate model
+
+Now you can either go back to step 1 and find another region, or find a submodel for substitution. Let's do this.
+
+In the table, select the region with the checkbox, then click on the "substitute" button.
+
+What you see is a proposal of submodels :
+
+![](img/submodel.png)
+
+You can read the performance of various surrogate models, compared (delta) with the orginal model.
+
+You can select one model and "validate sub-model" to add the submodel in your region list.
 
 ## The auto-clustering way
+
+This dyadic exploration provides many insights both for the datascientists, the "market expert person" and the person in charge of compliance.
+
+Instead of find each region one by one, you can try our auto-clustering method. In the "Regions" tab, click on the blue button "auto-clustering". You can uncheck the "automatic numnber of clusters" if you want to force it.
+
+Below is an example of what you can get :
+
+![](img/ac.png)
+
+It's often a good way to start, then refine your regions !
+
+##
+
+Hope you enjoyed this tutorial !
