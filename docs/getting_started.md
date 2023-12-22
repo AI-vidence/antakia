@@ -8,7 +8,8 @@ pip install antakia
 
 ## Install from source
 
-Clone our repo :
+Clone our repo :> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
 
 ```
 git clone https://github.com/AI-vidence/antakia.git
@@ -30,7 +31,8 @@ pip install -e .
 
 # Starting with example notebooks
 
-**AntakIA is designed to work within notebooks (Jupyter or Google Collab for example)**. Then you'll need a notebook to work with AntakIA.
+> [!IMPORTANT]
+> AntakIA is designed to work within notebooks (Jupyter or Google Collab for example). Then you'll need a notebook to work with AntakIA.
 
 If you cloned our repo you'll find in the` ~/examples/` folder some sample notebooks (`.ipynb` files). Otherwise, you can download them manually from our [Github page](https://github.com/AI-vidence/antakia).
 
@@ -56,7 +58,8 @@ If you downloaded the code and have installed it by yourself, make sure you chos
 
 Then you can run the notebok with these buttons :
 
-![](img/notebook_vsc.png)
+
+<div style="text-align:center"><img src="img/notebook_vsc.png" height="110"></div>
 
 ## Running notebooks in a local Jupyter server
 
@@ -70,3 +73,5 @@ Then launch the server with :
 ```
 jupyter notebook
 ```
+##
+Now your can go to [our tutorial](tutorial1.md).

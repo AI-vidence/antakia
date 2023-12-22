@@ -1,4 +1,4 @@
-# Tutorial
+# Tutorial (1/2)
 
 This is the part 1 of our tutorial. It explains how to prepare data and launch AntakIA. Those steps are common to most of AntakIA uses. If you feel familiar enough, you can directly jump to second part.
 
@@ -66,6 +66,55 @@ X = df.iloc[:,0:8] # the dataset
 y = df.iloc[:,9] # the target variable
 shap_values = df.iloc[:,[10,11,12,13,14,15,16,17]] # the SHAP values
 ```
-Here we have extracted from our big CSV dataset : the `X` values, the `y` Series and the `shap_values` (we'll explain those values further).
+Above, we have extracted from our big CSV dataset : the `X` values, the `y` Series and the `shap_values` (we'll explain those values further).
 
-## 
+```
+from sklearn.ensemble import GradientBoostingRegressor
+model = GradientBoostingRegressor(random_state = 9)
+model.fit(X, y)
+```
+We decided to use a GradientBoosting model and have it trained (or fitted) on our data.
+
+Now the our data is prepared and our model trained, we can then launch Antakia :
+
+```
+from antakia.antakia import AntakIA
+atk = AntakIA([X], y, model)
+atk.start_gui()
+```
+
+It's that simple !
+
+Yet, in this tutorial we'll use another method to launch AntakIA :
+
+```
+from antakia.antakia import AntakIA
+
+variables_df = pd.DataFrame(
+    {'col_index': [0, 1, 2, 3, 4, 5, 6, 7],
+    'descr': ['Median income', 'House age', 'Average nb rooms', 'Average nb bedrooms', 'Population', 'Average occupancy', 'Latitude', 'Longitude'],
+    'type': ['float64', 'int', 'float64', 'float64', 'int', 'float64', 'float64', 'float64'],
+    'unit': ['k$', 'years', 'rooms', 'rooms', 'people', 'ratio', 'degrees', 'degrees'],
+    'critical': [True, False, False, False, False, False, False, False],
+    'lat': [False, False, False, False, False, False, True, False],
+    'lon': [False, False, False, False, False, False, False, True]},
+    index=['MedInc', 'HouseAge', 'AveRooms', 'AveBedrms', 'Population', 'AveOccup', 'Latitude', 'Longitude']
+)
+
+atk = AntakIA(X, y, model, variables_df, shap_values)
+atk.start_gui()
+```
+
+Two differences with this method :
+
+1. we've passed to AntakIA a description of the dataset variables :
+   - description,
+   - is it critical ? 
+   - do we have geographical data ? 
+   - type of the variable
+   - which unit is used ?
+2. we've also passed pre-computed Shap values.
+
+##
+
+Now we're ready to discover AntakIA. You can go to [the second part of our tutorial](tutorial2.md).
