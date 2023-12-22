@@ -11,8 +11,8 @@ The main idea of our AntakIA method is to divide the dataset `X` in several part
  
 Then the main question is : how to define these regions ?
 
-> [!IMPORTANT]
-> The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "values space" or "VS"), and a space with the same records, but using, as variables, the explanation for each variables. We call the latter the "explanations space" or "ES". Put another way, VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.
+> **Note**
+The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "values space" or "VS"), and a space with the same records, but using, as variables, the explanation for each variables. We call the latter the "explanations space" or "ES". Put another way, VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.
 
 Then, finding relevant regions consists in finding clusters in VS corresponding to clusters in ES. Then we find regions where records are alike **and** records are explained similarly. **Then, on these regions we can find simple models, with few variables that are explainable and replace the former "black box".**
 
@@ -46,8 +46,8 @@ If you passed to AntakIA some pre-computed explanation values, such as `shap_val
 
 As we saw earlier, we also need to compute the dimensionality reductions for both VS and ES spaces. Since we display the values in 2D and 3D, we have 4 computations. That's what is shown on the second progres bar of the splash screen. Note we only compute projections for the default reduction technique.
 
-> [!NOTE]
-> You can put in your working directory an `.env` file with some default values for AntakIA. 
+> **Note**
+You can put in your working directory an `.env` file with some default values for AntakIA. 
 
 Below is an example of such an `.env` file :
 
