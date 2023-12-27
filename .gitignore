@@ -9,6 +9,9 @@
 # environnement variables
 .env
 
+# packaging
+poetry.lock
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
