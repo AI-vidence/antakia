@@ -1,0 +1,29 @@
+# Apple
+.DS_Store
+
+# VSCode
+.vscode/
+*.code-workspace
+.idea/
+
+# environnement variables
+.env
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Others
+/examples/catboost_info/
+
+# docs
+site/
+
