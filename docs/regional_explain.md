@@ -5,17 +5,17 @@ Most business needs and most famous ML algorithms themselves rely on ‘segmenta
 Understanding by both the Data Scientist (DS) and Business Owner (BO) often relies on that specific scale (be it Operation Regime, Customer segment) still not dealt with.
 
 ## Keywords
-Regional Explaination , segmentation, clustering, SHAP, LIME, Decision Trees , Data Visualisation, Banzhaf , Shapley Shubick , TreeRank , Ranking Forest
+Regional explaination , segmentation, clustering, SHAP, LIME, decision trees, data visualisation, Banzhaf , Shapley Shubick , TreeRank , ranking forest
 
-## Method
+## Our dyadic approach
 *AntakIA* methodology by Aividence aims at gaining a common understanding between the DS (Data Scientist) and firstly the BO (Business Owner) by building explainations of the models at a regional level. The main steps leading to Regional Explaination rely on ‘dyadic’ steps, *implying simultaneously the Values Space (VS) and Explainations Space (ES)* computed e.g. through Shapley values or other indexes.
 The ES is constructed by computing a *local explanation* for each data point of the data set. Quite a lot of explanation values can be used, depending on the goal and the situation. For example, LIME values can be more understandable when the phenomenom is rather linear. Shapley values have become a standard, and give and additive approach of the estimated importance of each predictor to account for the gap between the prediction and the mean. Correlations with other predictors can be a way to constitute such a space when the dataset is a set of windowed time series, for instance, etc.
 
-### DYADIC VISUALISATION : 
+### Dyadic visualisation 
 *Visualize the VS and ES datasets at the same time through dimensions reduction approaches (e.g. PCA, t-SNE, UMAP, PACMAP,...)*
 Especially xMAP approaches help at getting a sense of how close observations (in the VS) and explanations (in the ES) are.
 At this point, some obvious clusters can visually appear in both spaces.
-### DYADIC EXPLORATION : 
+### Dyadic exploration 
 *Explore the simultaneously consistent zones of both spaces with DS and BO.*
 Through manual selection of points, the DS or BO suggests to explore the dataset, starting either in the VS (classical clustering) or in the ES (explainations clustering : points close in the ES share similar explanations). Here, we aim at identifying the first *regions*, namely selection of points clustering simultaneously in the ES _and_ the VS 
 Some ML tools are useful at that step : 
@@ -26,13 +26,13 @@ Some ML tools are useful at that step :
 - ...
 When one succeeds to identify such a doubly homogeneous selection, then a raw region is defined.
   
-### DYADIC SEGMENTATION : 
+### Dyadic segmentation
 *Define precisely a region, describe as simply as possible each region in both spaces*
 At this step, density graphs are used in both the VS and the ES to define precisely the segment, predictor-wise.
 For instance, the BO or the DS could consider sub-segmenting, given the distribution of the data points along the predictor(s) whole range of values.
 To remain esaily usable, the segment should be described through ranges of values in the VS.
 
-### DYADIC UNDERSTANDING : 
+### Dyadic understanding
 *Make sure it makes sense ! Through mutual explaination and understanding between the DS and BO, with complementary feature wise analyses.*
 This ultimate step is essential, not to have spurious selection of points.
 This paves the way for the next important step of the methodology towards and explainable by design Model : defining a surrogate explianable model on each region.
