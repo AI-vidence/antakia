@@ -1,7 +1,8 @@
 # Installation
 
-> **Note**
-If you've been invited to our pre-release alpha-test process, you may skip this section and directly proceed to our [online version](https://demo.antakia.ai).
+!!! important
+
+    If you've been invited to our pre-release alpha-test process, you may skip this section and directly proceed to our [online version](https://demo.antakia.ai).
 
 
 ### Install fron PyPi (recommended)
@@ -34,8 +35,9 @@ pip install -e .
 
 ## Starting with example notebooks
 
-> **Note**
-AntakIA is designed to work within notebooks (Jupyter or Google Collab for example). Then you'll need a notebook to work with AntakIA.
+!!! important
+
+    AntakIA is designed to work within notebooks (Jupyter or Google Collab for example). Then you'll need a notebook to work with AntakIA.
 
 If you cloned our repo you'll find in the` ~/examples/` folder some sample notebooks (`.ipynb` files). Otherwise, you can download them manually from our [Github page](https://github.com/AI-vidence/antakia).
 
@@ -59,15 +61,13 @@ At the top right corner of the VScode windows, choose the Python kernel you want
 
 ![](img/kernel.png)
 
-
 Select your normal Python interpretor if you've installed antakia through `pip install`.
 
 If you downloaded the code and have installed it by yourself, make sure you chose the virtual environment you set up.
 
 Then you can run the notebok with these buttons :
 
-
-<div style="text-align:center"><img src="img/notebook_vsc.png" height="110"></div>
+![](img/notebook_vsc.png)
 
 ### Running notebooks in a local Jupyter server
 
@@ -81,5 +81,6 @@ Then launch the server with :
 ```
 jupyter notebook
 ```
-##
+---
+
 Now your can go to [our tutorial](tutorial1.md).

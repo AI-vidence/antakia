@@ -17,9 +17,9 @@ AntakIA is a solution relevant for this compliance issue. But it does more. For 
 2. Bonus : data scientists can consequently try and **substitute** the original **black box** model with simpler and *explainable models* on each region.
 
 Because we split the space in smaller pieces, with simpler surrogate models on each piece, we named our approach from **the antique city Antakia** (in Türkiye nowadays) famous for its roman mosaics.
-By the way, it also stands for **A** **N**ew **T**ool to **A**cquire **K**nowledge from artific**IA**l intelligence, and that what've been working on for a while :)
+By the way, it also stands for **A** **N**ew **T**ool to **A**cquire **K**nowledge from artific**IA**l intelligence, and that what've been working on for a while !
 
-Now, you're only a ```pip install antakia``` away from AntakIA  :) ... See our [getting started](getting_started.md) page for detailed instructions
+Now, you're only a ```pip install antakia``` away from AntakIA  ! ... See our [getting started](getting_started.md) page for detailed instructions
 
 
 # Contents

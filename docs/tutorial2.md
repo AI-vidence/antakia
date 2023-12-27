@@ -1,53 +1,57 @@
 # Tutorial (2/2)
 
-This is the part 2 of our tutorial. We'll dive into the actual use of AntakIA. If you have questions on the California housing dataset and how to start AntakIA, you should the [first part](tutorial1.md) of the tutorial.
+This is the part 2 of our tutorial. We'll dive into the actual use of AntakIA. If you have questions on the California housing dataset and how to start AntakIA, you should start with the [first part](tutorial1.md) of the tutorial.
 
 ## The AntakIA UI
 
 ### A first glimpse of AntakIA
 
-> **Note**
-The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say "regions", hence the regional explainability) where we can substitute the inital complex trained model (often reffered to as a black box) with simple and explainable models, one for each region.
+!!! important
+
+    The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say "**regions**", hence the *regional explainability*) where we can substitute the inital complex trained model (often reffered to as a **black box**) with simple and explainable models, one for each region.
  
 Then the main question is : how to define these regions ?
 
-> **Note**
-The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "values space" or "VS"), and a space with the same records, but using, as variables, the explanation for each variables. We call the latter the "explanations space" or "ES". Put another way, VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.
+!!! important
+
+    The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "**values space**" or "**VS**"), and a space with the same records, but using, as variables, the explanations for each variables. We call the latter the "**explanations space**" or "**ES**". Put another way, **VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them**.
 
 Then, finding relevant regions consists in finding clusters in VS corresponding to clusters in ES. Then we find regions where records are alike **and** records are explained similarly. **Then, on these regions we can find simple models, with few variables that are explainable and replace the former "black box".**
 
 ### The different dataset at stake
 
-We introduced the iead of "explanation values". To get an intuition of it, let's consider a dataset with only 2 variables x1 and x2. Now let's take a look at one specific record A. We can plot it on a 2D value space. To compute the explanation values, different methods exist. In AntakIA we use two of them : SHAP and LIME. In the "explanations space" A's coordinates or the importance of variables x1 and x2 according to SHAP for the predictions by the model :
+We introduced the idea of "explanation values". To get an intuition of it, let's consider a dataset with only 2 variables x1 and x2. Now let's take a look at one specific record A. We can plot it on a 2D value space. To compute the explanation values, different methods exist. In AntakIA we use two of them : SHAP and LIME. In the "explanations space" A's coordinates or the importance of variables x1 and x2 according to SHAP for the predictions by the model :
 
-<div style="text-align:center"><img src="img/shap.png" height="220"></div>
+![](img/shap.png)
 
 <br>
-Of course this is a very simple example. Since our California housing dataset `X` has 8 variables, we would need to display an 8-dimension space ! Of course it's not feasible : a human can only understand 2D ond 3D representations.
+This is a very simple example : since our California housing dataset `X` has 8 variables, we would need to display an 8-dimension space ! Of course it's not feasible : a human can only understand 2D ond 3D representations.
 
 Hence the idea of **dimensionality reduction**. Various techniques can project a N-dimension space in 2 dimensions. Some are illustrated below :
 
-<div style="text-align:center"><img src="img/dim_reduc.png" height="220"></div>
-<br>
-These dimensionality reduction technique can also project in 3D :
-<br>
+![](img/dim_reduc.png)
 
-<div style="text-align:center"><img src="img/pacmap.png" height="220"></div>
+These 2D plots illustrate our California housing dataset projected in 2D using the [PCA](https://en.wikipedia.org/wiki/Dimensionality_reduction),[ t-SNE](https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding) and [PaCMAP](https://github.com/YingfanWang/PaCMAP) techniques. Note, AntakIA also proposes the [UMAP](https://umap-learn.readthedocs.io/en/latest/) method.
+
+These dimensionality reduction technique can also project in 3D :
+
+![](img/pacmap.png)
 
 ### The splash screen
 
 When you type ```atk.start_gui()``` the application shows a splash screen first :
 
-<div style="text-align:center"><img src="img/splash.png" height="180"></div>
-<br>
-AntakIA needs computed explanation values to display the ES.
+![](img/splash.png)
 
-If you passed to AntakIA some pre-computed explanation values, such as `shap_values`, the you'll see in the splah screen that the first progress bar isn't active and its status is `ìmported explained values`. Otherwise you would have to wait for its computation.
+AntakIA needs computed explanation values in order to display the ES.
+
+If you passed to AntakIA some pre-computed explanation values, such as `shap_values`, the you'll see in the splah screen that the first progress bar isn't active and its status is *ìmported explained values*. Otherwise you would have to wait for its computation.
 
 As we saw earlier, we also need to compute the dimensionality reductions for both VS and ES spaces. Since we display the values in 2D and 3D, we have 4 computations. That's what is shown on the second progres bar of the splash screen. Note we only compute projections for the default reduction technique.
 
-> **Note**
-You can put in your working directory an `.env` file with some default values for AntakIA. 
+!!! note
+
+    You can put in your working directory an `.env` file with some default values for AntakIA. 
 
 Below is an example of such an `.env` file :
 
@@ -76,6 +80,7 @@ Here is an explanation fo the main window generic tools :
 ## Understanding the Antakia worlflow
 
 AntakIA workflow can be summarized as below :
+
 1. find some points in one space such as the corresponding points in the other space aren't too sparse / are grouped
 2. find rules on the dataset variables that matches this selection
 3. adjust these rules according to your needs
@@ -83,9 +88,9 @@ AntakIA workflow can be summarized as below :
 5. chose a submodel for substitution
 6. start again from step 1
 
-## Let's apply this method to our dataset :slightly_smiling_face:
+## Applying AntakIA workflow on our dataset
 
-### 1. find a "good" selection
+### 1. Find a "good" selection
 
 The example below is a pretty good example :
 
@@ -95,39 +100,41 @@ As previously explained, the idea is to find regions homogenous if both spaces a
 
 Using the "lasso" tool, you can select points in one space, and then, see the corresponding selection in the other space.
 
-> **Note**
-If you want to empty your selection, just do a multiple click anywhere in a grey area.
+!!! important
+
+    If you want to empty your selection, just do a **multiple click anywhere in a grey area**.
 
 
-In this example, we see a region in the VS space, with a relatively homogeneous counterpart in the ES space.
+In this example, we see a region in the VS space, with a relatively homogeneous counterpart in the ES space :
 
-* Dots in VS are grouped : they are closed (the distance is small), so they are simular. In our example, this means we have selected block groups with similar attributes
-* Dots in the are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction
+* dots in VS are grouped : they are closed (the distance is small), so they are simular. In our example, this means we have selected block groups with similar attributes
+* dots in the are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction
 
 
-### 2. find rules matching our selection
+### 2. Find rules matching our selection
 
 Whenever the selection is not empty, you'll see a blue "Find rules" button :
 
-<div style="text-align:center"><img src="img/find_rules.png" height="120"></div>
+![](img/find_rules.png)
 
-You can click it. It launches an algoritm called [Skope rules](https://github.com/scikit-learn-contrib/skope-rules) the tries to find rules to describe your selection :
+You can click it. It launches an algoritm called [Skope rules](https://github.com/scikit-learn-contrib/skope-rules) that tries to find rules to describe your selection :
 
 ![](img/rules.png)
 
-The dots in blue corresponds to the positives records of the rules found, for both VS and ES.
+Actually, Skope rules is a binary classifier : it predicts wether a record belongs to your selection (positive) or not (negative). The dots in blue correspond to the positives records of the rules found, for both VS and ES.
 
 Under the title "Rule(s) applied to the values space", you can read the rules that have been found :
 Here, it is `MedInc <= 7.409 and AveRooms >= 5.502 and Latitude <= 37.355`.
 
-> **Note**
-Rules have only been found in the VS. As a matter of fact, the Skope rules algorithm doesn't systematically find rules in both spaces. Here, it didn't find rules (expressed with a subset of our 8 variables) able to describe the ES selection (with explained values) effectively.
+!!! note
+
+    Rules have only been found in the VS. As a matter of fact, the Skope rules algorithm doesn't systematically find rules in both spaces. Here, it didn't find rules (expressed with a subset of our 8 variables) able to describe the ES selection (with explained values) effectively.
 
 ### 3. Adjust the rules
 
-On the last picture, you see, under the rules, 3 slides to adjust the thresholds of the rules, one for each variable.
+On the last picture, you see, under the rules, 3 sliders to adjust the thresholds of the rules, one for each variable.
 
-Working with a "market expert" (real estate expert) you may adjust those threshold to match known values.
+Working with a "market expert" (here, a real estate expert) you may adjust those threshold to match specific values.
 
 ### 4. Validate the region
 
@@ -139,7 +146,7 @@ When a set of rules has been validated, AntakIA show another tab named "Regions"
 
 You see the region has been given a color, here : red.
 
-### 5. Substitution the intial model with a surrogate model
+### 5. Substitute the intial model with a surrogate model
 
 Now you can either go back to step 1 and find another region, or find a submodel for substitution. Let's do this.
 
@@ -155,9 +162,9 @@ You can select one model and "validate sub-model" to add the submodel in your re
 
 ## The auto-clustering way
 
-This dyadic exploration provides many insights both for the datascientists, the "market expert person" and the person in charge of compliance.
+This dyadic exploration provides many insights both for the data scientists, the "market expert person" and compliance officer.
 
-Instead of find each region one by one, you can try our auto-clustering method. In the "Regions" tab, click on the blue button "auto-clustering". You can uncheck the "automatic numnber of clusters" if you want to force it.
+Instead of finding each region one by one, you can try our auto-clustering method. In the "Regions" tab, click on the blue button "auto-clustering". You can uncheck the "automatic numnber of clusters" if you want to force it.
 
 Below is an example of what you can get :
 

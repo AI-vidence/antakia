@@ -1,14 +1,14 @@
 # Regional Explaination for Trustworthy AI by design
 
 ## Context
-Most business needs and most famous ML algorithms themselves rely on ‘segmentation’. Classical ML model explaination tools like SHAP, LIME, do address the local (**decision** level) or global scales (**model** level), but none of them approach the ‘regional’ scale (***segment***).
-Understanding by both the Data Scientist (DS) and Business Owner (BO) often relies on that specific scale (be it Operation Regime, Customer segment) still not dealt with.
+Most business needs and most famous ML algorithms themselves rely on ‘segmentation’. Classical ML model explaination tools like [SHAP](https://shap.readthedocs.io/en/latest/), [LIME](https://github.com/marcotcr/lime), do address the local (**decision** level) or global scales (**model** level), but none of them approach the ‘regional’ scale (***segment***).
+Understanding by both the data scientist (DS) and business owner (BO) often relies on that specific scale (be it Operation Regime, Customer segment) still not dealt with.
 
 ## Keywords
 Regional explaination , segmentation, clustering, SHAP, LIME, decision trees, data visualisation, Banzhaf , Shapley Shubick , TreeRank , ranking forest
 
 ## Our dyadic approach
-*AntakIA* methodology by Aividence aims at gaining a common understanding between the DS (Data Scientist) and firstly the BO (Business Owner) by building explainations of the models at a regional level. The main steps leading to Regional Explaination rely on ‘dyadic’ steps, *implying simultaneously the Values Space (VS) and Explainations Space (ES)* computed e.g. through Shapley values or other indexes.
+*AntakIA* methodology by AI-vidence aims at gaining a common understanding between the DS (data scientist) and firstly the BO (Business Owner) by building explainations of the models at a regional level. The main steps leading to Regional Explaination rely on ‘dyadic’ steps, *implying simultaneously the Values Space (VS) and Explainations Space (ES)* computed e.g. through Shapley values or other indexes.
 The ES is constructed by computing a *local explanation* for each data point of the data set. Quite a lot of explanation values can be used, depending on the goal and the situation. For example, LIME values can be more understandable when the phenomenom is rather linear. Shapley values have become a standard, and give and additive approach of the estimated importance of each predictor to account for the gap between the prediction and the mean. Correlations with other predictors can be a way to constitute such a space when the dataset is a set of windowed time series, for instance, etc.
 
 ### Dyadic visualisation 
@@ -19,11 +19,13 @@ At this point, some obvious clusters can visually appear in both spaces.
 *Explore the simultaneously consistent zones of both spaces with DS and BO.*
 Through manual selection of points, the DS or BO suggests to explore the dataset, starting either in the VS (classical clustering) or in the ES (explainations clustering : points close in the ES share similar explanations). Here, we aim at identifying the first *regions*, namely selection of points clustering simultaneously in the ES _and_ the VS 
 Some ML tools are useful at that step : 
+
 - data visualisation
 - Skope Rules, to provide the simplest description of a selection of points through rules on values of predictors. The result mainly helps to understand the model behaviour when used in the ES. In the VS, those rules help get a first natural definition of a classical segment.
 - DiCE, to exhibit an archetype of the segment, or a counterfactual (soon implemented !)
 - causal inference and DAG (soon implemented !)
 - ...
+
 When one succeeds to identify such a doubly homogeneous selection, then a raw region is defined.
   
 ### Dyadic segmentation
@@ -53,6 +55,7 @@ Do have a look to the ever evolving */demo* folder for recent illustrative contr
 AntakIA methodology also encompasses the building of surrogate models so as to construct
 Explainable , then hopefully Certifiable AI by design.
 We will be analysing the gain of using :
+
 - *other decision decision power indexes* e.g. from games theory Banzhaf , Shapley Shubick , …),
 - *other specific explainations methods* e.g. tree based extracted from surrogate logical models [P. Marquis],
 - *top performance surrogate models* generic or more specific, such as TreeRank algorithms for ranking [S. Clemençon ].
