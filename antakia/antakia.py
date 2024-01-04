@@ -60,6 +60,7 @@ class AntakIA():
 
         if X_exp is not None:
             # It's common to have column names ending with _shap, so we remove them
+            X_exp.columns=X_exp.columns.astype(str)
             X_exp.columns = X_exp.columns.str.replace('_shap', '')
         self.X_exp = X_exp
 
