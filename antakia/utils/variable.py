@@ -55,12 +55,12 @@ class Variable:
         """
         variables = []
         for i, col in enumerate(X.columns):
-            col = str(col)
-            col.replace("_", " ")
-            var = Variable(i, col, X.dtypes[col])
-            if col.lower() in ["latitude", "lat"]:
+            col_2 = str(col)
+            col_2.replace("_", " ")
+            var = Variable(i, col_2, X.dtypes[col])
+            if col_2.lower() in ["latitude", "lat"]:
                 var.lat = True
-            if col.lower() in ["longitude", "long"]:
+            if col_2.lower() in ["longitude", "long"]:
                 var.lon = True
             var.continuous = Variable.is_continuous(X[col])
             variables.append(var)
