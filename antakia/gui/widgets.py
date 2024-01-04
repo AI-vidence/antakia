@@ -1192,6 +1192,23 @@ app_widget = v.Col(
                                                      class_="flex-column",
                                                      children=[
                                                          v.Btn(  # 440110
+                                                             class_="ml-3 mt-3 blue",
+                                                             children=[
+                                                                 v.Icon(
+                                                                     class_="mr-2",
+                                                                     children=[
+                                                                         "mdi-animation-outline"
+                                                                     ],
+                                                                 ),
+                                                                 "Subdivide",
+                                                             ],
+                                                         )
+                                                     ]
+                                                 ),
+                                                 v.Row(  # 44012
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Btn(  # 440120
                                                              class_="ml-3 mt-3 grey",
                                                              children=[
                                                                  v.Icon(
