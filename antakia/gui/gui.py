@@ -77,10 +77,11 @@ class GUI:
         self.model = model
         self.variables: DataVariables = variables
         self.score = score
-        if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
-            raise IndexError('X and X_exp must share the same index')
-        if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
-            raise IndexError('X and y must share the same index')
+        if X_exp is not None:
+            if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+                raise IndexError('X and X_exp must share the same index')
+            if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+                raise IndexError('X and y must share the same index')
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
             self.X,
