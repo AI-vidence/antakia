@@ -188,7 +188,7 @@ model = GradientBoostingRegressor(random_state = 9)
 model.fit(X, y)
 </code></pre>
 <p>We decided to use a GradientBoosting model and have it trained (or fitted) on our data.
-Now the our data is prepared and our model trained, we can then launch AntakIA :</p>
+Now our data is prepared and our model trained, we can then launch AntakIA :</p>
 <pre><code>from antakia.antakia import AntakIA
 atk = AntakIA([X], y, model)
 atk.start_gui()

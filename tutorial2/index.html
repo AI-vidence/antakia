@@ -78,7 +78,7 @@
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#4-validate-the-region">4. Validate the region</a>
     </li>
-    <li class="toctree-l3"><a class="reference internal" href="#5-substitute-the-intial-model-with-a-surrogate-model">5. Substitute the intial model with a surrogate model</a>
+    <li class="toctree-l3"><a class="reference internal" href="#5-substitute-the-initial-model-with-a-surrogate-model">5. Substitute the initial model with a surrogate model</a>
     </li>
         </ul>
     </li>
@@ -191,7 +191,7 @@ SHOW_LOG_MODULE_WIDGET = 'False' # default, a logging tool for debug
 <h3 id="1-find-a-good-selection">1. Find a "good" selection</h3>
 <p>The example below is a pretty good example :</p>
 <p><img alt="" src="../img/dyadic.png" /></p>
-<p>As previously explained, the idea is to find regions homogenous if both spaces at the same time.</p>
+<p>As previously explained, the idea is to find regions homogenous in both spaces at the same time.</p>
 <p>Using the "lasso" tool, you can select points in one space, and then, see the corresponding selection in the other space.</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
@@ -199,7 +199,7 @@ SHOW_LOG_MODULE_WIDGET = 'False' # default, a logging tool for debug
 </div>
 <p>In this example, we see a region in the VS space, with a relatively homogeneous counterpart in the ES space :</p>
 <ul>
-<li>dots in VS are grouped : they are closed (the distance is small), so they are simular. In our example, this means we have selected block groups with similar attributes</li>
+<li>dots in VS are grouped : they are closed (the distance is small), so they are similar. In our example, this means we have selected block groups with similar attributes</li>
 <li>dots in the are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction</li>
 </ul>
 <h3 id="2-find-rules-matching-our-selection">2. Find rules matching our selection</h3>
@@ -222,7 +222,7 @@ Here, it is <code>MedInc &lt;= 7.409 and AveRooms &gt;= 5.502 and Latitude &lt;=
 <p>When a set of rules has been validated, AntakIA show another tab named "Regions" :</p>
 <p><img alt="" src="../img/one_region.png" /></p>
 <p>You see the region has been given a color, here : red.</p>
-<h3 id="5-substitute-the-intial-model-with-a-surrogate-model">5. Substitute the intial model with a surrogate model</h3>
+<h3 id="5-substitute-the-initial-model-with-a-surrogate-model">5. Substitute the initial model with a surrogate model</h3>
 <p>Now you can either go back to step 1 and find another region, or find a submodel for substitution. Let's do this.</p>
 <p>In the table, select the region with the checkbox, then click on the "substitute" button.</p>
 <p>What you see is a proposal of submodels :</p>
