@@ -1,7 +1,7 @@
 import pandas as pd
 
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
-from antakia.compute.dim_reduction.dim_reduction import compute_projection
+from antakia.compute.dim_reduction.dim_reduction import compute_projection, dim_reduc_factory
 
 
 class ProjectedValues:
@@ -17,15 +17,27 @@ class ProjectedValues:
         assert dimension in [2, 3]
 
         if self._kwargs.get((projection_method, dimension)) is None:
-            self._kwargs[(projection_method, dimension)] = {
-                'current': {},
-                'previous': {}
-            }
+            self.build_default_parameters(projection_method, dimension)
 
         self._kwargs[(projection_method, dimension)]['previous'] = self._kwargs[(projection_method, dimension)][
             'current'].copy()
         self._kwargs[(projection_method, dimension)]['current'].update(kwargs)
         del self._projected_values[(projection_method, dimension)]
+
+    def get_paramerters(self, projection_method, dimension):
+        if self._kwargs.get((projection_method, dimension)) is None:
+            self.build_default_parameters(projection_method, dimension)
+        return self._kwargs.get((projection_method, dimension))
+
+    def build_default_parameters(self, projection_method, dimension):
+        current = {}
+        dim_reduc_parameters = dim_reduc_factory[projection_method].parameters()
+        for param, info in dim_reduc_parameters.items():
+            current[param] = info['default']
+        self._kwargs[(projection_method, dimension)] = {
+            'current': current,
+            'previous': current.copy()
+        }
 
     def get_projection(self, projection_method, dimension, callback=None):
         if not self.is_present(projection_method, dimension):
@@ -44,9 +56,6 @@ class ProjectedValues:
             projection_method,
             dimension,
             callback,
-            **self._kwargs.get((projection_method, dimension), {
-                'current': {},
-                'previous': {}
-            })['current']
+            **self.get_paramerters(projection_method, dimension)['current']
         )
         self._projected_values[(projection_method, dimension)] = projected_values
