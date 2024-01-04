@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 # from dotenv import load_dotenv
 from antakia.antakia import AntakIA
@@ -6,68 +7,48 @@ from antakia.compute.dim_reduction.dim_reduction import compute_projection
 from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.skope_rule.skope_rule import skope_rules
 from antakia.data_handler.projected_values import ProjectedValues
+from antakia.utils.dummy_datasets import load_dataset
 from antakia.utils.variable import Variable
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.rules import Rule
 from antakia.utils.utils import in_index
+from tests.utils import dr_callback, compare_indexes
 
 
 # @mock.patch('antakia.antakia.AntakIA._get_shap_values')
 def test_main():
-    # _get_shap_values.return_value = pd.DataFrame()
-    df = pd.read_csv('../../antakia/data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
+    X, y = load_dataset('Corner', 1000, random_seed=42)
+    X = pd.DataFrame(X)
+    X[2] = np.random.random(len(X))
+    y = pd.Series(y)
 
-    # Remove outliers:
-    df = df.loc[df['Population'] < 10000]
-    df = df.loc[df['AveOccup'] < 6]
-    df = df.loc[df['AveBedrms'] < 1.5]
-    df = df.loc[df['HouseAge'] < 50]
+    class DummyModel:
+        def predict(self, X):
+            return ((X.loc[:, 0] > 0.5) & (X.loc[:, 1] > 0.5)).astype(int)
 
-    X = df.iloc[:, 0:8]  # the dataset
-    y = df.iloc[:, 9]  # the target variable
-    shap_values = df.iloc[:, [10, 11, 12, 13, 14, 15, 16, 17]]  # the SHAP values
-    model = GradientBoostingRegressor(random_state=9)
-    model.fit(X, y)
+        def score(self, X, y):
+            return 1
 
-    variables_df = pd.DataFrame(
-        {'col_index': [0, 1, 2, 3, 4, 5, 6, 7],
-         'descr': ['Median income', 'House age', 'Average nb rooms', 'Average nb bedrooms', 'Population',
-                   'Average occupancy', 'Latitude', 'Longitude'],
-         'type': ['float64', 'int', 'float64', 'float64', 'int', 'float64', 'float64', 'float64'],
-         'unit': ['k$', 'years', 'rooms', 'rooms', 'people', 'ratio', 'degrees', 'degrees'],
-         'critical': [True, False, False, False, False, False, False, False],
-         'lat': [False, False, False, False, False, False, True, False],
-         'lon': [False, False, False, False, False, False, False, True]},
-        index=['MedInc', 'HouseAge', 'AveRooms', 'AveBedrms', 'Population', 'AveOccup', 'Latitude', 'Longitude']
-    )
+    model = DummyModel()
+    x_exp = pd.concat([(X.loc[:, 0] > 0.5) * 0.5, (X.loc[:, 1] > 0.5) * 0.5, (X.loc[:, 2] > 2) * 1], axis=1)
 
-    atk = AntakIA(X, y, model, variables_df, shap_values)
+    atk = AntakIA(X, y, model, X_exp=x_exp)
+    gui = atk.gui
+    atk.start_gui()
+    for hde in [gui.vs_hde, gui.es_hde]:
+        hde.create_figure()
+        hde.update_fig_size()
+        x_proj = hde.get_current_X_proj()
+        x_proj = hde.get_current_X_proj(dim=3)
+        hde.explanation_select_changed(None, None, 'SHAP')
 
-    # Functions
-
-    def compare_indexes(df1, df2) -> bool:
-        return df1.index.equals(df2.index)
-
-    # Test Dim Reduction --------------------
-
-    def dr_callback(*args):
-        pass
-
-    vs_pv = ProjectedValues(atk.X)
-    vs_pv.set_proj_values(
-        DimReducMethod.dimreduc_method_as_int("PaCMAP"),
-        2,
-        compute_projection(
-            atk.X,
-            atk.y,
-            DimReducMethod.dimreduc_method_as_int("PaCMAP"),
-            2,
-            dr_callback
-        )
-    )
-
-    assert vs_pv.get_proj_values(DimReducMethod.dimreduc_method_as_int('PaCMAP'), 2).shape == (atk.X.shape[0], 2)
-    assert compare_indexes(vs_pv.get_proj_values(DimReducMethod.dimreduc_method_as_int('PaCMAP'), 2), atk.X) is True
+    gui.es_hde.compute_explanation(1)
+    vs_pv = ProjectedValues(atk.X, atk.y, dr_callback)
+    proj_dim2 = vs_pv.get_projection(DimReducMethod.dimreduc_method_as_int("PCA"), 2)
+    proj_dim3 = vs_pv.get_projection(DimReducMethod.dimreduc_method_as_int("PCA"), 3)
+    assert proj_dim2.shape == (len(atk.X), 2)
+    assert proj_dim3.shape == (len(atk.X), 3)
+    assert compare_indexes(proj_dim2, atk.X)
 
     # es_pv_imported = ProjectedValues(atk.X_exp)
     # es_pv_imported.set_proj_values(
@@ -85,9 +66,6 @@ def test_main():
     # assert compare_indexes(es_pv_imported.get_proj_values(DimReducMethod.dimreduc_method_as_int('TSNE'), 3), atk.X) is True
 
     # # Test explanation computation ---------
-
-    # def exp_callback(*args):
-    # 	pass
 
     # es_pv_shap = ProjectedValues(
     # 	compute_explanations(atk.X, atk.model, ExplanationMethod.SHAP, exp_callback)
