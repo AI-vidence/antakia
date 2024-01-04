@@ -10,7 +10,7 @@ from antakia.compute.model_subtitution.model_class import MLModel
 from joblib import Parallel, delayed
 
 from antakia.compute.model_subtitution.regression_models import LinearRegression, LassoRegression, RidgeRegression, GaM, \
-    EBM, DecisionTreeRegressor
+    EBM, DecisionTreeRegressor, AvgBaselineModel
 import re
 
 
@@ -59,8 +59,8 @@ class InterpretableModels:
     def _get_available_models(self, task_type) -> List[type[MLModel]]:
         if task_type == 'regression':
             return [LinearRegression, LassoRegression, RidgeRegression, GaM,
-                    EBM, DecisionTreeRegressor]
-        return []
+                    EBM, DecisionTreeRegressor, AvgBaselineModel]
+        return [AvgBaselineModel]
 
     def _init_models(self, task_type):
         for model_class in self._get_available_models(task_type):
@@ -113,4 +113,4 @@ class InterpretableModels:
 if __name__ == '__main__':
     X = pd.read_csv('../../../examples/X.csv').set_index('Unnamed: 0')
     y = pd.read_csv('../../../examples/y.csv').set_index('Unnamed: 0')
-    InterpretableModels().get_models_performance(None, X, y.iloc[:, 0])
+    InterpretableModels(mean_squared_error).get_models_performance(None, X, y.iloc[:, 0])

@@ -26,6 +26,15 @@ class MLModel:
                 return pd.Series(pred, index=X.index)
         raise NotFittedError()
 
+
+class AvgBaseline:
+    def fit(self, X, y, *args, **kwargs):
+        self.mean = y.mean()
+
+    def predict(self, X, *args, **kwargs):
+        return [self.mean] * len(X)
+
+
 class LinearMLModel(MLModel):
 
     def fit(self, X, *args, **kwargs):
