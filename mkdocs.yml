@@ -1,0 +1,23 @@
+site_name: AntakIA. AI explained.
+site_url: https://doc.antakia.ai/
+
+docs_dir: docs/
+
+repo_name: AI-vidence/antakia
+repo_url: https://github.com/AI-vidence/antakia
+
+nav:
+  - Home: index.md
+
+  - Getting started: getting_started.md
+  - Tutorial (first part): tutorial1.md
+  - Tutorial (second part): tutorial2.md
+  - Regional explainability: regional_explain.md
+  - About: about.md
+  - Credits: credits.md
+
+theme: 
+  name: readthedocs
+
+markdown_extensions:
+  - admonition
