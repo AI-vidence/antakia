@@ -106,12 +106,12 @@ class HighDimExplorer:
         if init_dim not in [2, 3]:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
+        self._y = y
+        self.active_tab = 0
 
         self._mask = None
         self.selection_changed = selection_changed
         self.new_explanation_values_required = new_explanation_values_required
-
-        # IMPORTANT : if x_exp is not None : we know it's an ES HDE
 
         # pv_dict is a dict of ProjectedValues objects
         # Keys can be : 'original_values', 'imported_explanations', 'computed_shap', 'computed_lime'
@@ -134,8 +134,6 @@ class HighDimExplorer:
             # We are a VS HDE
             self.current_pv = 'original_values'
 
-        self._y = y
-        self.active_tab = 0
 
         # Since HDE is responsible for storing its current proj, we check init value :
         if init_proj not in DimReducMethod.dimreduc_methods_as_list():
@@ -158,19 +156,20 @@ class HighDimExplorer:
                 "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
             },
         }
+        #  Now we can init figure
+        self.figure_container = v.Container()
+        self.figure_container.class_ = "flex-fill"
 
         self.wire(init_proj)
 
         #  Now we can init figures 2 and 3D
         self.fig_width = fig_size
         self.fig_height = fig_size / 2
+
         self._selection_disabled = False
-
-        self.container = v.Container()
-        self.container.class_ = "flex-fill"
-
         self._current_selection = utils.boolean_mask(X, True)
         self.first_selection = False
+
         # traces to show
         self._visible = [True, False, False, False]
         # trace_colors
@@ -468,7 +467,7 @@ class HighDimExplorer:
         """
         self._current_dim = dim
         self.create_figure()
-        self.container.children = [self.figure]
+        self.figure_container.children = [self.figure]
 
     def _get_projection_method(self) -> int:
         # proj is stored in the proj Select widget
@@ -618,7 +617,7 @@ class HighDimExplorer:
             self.figure.data[0].on_selection(self._selection_event)
             self.figure.data[0].on_deselect(self._deselection_event)
 
-        self.container.children = [self.figure]
+        self.figure_container.children = [self.figure]
 
     def redraw(self):
         projection = self.get_current_X_proj()

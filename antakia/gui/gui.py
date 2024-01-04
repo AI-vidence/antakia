@@ -328,11 +328,10 @@ class GUI:
         # ============== HighDimExplorers ===============
 
         # We attach each HighDimExplorers component to the app_graph:
-        change_widget(app_widget, "201", self.vs_hde.container),
+        change_widget(app_widget, "201", self.vs_hde.figure_container),
         change_widget(app_widget, "14", self.vs_hde.get_projection_select())
         change_widget(app_widget, "16", self.vs_hde.get_projection_prog_circ())
-        change_widget(app_widget, "15", self.vs_hde.get_proj_params_menu())
-        change_widget(app_widget, "211", self.es_hde.container)
+        change_widget(app_widget, "211", self.es_hde.figure_container)
         change_widget(app_widget, "17", self.es_hde.get_projection_select())
         change_widget(app_widget, "19", self.es_hde.get_projection_prog_circ())
         change_widget(app_widget, "18", self.es_hde.get_proj_params_menu())
