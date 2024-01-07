@@ -405,7 +405,7 @@ class GUI:
         # We wire the input event on the figureSizeSlider (050100)
         get_widget(app_widget, "03000").on_event("input", self.fig_size_changed)
         # We set the init value to default :
-        get_widget(app_widget, "03000").v_model = int(os.environ.get("INIT_FIG_WIDTH"))
+        get_widget(app_widget, "03000").v_model = int(os.environ.get("INIT_FIG_WIDTH",1800))
 
         # --------- ColorChoiceBtnToggle ------------
         def change_color(widget, event, data):
