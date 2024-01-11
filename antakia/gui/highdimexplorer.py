@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import pandas as pd
+from ipywidgets import widgets
 import numpy as np
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier
 
+from antakia.compute.dim_reduction.dim_reduction import dim_reduc_factory
 from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.region import Region, RegionSet
@@ -140,29 +142,17 @@ class HighDimExplorer:
             raise ValueError(
                 f"HDE.init: {init_proj} is not a valid projection method code"
             )
+        # init projection method
+        self.init_projections(init_proj)
         # For each projection method, we store the widget (Card) that contains its parameters UI :
-        self._proj_params = {}  # A dict of dict of dict, see below. Nested keys
-        # are 'DimReducMethod' (int), then 'previous' / 'current', then 'VS' / 'ES', then 'n_neighbors' / 'MN_ratio' / 'FP_ratio'
-        # app_widget holds the UI for the PaCMAP params:
+        self._proj_params_cards = {}
+        self.build_all_proj_param_w()
+        self.update_proj_params_menu()
 
-        # We init PaCMAP params for both sides
-        self._proj_params[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = {
-            "previous": {
-                "VS": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
-                "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
-            },
-            "current": {
-                "VS": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
-                "ES": {"n_neighbors": 10, "MN_ratio": 0.5, "FP_ratio": 2},
-            },
-        }
         #  Now we can init figure
         self.figure_container = v.Container()
         self.figure_container.class_ = "flex-fill"
 
-        self.wire(init_proj)
-
-        #  Now we can init figures 2 and 3D
         self.fig_width = fig_size
         self.fig_height = fig_size / 2
 
@@ -177,10 +167,8 @@ class HighDimExplorer:
 
         self.figure_2D = self.figure_3D = None
 
-    def wire(self, init_proj):
-        self._proj_params_cards = {}  # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
-        self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')] = get_widget(app_widget,
-                                                                                              "150" if self.is_value_space else "180")
+    def init_projections(self, init_proj):
+        # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
         # We initiate it in grey, not indeterminate :
         proj_circ = self.get_projection_prog_circ()
         proj_circ.color = "grey"
@@ -190,15 +178,6 @@ class HighDimExplorer:
         self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
             init_proj
         )
-        # We wire events on PaCMAP sliders only (for now):
-        if self.is_value_space:
-            get_widget(app_widget, "15000").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "15001").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "15002").on_event("change", self._proj_params_changed)
-        else:
-            get_widget(app_widget, "18000").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "18001").on_event("change", self._proj_params_changed)
-            get_widget(app_widget, "18002").on_event("change", self._proj_params_changed)
         if not self.is_value_space:
             self.update_explanation_select()
             self.get_explanation_select().on_event("change", self.explanation_select_changed)
@@ -212,7 +191,7 @@ class HighDimExplorer:
         Called by GUI to enable/disable proj changes and explaination computation or change
         """
         self.get_projection_select().disabled = is_disabled
-        self.get_proj_params_menu().disabled = is_disabled
+        self.enable_proj_param_menu(not is_disabled)
         if not self.is_value_space:
             self.get_explanation_select().disabled = is_disabled
             self.get_compute_menu().disabled = is_disabled
@@ -243,6 +222,99 @@ class HighDimExplorer:
     @property
     def current_projected_values(self):
         return self.pv_dict.get(self.current_pv)
+
+    # --- select projection method ---
+
+    def projection_select_changed(self, widget, event, data):
+        """ "
+        Called when the user changes the projection method
+        If needed, we compute the new projection
+        """
+        self.get_projection_select().disabled = True
+        # We disable proj params if  not PaCMAP:
+
+        self.update_proj_params_menu()
+        self.redraw()
+        self.get_projection_select().disabled = False
+
+    # ---- Projection parameters ---
+
+    @property
+    def proj_param_widget(self):
+        if self.is_value_space:
+            return '1500'
+        return '1800'
+
+    def projection_kwargs(self, dim_reduc_method):
+        print(self.current_pv)
+        kwargs = self.pv_dict[self.current_pv].get_paramerters(dim_reduc_method, self.current_dim)['current']
+        return kwargs
+
+    def build_proj_param_widget(self, dim_reduc) -> list[v.Slider]:
+        parameters = dim_reduc_factory[dim_reduc].parameters()
+        sliders = []
+        for param, info in parameters.items():
+            min_, max_, step = utils.compute_step(info['min'], info['max'])
+            if self.current_pv is not None:
+                current_value = self.projection_kwargs(dim_reduc)[param]
+            else:
+                current_value = info['default']
+            if info['type'] == int:
+                step = max(round(step), 1)
+
+            slider = v.Slider(  # 15000
+                class_="ma-8 pa-2",
+                v_model=current_value,
+                min=float(min_),
+                max=float(max_),
+                step=step,
+                label=param,
+                thumb_label="always",
+                thumb_size=25,
+            )
+            slider.on_event("change", self._proj_params_changed)
+            sliders.append(slider)
+        return sliders
+
+    def build_all_proj_param_w(self):
+        for dim_reduc in DimReducMethod.dimreduc_methods_as_list():
+            self._proj_params_cards[dim_reduc] = self.build_proj_param_widget(dim_reduc)
+
+    def _proj_params_changed(self, widget, event, data):
+        """
+        Called when params slider changed"""
+        # We disable the prooj params menu :
+        self.enable_proj_param_menu(False)
+
+        changed_param = widget.label
+        print(changed_param, data)
+        # We compute the PaCMAP new projection :
+        self.current_projected_values.set_parameters(self._get_projection_method(), self.current_dim,
+                                                     {changed_param: data})
+        self.redraw()
+
+        self.enable_proj_param_menu(True)
+
+    def update_proj_params_menu(self):
+        """
+        Called at startup by the GUI
+        """
+        # We return
+        proj_params_menu = get_widget(app_widget, "150" if self.is_value_space else "180")
+        params = self._proj_params_cards[self._get_projection_method()]
+        if len(params) == 0:
+            proj_params_menu.disabled = True
+        # We neet to set a Card, depending on the projection method
+        proj_params_menu.children = [widgets.VBox(params)]
+        # proj_params_menu.disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int('PaCMAP')
+
+        return proj_params_menu
+
+    def enable_proj_param_menu(self, enable):
+        proj_params_menu = get_widget(app_widget, "15" if self.is_value_space else "18")
+        proj_params_menu.disabled = not enable
+
+        return proj_params_menu
 
     # ---- Methods ------
 
@@ -322,27 +394,6 @@ class HighDimExplorer:
         self.figure.layout.width = self.fig_width
         self.figure.layout.height = self.fig_height
 
-    def _proj_params_changed(self, widget, event, data):
-        """
-        Called when params slider changed"""
-        # We disable the prooj params menu :
-        self.get_proj_params_menu().disabled = True
-
-        # We determine which param changed :
-        if widget == get_widget(app_widget, "15000" if self.is_value_space else "18000"):
-            changed_param = 'n_neighbors'
-        elif widget == get_widget(app_widget, "15001" if self.is_value_space else "18001"):
-            changed_param = 'MN_ratio'
-        else:
-            changed_param = 'FP_ratio'
-
-        # We compute the PaCMAP new projection :
-        self.current_projected_values.set_parameters(self._get_projection_method(), self.current_dim,
-                                                     {changed_param: data})
-        self.redraw()
-
-        self.get_proj_params_menu().disabled = False
-
     def update_progress_circular(
             self, caller, progress: int, duration: float
     ):
@@ -368,18 +419,6 @@ class HighDimExplorer:
             prog_circular.indeterminate = False
             prog_circular.color = "grey"
             prog_circular.disabled = False
-
-    def projection_select_changed(self, widget, event, data):
-        """ "
-        Called when the user changes the projection method
-        If needed, we compute the new projection
-        """
-        self.get_projection_select().disabled = True
-        # We disable proj params if  not PaCMAP:
-        self.get_proj_params_menu().disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int(
-            'PaCMAP')
-        self.redraw()
-        self.get_projection_select().disabled = False
 
     def explanation_select_changed(self, widget, event, data):
         """
@@ -664,19 +703,6 @@ class HighDimExplorer:
             {"text": "SHAP", "disabled": self.pv_dict['computed_shap'] is None},
             {"text": "LIME", "disabled": self.pv_dict['computed_lime'] is None},
         ]
-
-    def get_proj_params_menu(self):
-        """
-        Called at startup by the GUI
-        """
-        # We return
-        proj_params_menu = get_widget(app_widget, "15" if self.is_value_space else "18")
-        # We neet to set a Card, depending on the projection method
-        if self._get_projection_method() == DimReducMethod.dimreduc_method_as_int('PaCMAP'):
-            proj_params_menu.children = [self._proj_params_cards[DimReducMethod.dimreduc_method_as_int('PaCMAP')]]
-        proj_params_menu.disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int('PaCMAP')
-
-        return proj_params_menu
 
     def get_space_name(self) -> str:
         """
