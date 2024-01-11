@@ -377,18 +377,18 @@ class GUI:
 
         # We wire events on the 'substitute' button:
         get_widget(app_widget, "4401000").on_event("click", self.substitute_clicked)
-
-        # UI rules :
-        # The 'substitute' button is disabled at startup; it'es enabled when a region is selected
-        # and disabled if no region is selected or when substitute is pressed
+        # button is disabled by default
         get_widget(app_widget, "4401000").disabled = True
 
-        # We wire events on the 'delete' button:
-        get_widget(app_widget, "440110").on_event("click", self.delete_region_clicked)
-
-        # UI rules :
-        # The 'delete' button is disabled at startup
+        # We wire events on the 'subdivide' button:
+        get_widget(app_widget, "440110").on_event("click", self.subdivide_region_clicked)
+        # button is disabled by default
         get_widget(app_widget, "440110").disabled = True
+
+        # We wire events on the 'delete' button:
+        get_widget(app_widget, "440120").on_event("click", self.delete_region_clicked)
+        # The 'delete' button is disabled at startup
+        get_widget(app_widget, "440120").disabled = True
 
         # We wire events on the 'auto-cluster' button :
         get_widget(app_widget, "4402000").on_event("click", self.auto_cluster_clicked)
@@ -618,16 +618,23 @@ class GUI:
         region_set_mask = self.region_set.mask
         not_rules_indexes_list = ~region_set_mask
         # We call the auto_cluster with remaing X and explained(X) :
+        if get_widget(app_widget, "440211").v_model:
+            cluster_num = "auto"
+        else:
+            cluster_num = get_widget(app_widget, "4402100").v_model - len(self.region_set)
 
+        self.compute_auto_cluster(not_rules_indexes_list, cluster_num)
+
+        # We re-enable the button
+        get_widget(app_widget, "4402000").disabled = False
+        self.select_tab(2)
+
+    def compute_auto_cluster(self, not_rules_indexes_list, cluster_num='auto'):
         if len(not_rules_indexes_list) > 100:
             vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False, callback=self.get_ac_progress_update(1))
             es_proj_3d_df = self.es_hde.get_current_X_proj(3, False, callback=self.get_ac_progress_update(2))
 
             ac = AutoCluster(self.X, self.get_ac_progress_update(3))
-            if get_widget(app_widget, "440211").v_model:
-                cluster_num = "auto"
-            else:
-                cluster_num = get_widget(app_widget, "4402100").v_model - len(self.region_set)
 
             found_regions = ac.compute(
                 vs_proj_3d_df.loc[not_rules_indexes_list],
@@ -638,10 +645,6 @@ class GUI:
             self.region_set.extend(found_regions)
         else:
             print('not enough points to cluster')
-
-        # We re-enable the button
-        get_widget(app_widget, "4402000").disabled = False
-        self.select_tab(2)
 
     def get_ac_progress_update(self, step):
         def update_ac_progress_bar(caller, progress: float, duration: float):
@@ -654,6 +657,11 @@ class GUI:
 
         return update_ac_progress_bar
 
+    def disable_buttons(self, state):
+        get_widget(app_widget, "4401000").disabled = state
+        get_widget(app_widget, "440110").disabled = state
+        get_widget(app_widget, "440120").disabled = state
+
     def region_selected(self, data):
         if self.tab != 2:
             self.select_tab(2)
@@ -665,8 +673,31 @@ class GUI:
 
         # UI rules :
         # If selected, we enable the 'substitute' and 'delete' buttons and vice-versa
-        get_widget(app_widget, "4401000").disabled = not is_selected
-        get_widget(app_widget, "440110").disabled = not is_selected
+        self.disable_buttons(not is_selected)
+
+    def clear_selected_regions(self):
+        self.selected_region_num = None
+        self.disable_buttons(True)
+
+    def subdivide_region_clicked(self, widget, event, data):
+        """
+        Called when the user clicks on the 'delete' (region) button
+        """
+        if self.tab != 2:
+            self.select_tab(2)
+        # we recover the region to sudivide
+        region = self.region_set.get(self.selected_region_num)
+        # Then we delete the region in self.region_set
+        self.region_set.remove(self.selected_region_num)
+        # we compute the subregions and add them to the region set
+        self.compute_auto_cluster(region.mask)
+        # UI rules : if we deleted a region coming from the Skope rules, we re-enable the Skope button
+        if self.selected_region_num == self.region_num_for_validated_rules:
+            get_widget(app_widget, "43010").disabled = False
+
+        self.select_tab(2)
+        self.clear_selected_regions()
+        # There is no more selected region
 
     def delete_region_clicked(self, widget, event, data):
         """
@@ -682,9 +713,7 @@ class GUI:
 
         self.select_tab(2)
         # There is no more selected region
-        self.selected_region_num = None
-        get_widget(app_widget, "440110").disabled = True
-        get_widget(app_widget, "4401000").disabled = True
+        self.clear_selected_regions()
 
     # ==================== TAB 3 ==================== #
 
