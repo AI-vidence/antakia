@@ -48,22 +48,21 @@ class Variable:
         self.lat = lat
         self.lon = lon
 
-
-
     @staticmethod
     def guess_variables(X: pd.DataFrame) -> 'DataVariables':
         """
         Returns a list of Variable objects, one for each column in X.
         """
         variables = []
-        for i in range(len(X.columns)):
-            X.columns[i].replace("_", " ")
-            var = Variable(i, X.columns[i], X.dtypes[X.columns[i]])
-            if X.columns[i].lower() in ["latitude", "lat"]:
+        for i, col in enumerate(X.columns):
+            col_2 = str(col)
+            col_2.replace("_", " ")
+            var = Variable(i, col_2, X.dtypes[col])
+            if col_2.lower() in ["latitude", "lat"]:
                 var.lat = True
-            if X.columns[i].lower() in ["longitude", "long"]:
+            if col_2.lower() in ["longitude", "long"]:
                 var.lon = True
-            var.continuous = Variable.is_continuous(X[X.columns[i]])
+            var.continuous = Variable.is_continuous(X[col])
             variables.append(var)
         return DataVariables(variables)
 

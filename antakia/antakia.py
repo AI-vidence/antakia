@@ -60,6 +60,7 @@ class AntakIA():
 
         if X_exp is not None:
             # It's common to have column names ending with _shap, so we remove them
+            X_exp.columns=X_exp.columns.astype(str)
             X_exp.columns = X_exp.columns.str.replace('_shap', '')
         self.X_exp = X_exp
 
@@ -76,6 +77,7 @@ class AntakIA():
             self.variables = Variable.guess_variables(X)
 
         self.regions = []
+        self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_exp, self.score)
 
     def start_gui(self) -> GUI:
-        return GUI(self.X, self.y, self.model, self.variables, self.X_exp, self.score).show_splash_screen()
+        return self.gui.show_splash_screen()

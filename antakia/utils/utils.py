@@ -1,6 +1,7 @@
 """
 Utils module for the antakia package.
 """
+import math
 import time
 
 import numpy as np
@@ -54,11 +55,15 @@ def indexes_to_rows(X: pd.DataFrame, indexes_list: list) -> list:
 
 
 def mask_to_rows(mask: pd.Series) -> list:
-    return mask[mask].index.to_list()
+    return mask_to_index(mask.reset_index(drop=True))
 
 
 def mask_to_index(mask: pd.Series) -> list:
     return mask[mask].index.tolist()
+
+
+def boolean_mask(X: pd.DataFrame, value: bool = True):
+    return pd.Series([value] * len(X), index=X.index)
 
 
 def timeit(method):
@@ -87,5 +92,14 @@ def debug(func):
     return wrapper
 
 
-# First color can't be blue, reserved for the rules
-colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "grey", "cyan", "black"]
+def compute_step(min, max):
+    step = (max - min) / 100
+    round_value = round(math.log(step / 2) / math.log(10)) - 1
+    min_ = np.round(min, -round_value)
+    max_ = np.round(max, -round_value)
+    step = np.round(step, -round_value)
+    return min_, max_, step
+
+
+# First color can't be blue, reserved for the rules - grey is reserved to background
+colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "cyan", "black"]

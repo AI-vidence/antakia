@@ -173,7 +173,7 @@ class PaCMAPDimReduc(DimReducMethod):
         }
 
 
-dim_reduc_factory = {
+dim_reduc_factory: dict[int, DimReducMethod] = {
     dm.dimreduc_method: dm for dm in [PCADimReduc, TSNEDimReduc, UMAPDimReduc, PaCMAPDimReduc]
 }
 

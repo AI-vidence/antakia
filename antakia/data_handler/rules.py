@@ -9,11 +9,9 @@ import pandas as pd
 import os
 import math
 
+from antakia.utils.utils import boolean_mask
 from antakia.utils.variable import Variable, DataVariables
 from antakia.utils.logging import conf_logger
-
-logger = logging.getLogger(__name__)
-conf_logger(logger)
 
 
 class Rule:
@@ -181,6 +179,14 @@ class Rule:
     def is_inner_interval_rule(self) -> bool:
         return self.rule_type == 3
 
+    @property
+    def include_equals(self):
+        if self.rule_type == 0:
+            return True
+        if self.rule_type <= 2:
+            return self.operator_min in (1, 3) or self.operator_max in (1, 3)
+        return abs(self.operator_min - 2) == 1 and abs(self.operator_max - 2) == 1
+
     def __repr__(self) -> str:
         if self.is_categorical_rule:
             txt = f"{self.variable.symbol} \u2208  \u27E6"
@@ -242,11 +248,10 @@ class Rule:
         Returns a mask of indices matching the rules
         We assume rules_list contains rules, not list of rules
         """
-        res = pd.Series([True] * len(base_space_df), index=base_space_df.index)
-        if not (rules_list is None or len(rules_list) == 0):
+        res = boolean_mask(base_space_df, True)
+        if rules_list is not None:
             for rule in rules_list:
                 res &= rule.get_matching_indexes(base_space_df)
-
         return res
 
     @staticmethod
@@ -317,7 +322,7 @@ class Rule:
             return None
 
     @staticmethod
-    def combine_rules_var(rule_list: list[Rule]):
+    def combine_rules_var(rule_list: list[Rule]) -> list[Rule]:
         rule_list = rule_list[:]
         i = 0
         while i < len(rule_list):
@@ -333,7 +338,7 @@ class Rule:
         return rule_list
 
     @staticmethod
-    def combine_rule_list(rule_list: list):
+    def combine_rule_list(rule_list: list[Rule]) -> list[Rule]:
         """
         Try to combine all rules of the list into a smaller list of rules
         """
@@ -354,15 +359,18 @@ class Rule:
         return new_rules
 
     @staticmethod
-    def _extract_rules(skrules, X: pd.DataFrame, variables: DataVariables) -> (list['Rule'], dict):
+    def _extract_rules(skrules, X: pd.DataFrame, variables: DataVariables) -> (list[Rule], dict[str, float]):
         """
         Transforms a string into a list of rules
         """
         tokens = skrules[0]
+        precision = tokens[1][0]
+        recall = tokens[1][1]
+        f1 = precision * recall * 2 / (precision + recall)
         score_dict = {
-            "precision": round(tokens[1][0], 3),
-            "recall": round(tokens[1][1], 3),
-            "f1": round(tokens[1][2], 3),
+            "precision": round(precision, 3),
+            "recall": round(recall, 3),
+            "f1": round(f1, 3),
         }
 
         tokens = tokens[0].split(" and ")
@@ -387,7 +395,7 @@ class Rule:
 
         return rule_list, score_dict
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         return {
             'Variable': self.variable.symbol,
             'Unit': self.variable.unit,
@@ -397,7 +405,7 @@ class Rule:
         }
 
     @staticmethod
-    def rules_to_dict_list(rules_list: list) -> List[Dict[str, str]]:
+    def rules_to_dict_list(rules_list: list[Rule]) -> List[Dict[str, str]]:
         """""
         Returns a dict rep compatible with the v.DataTable widget
         """

@@ -19,11 +19,7 @@ def test_regions():
     rule1 = Rule(None, None, var, '<', 10)
     rule2 = Rule(2, '<=', var, None, None)
 
-    region = Region(
-        X=data,
-        rules=[rule1, rule2]
-    )
-    rs.add(region)
+    region = rs.add_region(rules=[rule1, rule2])
     assert rs.get(1) == region
     assert len(rs) == 1
     assert rs.get_max_num() == 1
@@ -46,3 +42,8 @@ def test_regions():
     rs.add_region([rule3], color='blue')
     rs.stats()
 
+    r = Region(data, [rule3])
+    r.num = 1
+
+    rs.add(r)
+    assert r.num == 3
