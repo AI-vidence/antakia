@@ -334,7 +334,6 @@ class GUI:
         change_widget(app_widget, "211", self.es_hde.figure_container)
         change_widget(app_widget, "17", self.es_hde.get_projection_select())
         change_widget(app_widget, "19", self.es_hde.get_projection_prog_circ())
-        change_widget(app_widget, "18", self.es_hde.get_proj_params_menu())
         change_widget(app_widget, "12", self.es_hde.get_explanation_select())
         change_widget(app_widget, "13", self.es_hde.get_compute_menu())
 
@@ -579,8 +578,14 @@ class GUI:
         get_widget(app_widget, "4400110").items = temp_items
 
         region_stats = self.region_set.stats()
+        str_stats = [
+            f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}",
+            f"{region_stats['points']} points",
+            f"{region_stats['coverage']}% of the dataset",
+            f"{region_stats['delta_score']:.2f} subst score"
+        ]
         get_widget(app_widget, "44002").children = [
-            f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}, {region_stats['points']} points, {region_stats['coverage']}% of the dataset"
+            ', '.join(str_stats)
         ]
         get_widget(app_widget, "4402000").disabled = False
 
