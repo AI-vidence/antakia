@@ -95,7 +95,8 @@ def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
     new_children = []
     for i in range(len(parent_widget.children)):
         if i == int(address[-1]):
-            new_children.append(sub_widget)
+            if sub_widget is not None:
+                new_children.append(sub_widget)
         else:
             new_children.append(parent_widget.children[i])
     parent_widget.children = new_children

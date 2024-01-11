@@ -77,10 +77,11 @@ class GUI:
         self.model = model
         self.variables: DataVariables = variables
         self.score = score
-        if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
-            raise IndexError('X and X_exp must share the same index')
-        if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
-            raise IndexError('X and y must share the same index')
+        if X_exp is not None:
+            if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+                raise IndexError('X and X_exp must share the same index')
+            if X.reindex(y.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+                raise IndexError('X and y must share the same index')
         # We create our VS HDE
         self.vs_hde = HighDimExplorer(
             self.X,
@@ -106,7 +107,7 @@ class GUI:
         )
 
         self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True, self.new_rules_defined)
-        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.y, self.variables, False, self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.es_hde.current_X, self.y, self.variables, False)
         # We set empty rules for now :
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
@@ -293,6 +294,12 @@ class GUI:
         self.vs_hde.display_rules(df_mask)
         self.es_hde.display_rules(df_mask)
 
+        # sync selection between rules_widgets
+        if rules_widget == self.vs_rules_wgt:
+            self.es_rules_wgt.update_from_mask(df_mask, [])
+        else:
+            self.vs_rules_wgt.update_from_mask(df_mask, [])
+
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num <= 1
         # We disable the 'validate rules' button if RsW has less than 1 rule
@@ -321,11 +328,10 @@ class GUI:
         # ============== HighDimExplorers ===============
 
         # We attach each HighDimExplorers component to the app_graph:
-        change_widget(app_widget, "201", self.vs_hde.container),
+        change_widget(app_widget, "201", self.vs_hde.figure_container),
         change_widget(app_widget, "14", self.vs_hde.get_projection_select())
         change_widget(app_widget, "16", self.vs_hde.get_projection_prog_circ())
-        change_widget(app_widget, "15", self.vs_hde.get_proj_params_menu())
-        change_widget(app_widget, "211", self.es_hde.container)
+        change_widget(app_widget, "211", self.es_hde.figure_container)
         change_widget(app_widget, "17", self.es_hde.get_projection_select())
         change_widget(app_widget, "19", self.es_hde.get_projection_prog_circ())
         change_widget(app_widget, "18", self.es_hde.get_proj_params_menu())
@@ -501,10 +507,10 @@ class GUI:
         assert not self.selection_mask.all()
         # Let's disable the Skope button. It will be re-enabled if a new selection occurs
         get_widget(app_widget, "43010").disabled = True
+        self.compute_skr_display(self.vs_hde, self.vs_rules_wgt)
+        self.compute_skr_display(self.es_hde, self.es_rules_wgt)
 
-        hde = self.vs_hde if self.vs_hde.first_selection else self.es_hde
-        rules_widget = self.vs_rules_wgt if self.vs_hde.first_selection else self.es_rules_wgt
-
+    def compute_skr_display(self, hde, rules_widget):
         skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
         skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
         if len(skr_rules_list) > 0:  # SKR rules found
@@ -536,20 +542,12 @@ class GUI:
     def validate_rules(self, *args):
         if self.tab != 1:
             self.select_tab(1)
-        if self.vs_rules_wgt.rules_num >= 0:
-            rules_widget = self.vs_rules_wgt
-        else:
-            rules_widget = self.es_rules_wgt
 
-        rules_list = rules_widget.current_rules_list
+        rules_list = self.vs_rules_wgt.current_rules_list
         # We add them to our region_set
 
         region = self.region_set.add_region(rules=rules_list)
         self.region_num_for_validated_rules = region.num
-        # UI rules: we disable HDEs selection of we have one or more regions
-        # if len(self.region_set) > 0:
-        #    self.vs_hde.disable_selection(True)
-        #    self.es_hde.disable_selection(True)
         # lock rule
         region.validate()
 
@@ -557,7 +555,8 @@ class GUI:
         # UI rules :
         # We clear selection
         # We clear the RulesWidget
-        rules_widget.reset_widget()
+        self.vs_rules_wgt.reset_widget()
+        self.es_rules_wgt.reset_widget()
         # We force tab 2
         self.select_tab(2)
 
