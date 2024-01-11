@@ -11,6 +11,7 @@ from antakia.gui.widgets import change_widget, get_widget, app_widget
 
 from copy import copy
 
+from antakia.utils.utils import compute_step
 from antakia.utils.variable import DataVariables
 
 
@@ -148,11 +149,7 @@ class RuleWidget:
             )
         min_ = float(self.X[self.rule.variable.symbol].min())
         max_ = float(self.X[self.rule.variable.symbol].max())
-        step = (max_ - min_) / 100
-        round_value = round(math.log(step / 2) / math.log(10)) - 1
-        min_ = np.round(min_, -round_value)
-        max_ = np.round(max_, -round_value)
-        step = np.round(step, -round_value)
+        min_, max_, step = compute_step(min_,max_)
         slider_args = {
             'min': min_,
             'max': max_,

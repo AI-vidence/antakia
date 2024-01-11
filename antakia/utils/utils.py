@@ -1,6 +1,7 @@
 """
 Utils module for the antakia package.
 """
+import math
 import time
 
 import numpy as np
@@ -89,6 +90,15 @@ def debug(func):
         return result
 
     return wrapper
+
+
+def compute_step(min, max):
+    step = (max - min) / 100
+    round_value = round(math.log(step / 2) / math.log(10)) - 1
+    min_ = np.round(min, -round_value)
+    max_ = np.round(max, -round_value)
+    step = np.round(step, -round_value)
+    return min_, max_, step
 
 
 # First color can't be blue, reserved for the rules - grey is reserved to background
