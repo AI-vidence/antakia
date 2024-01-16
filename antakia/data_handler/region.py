@@ -91,7 +91,10 @@ class ModelRegion(Region):
 
     @property
     def perfs(self):
-        return self.interpretable_models.perfs.sort_values(self.interpretable_models.custom_score_str, ascending=True)
+        perfs = self.interpretable_models.perfs
+        if len(perfs) == 0:
+            return perfs
+        return perfs.sort_values(self.interpretable_models.custom_score_str, ascending=True)
 
     @property
     def delta(self):

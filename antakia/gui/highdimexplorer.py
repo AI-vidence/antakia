@@ -8,7 +8,6 @@ import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier
 
 from antakia.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.region import Region, RegionSet
 
@@ -84,15 +83,11 @@ class HighDimExplorer:
 
     def __init__(
             self,
-            X: pd.DataFrame,  # The original_values
-            y: pd.Series,
-            init_proj: int,  # see config.py
+            pv: ProjectedValues,
             init_dim: int,
             fig_size: int,
             selection_changed: callable,
-            space_type: str,
-            new_explanation_values_required: callable = None,  # (ES only)
-            X_exp: pd.DataFrame = None,  # The imported_explanations (ES only)
+            space_type: str
     ):
         """
         Instantiate a new HighDimExplorer.
@@ -108,42 +103,14 @@ class HighDimExplorer:
         if init_dim not in [2, 3]:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
-        self._y = y
         self.active_tab = 0
 
         self._mask = None
         self.selection_changed = selection_changed
-        self.new_explanation_values_required = new_explanation_values_required
+        self.pv = pv
 
-        # pv_dict is a dict of ProjectedValues objects
-        # Keys can be : 'original_values', 'imported_explanations', 'computed_shap', 'computed_lime'
-        # VS HDE has as only on PV, pv_divt['original_values']
-        # ES HDE has 3 extra PVs : 'imported_explanations', 'computed_shap', 'computed_lime'
-        self.pv_dict: dict[str, ProjectedValues | None] = {
-            'original_values': ProjectedValues(X, y, self.update_progress_circular),
-        }
-        if not self.is_value_space:
-            if X_exp is not None and len(X_exp) > 0:
-                # We set the imported PV:
-                self.pv_dict['imported_explanations'] = ProjectedValues(X_exp, y, self.update_progress_circular)
-                self.current_pv = 'imported_explanations'
-            else:
-                self.pv_dict['imported_explanations'] = None
-                self.current_pv = None  # We have nothing to display yet
-            self.pv_dict['computed_shap'] = None
-            self.pv_dict['computed_lime'] = None
-        else:
-            # We are a VS HDE
-            self.current_pv = 'original_values'
+        # current projected values to display
 
-
-        # Since HDE is responsible for storing its current proj, we check init value :
-        if init_proj not in DimReducMethod.dimreduc_methods_as_list():
-            raise ValueError(
-                f"HDE.init: {init_proj} is not a valid projection method code"
-            )
-        # init projection method
-        self.init_projections(init_proj)
         # For each projection method, we store the widget (Card) that contains its parameters UI :
         self._proj_params_cards = {}
         self.build_all_proj_param_w()
@@ -157,7 +124,10 @@ class HighDimExplorer:
         self.fig_height = fig_size / 2
 
         self._selection_disabled = False
-        self._current_selection = utils.boolean_mask(X, True)
+        if pv is not None:
+            self._current_selection = utils.boolean_mask(pv.X, True)
+        else:
+            self._current_selection = None
         self.first_selection = False
 
         # traces to show
@@ -167,35 +137,24 @@ class HighDimExplorer:
 
         self.figure_2D = self.figure_3D = None
 
-    def init_projections(self, init_proj):
-        # A dict of dict : keys are DimReducMethod, 'VS' or 'ES', then a dict of params
-        # We initiate it in grey, not indeterminate :
-        proj_circ = self.get_projection_prog_circ()
-        proj_circ.color = "grey"
-        proj_circ.indeterminate = False
-        proj_circ.v_model = 100
+    def initialize(self, progress_callback):
+        self.update_pv(self.pv, progress_callback)
+        self.close_progress_circular()
         self.get_projection_select().on_event("change", self.projection_select_changed)
-        self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
-            init_proj
-        )
-        if not self.is_value_space:
-            self.update_explanation_select()
-            self.get_explanation_select().on_event("change", self.explanation_select_changed)
 
-            get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
-            get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
-            self.update_compute_menu()
-
+    ############
+    ## widget ##
+    ############
     def disable_widgets(self, is_disabled: bool):
         """
         Called by GUI to enable/disable proj changes and explaination computation or change
         """
         self.get_projection_select().disabled = is_disabled
         self.enable_proj_param_menu(not is_disabled)
-        if not self.is_value_space:
-            self.get_explanation_select().disabled = is_disabled
-            self.get_compute_menu().disabled = is_disabled
 
+    ################
+    ## properties ##
+    ################
     @property
     def current_dim(self):
         return self._current_dim
@@ -221,7 +180,7 @@ class HighDimExplorer:
 
     @property
     def current_projected_values(self):
-        return self.pv_dict.get(self.current_pv)
+        return self.pv
 
     # --- select projection method ---
 
@@ -237,6 +196,41 @@ class HighDimExplorer:
         self.redraw()
         self.get_projection_select().disabled = False
 
+    def get_projection_prog_circ(self) -> v.ProgressCircular:
+        """
+       Called at startup by the GUI
+       """
+        return get_widget(app_widget, "16" if self.is_value_space else "19")
+
+    def update_progress_circular(
+            self, caller, progress: int, duration: float
+    ):
+        """
+        Each proj computation consists in 2 (2D and 3D) tasks.
+        So progress of each task in divided by 2 and summed together
+        """
+        prog_circular = self.get_projection_prog_circ()
+        if prog_circular.color == "grey":
+            prog_circular.color = "blue"
+            # Since we don't have fine-grained progress, we set it to 'indeterminate'
+            prog_circular.indeterminate = True
+            # But i still need to store total progress in v_model :
+            prog_circular.v_model = 0
+            # We lock it during computation :
+            prog_circular.disabled = True
+
+        # Strange sicen we're in 'indeterminate' mode, but i need it, cf supra
+        prog_circular.v_model = float(prog_circular.v_model) + round(progress)
+
+        if prog_circular.v_model == 100:
+            self.close_progress_circular()
+
+    def close_progress_circular(self):
+        prog_circular = self.get_projection_prog_circ()
+        prog_circular.indeterminate = False
+        prog_circular.color = "grey"
+        prog_circular.disabled = False
+
     # ---- Projection parameters ---
 
     @property
@@ -246,8 +240,7 @@ class HighDimExplorer:
         return '1800'
 
     def projection_kwargs(self, dim_reduc_method):
-        print(self.current_pv)
-        kwargs = self.pv_dict[self.current_pv].get_paramerters(dim_reduc_method, self.current_dim)['current']
+        kwargs = self.pv.get_paramerters(dim_reduc_method, self.current_dim)['current']
         return kwargs
 
     def build_proj_param_widget(self, dim_reduc) -> list[v.Slider]:
@@ -255,7 +248,7 @@ class HighDimExplorer:
         sliders = []
         for param, info in parameters.items():
             min_, max_, step = utils.compute_step(info['min'], info['max'])
-            if self.current_pv is not None:
+            if self.pv is not None:
                 current_value = self.projection_kwargs(dim_reduc)[param]
             else:
                 current_value = info['default']
@@ -287,10 +280,9 @@ class HighDimExplorer:
         self.enable_proj_param_menu(False)
 
         changed_param = widget.label
-        print(changed_param, data)
         # We compute the PaCMAP new projection :
-        self.current_projected_values.set_parameters(self._get_projection_method(), self.current_dim,
-                                                     {changed_param: data})
+        self.pv.set_parameters(self._get_projection_method(), self.current_dim,
+                               {changed_param: data})
         self.redraw()
 
         self.enable_proj_param_menu(True)
@@ -316,7 +308,7 @@ class HighDimExplorer:
 
         return proj_params_menu
 
-    # ---- Methods ------
+    # ---- display Methods ------
 
     def disable_selection(self, is_disabled: bool):
         if self.figure_2D is not None:
@@ -385,7 +377,7 @@ class HighDimExplorer:
         else:
             colors = self._colors[trace_id]
             if colors is None:
-                colors = self._y
+                colors = self.pv.y
             colors = colors[self.mask]
             with self.figure.batch_update():
                 self.figure.data[trace_id].marker.color = colors
@@ -394,113 +386,22 @@ class HighDimExplorer:
         self.figure.layout.width = self.fig_width
         self.figure.layout.height = self.fig_height
 
-    def update_progress_circular(
-            self, caller, progress: int, duration: float
-    ):
-        """
-        Each proj computation consists in 2 (2D and 3D) tasks.
-        So progress of each task in divided by 2 and summed together
-        """
-        prog_circular = get_widget(app_widget, "16") if self.is_value_space else get_widget(app_widget, "19")
-
-        if prog_circular.color == "grey":
-            prog_circular.color = "blue"
-            # Since we don't have fine-grained progress, we set it to 'indeterminate'
-            prog_circular.indeterminate = True
-            # But i still need to store total progress in v_model :
-            prog_circular.v_model = 0
-            # We lock it during computation :
-            prog_circular.disabled = True
-
-        # Strange sicen we're in 'indeterminate' mode, but i need it, cf supra
-        prog_circular.v_model = prog_circular.v_model + round(progress)
-
-        if prog_circular.v_model == 100:
-            prog_circular.indeterminate = False
-            prog_circular.color = "grey"
-            prog_circular.disabled = False
-
-    def explanation_select_changed(self, widget, event, data):
-        """
-        Called when the user choses another dataframe
-        """
-        # Remember : impossible items ine thee Select are disabled = we have the desired values
-
-        if data == "Imported":
-            self.current_pv = 'imported_explanations'
-        elif data == "SHAP":
-            self.current_pv = 'computed_shap'
-        else:  # LIME
-            self.current_pv = 'computed_lime'
-        self.redraw()
-
-    def get_compute_menu(self):
-        """
-       Called at startup by the GUI (only ES HDE)
-       """
-        return get_widget(app_widget, "13")
-
-    def update_compute_menu(self):
-        is_shap_computed = self.pv_dict['computed_shap'] is not None
-        get_widget(app_widget, "130000").disabled = is_shap_computed
-        get_widget(app_widget, "13000203").disabled = is_shap_computed
-
-        is_lime_computed = self.pv_dict['computed_lime'] is not None
-        get_widget(app_widget, "130001").disabled = is_lime_computed
-        get_widget(app_widget, "13000303").disabled = is_lime_computed
-
-    def compute_btn_clicked(self, widget, event, data):
-        """
-        Called when new explanation computed values are wanted
-        """
-        # This compute btn is no longer useful / clickable
-        widget.disabled = True
-
-        if widget == get_widget(app_widget, "13000203"):
-            desired_explain_method = ExplanationMethod.SHAP
-        else:
-            desired_explain_method = ExplanationMethod.LIME
-        self.compute_explanation(desired_explain_method)
-
-    def compute_explanation(self, explanation_method, callback=None):
-        if callback is None:
-            callback = self.update_progress_linear
-        self.current_pv = 'computed_shap' if explanation_method == ExplanationMethod.SHAP else 'computed_lime'
-        self.pv_dict[self.current_pv] = ProjectedValues(
-            self.new_explanation_values_required(explanation_method, callback),
-            self._y,
-            self.update_progress_circular
+    def update_pv(self, pv: ProjectedValues, progress_callback=None):
+        if self.pv == pv:
+            return
+        if progress_callback is None:
+            progress_callback = self.update_progress_circular
+        self.pv = pv
+        if self._current_selection is None:
+            self._current_selection = utils.boolean_mask(self.pv.X, True)
+        self.get_current_X_proj(progress_callback=progress_callback)
+        self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
+            pv.current_proj[0]
         )
-
-        # We compute proj for this new PV :
-        self.update_explanation_select()
-        self.update_compute_menu()
         if self.figure is None:
             self.create_figure()
         else:
             self.redraw()
-
-    def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float):
-        """
-        Called by the computation process (SHAP or LUME) to udpate the progress linear
-        """
-
-        if method.explanation_method == ExplanationMethod.SHAP:
-            progress_linear = get_widget(app_widget, "13000201")
-            progress_linear.indeterminate = True
-        else:
-            progress_linear = get_widget(app_widget, "13000301")
-
-        progress_linear.v_model = progress
-
-        if progress == 100:
-            if method.explanation_method == ExplanationMethod.SHAP:
-                tab = get_widget(app_widget, "130000")
-                progress_linear.indeterminate = False
-            else:
-                tab = get_widget(app_widget, "130001")
-                progress_linear.v_model = progress
-            tab.disabled = True
 
     def set_dimension(self, dim: int):
         # Dimension is stored in the instance variable _current_dim
@@ -516,6 +417,9 @@ class HighDimExplorer:
         """
         Returns the current projection method
         """
+        if self.get_projection_select().v_model == '!!disabled!!':
+            self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(config.DEFAULT_PROJECTION)
+            return config.DEFAULT_PROJECTION
         return DimReducMethod.dimreduc_method_as_int(
             self.get_projection_select().v_model
         )
@@ -524,7 +428,7 @@ class HighDimExplorer:
         """
         to call between selection and setter
         """
-        selection = utils.rows_to_mask(self.pv_dict['original_values'].X[self.mask], row_numbers)
+        selection = utils.rows_to_mask(self.pv.X[self.mask], row_numbers)
         if selection.mean() == 0:
             return utils.boolean_mask(self.get_current_X_proj(masked=False), False)
         X_train = self.get_current_X_proj()
@@ -547,7 +451,7 @@ class HighDimExplorer:
         """Called on deselection"""
         # We tell the GUI
         self.first_selection = False
-        self._current_selection = utils.boolean_mask(self.pv_dict['original_values'].X, True)
+        self._current_selection = utils.boolean_mask(self.pv.X, True)
         self.display_rules()
         if rebuild:
             self.create_figure()
@@ -607,7 +511,7 @@ class HighDimExplorer:
                 if dim == 3:
                     z = proj_values[2]
 
-        hde_marker = {'color': self._y, 'colorscale': "Viridis"}
+        hde_marker = {'color': self.pv.y, 'colorscale': "Viridis"}
         if dim == 3:
             hde_marker['size'] = 2
 
@@ -616,7 +520,7 @@ class HighDimExplorer:
             'y': y,
             'mode': "markers",
             'marker': hde_marker,
-            'customdata': self._y[self.mask],
+            'customdata': self.pv.y[self.mask],
             'hovertemplate': "%{customdata:.3f}",
         }
         if dim == 3:
@@ -685,28 +589,6 @@ class HighDimExplorer:
        """
         return get_widget(app_widget, "14" if self.is_value_space else "17")
 
-    def get_projection_prog_circ(self) -> v.ProgressCircular:
-        """
-       Called at startup by the GUI
-       """
-        return get_widget(app_widget, "16" if self.is_value_space else "19")
-
-    def get_explanation_select(self):
-        """
-       Called at startup by the GUI (only ES HE)
-       """
-        return get_widget(app_widget, "12")
-
-    def update_explanation_select(self):
-        """
-       Called at startup by the GUI (only ES HE)
-       """
-        self.get_explanation_select().items = [
-            {"text": "Imported", "disabled": self.pv_dict['imported_explanations'] is None},
-            {"text": "SHAP", "disabled": self.pv_dict['computed_shap'] is None},
-            {"text": "LIME", "disabled": self.pv_dict['computed_lime'] is None},
-        ]
-
     def get_space_name(self) -> str:
         """
         For debug purposes only. Not very reliable.
@@ -715,14 +597,16 @@ class HighDimExplorer:
 
     @property
     def current_X(self) -> pd.DataFrame | None:
-        if self.current_pv is None:
+        if self.pv is None:
             return None  # When we're an ES HDE and no explanation have been imported nor computed yet
-        return self.pv_dict[self.current_pv].X
+        return self.pv.X
 
-    def get_current_X_proj(self, dim=None, masked: bool = True, callback=None) -> pd.DataFrame | None:
+    def get_current_X_proj(self, dim=None, masked: bool = True, progress_callback=None) -> pd.DataFrame | None:
         if dim is None:
             dim = self.current_dim
-        X = self.pv_dict[self.current_pv].get_projection(self._get_projection_method(), dim, callback)
+        if progress_callback is None:
+            progress_callback = self.update_progress_circular
+        X = self.pv.get_projection(self._get_projection_method(), dim, progress_callback)
         if X is None:
             return
         if masked:
@@ -732,7 +616,7 @@ class HighDimExplorer:
     def proj_should_be_computed(self, dim=None):
         if dim is None:
             dim = self.current_dim
-        self.pv_dict[self.current_pv].is_present(self._get_projection_method(), dim)
+        self.pv.is_present(self._get_projection_method(), dim)
 
     def set_tab(self, tab):
         self.show_trace(self.VALUES_TRACE, True)

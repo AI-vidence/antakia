@@ -143,4 +143,6 @@ class DimReducMethod(LongTask):
         """
         std = X.std()
         std[std == 0] = 1
-        return (X - X.mean()) / std * np.abs(X.corrwith(y))
+        from sklearn.feature_selection import mutual_info_regression
+        mi = mutual_info_regression(X, y)
+        return (X - X.mean()) / std * mi
