@@ -38,6 +38,7 @@ class ExplanationValues:
         if not self.has_user_exp:
             self.compute_explanation(config.DEFAULT_EXPLANATION_METHOD, progress_callback)
             self.on_change_callback(progress_callback)
+        self.get_explanation_select().v_model = self.current_exp
 
     @property
     def current_pv(self) -> ProjectedValues:
