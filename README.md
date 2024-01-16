@@ -6,13 +6,26 @@ Clone the repo and create a virtual environment
 ```
 git clone https://github.com/AI-vidence/antakia.git
 cd antakia
+```
+
+Then, with `pip` :
+
+```
 python3.10 -m venv .
 source bin/activate
-pip install -r requirements.txt
 pip install -e .
 ```
 
-You'll also need to install Git LFS to download our CSV files in /data:
+Or,if you prefer `poetry` :
+
+```
+poetry shell
+peotry install
+```
+
+Got to https://doc.antakia.ai to learn how to use AntakIA.
+
+You may also need to install Git LFS to download our CSV files in /data:
 ```
 brew install git-lfs # if you're a Mac / brew user
 git lfs install
