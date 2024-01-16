@@ -475,7 +475,10 @@ class HighDimExplorer:
         # We compute proj for this new PV :
         self.update_explanation_select()
         self.update_compute_menu()
-        self.redraw()
+        if self.figure is None:
+            self.create_figure()
+        else:
+            self.redraw()
 
     def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float):
         """
