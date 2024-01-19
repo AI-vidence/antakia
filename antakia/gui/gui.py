@@ -644,7 +644,7 @@ class GUI:
         self.select_tab(2)
 
     def compute_auto_cluster(self, not_rules_indexes_list, cluster_num='auto'):
-        if len(not_rules_indexes_list) > 100:
+        if len(not_rules_indexes_list) > config.MIN_POINTS_NUMBER:
             vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False, progress_callback=self.get_ac_progress_update(1))
             es_proj_3d_df = self.es_hde.get_current_X_proj(3, False, progress_callback=self.get_ac_progress_update(2))
 
@@ -671,27 +671,42 @@ class GUI:
 
         return update_ac_progress_bar
 
-    def disable_buttons(self, state):
-        get_widget(app_widget, "4401000").disabled = state
-        get_widget(app_widget, "440110").disabled = state
-        get_widget(app_widget, "440120").disabled = state
+    def disable_buttons(self, region: ModelRegion):
+        if region is None:
+            # substitute
+            get_widget(app_widget, "4401000").disabled = True
+            # subdivide
+            get_widget(app_widget, "440110").disabled = True
+            # delete
+            get_widget(app_widget, "440120").disabled = True
+        else:
+            # substitute
+            get_widget(app_widget, "4401000").disabled = region is None
+            # subdivide
+            disable_sub = bool(region.num_points() <= config.MIN_POINTS_NUMBER)
+            get_widget(app_widget, "440110").disabled = disable_sub
+            # delete
+            get_widget(app_widget, "440120").disabled = region is None
 
     def region_selected(self, data):
         if self.tab != 2:
             self.select_tab(2)
         is_selected = data["value"]
+        if is_selected is None:
+            self.selected_region_num = None
+            self.disable_buttons(None)
+        else:
+            # We use this GUI attribute to store the selected region
+            # TODO : read the selected region from the ColorTable
+            self.selected_region_num = data["item"]["Region"] if is_selected else None
 
-        # We use this GUI attribute to store the selected region
-        # TODO : read the selected region from the ColorTable
-        self.selected_region_num = data["item"]["Region"] if is_selected else None
-
-        # UI rules :
-        # If selected, we enable the 'substitute' and 'delete' buttons and vice-versa
-        self.disable_buttons(not is_selected)
+            # UI rules :
+            # If selected, we enable the 'substitute' and 'delete' buttons and vice-versa
+            self.disable_buttons(self.region_set.get(self.selected_region_num))
 
     def clear_selected_regions(self):
         self.selected_region_num = None
-        self.disable_buttons(True)
+        self.disable_buttons(None)
 
     def subdivide_region_clicked(self, widget, event, data):
         """
@@ -701,17 +716,18 @@ class GUI:
             self.select_tab(2)
         # we recover the region to sudivide
         region = self.region_set.get(self.selected_region_num)
-        # Then we delete the region in self.region_set
-        self.region_set.remove(self.selected_region_num)
-        # we compute the subregions and add them to the region set
-        self.compute_auto_cluster(region.mask)
-        # UI rules : if we deleted a region coming from the Skope rules, we re-enable the Skope button
-        if self.selected_region_num == self.region_num_for_validated_rules:
-            get_widget(app_widget, "43010").disabled = False
+        if region.num_points() > config.MIN_POINTS_NUMBER:
+            # Then we delete the region in self.region_set
+            self.region_set.remove(self.selected_region_num)
+            # we compute the subregions and add them to the region set
+            self.compute_auto_cluster(region.mask)
+            # UI rules : if we deleted a region coming from the Skope rules, we re-enable the Skope button
+            if self.selected_region_num == self.region_num_for_validated_rules:
+                get_widget(app_widget, "43010").disabled = False
 
         self.select_tab(2)
-        self.clear_selected_regions()
         # There is no more selected region
+        self.clear_selected_regions()
 
     def delete_region_clicked(self, widget, event, data):
         """

@@ -58,7 +58,7 @@ class Region:
         }
         return dict_form
 
-    def num_points(self):
+    def num_points(self)-> int:
         return self.mask.sum()
 
     def dataset_cov(self):
