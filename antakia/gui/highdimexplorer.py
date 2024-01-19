@@ -311,6 +311,7 @@ class HighDimExplorer:
     # ---- display Methods ------
 
     def disable_selection(self, is_disabled: bool):
+        self._selection_disabled = not is_disabled
         if self.figure_2D is not None:
             self.figure_2D.update_layout(
                 dragmode=False if is_disabled else "lasso"
@@ -619,10 +620,10 @@ class HighDimExplorer:
         self.pv.is_present(self._get_projection_method(), dim)
 
     def set_tab(self, tab):
+        self.disable_selection(tab > 1)
         self.show_trace(self.VALUES_TRACE, True)
         self.show_trace(self.RULES_TRACE, tab == 1)
         self.show_trace(self.REGIONSET_TRACE, tab == 2)
         self.show_trace(self.REGION_TRACE, tab == 3)
         # and it's the only place where selection is allowed
-        self.disable_selection(tab > 1)
         self.active_tab = tab
