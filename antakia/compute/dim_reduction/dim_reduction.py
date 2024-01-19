@@ -178,7 +178,7 @@ dim_reduc_factory: dict[int, DimReducMethod] = {
 }
 
 
-def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dimension: int, callback: callable = None,
+def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dimension: int, progress_callback: callable = None,
                        **kwargs) -> pd.DataFrame:
     if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(
             dimension):
@@ -190,6 +190,6 @@ def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dime
     default_kwargs = {'random_state': 9}
     default_kwargs.update(kwargs)
     dim_reduc_kwargs = {k: v for k, v in default_kwargs.items() if k in dim_reduc.allowed_kwargs}
-    proj_values = dim_reduc(X_scaled, dimension, callback).compute(**dim_reduc_kwargs)
+    proj_values = dim_reduc(X_scaled, dimension, progress_callback).compute(**dim_reduc_kwargs)
     proj_values.index = X.index
     return proj_values

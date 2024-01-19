@@ -58,7 +58,7 @@ class Region:
         }
         return dict_form
 
-    def num_points(self):
+    def num_points(self) -> int:
         return self.mask.sum()
 
     def dataset_cov(self):
@@ -91,7 +91,10 @@ class ModelRegion(Region):
 
     @property
     def perfs(self):
-        return self.interpretable_models.perfs.sort_values(self.interpretable_models.custom_score_str, ascending=True)
+        perfs = self.interpretable_models.perfs
+        if len(perfs) == 0:
+            return perfs
+        return perfs.sort_values(self.interpretable_models.custom_score_str, ascending=True)
 
     @property
     def delta(self):
@@ -103,7 +106,8 @@ class ModelRegion(Region):
 class RegionSet:
     def __init__(self, X):
         self.regions: dict[int:Region] = {}
-        self.insert_order = []
+        self.insert_order: list[int] = []
+        self.display_order: list[Region] = []
         self.X = X
 
     def get_new_num(self) -> int:
@@ -126,6 +130,7 @@ class RegionSet:
             region.num = num
         self.regions[region.num] = region
         self.insert_order.append(region.num)
+        self.display_order.append(region)
 
     def add_region(self, rules=None, mask=None, color=None, auto_cluster=False) -> Region:
         if mask is not None:
@@ -141,14 +146,15 @@ class RegionSet:
             self.add_region(region.rules, region.mask, region._color, region.auto_cluster)
 
     def remove(self, region_num) -> None:
-        del self.regions[region_num]
         self.insert_order.remove(region_num)
+        self.display_order.remove(self.regions[region_num])
+        del self.regions[region_num]
 
     def to_dict(self) -> list[dict]:
-        return [self.regions[num].to_dict() for num in self.insert_order]
+        return [region.to_dict() for region in self.display_order]
 
     def get_masks(self) -> list[pd.Series]:
-        return [self.regions[num].mask for num in self.insert_order]
+        return [region.mask for region in self.display_order]
 
     @property
     def mask(self):
@@ -158,12 +164,11 @@ class RegionSet:
         return union_mask
 
     def get_colors(self) -> list[str]:
-        return [self.regions[num].color for num in self.insert_order]
+        return [region.color for region in self.display_order]
 
     def get_color_serie(self) -> pd.Series:
         color = pd.Series(["grey"] * len(self.X), index=self.X.index)
-        for num in self.insert_order:
-            region = self.regions.get(num)
+        for region in self.display_order:
             color[region.mask] = region.color
         return color
 
@@ -183,9 +188,17 @@ class RegionSet:
             num = self.insert_order[-1]
             region = self.get(num)
             if not self.regions[num].validated:
-                del self.regions[num]
-                self.insert_order.remove(num)
+                self.remove(num)
             return region
+
+    def sort(self, by, ascending=True):
+        if by == 'region_num':
+            key = lambda x: x.num
+        elif by == 'size':
+            key = lambda x: x.num_points()
+        elif by == 'insert':
+            key = lambda x: self.insert_order.index(x)
+        self.display_order.sort(key=key, reverse=not ascending)
 
     def stats(self) -> dict:
         """ Computes the number of distinct points in the regions and the coverage in %

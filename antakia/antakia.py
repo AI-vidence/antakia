@@ -81,3 +81,6 @@ class AntakIA():
 
     def start_gui(self) -> GUI:
         return self.gui.show_splash_screen()
+
+    def export_regions(self):
+        return self.gui.region_set
