@@ -149,7 +149,7 @@ class RuleWidget:
             )
         min_ = float(self.X[self.rule.variable.symbol].min())
         max_ = float(self.X[self.rule.variable.symbol].max())
-        min_, max_, step = compute_step(min_,max_)
+        min_, max_, step = compute_step(min_, max_)
         slider_args = {
             'min': min_,
             'max': max_,
@@ -268,6 +268,12 @@ class RulesWidget:
         # At startup, we are disabled :
         self.disable()
 
+    def update_X(self, X):
+        if id(X) == id(self.X):
+            return
+        self.X = X
+        self.refresh_widget()
+
     @property
     def space(self):
         return 'values' if self.is_value_space else 'explanations'
@@ -299,6 +305,7 @@ class RulesWidget:
         """
         Called to set rules or clear them. To update, use update_rule
         """
+        assert self.X is not None
         self.rules_mask = rules_mask
 
         self.is_disabled = False
