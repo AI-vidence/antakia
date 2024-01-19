@@ -515,13 +515,17 @@ class GUI:
         if len(skr_rules_list) > 0:  # SKR rules found
             # UI rules :
             # We enable the 'validate rule' button
-            get_widget(app_widget, "43030").disabled = False
+            if self.vs_hde == hde:
+                get_widget(app_widget, "43030").disabled = False
             # We enable RulesWidet and init it wit the rules
             rules_widget.enable()
             rules_widget.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
         else:
             # No skr found
             rules_widget.show_msg("No rules found", "red--text")
+            if self.vs_hde == hde:
+                # we disable validation if no rules are found in value space
+                get_widget(app_widget, "43030").disabled = True
 
     def undo_rules(self, *args):
         if self.tab != 1:
@@ -544,6 +548,11 @@ class GUI:
 
         rules_list = self.vs_rules_wgt.current_rules_list
         # We add them to our region_set
+        if len(rules_list) == 0:
+            self.es_rules_wgt.reset_widget()
+            self.vs_rules_wgt.reset_widget()
+            self.vs_rules_wgt.show_msg("No rules found on Value space cannot validate region", "red--text")
+            return
 
         region = self.region_set.add_region(rules=rules_list)
         self.region_num_for_validated_rules = region.num
