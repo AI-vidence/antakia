@@ -579,6 +579,7 @@ class GUI:
         """
         Called to empty / fill the RegionDataTable and refresh plots
         """
+        self.region_set.sort(by='size', ascending=False)
         temp_items = self.region_set.to_dict()
 
         # We populate the ColorTable :
