@@ -311,7 +311,7 @@ class HighDimExplorer:
     # ---- display Methods ------
 
     def disable_selection(self, is_disabled: bool):
-        self._selection_disabled = not is_disabled
+        self._selection_disabled = is_disabled
         if self.figure_2D is not None:
             self.figure_2D.update_layout(
                 dragmode=False if is_disabled else "lasso"
