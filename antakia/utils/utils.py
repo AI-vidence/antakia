@@ -59,10 +59,16 @@ def mask_to_rows(mask: pd.Series) -> list:
 
 
 def mask_to_index(mask: pd.Series) -> list:
-    return mask[mask].index.tolist()
+    """
+    Returns a list of the indexes of a Series
+    """
+    return mask.index.tolist()
 
 
 def boolean_mask(X: pd.DataFrame, value: bool = True):
+    """
+    Generates a pandas series with boolean. The series has the length of the dataframe
+    """
     return pd.Series([value] * len(X), index=X.index)
 
 
@@ -92,7 +98,11 @@ def debug(func):
     return wrapper
 
 
-def compute_step(min, max):
+def compute_step(min, max) -> tuple:
+    """
+    Computes the time step and the index for the round value then returns
+    a tuple of the min, the max, the time step.
+    """
     step = (max - min) / 100
     round_value = round(math.log(step / 2) / math.log(10)) - 1
     min_ = np.round(min, -round_value)

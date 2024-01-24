@@ -127,6 +127,19 @@ class Variable:
             text += ", is lon"
         return text
 
+    def __eq__(self, other):
+        return (
+                self.col_index == other.col_index and
+                self.symbol == other.symbol and
+                self.type == other.type and
+                self.unit == other.unit and
+                self.descr == other.descr and
+                self.critical == other.critical and
+                self.continuous == other.continuous and
+                self.lat == other.lat and
+                self.lon == other.lon
+        )
+
 
 class DataVariables:
     def __init__(self, variables: List[Variable]):
@@ -147,6 +160,15 @@ class DataVariables:
     def __len__(self):
         return len(self.variables)
 
+    def __eq__(self, other):
+        for i in self.variables.values():
+            if i not in other.variables.values():
+                return False
+        for j in other.variables.values():
+            if j not in self.variables.values():
+                return False
+        return True
+        # return set(list(self.variables.values())) == set(list(other.variables.values()))
 
 def var_from_symbol(variables: List[Variable], token: str) -> Variable:
     for var in variables:
