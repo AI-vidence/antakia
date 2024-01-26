@@ -1,7 +1,8 @@
-from antakia.utils import utils
-
 import pandas as pd
 import numpy as np
+import pytest
+
+from antakia.utils import utils
 
 
 def test_overlap_handler():
@@ -21,6 +22,19 @@ def test_in_index():
     assert not utils.in_index([0, 1, 2], df1)
 
 
+def test_rows_to_mask_1():
+    X = pd.DataFrame([[1]] * 5)
+    row_list = [2, 4]
+    res = pd.Series([False, False, True, False, True])
+    mask = utils.rows_to_mask(X, row_list)
+
+    assert (mask == res).all()
+
+    assert utils.mask_to_rows(mask) == row_list
+
+    assert utils.mask_to_index(mask) == row_list
+
+
 def test_rows_to_mask():
     df1 = pd.DataFrame([[4, 7, 10],
                         [5, 8, 11],
@@ -38,6 +52,12 @@ def test_rows_to_mask():
         pd.Series([True, True, False], [1, 2, 3]).values
     )
 
+    with pytest.raises(IndexError):
+        np.testing.assert_array_equal(
+            utils.rows_to_mask(df1, [0, 4]).values,
+            pd.Series([True, True, False], [1, 2, 3]).values
+        )
+
 
 def test_indexes_to_rows():
     df1 = pd.DataFrame([[4, 7, 10],
@@ -52,26 +72,35 @@ def test_indexes_to_rows():
 
 
 def test_mask_to_rows():
-    df1_series = pd.Series([[4, 7, 10],
-                            [5, 8, 11],
-                            [6, 9, 12]],
-                           index=[1, 2, 3])
+    mask1 = pd.Series([True, True, False],
+                      index=[1, 2, 3])
+
+    mask2 = pd.Series([False, False, False],
+                      index=[1, 2, 3])
 
     np.testing.assert_array_equal(
-        utils.mask_to_rows(df1_series),
-        [0, 1, 2]
+        utils.mask_to_rows(mask1),
+        [0, 1]
+    )
+    np.testing.assert_array_equal(
+        utils.mask_to_index(mask2),
+        []
     )
 
 
 def test_mask_to_index():
-    df1_series = pd.Series([[4, 7, 10],
-                            [5, 8, 11],
-                            [6, 9, 12]],
-                           index=[1, 2, 3])
+    mask1 = pd.Series([True, True, False],
+                      index=[1, 2, 3])
+    mask2 = pd.Series([False, False, False],
+                      index=[1, 2, 3])
 
     np.testing.assert_array_equal(
-        utils.mask_to_index(df1_series),
-        [1, 2, 3]
+        utils.mask_to_index(mask1),
+        [1, 2]
+    )
+    np.testing.assert_array_equal(
+        utils.mask_to_index(mask2),
+        []
     )
 
 
@@ -109,15 +138,3 @@ def test_compute_step():
     assert utils.compute_step(0, 50) == (0, 50, 0.5)
     assert utils.compute_step(0, 1) == (0, 1, 0.01)
     assert utils.compute_step(0, 1000) == (0, 1000, 10)
-
-
-test_overlap_handler()
-test_in_index()
-test_rows_to_mask()
-test_indexes_to_rows()
-test_mask_to_rows()
-test_mask_to_index()
-test_boolean_mask()
-# test_timeit()
-# test_debug()
-test_compute_step()

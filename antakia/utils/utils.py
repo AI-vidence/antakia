@@ -60,14 +60,14 @@ def mask_to_rows(mask: pd.Series) -> list:
 
 def mask_to_index(mask: pd.Series) -> list:
     """
-    Returns a list of the indexes of a Series
+    Returns a list of the indexes of the true values in the mask
     """
-    return mask.index.tolist()
+    return mask[mask].index.tolist()
 
 
 def boolean_mask(X: pd.DataFrame, value: bool = True):
     """
-    Generates a pandas series with boolean. The series has the length of the dataframe
+    Generates a pandas Series, making X (same index), with all values set to the value argument
     """
     return pd.Series([value] * len(X), index=X.index)
 

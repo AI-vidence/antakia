@@ -1,3 +1,6 @@
+import pandas as pd
+import pytest
+
 from antakia.utils.variable import Variable, DataVariables
 import pandas as pd
 
@@ -21,6 +24,10 @@ def test_init_variable():
     assert var.col_index == 0
     assert var.symbol == 'var2'
     assert var.type == 'int64'
+    assert not var.critical
+    assert not var.continuous
+    assert not var.lat
+    assert not var.lon
 
 
 def test_guess_variables():
@@ -69,6 +76,10 @@ def test_import_variable_df():
     dv1 = DataVariables([Variable(0, 'MedInc', 'float64')])
 
     assert Variable.import_variable_df(variables_df1) == dv1
+    with pytest.raises(KeyError):
+        Variable.import_variable_df(variables_df1.drop('symbol', axis=1).reset_index(drop=True))
+    with pytest.raises(KeyError):
+        Variable.import_variable_df(variables_df1.drop('type', axis=1))
 
 
 def test_import_variable_list():
@@ -89,10 +100,3 @@ def test_repr():
     var2 = Variable(0, 'var2', 'int', unit='seconds', descr='description', critical=True, continuous=True, lat=True,
                     lon=True)
     assert repr(var2) == "var2, col#:0, type:int, descr:description, unit:seconds, critical, is lat, is lon"
-
-
-test_init_variable()
-test_guess_variables()
-test_import_variable_df()
-test_import_variable_list()
-test_repr()

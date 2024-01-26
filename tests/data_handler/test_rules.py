@@ -181,13 +181,3 @@ def test_combine():
     assert rule4_1.combine(rule1_2) is None
     assert rule4_1.combine(rule1_3) is None
     assert rule4_1.combine(rule1_4) is None
-
-
-test_combine()
-test_type_1()
-test_type_2()
-test_type_3()
-test_type_4()
-
-r = Rule(None, 2, Variable(6,'Latitude', 'float64'), 1, 37.5, None)
-r

@@ -12,7 +12,7 @@ from antakia.utils.variable import Variable
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.rules import Rule
 from antakia.utils.utils import in_index
-from tests.utils import dr_callback, compare_indexes
+from tests.utils_fct import dr_callback, compare_indexes
 
 
 # @mock.patch('antakia.antakia.AntakIA._get_shap_values')
