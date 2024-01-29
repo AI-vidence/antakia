@@ -2,7 +2,6 @@ import pandas as pd
 import pytest
 
 from antakia.utils.variable import Variable, DataVariables
-import pandas as pd
 
 
 def test_init_variable():
@@ -95,8 +94,8 @@ def test_import_variable_list():
 
 def test_repr():
     var1 = Variable(0, 'var1', 'int')
-    assert repr(var1) == "var1, col#:0, type:int, categorical"
+    assert repr(var1) == "var1, col#:0, type:int"
 
-    var2 = Variable(0, 'var2', 'int', unit='seconds', descr='description', critical=True, continuous=True, lat=True,
+    var2 = Variable(0, 'var2', 'int', unit='seconds', descr='description', critical=True, continuous=False, lat=True,
                     lon=True)
-    assert repr(var2) == "var2, col#:0, type:int, descr:description, unit:seconds, critical, is lat, is lon"
+    assert repr(var2) == "var2, col#:0, type:int, descr:description, unit:seconds, critical, categorical, is lat, is lon"

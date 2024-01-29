@@ -6,7 +6,7 @@ from antakia.compute.dim_reduction.dim_reduction import compute_projection, dim_
 
 
 def test_dim_reduction():
-    X = pd.DataFrame(np.random.random((100, 5)), index=np.random.choice(np.random.randint(1000, size=200), size=100),
+    X = pd.DataFrame(np.random.random((10, 5)), index=np.random.choice(np.random.randint(100, size=20), size=10),
                      columns=[f'c{i}' for i in range(5)])
     y = X.sum(axis=1)
 

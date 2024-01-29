@@ -7,14 +7,17 @@ from antakia.gui.widgets import get_widget, app_widget
 
 
 class ExplanationValues:
+    """
+
+    """
     available_exp = ['Imported', 'SHAP', 'LIME']
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable, X_exp=None):
+    def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable, X_exp: pd.DataFrame = None):
         self.X = X
         self.y = y
         self.model = model
 
-        self.explanations: dict[str | ProjectedValues] = {
+        self.explanations: dict[str, ProjectedValues | None] = {
             exp: None for exp in self.available_exp
         }
 
@@ -42,6 +45,9 @@ class ExplanationValues:
 
     @property
     def current_pv(self) -> ProjectedValues:
+        """
+        Returns the
+        """
         return self.explanations[self.current_exp]
 
     @property
@@ -68,7 +74,7 @@ class ExplanationValues:
        """
         return get_widget(app_widget, "12")
 
-    def compute_explanation(self, explanation_method, progress_bar):
+    def compute_explanation(self, explanation_method: int, progress_bar: callable):
         self.current_exp = self.available_exp[explanation_method]
         X_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
         self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y)
@@ -99,6 +105,10 @@ class ExplanationValues:
         self.compute_explanation(desired_explain_method, self.update_progress_linear)
 
     def disable_selection(self, is_disabled: bool):
+        """
+
+        """
+
         self.get_compute_menu().disabled = is_disabled
         self.get_explanation_select().disabled = is_disabled
 

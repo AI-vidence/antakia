@@ -33,7 +33,7 @@ class Variable:
             unit: str = None,
             descr: str = None,
             critical: bool = False,
-            continuous: bool = False,
+            continuous: bool = True,
             lat: bool = False,
             lon: bool = False,
             **kwargs  # to ignore unknown args in building object

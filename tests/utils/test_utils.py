@@ -122,17 +122,6 @@ def test_boolean_mask():
     )
 
 
-def test_timeit():
-    pass
-    # def fonction(a, b):
-    #     return a ** b
-    # print(utils.timeit(fonction(3, 4)))
-
-
-def test_debug():
-    pass
-
-
 def test_compute_step():
     assert utils.compute_step(0, 100) == (0, 100, 1.0)
     assert utils.compute_step(0, 50) == (0, 50, 0.5)
