@@ -82,7 +82,7 @@ class ModelRegion(Region):
             dict_form['Sub-model'] = self.interpretable_models.selected_model_str()
         return dict_form
 
-    def select_model(self, model_name):
+    def select_model(self, model_name: str):
         self.interpretable_models.select_model(model_name)
 
     def train_subtitution_models(self):

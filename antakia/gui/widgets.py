@@ -159,9 +159,11 @@ items = dummy_regions_df.to_dict('records')
 class SubModelTable(v.VuetifyTemplate):
     headers = traitlets.List([]).tag(sync=True, allow_null=True)
     items = traitlets.List([]).tag(sync=True, allow_null=True)
+    selected = traitlets.List([]).tag(sync=True, allow_null=True)
     template = traitlets.Unicode('''
         <template>
             <v-data-table
+                v-model="selected"
                 :headers="headers"
                 :items="items"
                 item-key="Sub-model"

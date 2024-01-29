@@ -419,8 +419,8 @@ class HighDimExplorer:
         Returns the current projection method
         """
         if self.get_projection_select().v_model == '!!disabled!!':
-            self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(config.DEFAULT_PROJECTION)
-            return config.DEFAULT_PROJECTION
+            self.get_projection_select().v_model = DimReducMethod.default_projection_as_str()
+            return DimReducMethod.default_projection_as_int()
         return DimReducMethod.dimreduc_method_as_int(
             self.get_projection_select().v_model
         )

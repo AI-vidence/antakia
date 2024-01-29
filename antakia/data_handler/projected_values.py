@@ -10,7 +10,7 @@ class ProjectedValues:
         self.y = y
         self._projected_values = {}
         self._kwargs = {}
-        self.current_proj = (config.DEFAULT_PROJECTION, config.DEFAULT_DIMENSION)
+        self.current_proj = (DimReducMethod.default_projection_as_int(), config.DEFAULT_DIMENSION)
 
     def set_parameters(self, projection_method, dimension, kwargs):
         assert projection_method in DimReducMethod.dimreduc_methods_as_list()

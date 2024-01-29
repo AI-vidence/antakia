@@ -6,18 +6,20 @@ from antakia.utils.utils import colors
 class ColorTable(v.VuetifyTemplate):
     headers = traitlets.List([]).tag(sync=True, allow_null=True)
     items = traitlets.List([]).tag(sync=True, allow_null=True)
+    selected = traitlets.List([]).tag(sync=True, allow_null=True)
     colors = traitlets.List(colors).tag(sync=True)
     template = traitlets.Unicode('''
         <template>
             <v-data-table
+                v-model="selected"
                 :headers="headers"
                 :items="items"
                 item-key="Region"
                 show-select
-                single-select
                 :hide-default-footer="false"
                 @item-selected="tableselect"
             >
+            <template #header.data-table-select></template>
             <template v-slot:item.Region="{ item }">
               <v-chip :color="item.color" >
                 {{ item.Region }}

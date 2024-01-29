@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.base import TransformerMixin
 
+from antakia import config
 from antakia.utils.long_task import LongTask
 
 
@@ -18,7 +19,7 @@ class DimReducMethod(LongTask):
     """
 
     # Class attributes methods
-    dim_reduc_methods = ['PCA', 'TSNE', 'UMAP', 'PaCMAP']
+    dim_reduc_methods = ['PCA', 'UMAP', 'PaCMAP']
     dimreduc_method = -1
 
     allowed_kwargs = []
@@ -146,3 +147,11 @@ class DimReducMethod(LongTask):
         from sklearn.feature_selection import mutual_info_regression
         mi = mutual_info_regression(X, y)
         return (X - X.mean()) / std * mi
+
+    @classmethod
+    def default_projection_as_int(cls) -> int:
+        return DimReducMethod.dimreduc_method_as_int(config.DEFAULT_PROJECTION)
+
+    @classmethod
+    def default_projection_as_str(cls) -> str:
+        return config.DEFAULT_PROJECTION

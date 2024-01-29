@@ -42,7 +42,7 @@ class TSNEDimReduc(DimReducMethod):
     """
     T-SNE computation class.
     """
-    dimreduc_method = DimReducMethod.dimreduc_method_as_int('TSNE')
+    dimreduc_method = -1# DimReducMethod.dimreduc_method_as_int('TSNE')
 
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         super().__init__(
