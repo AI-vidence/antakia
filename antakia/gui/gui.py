@@ -373,7 +373,7 @@ class GUI:
         # We wire the click event on 'Tab 2'
         get_widget(app_widget, "41").on_event("click", self.select_tab_front(2))
 
-        get_widget(app_widget, "4400100").set_callback(self.region_selected)
+        get_widget(app_widget, "440010").set_callback(self.region_selected)
 
         # We wire events on the 'substitute' button:
         get_widget(app_widget, "4401000").on_event("click", self.substitute_clicked)
@@ -583,9 +583,7 @@ class GUI:
         temp_items = self.region_set.to_dict()
 
         # We populate the ColorTable :
-        get_widget(app_widget, "4400100").items = temp_items
-        # We populate the regions DataTable :
-        get_widget(app_widget, "4400110").items = temp_items
+        get_widget(app_widget, "440010").items = temp_items
 
         region_stats = self.region_set.stats()
         str_stats = [
