@@ -6,7 +6,7 @@ import pandas as pd
 import ipyvuetify as v
 from plotly.graph_objects import FigureWidget, Histogram
 
-from antakia.data_handler.rules import Rule
+from antakia.data_handler.rules import Rule, RuleSet
 from antakia.gui.widgets import change_widget, get_widget, app_widget
 
 from copy import copy
@@ -32,16 +32,18 @@ class RuleWidget:
 
     def __init__(self, rule: Rule, X: pd.DataFrame, y, values_space: bool, init_rules_mask: pd.Series,
                  rule_updated: callable):
-        self.rule = rule
-        self.X = X
-        self.values_space = values_space
-        self.rule_updated = rule_updated
-        self.display_sliders = self.values_space
+        self.rule: Rule = rule
+        self.X: pd.DataFrame = X
+        self.X_col = X.loc[:, rule.variable.symbol]
+        self.values_space: bool = values_space
+        self.rule_updated: callable = rule_updated
+        self.display_sliders: bool = self.values_space
         self.root_widget = None
+        self.init_mask = init_rules_mask
+        self.rule_mask = init_rules_mask
+        self.build_widget()
 
-        self.build_widget(init_rules_mask)
-
-    def build_widget(self, init_rules_mask):
+    def build_widget(self):
         # root_widget is an ExpansionPanel
         self.root_widget: v.ExpansionPanel = v.ExpansionPanel(
             children=[
@@ -80,9 +82,9 @@ class RuleWidget:
             change_widget(self.root_widget, "101", None)
 
         # Now we build the figure with 3 histograms :
-        self._draw_histograms(init_rules_mask)
+        self._draw_histograms()
 
-    def _draw_histograms(self, init_rules_mask: pd.Series):
+    def _draw_histograms(self):
         base_args = {
             'bingroup': 1,
             'nbinsx': 50,
@@ -91,14 +93,14 @@ class RuleWidget:
         self.figure = FigureWidget(
             data=[
                 Histogram(
-                    x=self.X[self.rule.variable.symbol],
+                    x=self.X_col,
                     marker_color="grey",
                     **base_args
                 )
             ]
         )
         # 2) X[var] with only INITIAL SKR rule 'matching indexes'
-        X_skr = self.X.loc[init_rules_mask, self.rule.variable.symbol]
+        X_skr = self.X_col[self.init_mask]
         self.figure.add_trace(
             Histogram(
                 x=X_skr,
@@ -108,10 +110,12 @@ class RuleWidget:
             )
         )
         # 3) X[var] with only CURRENT rule 'matching indexes'
+        X_selected = self.X_col[self.rule_mask]
         self.figure.add_trace(
             Histogram(
-                x=X_skr,
+                x=X_selected,
                 marker_color="blue",
+                opacity=0.6,
                 **base_args
             )
         )
@@ -205,14 +209,14 @@ class RuleWidget:
         self.rule = new_rule
         self.rule_updated(new_rule)
 
-    def update(self, new_rules_mask: pd.Series, previous_rule: Rule = None):
+    def update(self, new_rules_mask: pd.Series, rule: Rule = None):
         """ 
         Called by the RulesWidget. Each RuleWidget must now use these indexes
         Also used to restore previous rule
         """
 
-        if previous_rule is not None:
-            self.rule = previous_rule
+        if rule is not None:
+            self.rule = rule
 
         # We update the selects
         if self.display_sliders:
@@ -220,7 +224,8 @@ class RuleWidget:
 
         # We update the third histogram only
         with self.figure.batch_update():
-            self.figure.data[2].x = self.X.loc[new_rules_mask, self.rule.variable.symbol]
+            self.rule_mask = new_rules_mask
+            self.figure.data[2].x = self.X_col[new_rules_mask]
 
 
 class RulesWidget:
@@ -255,7 +260,7 @@ class RulesWidget:
         self.X = X
         self.y = y
         self.variables: DataVariables = variables
-        self.rules_mask = None
+        self.init_rules_mask = None
         self.is_value_space = values_space
         self.new_rules_defined = new_rules_defined
 
@@ -301,51 +306,48 @@ class RulesWidget:
         # We set an empty ExpansionPanels :
         change_widget(self.root_widget, "1", v.ExpansionPanels())
 
-    def init_rules(self, rules_list: list, score_dict: dict, rules_mask: pd.Series):
+    def init_rules(self, rules_list: RuleSet, score_dict: dict, rules_mask: pd.Series):
         """
         Called to set rules or clear them. To update, use update_rule
         """
-        assert self.X is not None
-        self.rules_mask = rules_mask
-
-        self.is_disabled = False
+        self.reset_widget()
+        self.init_rules_mask = rules_mask
+        if len(rules_list) == 0:
+            self.show_msg("No rules found", "red--text")
+            return
+        self.enable()
         # We populate the db and ask to erase past rules
-        self._put_in_db(rules_list, score_dict, True)
-        # We set our card info
-        self.refresh_widget()
+        self._put_in_db(rules_list, score_dict)
 
         # We create the RuleWidgets
-        current_rules_mask = Rule.rules_to_mask(self.current_rules_list, self.X)
-        self._create_rule_widgets(current_rules_mask)
+        init_mask = rules_list.get_matching_mask(self.X)
+        self._create_rule_widgets(init_mask)
+        # We set our card info
+        self.refresh_widget()
 
     def reset_widget(self):
         self.disable()
         self.rules_db = []
         self.rule_widget_list = []
-        self.rules_mask = None
+        self.init_rules_mask = None
         self.refresh_widget()
 
     def update_rule(self, new_rule: Rule):
         """
         Called by a RuleWidget when a slider has been modified
         """
-
         # We update the rule in the db
-        new_rules_list = copy(self.current_rules_list)
-        for i in range(len(new_rules_list)):
-            if new_rules_list[i].variable.symbol == new_rule.variable.symbol:
-                new_rules_list[i] = new_rule
-                break
+        new_rules_list = self.current_rules_list.copy()
+        new_rules_list.set(new_rule)
 
-        # The list of our 'rules model' 'predicted positives'
-        new_rules_mask = Rule.rules_to_mask(new_rules_list, self.X)
+        new_rules_mask = new_rules_list.get_matching_mask(self.X)
         self.update_from_mask(new_rules_mask, new_rules_list)
 
-    def update_from_mask(self, new_rules_mask, new_rules_list):
+    def update_from_mask(self, new_rules_mask: pd.Series, new_rules_list: RuleSet):
 
         try:
-            precision = (new_rules_mask & self.rules_mask).sum() / new_rules_mask.sum()
-            recall = (new_rules_mask & self.rules_mask).sum() / self.rules_mask.sum()
+            precision = (new_rules_mask & self.init_rules_mask).sum() / new_rules_mask.sum()
+            recall = (new_rules_mask & self.init_rules_mask).sum() / self.init_rules_mask.sum()
             f1 = 2 * (precision * recall) / (precision + recall)
             target_avg = self.y[new_rules_mask].mean()
         except ZeroDivisionError:
@@ -375,13 +377,11 @@ class RulesWidget:
             self.rules_db.pop(-1)
 
         # We compute again the rules mask
-        rules_mask = Rule.rules_to_mask(self.current_rules_list, self.X)
+        rules_mask = self.current_rules_list.get_matching_mask(self.X)
 
         def find_rule(rule_widget: RuleWidget) -> Rule:
             var = rule_widget.rule.variable
-            for rule in self.current_rules_list:
-                if rule.variable.symbol == var.symbol:
-                    return rule
+            return self.current_rules_list.find_rule(var)
 
         # We update each of our RuleWidgets
         for rw in self.rule_widget_list:
@@ -393,10 +393,8 @@ class RulesWidget:
         if self.new_rules_defined is not None:
             self.new_rules_defined(self, rules_mask)
 
-    def _put_in_db(self, rules_list: list, score_dict: dict, erase_past: bool = False):
-        if erase_past:
-            self.rules_db = []
-        self.rules_db.append([rules_list, score_dict])
+    def _put_in_db(self, rules_list: RuleSet, score_dict: dict):
+        self.rules_db.append((rules_list, score_dict))
 
     def _dump_db(self) -> str:
         txt = ""
@@ -409,13 +407,13 @@ class RulesWidget:
             txt += f"\n   scores = {scores_dict}\n"
         return txt
 
-    def _create_rule_widgets(self, init_rules_mask: pd.Series):
+    def _create_rule_widgets(self, init_mask: pd.Series):
         """
         Called by self.init_rules
         Creates RuleWidgest, one per rule
         If init_rules_mask is None, we clear all our RuleWidgets
         """
-        if init_rules_mask is None:
+        if init_mask is None:
             return
 
         # We set new RuleWidget list and put it in our ExpansionPanels children
@@ -423,8 +421,9 @@ class RulesWidget:
             self.rule_widget_list = []
         else:
             self.rule_widget_list = [
-                RuleWidget(rule, self.X, self.y, self.is_value_space, init_rules_mask, self.update_rule)
-                for rule in self.current_rules_list]
+                RuleWidget(rule, self.X, self.y, self.is_value_space, init_mask, self.update_rule)
+                for rule in self.current_rules_list.rules
+            ]
             get_widget(self.root_widget, "1").children = [rule_widget.root_widget for rule_widget in
                                                           self.rule_widget_list]
 
@@ -453,7 +452,7 @@ class RulesWidget:
                 show_select=False,
                 headers=[{"text": column, "sortable": False, "value": column} for column in
                          ['Variable', 'Unit', 'Desc', 'Critical', 'Rule']],
-                items=Rule.rules_to_dict_list(self.current_rules_list),
+                items=self.current_rules_list.to_dict(),
                 hide_default_footer=True,
                 disable_sort=True,
             )
@@ -484,7 +483,7 @@ class RulesWidget:
             rules_txt = "N/A"
             css = "ml-7 grey--text"
         else:
-            rules_txt = Rule.multi_rules_to_string(self.current_rules_list)
+            rules_txt = repr(self.current_rules_list)
             css = "ml-7 blue--text"
 
         change_widget(self.root_widget, "02", v.Html(class_=css, tag="li", children=[rules_txt]))
@@ -494,9 +493,9 @@ class RulesWidget:
         change_widget(self.root_widget, "02", v.Html(class_=css, tag="li", children=[msg]))
 
     @property
-    def current_rules_list(self):
+    def current_rules_list(self) -> RuleSet:
         if len(self.rules_db) == 0:
-            return []
+            return RuleSet()
         else:
             return self.rules_db[-1][0]
 
@@ -508,5 +507,5 @@ class RulesWidget:
             return self.rules_db[-1][1]
 
     @property
-    def rules_num(self):
+    def rules_num(self) -> int:
         return len(self.rules_db)

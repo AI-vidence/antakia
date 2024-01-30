@@ -13,7 +13,7 @@ from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.skope_rule.skope_rule import skope_rules
 import antakia.config as config
-from antakia.data_handler.rules import Rule
+from antakia.data_handler.rules import Rule, RuleSet
 
 from antakia.gui.widgets import get_widget, change_widget, splash_widget, app_widget
 from antakia.gui.highdimexplorer import HighDimExplorer
@@ -67,12 +67,16 @@ class GUI:
             y: pd.Series,
             model,
             variables: DataVariables,
+            X_test: pd.DataFrame,
+            y_test: pd.Series,
             X_exp: pd.DataFrame | None = None,
             score: callable | str = "mse",
     ):
         self.tab = 1
         self.X = X
+        self.X_test = X_test
         self.y = y
+        self.y_test = y_test
         self._y_pred = None
         self.model = model
         self.variables: DataVariables = variables
@@ -117,7 +121,7 @@ class GUI:
 
         # init tabs
         self.region_num_for_validated_rules = None  # tab 1 : number of the region created when validating rules
-        self.region_set = ModelRegionSet(self.X, self.y, self.model, self.score)
+        self.region_set = ModelRegionSet(self.X, self.y, self.X_test, self.y_test, self.model, self.score)
         self.substitute_region = None
         self.substitution_model_training = False  # tab 3 : training flag
 
@@ -313,9 +317,9 @@ class GUI:
 
         # sync selection between rules_widgets
         if rules_widget == self.vs_rules_wgt:
-            self.es_rules_wgt.update_from_mask(df_mask, [])
+            self.es_rules_wgt.update_from_mask(df_mask, RuleSet())
         else:
-            self.vs_rules_wgt.update_from_mask(df_mask, [])
+            self.vs_rules_wgt.update_from_mask(df_mask, RuleSet())
 
         # We disable the 'undo' button if RsW has less than 2 rules
         get_widget(app_widget, "4302").disabled = rules_widget.rules_num <= 1
@@ -528,20 +532,10 @@ class GUI:
     def compute_skr_display(self, hde, rules_widget):
         skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, hde.current_X, self.variables)
         skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-        if len(skr_rules_list) > 0:  # SKR rules found
-            # UI rules :
-            # We enable the 'validate rule' button
-            if self.vs_hde == hde:
-                get_widget(app_widget, "43030").disabled = False
-            # We enable RulesWidet and init it wit the rules
-            rules_widget.enable()
-            rules_widget.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
-        else:
-            # No skr found
-            rules_widget.show_msg("No rules found", "red--text")
-            if self.vs_hde == hde:
-                # we disable validation if no rules are found in value space
-                get_widget(app_widget, "43030").disabled = True
+        rules_widget.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
+        if self.vs_hde == hde:
+            # We enable the 'validate rule' button only if rules exists
+            get_widget(app_widget, "43030").disabled = (len(skr_rules_list) == 0)
 
     def undo_rules(self, *args):
         if self.tab != 1:
@@ -819,7 +813,7 @@ class GUI:
                 vHtml.class_ = "ml-2 black--text"
                 vHtml.tag = "h3"
                 vHtml.children = [
-                    f"{Rule.multi_rules_to_string(region.rules) if region.rules is not None else 'auto-cluster'}, "
+                    f"{region.name}, "
                     f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"
                 ]
 
@@ -868,6 +862,7 @@ class GUI:
         region = self.region_set.get(self.selected_regions[0]['Region'])
         region.select_model(self.selected_sub_model[0]['Sub-model'])
         region.validate()
-
+        # empty selected region
+        self.selected_regions = []
         # Show tab 2
         self.select_tab(2)

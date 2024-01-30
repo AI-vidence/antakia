@@ -439,7 +439,7 @@ class HighDimExplorer:
         # KNN extrapolation
         return guessed_selection.astype(bool)
 
-    def _selection_event(self, trace, points, selector, *args):
+    def _selection_event(self, trace, points, *args):
         self.first_selection |= self._current_selection.all()
         self._current_selection &= self.selection_to_mask(points.point_inds)
         if self._current_selection.any():
