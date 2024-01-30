@@ -1,4 +1,3 @@
-
 from antakia import config
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.compute.dim_reduction.dim_reduction import compute_projection, dim_reduc_factory
@@ -12,7 +11,7 @@ class ProjectedValues:
         self._kwargs = {}
         self.current_proj = (config.DEFAULT_PROJECTION, config.DEFAULT_DIMENSION)
 
-    def set_parameters(self, projection_method, dimension, kwargs):
+    def set_parameters(self, projection_method: int, dimension: int, kwargs):
         assert projection_method in DimReducMethod.dimreduc_methods_as_list()
         assert dimension in [2, 3]
 
@@ -39,16 +38,23 @@ class ProjectedValues:
             'previous': current.copy()
         }
 
-    def get_projection(self, projection_method, dimension, progress_callback=None):
+    def get_projection(self, projection_method: int, dimension: int, progress_callback: callable = None):
+        """
+        Returns the projection for the method and dimension given in the arguments.
+        If it wasn't already computed, it's computed first.
+        """
         if not self.is_present(projection_method, dimension):
             self.compute(projection_method, dimension, progress_callback)
         self.current_proj = (projection_method, dimension)
         return self._projected_values[(projection_method, dimension)]
 
-    def is_present(self, projection_method, dimension):
+    def is_present(self, projection_method: int, dimension: int) -> bool:
+        """
+        Checks if a projection was already computed.
+        """
         return self._projected_values.get((projection_method, dimension)) is not None
 
-    def compute(self, projection_method, dimension, progress_callback):
+    def compute(self, projection_method: int, dimension: int, progress_callback: callable):
         projected_values = compute_projection(
             self.X,
             self.y,

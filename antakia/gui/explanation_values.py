@@ -46,7 +46,7 @@ class ExplanationValues:
     @property
     def current_pv(self) -> ProjectedValues:
         """
-        Returns the
+        Returns the ProjectedValue
         """
         return self.explanations[self.current_exp]
 
@@ -112,7 +112,7 @@ class ExplanationValues:
         self.get_compute_menu().disabled = is_disabled
         self.get_explanation_select().disabled = is_disabled
 
-    def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float):
+    def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float = None):
         """
         Called by the computation process (SHAP or LUME) to udpate the progress linear
         """

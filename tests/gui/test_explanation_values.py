@@ -1,19 +1,12 @@
-import pandas as pd
-import numpy as np
-import os
 import mock
 
 from antakia.gui.explanation_values import ExplanationValues
-from antakia.data_handler.projected_values import ProjectedValues
-from antakia.compute.explanation.explanations import compute_explanations, ExplanationMethod
-from antakia.utils.utils import debug
-from tests.utils_fct import generate_ExplanationValues
+from antakia.gui.widgets import get_widget, app_widget
+from tests.utils_fct import generate_ExplanationValues, EMPTYExplanation
 
 
 def test_init():
     X_df, Y_ser, function, exp = generate_ExplanationValues('DT', 'SHAP')
-
-    exp = ExplanationValues(X_df, Y_ser, 'DT', function)
 
     assert exp.X.equals(X_df)
     assert exp.y.equals(Y_ser)
@@ -31,19 +24,24 @@ def test_init():
 
 @mock.patch('antakia.gui.explanation_values.compute_explanations')
 def test_initialize(cpt_exp):
-    X_df, Y_ser, function, exp = generate_ExplanationValues('DT')
-    cpt_exp.return_value = X_df
-
-    exp.initialize(lambda x: x + 1)
+    X_df, Y_ser, X_exp, exp_val = generate_ExplanationValues('DT')
+    function = lambda *args: None
+    exp_val.initialize(function)
+    # cpt_exp.return_value = X_df
+    a = exp_val.on_change_callback
+    a1 = function
+    # tester que compute_explanation est bien appelé
+    # assert exp_val.current_exp == exp_val.available_exp[0]
+    # tester avec SHAP en current exp
+    # assert exp_val.get_explanation_select().v_model == exp_val.current_exp
+    z = 1
 
     # assert exp.get_explanation_select().v_model ==
 
 
 def test_current_pv():
-    X_df, Y_ser, function, exp = generate_ExplanationValues('DT', 'SHAP')
-    print(exp.explanations)
-    print(exp.current_exp)
-    print(type(exp.current_pv))
+    X_df, Y_ser, function, exp = generate_ExplanationValues('DT')
+    assert exp.current_pv == exp.explanations[exp.current_exp]
 
 
 def test_has_user_exp():
@@ -54,12 +52,13 @@ def test_has_user_exp():
     assert not exp.has_user_exp
 
 
-def test_update_explanation_select():
-    pass
-
-
-def test_get_compute_menu():
-    pass
+@mock.patch('antakia.gui.explanation_values.compute_explanations')
+def test_update_explanation_select(cpt_exp):
+    X_df, Y_ser, function, exp = generate_ExplanationValues('DT', 1)
+    cpt_exp.return_value = X_df
+    assert exp.get_explanation_select().items == [{"text": 'Imported', 'disabled': False},
+                                                  {"text": 'SHAP', 'disabled': True},
+                                                  {"text": 'LIME', 'disabled': True}]
 
 
 @mock.patch('antakia.gui.explanation_values.compute_explanations')
@@ -73,17 +72,29 @@ def test_compute_explanation(cpt_exp):
     assert exp.explanations['LIME'] is None
 
     exp.compute_explanation(1, None)
-    # print(exp.current_exp)
-    # X_exp =
-    # assert exp.explanation[exp.current_exp] == ProjectedValues(X_exp,exp.y)
+    assert exp.get_explanation_select().items == [{"text": 'Imported', 'disabled': False},
+                                                  {"text": 'SHAP', 'disabled': False},
+                                                  {"text": 'LIME', 'disabled': True}]
+
+    # assert que update_compute_menu est bien fait
 
 
 def test_update_compute_menu():
-    pass
+    X_df, Y_ser, function, exp = generate_ExplanationValues('DT', 'SHAP')
+    exp.update_compute_menu()
+    assert get_widget(app_widget, '130000').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget, '13000203').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget, '130001').disabled == (exp.explanations[exp.available_exp[2]] is not None)
+    assert get_widget(app_widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
 
 
 def test_compute_btn_clicked():
-    pass
+    X, y, X_exp, exp_val = generate_ExplanationValues()
+    # exp_val.compute_btn_clicked(get_widget(app_widget, "130000"), None, None)
+    # exp_val.compute_btn_clicked(None, None, None)
+    # assert get_widget(app_widget, "13000203").disabled
+    a = 1
+    # assert exp_val.current_exp == 1
 
 
 def test_disable_selection():
@@ -97,54 +108,43 @@ def test_disable_selection():
 
 
 def test_update_progress_linear():
-    pass
+    b = get_widget(app_widget, "13000201")
+    X, y, X_exp, exp_val = generate_ExplanationValues()
+    exp_meth_shap = EMPTYExplanation(X, y, X_exp, exp_val)
+    exp_meth_lime = EMPTYExplanation(X, y, X_exp, exp_val)
+    exp_meth_lime.explanation_method = 2
 
+    # Test SHAP incomplet
+    exp_val.update_progress_linear(exp_meth_shap, 2)
+    assert get_widget(app_widget, "13000201").indeterminate
+    assert get_widget(app_widget, "13000201").v_model == 2
 
-def test_get_explanation_select():
-    X_df = pd.DataFrame([[4, 7, 10],
-                         [5, 8, 11],
-                         [6, 9, 12]],
-                        index=[1, 2, 3],
-                        columns=['a', 'b', 'c'])
-    Y_ser = pd.Series([1, 2, 3])
+    # test LIME incomplet
+    exp_val.update_progress_linear(exp_meth_lime, 2)
+    assert get_widget(app_widget, "13000301").v_model == 2
 
-    def function():
-        pass
+    # Test SHAP complet
+    exp_val.update_progress_linear(exp_meth_shap, 100)
+    assert not get_widget(app_widget, "13000201").indeterminate
+    assert get_widget(app_widget, "130000").disabled
 
-    exp = ExplanationValues(X_df, Y_ser, 'DT', function)
-    print(exp.get_explanation_select())
-    print(type(exp.get_explanation_select()))
-    # assert exp.get_explanation_select()
+    # test LIME complet
+
+    exp_val.update_progress_linear(exp_meth_lime, 100)
+    assert get_widget(app_widget, "13000301").v_model == 100
+    assert get_widget(app_widget, "130001").disabled
 
 
 def test_explanation_select_changed():
     data = 'data'
-    X_df = pd.DataFrame([[4, 7, 10],
-                         [5, 8, 11],
-                         [6, 9, 12]],
-                        index=[1, 2, 3],
-                        columns=['a', 'b', 'c'])
-    Y_ser = pd.Series([1, 2, 3])
+    X, y, X_exp, exp_val = generate_ExplanationValues()
+    exp_val.explanation_select_changed(None, None, data)
+    assert exp_val.current_exp == data
+    exp_val.explanation_select_changed(None, None, None)
+    assert exp_val.current_exp == None
+    # tester l'appel de on_change_callback
 
-    def function(*args, **kwargs):
-        pass
-
-    exp = ExplanationValues(X_df, Y_ser, 'DT', function)
-
-    exp.explanation_select_changed(None, None, data)
-    assert exp.current_exp == data
-    exp.explanation_select_changed(None, None, None)
-    assert exp.current_exp == None
-
-# test_init()  # OK
+# test_init()  # OK sauf click bouton
 # test_initialize()  # not ok
-# test_current_pv()  # commencé not OK
-# test_has_user_exp()  # OK
-# test_update_explanation_select()  # not ok à faire ou pas ?
-# test_get_compute_menu()  # not OK
-# test_get_explanation_select()  # celle du widget revenir plus tard
-# test_compute_explanation()  # not ok
-# test_update_progress_linear()  # not ok
+
 # test_compute_btn_clicked()  # not ok
-# test_disable_selection()  # ok
-# test_explanation_select_changed()  # ok
