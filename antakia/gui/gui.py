@@ -149,7 +149,7 @@ class GUI:
         # We trigger VS proj computation :
         get_widget(
             splash_widget, "220"
-        ).v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_PROJECTION)} on {self.X.shape} x 4"
+        ).v_model = f"{DimReducMethod.dimreduc_method_as_str(config.DEFAULT_PROJECTION)} on {self.X.shape} x 2"
         self.vs_hde.initialize(progress_callback=self.update_splash_screen)
         # self.vs_hde.compute_projs(False, self.update_splash_screen)
 
