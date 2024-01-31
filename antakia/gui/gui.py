@@ -2,7 +2,8 @@ from __future__ import annotations
 import pandas as pd
 
 import ipyvuetify as v
-from IPython.display import display
+import IPython.display
+import ipywidgets as widgets
 
 from antakia.data_handler.projected_values import ProjectedValues
 from antakia.data_handler.region import ModelRegionSet, ModelRegion
@@ -126,6 +127,11 @@ class GUI:
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget, "4320").disabled = True
 
+        # We add both widgets to the current notebook cell and hide them
+        IPython.display.display(splash_widget, app_widget)
+        splash_widget.hide()
+        app_widget.hide()
+
     @property
     def y_pred(self):
         if self._y_pred is None:
@@ -138,7 +144,7 @@ class GUI:
         get_widget(splash_widget, "110").v_model = 0
         get_widget(splash_widget, "210").color = "light blue"
         get_widget(splash_widget, "210").v_model = 0
-        display(splash_widget)
+        splash_widget.show()
 
         # We trigger VS proj computation :
         get_widget(
@@ -161,9 +167,7 @@ class GUI:
 
         self.selection_changed(None, boolean_mask(self.X, True))
 
-        splash_widget.close()
-
-        self.show_app()
+        self.setup_app()
 
     def update_splash_screen(self, caller: LongTask, progress: int, duration: float):
         """
@@ -184,11 +188,19 @@ class GUI:
 
         if isinstance(caller, ExplanationMethod):
             progress_linear.v_model = round(progress / number)
+            logger.debug(f"explain progress : {progress_linear.v_model} %")
         else:
             progress_linear.v_model += round(progress / number)
+            logger.debug(f"proj progress : {progress_linear.v_model} %")
 
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
+
+        # We check if we're finished
+        if get_widget(splash_widget, "110").v_model == 100 and get_widget(splash_widget, "210").v_model == 100:
+            # We hide the splash screen and show the app :
+            splash_widget.hide()
+            app_widget.show()
 
     def explanation_changed_callback(self, progress_callback=None):
         self.es_hde.update_pv(self.exp_values.current_pv, progress_callback)
@@ -306,7 +318,10 @@ class GUI:
         # We disable the 'validate rules' button if RsW has less than 1 rule
         get_widget(app_widget, "43030").disabled = rules_widget.rules_num <= 0
 
-    def show_app(self):
+    def setup_app(self):
+        """
+        Inits and wires the app_widget, and implements UI logic
+        """
         # =================== AppBar ===================
 
         # ------------------Figure size -----------------
@@ -437,7 +452,6 @@ class GUI:
         self.update_substitution_table(None)
 
         self.select_tab(1)
-        display(app_widget)
 
     def switch_dimension(self, widget, event, data):
         """

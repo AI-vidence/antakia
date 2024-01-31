@@ -16,7 +16,7 @@ from antakia.gui.gui import GUI
 
 class AntakIA():
     """
-    AntakIA class.
+    AntakIA class. 
 
     Antakia instances provide data and methods to explain a ML model.
 
