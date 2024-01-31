@@ -140,11 +140,13 @@ class GUI:
 
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
+
+        splash_widget.show()
+
         get_widget(splash_widget, "110").color = "light blue"
         get_widget(splash_widget, "110").v_model = 0
         get_widget(splash_widget, "210").color = "light blue"
         get_widget(splash_widget, "210").v_model = 0
-        splash_widget.show()
 
         # We trigger VS proj computation :
         get_widget(
@@ -167,7 +169,13 @@ class GUI:
 
         self.selection_changed(None, boolean_mask(self.X, True))
 
-        self.setup_app()
+        #TODO: call GUI.init_app from within GUI.__init__ ?
+        # We init the app(init, config, UI logic)
+        self.init_app()
+
+        #TODO : this should called in GUI.update_splash_screen
+        splash_widget.hide() 
+        app_widget.show()
 
     def update_splash_screen(self, caller: LongTask, progress: int, duration: float):
         """
@@ -188,19 +196,15 @@ class GUI:
 
         if isinstance(caller, ExplanationMethod):
             progress_linear.v_model = round(progress / number)
-            logger.debug(f"explain progress : {progress_linear.v_model} %")
         else:
             progress_linear.v_model += round(progress / number)
-            logger.debug(f"proj progress : {progress_linear.v_model} %")
 
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
+            #TODO : this should called here, not in GUI.show_splash_screen
+            # splash_widget.hide() 
+            # app_widget.show()
 
-        # We check if we're finished
-        if get_widget(splash_widget, "110").v_model == 100 and get_widget(splash_widget, "210").v_model == 100:
-            # We hide the splash screen and show the app :
-            splash_widget.hide()
-            app_widget.show()
 
     def explanation_changed_callback(self, progress_callback=None):
         self.es_hde.update_pv(self.exp_values.current_pv, progress_callback)
@@ -318,7 +322,7 @@ class GUI:
         # We disable the 'validate rules' button if RsW has less than 1 rule
         get_widget(app_widget, "43030").disabled = rules_widget.rules_num <= 0
 
-    def setup_app(self):
+    def init_app(self):
         """
         Inits and wires the app_widget, and implements UI logic
         """

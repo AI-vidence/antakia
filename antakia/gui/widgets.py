@@ -193,7 +193,7 @@ class SubModelTable(v.VuetifyTemplate):
 # ------------------- Splash screen mega widget --------------------------------
 
 splash_widget = v.Layout(
-    class_="d-flex flex-column align-center justify-center",
+    class_="flex-column align-center justify-center",
     children=[
         widgets.Image(  # 0
             value=widgets.Image._load_file_value(
