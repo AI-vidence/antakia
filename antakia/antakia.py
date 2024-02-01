@@ -21,17 +21,14 @@ class AntakIA:
 
     Instance attributes
     -------------------
-    X_list : a list of one or more pd.DataFrame 
-    X_method_list : a list starting with ExplanationMethod.NONE, followed by one or more ExplanationMethod
-    y : a pd.Series
-    Y_pred : a pd.Series
-    variables : a list of Variables, describing X_list[0]
+    X : pd.DataFrame the training dataset
+    y : pd.Series the target value
     model : Model
         the model to explain
-
-    regions : List of Selection objects
-
-
+    variables : a list of Variables, describing X_list[0]
+    X_test : pd.DataFrame the test dataset
+    y_test : pd.Series the test target value
+    score : reference scoring function
     """
 
     def __init__(
@@ -49,7 +46,14 @@ class AntakIA:
         AntakiIA constructor.
 
         Parameters:
-        X : a pd.DataFrame
+            X : pd.DataFrame the training dataset
+            y : pd.Series the target value
+            model : Model
+                the model to explain
+            variables : a list of Variables, describing X_list[0]
+            X_test : pd.DataFrame the test dataset
+            y_test : pd.Series the test target value
+            score : reference scoring function
         """
 
         load_dotenv()
@@ -86,7 +90,6 @@ class AntakIA:
         else:
             self.variables = Variable.guess_variables(X)
 
-        self.regions = []
         self.gui = GUI(
             self.X,
             self.y,
