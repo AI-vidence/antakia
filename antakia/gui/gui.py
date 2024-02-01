@@ -132,11 +132,6 @@ class GUI:
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget, "4320").disabled = True
 
-        # We add both widgets to the current notebook cell and hide them
-        IPython.display.display(splash_widget, app_widget)
-        splash_widget.hide()
-        app_widget.hide()
-
     @property
     def selected_regions(self):
         return get_widget(app_widget, "440010").selected
@@ -163,6 +158,10 @@ class GUI:
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
 
+        # We add both widgets to the current notebook cell and hide them
+        IPython.display.display(splash_widget, app_widget)
+        splash_widget.hide()
+        app_widget.hide()
         splash_widget.show()
 
         get_widget(splash_widget, "110").color = "light blue"
