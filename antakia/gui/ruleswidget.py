@@ -344,29 +344,29 @@ class RulesWidget:
         self.update_from_mask(new_rules_mask, new_rules_list)
 
     def update_from_mask(self, new_rules_mask: pd.Series, new_rules_list: RuleSet):
+        if len(new_rules_list):
+            try:
+                precision = (new_rules_mask & self.init_rules_mask).sum() / new_rules_mask.sum()
+                recall = (new_rules_mask & self.init_rules_mask).sum() / self.init_rules_mask.sum()
+                f1 = 2 * (precision * recall) / (precision + recall)
+                target_avg = self.y[new_rules_mask].mean()
+            except ZeroDivisionError:
+                precision = recall = f1 = -1
 
-        try:
-            precision = (new_rules_mask & self.init_rules_mask).sum() / new_rules_mask.sum()
-            recall = (new_rules_mask & self.init_rules_mask).sum() / self.init_rules_mask.sum()
-            f1 = 2 * (precision * recall) / (precision + recall)
-            target_avg = self.y[new_rules_mask].mean()
-        except ZeroDivisionError:
-            precision = recall = f1 = -1
+            new_score_dict = {"precision": precision, "recall": recall, "f1": f1, 'target_avg': target_avg}
 
-        new_score_dict = {"precision": precision, "recall": recall, "f1": f1, 'target_avg': target_avg}
+            self._put_in_db(new_rules_list, new_score_dict)
 
-        self._put_in_db(new_rules_list, new_score_dict)
+            # We update our card info
+            self.refresh_widget()
 
-        # We update our card info
-        self.refresh_widget()
+            # We update each of our RuleWidgets
+            for rw in self.rule_widget_list:
+                rw.update(new_rules_mask)
 
-        # We update each of our RuleWidgets
-        for rw in self.rule_widget_list:
-            rw.update(new_rules_mask)
-
-        # We notify the GUI and tell there are new rules to draw
-        if self.new_rules_defined is not None:
-            self.new_rules_defined(self, new_rules_mask)
+            # We notify the GUI and tell there are new rules to draw
+            if self.new_rules_defined is not None:
+                self.new_rules_defined(self, new_rules_mask)
 
     def undo(self):
         """
