@@ -322,17 +322,18 @@ class HighDimExplorer:
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
-    def display_rules(self, mask: pd.Series | None = None, color='blue'):
+    def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series):
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
-        rs = RegionSet(self.current_X)
-        if mask is None:
-            self._colors[self.RULES_TRACE] = None
-        else:
-            rs.add_region(mask=mask, color=color)
-            self._colors[self.RULES_TRACE] = rs.get_color_serie()
+        color = pd.Series(index=self.current_X.index, dtype=str)
 
+        color[selection_mask & rules_mask] = 'blue'
+        color[~selection_mask & rules_mask] = 'orange'
+        color[selection_mask & ~rules_mask] = 'red'
+        color[~selection_mask & ~rules_mask] = 'grey'
+
+        self._colors[self.RULES_TRACE] = color
         self._display_zones(self.RULES_TRACE)
 
     def display_regionset(self, region_set: RegionSet):
@@ -454,7 +455,8 @@ class HighDimExplorer:
         # We tell the GUI
         self.first_selection = False
         self._current_selection = utils.boolean_mask(self.pv.X, True)
-        self.display_rules()
+        self.display_rules(~self._current_selection, ~self._current_selection)
+        self.set_tab(0)
         if rebuild:
             self.create_figure()
         else:
@@ -472,6 +474,7 @@ class HighDimExplorer:
 
         # selection event
         self._current_selection = new_selection_mask
+        self.display_rules(~self._current_selection, ~self._current_selection)
         self.update_selection()
         return
 
