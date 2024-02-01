@@ -326,7 +326,7 @@ class RulesWidget:
         new_rules_mask = new_rules_list.get_matching_mask(self.X)
         self.update_from_mask(new_rules_mask, new_rules_list)
 
-    def update_from_mask(self, new_rules_mask: pd.Series, new_rules_list: RuleSet):
+    def update_from_mask(self, new_rules_mask: pd.Series, new_rules_list: RuleSet, sync=True):
         if len(new_rules_list):
             try:
                 precision = (new_rules_mask & self.init_rules_mask).sum() / new_rules_mask.sum()
@@ -340,16 +340,16 @@ class RulesWidget:
 
             self._put_in_db(new_rules_list, new_score_dict)
 
-            # We update our card info
-            self.refresh_widget()
+        # We update our card info
+        self.refresh_widget()
 
-            # We update each of our RuleWidgets
-            for rw in self.rule_widget_list:
-                rw.update(new_rules_mask)
+        # We update each of our RuleWidgets
+        for rw in self.rule_widget_list:
+            rw.update(new_rules_mask)
 
-            # We notify the GUI and tell there are new rules to draw
-            if self.new_rules_defined is not None:
-                self.new_rules_defined(self, new_rules_mask)
+        # We notify the GUI and tell there are new rules to draw
+        if self.new_rules_defined is not None and sync:
+            self.new_rules_defined(self, new_rules_mask)
 
     def undo(self):
         """

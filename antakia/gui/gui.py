@@ -304,9 +304,9 @@ class GUI:
 
         # sync selection between rules_widgets
         if rules_widget == self.vs_rules_wgt:
-            self.es_rules_wgt.update_from_mask(df_mask, RuleSet())
+            self.es_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
         else:
-            self.vs_rules_wgt.update_from_mask(df_mask, RuleSet())
+            self.vs_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
 
         self.refresh_buttons_tab_1()
 
@@ -476,7 +476,7 @@ class GUI:
             self.vs_hde.display_regionset(self.region_set)
             self.es_hde.display_regionset(self.region_set)
         elif tab == 3:
-            if len(self.selected_regions)==0:
+            if len(self.selected_regions) == 0:
                 self.select_tab(2)
             else:
                 region = self.region_set.get(self.selected_regions[0]['Region'])
@@ -726,7 +726,6 @@ class GUI:
         self.clear_selected_regions()
 
     # ==================== TAB 3 ==================== #
-
 
     def substitute_clicked(self, widget, event, data):
         region = self.region_set.get(self.selected_regions[0]['Region'])
