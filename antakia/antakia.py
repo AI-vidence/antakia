@@ -63,7 +63,7 @@ class AntakIA():
         if y.ndim > 1:
             y = y.squeeze()
         self.y = y
-        if y_test and y_test.ndim > 1:
+        if y_test is not None and y_test.ndim > 1:
             y_test = y_test.squeeze()
         self.y_test = y_test
         self.model = model

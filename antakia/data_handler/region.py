@@ -93,7 +93,7 @@ class ModelRegion(Region):
         self.interpretable_models.select_model(model_name)
 
     def train_subtitution_models(self):
-        if self.X_test:
+        if self.X_test is not None:
             self.interpretable_models.get_models_performance(
                 self.customer_model,
                 self.X.loc[self.mask],

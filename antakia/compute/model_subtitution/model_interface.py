@@ -91,7 +91,7 @@ class InterpretableModels:
             task_type='regression') -> pd.DataFrame:
         if len(X_train) <= 50 or len(X_train.T) >= len(X_train):
             return pd.DataFrame()
-        if not X_test or len(X_test) == 0:
+        if X_test is None or len(X_test) == 0:
             X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2)
         self._init_scores(task_type)
         self._init_models(task_type)
