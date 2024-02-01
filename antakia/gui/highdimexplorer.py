@@ -141,6 +141,7 @@ class HighDimExplorer:
         self.update_pv(self.pv, progress_callback)
         self.close_progress_circular()
         self.get_projection_select().on_event("change", self.projection_select_changed)
+        self.create_figure()
 
     ############
     ## widget ##
@@ -476,9 +477,9 @@ class HighDimExplorer:
 
     def update_selection(self):
         if self.current_dim == 2:
-            for fig in self.figure.data:
-                fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
-                fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
+            fig = self.figure.data[0]
+            fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
+            fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
 
     @property
     def mask(self):
@@ -621,7 +622,7 @@ class HighDimExplorer:
 
     def set_tab(self, tab):
         self.disable_selection(tab > 1)
-        self.show_trace(self.VALUES_TRACE, True)
+        self.show_trace(self.VALUES_TRACE, tab == 0)
         self.show_trace(self.RULES_TRACE, tab == 1)
         self.show_trace(self.REGIONSET_TRACE, tab == 2)
         self.show_trace(self.REGION_TRACE, tab == 3)
