@@ -665,29 +665,36 @@ class GUI:
         return update_ac_progress_bar
 
     def disable_buttons(self, current_operation):
+        selected_region_nums = [x['Region'] for x in self.selected_regions]
         if current_operation:
-            num_selected_regions = len(self.selected_regions) + (2 * current_operation['value'] - 1)
+            if current_operation['type'] == 'select':
+                selected_region_nums.append(current_operation['region_num'])
+            elif current_operation['type'] == 'unselect':
+                selected_region_nums.remove(current_operation['region_num'])
+        num_selected_regions = len(selected_region_nums)
+        if num_selected_regions:
+            first_region = self.region_set.get(selected_region_nums[0])
         else:
-            num_selected_regions = len(self.selected_regions)
+            first_region = None
+
         # substitute
         get_widget(app_widget, "4401000").disabled = num_selected_regions != 1
+
         # subdivide
-        if num_selected_regions == 1:
-            if current_operation and current_operation['value']:
-                region = self.region_set.get(current_operation['item']['Region'])
-            else:
-                region = self.region_set.get(self.selected_regions[0]['Region'])
-            disable_sub = bool(region.num_points() <= config.MIN_POINTS_NUMBER)
-        else:
-            disable_sub = True
-        get_widget(app_widget, "440110").disabled = disable_sub
+        enable_sub = (num_selected_regions == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
+        get_widget(app_widget, "440110").disabled = not enable_sub
+
         # delete
         get_widget(app_widget, "440120").disabled = num_selected_regions == 0
 
     def region_selected(self, data):
         if self.tab != 2:
             self.select_tab(2)
-        self.disable_buttons(data)
+        operation = {
+            'type': 'select' if data['value'] else 'unselect',
+            'region_num': data['item']['Region']
+        }
+        self.disable_buttons(operation)
 
     def clear_selected_regions(self):
         self.selected_regions = []
