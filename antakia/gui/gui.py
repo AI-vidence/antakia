@@ -739,6 +739,7 @@ class GUI:
         if region is not None:
             # We update the substitution table once to show the name of the region
             self.substitution_model_training = True
+            # show tab 3 (and update)
             self.select_tab(3)
             region.train_subtitution_models()
 
@@ -746,88 +747,82 @@ class GUI:
             # We update the substitution table a second time to show the results
             self.update_substitution_table(region)
 
+    def update_subtitution_prefix(self, region):
+        # Region prefix text
+        get_widget(app_widget, "450000").class_ = "mr-2 black--text" if region else "mr-2 grey--text"
+        # v.Chip
+        get_widget(app_widget, "450001").color = region.color if region else "grey"
+        get_widget(app_widget, "450001").children = [str(region.num)] if region else ["-"]
+
+    def update_subtitution_progress_bar(self):
+        prog_circular = get_widget(app_widget, "45011")
+        if self.substitution_model_training:
+            prog_circular.disabled = False
+            prog_circular.color = "blue"
+            prog_circular.indeterminate = True
+        else:
+            prog_circular.disabled = True
+            prog_circular.color = "grey"
+            prog_circular.indeterminate = False
+
+    def update_substitution_title(self, region: ModelRegion, update_sub_model_selection):
+        title = get_widget(app_widget, "450002")
+        title.tag = "h3"
+        table = get_widget(app_widget, "45001")  # subModel table
+        if self.substitution_model_training:
+            # We tell to wait ...
+            title.class_ = "ml-2 grey--text italic "
+            title.children = [f"Sub-models are being evaluated ..."]
+            # We clear items int the SubModelTable
+            table.items = []
+        elif not region:  # no region provided
+            title.class_ = "ml-2 grey--text italic "
+            title.children = [f"No region selected for substitution"]
+            table.items = []
+        elif region.num_points() < config.MIN_POINTS_NUMBER:  # region is too small
+            title.class_ = "ml-2 red--text"
+            title.children = [" Region too small for substitution !"]
+            table.items = []
+        elif len(region.perfs) == 0:  # model not trained
+            title.class_ = "ml-2 red--text"
+            title.children = [" click on substitute button to train substitution models"]
+            table.items = []
+        else:
+            # We have results
+            title.class_ = "ml-2 black--text"
+            title.children = [
+                f"{region.name}, "
+                f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"
+            ]
+
+            def series_to_str(series: pd.Series) -> str:
+                return series.apply(lambda x: f"{x:.2f}")
+
+            perfs = region.perfs.copy()
+            for col in perfs.columns:
+                perfs[col] = series_to_str(perfs[col])
+            perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
+            table.items = perfs.to_dict("records")
+            if update_sub_model_selection:
+                if region.interpretable_models.selected_model:
+                    # we set to selected model if any
+                    self.selected_sub_model = [
+                        {'item': {'Sub-model': region.interpretable_models.selected_model}, 'value': True}]
+                else:
+                    # clear selection if new region:
+                    self.selected_sub_model = []
+
     def update_substitution_table(self, region: ModelRegion):
         """
         Called twice to update table
         """
-        if self.substitute_region is not region:
-            if region.interpretable_models.selected_model:
-                # we set to selected model if any
-                self.selected_sub_model = [
-                    {'item': {'Sub-model': region.interpretable_models.selected_model}, 'value': True}]
-            else:
-                # clear selection if new region:
-                self.selected_sub_model = []
+        update_sub_model_selection = self.substitute_region is not region
+        # set region to called region
         self.substitute_region = region
 
-        disable = region is None
-        # Region v.HTML
-        get_widget(app_widget, "450000").class_ = "mr-2 black--text" if not disable else "mr-2 grey--text"
-        # v.Chip
-        get_widget(app_widget, "450001").color = region.color if not disable else "grey"
-        get_widget(app_widget, "450001").children = [str(region.num)] if not disable else ["-"]
-
-        vHtml = get_widget(app_widget, "450002")
-        prog_circular = get_widget(app_widget, "45011")
-
-        if not disable:
-            # We're enabled
-            if self.substitution_model_training:
-                # We tell to wait ...
-                vHtml.class_ = "ml-2 grey--text italic "
-                vHtml.tag = "h3"
-                vHtml.children = [f"Sub-models are being evaluated ..."]
-                prog_circular.disabled = False
-                prog_circular.color = "blue"
-                prog_circular.indeterminate = True
-                # We clear items int the SubModelTable
-                get_widget(app_widget, "45001").items = []
-            elif len(region.perfs) == 0:
-                # We have no results
-                vHtml.class_ = "ml-2 red--text"
-                vHtml.tag = "h3"
-                vHtml.children = [" Region too small for substitution !"]
-                get_widget(app_widget, "45001").items = []
-                # We stop the progress bar
-                prog_circular.disabled = True
-                prog_circular.color = "grey"
-                prog_circular.indeterminate = False
-            else:
-                # We have results
-                vHtml.class_ = "ml-2 black--text"
-                vHtml.tag = "h3"
-                vHtml.children = [
-                    f"{region.name}, "
-                    f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"
-                ]
-
-                # We stop the progress bar
-                prog_circular.disabled = True
-                prog_circular.color = "grey"
-                prog_circular.indeterminate = False
-
-                # TODO : format cells in SubModelTable
-                def series_to_str(series: pd.Series) -> str:
-                    return series.apply(lambda x: f"{x:.2f}")
-
-                perfs = region.perfs.copy()
-                for col in perfs.columns:
-                    perfs[col] = series_to_str(perfs[col])
-                perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
-                get_widget(app_widget, "45001").items = perfs.to_dict("records")
-                if self.selected_sub_model:
-                    get_widget(app_widget, "45001").selected = [self.selected_sub_model]
-                else:
-                    get_widget(app_widget, "45001").selected = []
-        else:
-            # We're disabled
-            vHtml.class_ = "ml-2 grey--text italic "
-            vHtml.tag = "h3"
-            vHtml.children = [f"No region selected for substitution"]
-            prog_circular.disabled = True
-            prog_circular.indeterminate = False
-            # We clear items int the SubModelTable
-            get_widget(app_widget, "45001").items = []
+        self.update_subtitution_prefix(region)
+        self.update_subtitution_progress_bar()
+        self.update_substitution_title(region, update_sub_model_selection)
 
     def sub_model_selected(self, data):
         is_selected = data["value"]
