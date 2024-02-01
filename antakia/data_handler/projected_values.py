@@ -1,10 +1,12 @@
+import pandas as pd
+
 from antakia import config
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.compute.dim_reduction.dim_reduction import compute_projection, dim_reduc_factory
 
 
 class ProjectedValues:
-    def __init__(self, X, y):
+    def __init__(self, X: pd.DataFrame, y: pd.Series):
         self.X = X
         self.y = y
         self._projected_values = {}

@@ -18,7 +18,7 @@ class DimReducMethod(LongTask):
     """
 
     # Class attributes methods
-    dim_reduc_methods = ['PCA', 'TSNE', 'UMAP', 'PaCMAP']
+    dim_reduc_methods = ['PCA', 'TSNE', 'UMAP', 'PaCMAP', 'PCF']
     dimreduc_method = -1
 
     allowed_kwargs = []
@@ -50,7 +50,7 @@ class DimReducMethod(LongTask):
         """
         if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
             raise ValueError(
-                dimreduc_method, " is a Bbad dimensionality reduction method"
+                dimreduc_method, " is a bad dimensionality reduction method"
             )
         if not DimReducMethod.is_valid_dim_number(dimension):
             raise ValueError(dimension, " is a bad dimension number")
@@ -64,6 +64,9 @@ class DimReducMethod(LongTask):
 
     @classmethod
     def dimreduc_method_as_str(cls, method: int) -> str:
+        """
+        Returns the dimreduc method that
+        """
         if method is None:
             return None
         elif 0 < method <= len(cls.dim_reduc_methods):
@@ -74,7 +77,7 @@ class DimReducMethod(LongTask):
     @classmethod
     def dimreduc_method_as_int(cls, method: str) -> int:
         if method is None:
-            return
+            return None
         try:
             i = cls.dim_reduc_methods.index(method) + 1
             return i
