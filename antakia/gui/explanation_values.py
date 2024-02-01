@@ -32,6 +32,8 @@ class ExplanationValues:
         else:
             self.current_exp = self.available_exp[1]
 
+        self.get_explanation_select().v_model = self.current_exp
+
         self.on_change_callback = on_change_callback
 
     def initialize(self, progress_callback):
@@ -75,6 +77,8 @@ class ExplanationValues:
         # We compute proj for this new PV :
         self.update_explanation_select()
         self.update_compute_menu()
+        self.get_explanation_select().v_model = self.current_exp
+        self.on_change_callback(progress_bar)
 
     def update_compute_menu(self):
         is_shap_computed = self.explanations[self.available_exp[1]] is not None

@@ -143,6 +143,7 @@ class HighDimExplorer:
         self.update_pv(self.pv, progress_callback)
         self.close_progress_circular()
         self.get_projection_select().on_event("change", self.projection_select_changed)
+        self.create_figure()
 
     ############
     ## widget ##
@@ -237,9 +238,7 @@ class HighDimExplorer:
 
     @property
     def proj_param_widget(self):
-        if self.is_value_space:
-            return '1500'
-        return '1800'
+        return get_widget(app_widget, "15" if self.is_value_space else "18")
 
     def projection_kwargs(self, dim_reduc_method):
         kwargs = self.pv.get_paramerters(dim_reduc_method, self.current_dim)['current']
@@ -294,21 +293,14 @@ class HighDimExplorer:
         Called at startup by the GUI
         """
         # We return
-        proj_params_menu = get_widget(app_widget, "150" if self.is_value_space else "180")
         params = self._proj_params_cards[self._get_projection_method()]
-        if len(params) == 0:
-            proj_params_menu.disabled = True
+        self.enable_proj_param_menu(len(params) > 0)
         # We neet to set a Card, depending on the projection method
-        proj_params_menu.children = [widgets.VBox(params)]
-        # proj_params_menu.disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int('PaCMAP')
-
-        return proj_params_menu
+        self.proj_param_widget.children[0].children = [widgets.VBox(params)]
+        # proj_params_menu.children = [widgets.VBox(params)]
 
     def enable_proj_param_menu(self, enable):
-        proj_params_menu = get_widget(app_widget, "15" if self.is_value_space else "18")
-        proj_params_menu.disabled = not enable
-
-        return proj_params_menu
+        self.proj_param_widget.disabled = not enable
 
     # ---- display Methods ------
 
@@ -323,17 +315,13 @@ class HighDimExplorer:
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
-    def display_rules(self, mask: pd.Series | None = None, color='blue'):
+    def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series):
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
-        rs = RegionSet(self.current_X)
-        if mask is None:
-            self._colors[self.RULES_TRACE] = None
-        else:
-            rs.add_region(mask=mask, color=color)
-            self._colors[self.RULES_TRACE] = rs.get_color_serie()
+        color, _ = utils.get_mask_comparison_color(rules_mask, selection_mask)
 
+        self._colors[self.RULES_TRACE] = color
         self._display_zones(self.RULES_TRACE)
 
     def display_regionset(self, region_set: RegionSet):
@@ -425,8 +413,8 @@ class HighDimExplorer:
         Returns the current projection method
         """
         if self.get_projection_select().v_model == '!!disabled!!':
-            self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(config.DEFAULT_PROJECTION)
-            return config.DEFAULT_PROJECTION
+            self.get_projection_select().v_model = DimReducMethod.default_projection_as_str()
+            return DimReducMethod.default_projection_as_int()
         return DimReducMethod.dimreduc_method_as_int(
             self.get_projection_select().v_model
         )
@@ -445,7 +433,7 @@ class HighDimExplorer:
         # KNN extrapolation
         return guessed_selection.astype(bool)
 
-    def _selection_event(self, trace, points, selector, *args):
+    def _selection_event(self, trace, points, *args):
         self.first_selection |= self._current_selection.all()
         self._current_selection &= self.selection_to_mask(points.point_inds)
         if self._current_selection.any():
@@ -459,7 +447,8 @@ class HighDimExplorer:
         # We tell the GUI
         self.first_selection = False
         self._current_selection = utils.boolean_mask(self.pv.X, True)
-        self.display_rules()
+        self.display_rules(~self._current_selection, ~self._current_selection)
+        self.set_tab(0)
         if rebuild:
             self.create_figure()
         else:
@@ -477,14 +466,15 @@ class HighDimExplorer:
 
         # selection event
         self._current_selection = new_selection_mask
+        self.display_rules(~self._current_selection, ~self._current_selection)
         self.update_selection()
         return
 
     def update_selection(self):
         if self.current_dim == 2:
-            for fig in self.figure.data:
-                fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
-                fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
+            fig = self.figure.data[0]
+            fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
+            fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
 
     @property
     def mask(self):
@@ -627,7 +617,7 @@ class HighDimExplorer:
 
     def set_tab(self, tab):
         self.disable_selection(tab > 1)
-        self.show_trace(self.VALUES_TRACE, True)
+        self.show_trace(self.VALUES_TRACE, tab == 0)
         self.show_trace(self.RULES_TRACE, tab == 1)
         self.show_trace(self.REGIONSET_TRACE, tab == 2)
         self.show_trace(self.REGION_TRACE, tab == 3)

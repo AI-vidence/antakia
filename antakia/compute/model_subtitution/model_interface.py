@@ -41,7 +41,7 @@ class InterpretableModels:
         'precision'.upper(): precision_score,
         'recall'.upper(): recall_score,
     }
-    customer_model_name = pretty_model_name('customer_model')
+    customer_model_name = pretty_model_name('original_model')
 
     def __init__(self, custom_score):
         if callable(custom_score):
@@ -81,11 +81,18 @@ class InterpretableModels:
     def _train_models(self, X, y):
         Parallel(n_jobs=1)(delayed(model.fit)(X, y) for model_name, model in self.models.items() if not model.fitted)
 
-    def get_models_performance(self, customer_model, X: pd.DataFrame, y: pd.Series,
-                               task_type='regression') -> pd.DataFrame:
-        if len(X) <= 50 or len(X.T) >= len(X):
+    def get_models_performance(
+            self,
+            customer_model,
+            X_train: pd.DataFrame,
+            y_train: pd.Series,
+            X_test: pd.DataFrame | None,
+            y_test: pd.Series | None,
+            task_type='regression') -> pd.DataFrame:
+        if len(X_train) <= 50 or len(X_train.T) >= len(X_train):
             return pd.DataFrame()
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+        if X_test is None or len(X_test) == 0:
+            X_train, X_test, y_train, y_test = train_test_split(X_train, y_train, test_size=0.2)
         self._init_scores(task_type)
         self._init_models(task_type)
         if customer_model is not None:
@@ -98,6 +105,8 @@ class InterpretableModels:
 
         self.perfs['delta'] = self.perfs[self.custom_score_str] - self.perfs.loc[
             self.customer_model_name, self.custom_score_str]
+        get_delta_color = lambda x: 'red' if x > 0.01 else 'green' if x < -0.01 else 'orange'
+        self.perfs['delta_color'] = self.perfs['delta'].apply(get_delta_color)
         return self.perfs.sort_values(self.custom_score_str, ascending=True)
 
     def select_model(self, model_name):
@@ -113,4 +122,4 @@ class InterpretableModels:
 if __name__ == '__main__':
     X = pd.read_csv('../../../examples/X.csv').set_index('Unnamed: 0')
     y = pd.read_csv('../../../examples/y.csv').set_index('Unnamed: 0')
-    InterpretableModels(mean_squared_error).get_models_performance(None, X, y.iloc[:, 0])
+    InterpretableModels(mean_squared_error).get_models_performance(None, X, y.iloc[:, 0], None, None)

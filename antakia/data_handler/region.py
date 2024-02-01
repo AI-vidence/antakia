@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from antakia.compute.model_subtitution.model_interface import InterpretableModels
-from antakia.data_handler.rules import Rule
+from antakia.data_handler.rules import Rule, RuleSet
 from antakia.utils.utils import colors, boolean_mask
 
 import antakia.config as cfg
@@ -12,13 +12,13 @@ import antakia.config as cfg
 class Region:
     region_colors = colors
 
-    def __init__(self, X, rules: list[Rule] | None = None, mask: pd.Series | None = None, color=None):
+    def __init__(self, X, rules: list[Rule] | RuleSet | None = None, mask: pd.Series | None = None, color=None):
         self.X = X
         self.num = 0
-        self.rules = rules
+        self.rules = RuleSet(rules)
         if mask is None:
             if rules is not None:
-                self.mask = Rule.rules_to_mask(rules, X)
+                self.mask = self.rules.get_matching_mask(X)
             else:
                 self.mask = pd.Series([False] * len(X), index=X.index)
         else:
@@ -39,9 +39,13 @@ class Region:
 
     @property
     def name(self):
-        name = Rule.multi_rules_to_string(self.rules) if self.rules is not None else "auto-cluster"
+        name = repr(self.rules)
         if self.auto_cluster:
-            name = 'AC: ' + name
+            if name:
+                name = 'AC: ' + name
+            else:
+                name = "auto-cluster"
+
         if len(name) > cfg.MAX_RULES_DESCR_LENGTH:
             name = name[:cfg.MAX_RULES_DESCR_LENGTH - 2] + '..'
 
@@ -69,10 +73,13 @@ class Region:
 
 
 class ModelRegion(Region):
-    def __init__(self, X, y, customer_model, rules: list[Rule] | None = None, mask: pd.Series | None = None, color=None,
+    def __init__(self, X, y, X_test, y_test, customer_model, rules: list[Rule] | None = None,
+                 mask: pd.Series | None = None, color=None,
                  score=None):
         super().__init__(X, rules, mask, color)
         self.y = y
+        self.X_test = X_test
+        self.y_test = y_test
         self.customer_model = customer_model
         self.interpretable_models = InterpretableModels(score)
 
@@ -82,12 +89,26 @@ class ModelRegion(Region):
             dict_form['Sub-model'] = self.interpretable_models.selected_model_str()
         return dict_form
 
-    def select_model(self, model_name):
+    def select_model(self, model_name: str):
         self.interpretable_models.select_model(model_name)
 
     def train_subtitution_models(self):
-        self.interpretable_models.get_models_performance(self.customer_model, self.X.loc[self.mask],
-                                                         self.y.loc[self.mask])
+        if self.X_test is not None and self.test_mask is not None:
+            self.interpretable_models.get_models_performance(
+                self.customer_model,
+                self.X.loc[self.mask],
+                self.y.loc[self.mask],
+                self.X_test.loc[self.test_mask],
+                self.y_test.loc[self.test_mask]
+            )
+        else:
+            self.interpretable_models.get_models_performance(
+                self.customer_model,
+                self.X.loc[self.mask],
+                self.y.loc[self.mask],
+                None,
+                None
+            )
 
     @property
     def perfs(self):
@@ -101,6 +122,11 @@ class ModelRegion(Region):
         if self.interpretable_models.selected_model:
             return self.interpretable_models.perfs.loc[self.interpretable_models.selected_model, 'delta']
         return 0
+
+    @property
+    def test_mask(self):
+        if self.rules:
+            return self.rules.get_matching_mask(self.X_test)
 
 
 class RegionSet:
@@ -213,17 +239,28 @@ class RegionSet:
 
 
 class ModelRegionSet(RegionSet):
-    def __init__(self, X, y, model, score):
+    def __init__(self, X, y, X_test, y_test, model, score):
         super().__init__(X)
         self.y = y
+        self.X_test = X_test
+        self.y_test = y_test
         self.model = model
         self.score = score
 
     def add_region(self, rules=None, mask=None, color=None, auto_cluster=False) -> Region:
         if mask is not None:
             mask = mask.reindex(self.X.index).fillna(False)
-        region = ModelRegion(X=self.X, y=self.y, customer_model=self.model, score=self.score, rules=rules, mask=mask,
-                             color=color)
+        region = ModelRegion(
+            X=self.X,
+            y=self.y,
+            X_test=self.X_test,
+            y_test=self.y_test,
+            customer_model=self.model,
+            score=self.score,
+            rules=rules,
+            mask=mask,
+            color=color
+        )
         region.num = -1
         region.auto_cluster = auto_cluster
         self.add(region)
