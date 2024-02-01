@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List, Dict, Any
 
 import pandas as pd
-import shap
 
 from dotenv import load_dotenv
 
@@ -14,7 +13,7 @@ from antakia.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
 
 
-class AntakIA():
+class AntakIA:
     """
     AntakIA class. 
 

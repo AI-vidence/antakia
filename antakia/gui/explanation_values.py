@@ -32,6 +32,8 @@ class ExplanationValues:
         else:
             self.current_exp = self.available_exp[1]
 
+        self.get_explanation_select().v_model = self.current_exp
+
         self.on_change_callback = on_change_callback
 
     def initialize(self, progress_callback):

@@ -757,6 +757,7 @@ class GUI:
 
     def substitute_clicked(self, widget, event, data):
         region = self.region_set.get(self.selected_regions[0]['Region'])
+        self.selected_sub_model = []
         if region is not None:
             # We update the substitution table once to show the name of the region
             self.substitution_model_training = True
@@ -786,7 +787,7 @@ class GUI:
             prog_circular.color = "grey"
             prog_circular.indeterminate = False
 
-    def update_substitution_title(self, region: ModelRegion, update_sub_model_selection):
+    def update_substitution_title(self, region: ModelRegion):
         title = get_widget(app_widget, "450002")
         title.tag = "h3"
         table = get_widget(app_widget, "45001")  # subModel table
@@ -825,26 +826,24 @@ class GUI:
                     perfs[col] = series_to_str(perfs[col])
             perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
             table.items = perfs.to_dict("records")
-            if update_sub_model_selection:
-                if region.interpretable_models.selected_model:
-                    # we set to selected model if any
-                    self.selected_sub_model = [
-                        {'item': {'Sub-model': region.interpretable_models.selected_model}, 'value': True}]
-                else:
-                    # clear selection if new region:
-                    self.selected_sub_model = []
+            if region.interpretable_models.selected_model:
+                # we set to selected model if any
+                table.selected = [
+                    {'item': {'Sub-model': region.interpretable_models.selected_model}, 'value': True}]
+            else:
+                # clear selection if new region:
+                table.selected = []
 
     def update_substitution_table(self, region: ModelRegion):
         """
         Called twice to update table
         """
-        update_sub_model_selection = self.substitute_region is not region
         # set region to called region
         self.substitute_region = region
 
         self.update_subtitution_prefix(region)
         self.update_subtitution_progress_bar()
-        self.update_substitution_title(region, update_sub_model_selection)
+        self.update_substitution_title(region)
 
     def sub_model_selected(self, data):
         is_selected = data["value"]
