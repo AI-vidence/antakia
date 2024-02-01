@@ -101,5 +101,20 @@ def compute_step(min, max):
     return min_, max_, step
 
 
+def get_mask_comparison_color(rules_mask, selection_mask):
+    colors_info = {
+        'matched': 'blue',
+        'error type 1': 'orange',
+        'error type 2': 'red',
+        'other data': 'grey'
+    }
+    color = pd.Series(index=selection_mask.index, dtype=str)
+    color[selection_mask & rules_mask] = colors_info['matched']
+    color[~selection_mask & rules_mask] = colors_info['error type 1']
+    color[selection_mask & ~rules_mask] = colors_info['error type 2']
+    color[~selection_mask & ~rules_mask] = colors_info['other data']
+    return color, colors_info
+
+
 # First color can't be blue, reserved for the rules - grey is reserved to background
 colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "cyan", "black"]

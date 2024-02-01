@@ -326,12 +326,7 @@ class HighDimExplorer:
         """"
         Displays the dots corresponding to our current rules in blue, the others in grey
         """
-        color = pd.Series(index=self.current_X.index, dtype=str)
-
-        color[selection_mask & rules_mask] = 'blue'
-        color[~selection_mask & rules_mask] = 'orange'
-        color[selection_mask & ~rules_mask] = 'red'
-        color[~selection_mask & ~rules_mask] = 'grey'
+        color, _ = utils.get_mask_comparison_color(rules_mask, selection_mask)
 
         self._colors[self.RULES_TRACE] = color
         self._display_zones(self.RULES_TRACE)

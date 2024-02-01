@@ -11,7 +11,7 @@ from antakia.gui.widgets import change_widget, get_widget, app_widget
 
 from copy import copy
 
-from antakia.utils.utils import compute_step
+from antakia.utils.utils import compute_step, get_mask_comparison_color
 from antakia.utils.variable import DataVariables
 
 
@@ -89,38 +89,20 @@ class RuleWidget:
             'bingroup': 1,
             'nbinsx': 50,
         }
-        # 1) X[var] : all values
+        mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
+        h = []
+        for name, color in colors_info.items():
+            h.append(Histogram(
+                name=name,
+                x=self.X_col[mask_color == color],
+                marker_color=color,
+                **base_args
+            ))
         self.figure = FigureWidget(
-            data=[
-                Histogram(
-                    x=self.X_col,
-                    marker_color="grey",
-                    **base_args
-                )
-            ]
-        )
-        # 2) X[var] with only INITIAL SKR rule 'matching indexes'
-        X_skr = self.X_col[self.init_mask]
-        self.figure.add_trace(
-            Histogram(
-                x=X_skr,
-                marker_color="LightSkyBlue",
-                opacity=0.6,
-                **base_args
-            )
-        )
-        # 3) X[var] with only CURRENT rule 'matching indexes'
-        X_selected = self.X_col[self.rule_mask]
-        self.figure.add_trace(
-            Histogram(
-                x=X_selected,
-                marker_color="blue",
-                opacity=0.6,
-                **base_args
-            )
+            data=h
         )
         self.figure.update_layout(
-            barmode="overlay",
+            barmode="stack",
             bargap=0.1,
             # width=600,
             showlegend=False,
@@ -209,7 +191,7 @@ class RuleWidget:
         self.rule = new_rule
         self.rule_updated(new_rule)
 
-    def update(self, new_rules_mask: pd.Series, rule: Rule = None):
+    def update(self, new_rules_mask: pd.Series = None, rule: Rule = None):
         """ 
         Called by the RulesWidget. Each RuleWidget must now use these indexes
         Also used to restore previous rule
@@ -217,15 +199,16 @@ class RuleWidget:
 
         if rule is not None:
             self.rule = rule
-
+        if new_rules_mask is not None:
+            self.rule_mask = new_rules_mask
         # We update the selects
         if self.display_sliders:
             self._set_select_widget_values()
-
-        # We update the third histogram only
+        mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
         with self.figure.batch_update():
-            self.rule_mask = new_rules_mask
-            self.figure.data[2].x = self.X_col[new_rules_mask]
+            for i, color in enumerate(colors_info.values()):
+                self.figure.data[i].x = self.X_col[mask_color == color]
+        # We update the third histogram only
 
 
 class RulesWidget:
