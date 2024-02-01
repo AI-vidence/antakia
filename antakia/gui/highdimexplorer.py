@@ -236,9 +236,7 @@ class HighDimExplorer:
 
     @property
     def proj_param_widget(self):
-        if self.is_value_space:
-            return '1500'
-        return '1800'
+        return get_widget(app_widget, "15" if self.is_value_space else "18")
 
     def projection_kwargs(self, dim_reduc_method):
         kwargs = self.pv.get_paramerters(dim_reduc_method, self.current_dim)['current']
@@ -293,21 +291,14 @@ class HighDimExplorer:
         Called at startup by the GUI
         """
         # We return
-        proj_params_menu = get_widget(app_widget, "150" if self.is_value_space else "180")
         params = self._proj_params_cards[self._get_projection_method()]
-        if len(params) == 0:
-            proj_params_menu.disabled = True
+        self.enable_proj_param_menu(len(params) > 0)
         # We neet to set a Card, depending on the projection method
-        proj_params_menu.children = [widgets.VBox(params)]
-        # proj_params_menu.disabled = self._get_projection_method() != DimReducMethod.dimreduc_method_as_int('PaCMAP')
-
-        return proj_params_menu
+        self.proj_param_widget.children[0].children = [widgets.VBox(params)]
+        # proj_params_menu.children = [widgets.VBox(params)]
 
     def enable_proj_param_menu(self, enable):
-        proj_params_menu = get_widget(app_widget, "15" if self.is_value_space else "18")
-        proj_params_menu.disabled = not enable
-
-        return proj_params_menu
+        self.proj_param_widget.disabled = not enable
 
     # ---- display Methods ------
 
