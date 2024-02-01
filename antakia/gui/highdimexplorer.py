@@ -138,6 +138,8 @@ class HighDimExplorer:
         self.figure_2D = self.figure_3D = None
 
     def initialize(self, progress_callback):
+        # progress_callback corresponds to gui.update_splash_screen : it is used to update the progress bar
+        # it's called once for each HDE
         self.update_pv(self.pv, progress_callback)
         self.close_progress_circular()
         self.get_projection_select().on_event("change", self.projection_select_changed)
@@ -376,11 +378,15 @@ class HighDimExplorer:
         self.figure.layout.height = self.fig_height
 
     def update_pv(self, pv: ProjectedValues, progress_callback=None):
+        #TODO : we need a Docstring here
         if self.pv == pv:
             return
         if progress_callback is None:
+            # this computation has been triggered by HDE UI
             progress_callback = self.update_progress_circular
-        self.pv = pv
+        
+        self.pv = pv 
+
         if self._current_selection is None:
             self._current_selection = utils.boolean_mask(self.pv.X, True)
         self.get_current_X_proj(progress_callback=progress_callback)

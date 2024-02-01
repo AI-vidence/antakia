@@ -2,7 +2,8 @@ from __future__ import annotations
 import pandas as pd
 
 import ipyvuetify as v
-from IPython.display import display
+import IPython.display
+import ipywidgets as widgets
 
 from antakia.data_handler.projected_values import ProjectedValues
 from antakia.data_handler.region import ModelRegionSet, ModelRegion
@@ -131,6 +132,11 @@ class GUI:
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget, "4320").disabled = True
 
+        # We add both widgets to the current notebook cell and hide them
+        IPython.display.display(splash_widget, app_widget)
+        splash_widget.hide()
+        app_widget.hide()
+
     @property
     def selected_regions(self):
         return get_widget(app_widget, "440010").selected
@@ -156,16 +162,19 @@ class GUI:
 
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
+
+        splash_widget.show()
+
         get_widget(splash_widget, "110").color = "light blue"
         get_widget(splash_widget, "110").v_model = 0
         get_widget(splash_widget, "210").color = "light blue"
         get_widget(splash_widget, "210").v_model = 0
-        display(splash_widget)
 
         # We trigger VS proj computation :
         get_widget(
             splash_widget, "220"
-        ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} x 4"
+        ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} x 2"
+
         self.vs_hde.initialize(progress_callback=self.update_splash_screen)
         # self.vs_hde.compute_projs(False, self.update_splash_screen)
 
@@ -180,10 +189,15 @@ class GUI:
         # THen we trigger ES proj computation :
         # self.es_hde.compute_projs(False, self.update_splash_screen)
         self.es_hde.initialize(progress_callback=self.update_splash_screen)
+        self.selection_changed(None, boolean_mask(self.X, True))
 
-        splash_widget.close()
+        #TODO: call GUI.init_app from within GUI.__init__ ?
+        # We init the app(init, config, UI logic)
+        self.init_app()
 
-        self.show_app()
+        #TODO : this should called in GUI.update_splash_screen
+        splash_widget.hide() 
+        app_widget.show()
 
     def update_splash_screen(self, caller: LongTask, progress: int, duration: float):
         """
@@ -209,6 +223,10 @@ class GUI:
 
         if progress_linear.v_model == 100:
             progress_linear.color = "light blue"
+            #TODO : this should called here, not in GUI.show_splash_screen
+            # splash_widget.hide() 
+            # app_widget.show()
+
 
     def explanation_changed_callback(self, progress_callback=None):
         self.es_hde.update_pv(self.exp_values.current_pv, progress_callback)
@@ -310,7 +328,10 @@ class GUI:
 
         self.refresh_buttons_tab_1()
 
-    def show_app(self):
+    def init_app(self):
+        """
+        Inits and wires the app_widget, and implements UI logic
+        """
         # =================== AppBar ===================
 
         # ------------------Figure size -----------------
@@ -433,7 +454,7 @@ class GUI:
 
         self.select_tab(1)
         self.refresh_buttons_tab_1()
-        display(app_widget)
+
 
     def switch_dimension(self, widget, event, data):
         """
