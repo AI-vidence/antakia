@@ -156,6 +156,7 @@ headers = [
 headers2 = headers.copy()
 items = dummy_regions_df.to_dict('records')
 
+
 class SubModelTable(v.VuetifyTemplate):
     headers = traitlets.List([]).tag(sync=True, allow_null=True)
     items = traitlets.List([]).tag(sync=True, allow_null=True)
@@ -169,9 +170,15 @@ class SubModelTable(v.VuetifyTemplate):
                 item-key="Sub-model"
                 show-select
                 single-select
-                :hide-default-footer="true"
+                :hide-default-footer="false"
                 @item-selected="tableselect"
             >
+            
+            <template v-slot:item.delta="{ item }">
+              <v-chip :color="item.delta_color" label size="small">
+                    {{ item.delta }}
+              </v-chip>
+            </template>
             </v-data-table>
         </template>
         ''').tag(sync=True)  # type: ignore

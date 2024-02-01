@@ -800,7 +800,8 @@ class GUI:
 
             perfs = region.perfs.copy()
             for col in perfs.columns:
-                perfs[col] = series_to_str(perfs[col])
+                if col != 'delta_color':
+                    perfs[col] = series_to_str(perfs[col])
             perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
             table.items = perfs.to_dict("records")
             if update_sub_model_selection:
