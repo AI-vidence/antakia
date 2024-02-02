@@ -25,7 +25,7 @@ class LongTask(ABC):
 
     def publish_progress(self, progress: int):
         if self.progress_updated:
-            self.progress_updated(self, progress, time.time() - self.start_time)
+            self.progress_updated(progress, time.time() - self.start_time)
 
     @abstractmethod
     def compute(self, **kwargs) -> pd.DataFrame:

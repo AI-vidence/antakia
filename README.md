@@ -1,3 +1,11 @@
+# Welcome to AntakIA !
+
+AntakIA is an open-source tool from AI-vidence to explain ML black box models.
+
+Here is a quick tour of AntakIA:
+![AntakIA demo](/docs/img/antakia.gif)
+
+See full video on [Youtube](https://youtu.be/wQFC_20OIOM).
 
 ## Install and run from source code
 

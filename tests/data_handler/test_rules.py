@@ -36,9 +36,9 @@ def test_type_1():
     assert repr(rule1_3) == 'type1 < 20'
 
     data = pd.DataFrame(np.arange(30).reshape((-1, 1)), columns=['type1'])
-    assert rule1_1.get_matching_indexes(data).sum() == 10
-    assert rule1_2.get_matching_indexes(data).sum() == 11
-    assert rule1_3.get_matching_indexes(data).sum() == 20
+    assert rule1_1.get_matching_mask(data).sum() == 10
+    assert rule1_2.get_matching_mask(data).sum() == 11
+    assert rule1_3.get_matching_mask(data).sum() == 20
 
     assert rule1_1.combine(rule1_2) == rule1_1
     assert rule1_1.combine(rule1_3) == rule1_1
@@ -79,9 +79,9 @@ def test_type_2():
     assert repr(rule2_3) == 'type2 > 20'
 
     data = pd.DataFrame(np.arange(30).reshape((-1, 1)), columns=['type2'])
-    assert rule2_1.get_matching_indexes(data).sum() == 19
-    assert rule2_2.get_matching_indexes(data).sum() == 20
-    assert rule2_3.get_matching_indexes(data).sum() == 9
+    assert rule2_1.get_matching_mask(data).sum() == 19
+    assert rule2_2.get_matching_mask(data).sum() == 20
+    assert rule2_3.get_matching_mask(data).sum() == 9
 
     assert rule2_1.combine(rule2_2) == rule2_1
     assert rule2_1.combine(rule2_3) == rule2_3
@@ -113,9 +113,9 @@ def test_type_3():
     assert repr(rule3_3) == '20 < type3 < 30'
 
     data = pd.DataFrame(np.arange(50).reshape((-1, 1)), columns=['type3'])
-    assert rule3_1.get_matching_indexes(data).sum() == 29
-    assert rule3_2.get_matching_indexes(data).sum() == 31
-    assert rule3_3.get_matching_indexes(data).sum() == 9
+    assert rule3_1.get_matching_mask(data).sum() == 29
+    assert rule3_2.get_matching_mask(data).sum() == 31
+    assert rule3_3.get_matching_mask(data).sum() == 9
 
     assert rule3_1.combine(rule3_2) == rule3_1
     assert rule3_1.combine(rule3_3) == rule3_3
@@ -147,9 +147,9 @@ def test_type_4():
     assert repr(rule4_3) == 'type4 < 20 or type4 > 30'
 
     data = pd.DataFrame(np.arange(50).reshape((-1, 1)), columns=['type4'])
-    assert rule4_1.get_matching_indexes(data).sum() == 19
-    assert rule4_2.get_matching_indexes(data).sum() == 21
-    assert rule4_3.get_matching_indexes(data).sum() == 39
+    assert rule4_1.get_matching_mask(data).sum() == 19
+    assert rule4_2.get_matching_mask(data).sum() == 21
+    assert rule4_3.get_matching_mask(data).sum() == 39
 
     assert rule4_1.combine(rule4_2) is None
     assert rule4_1.combine(rule4_3) is None
@@ -181,13 +181,3 @@ def test_combine():
     assert rule4_1.combine(rule1_2) is None
     assert rule4_1.combine(rule1_3) is None
     assert rule4_1.combine(rule1_4) is None
-
-
-test_combine()
-test_type_1()
-test_type_2()
-test_type_3()
-test_type_4()
-
-r = Rule(None, 2, Variable(6,'Latitude', 'float64'), 1, 37.5, None)
-r

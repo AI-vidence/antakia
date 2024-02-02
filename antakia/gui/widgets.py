@@ -8,14 +8,9 @@ from plotly.graph_objects import FigureWidget, Histogram, Scattergl
 import traitlets
 
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
-from antakia.utils.logging import conf_logger
+from antakia.gui.colorTable import ColorTable
 
 from importlib.resources import files
-
-import logging
-
-from antakia.utils.utils import colors
-
 
 def get_widget(root_widget: Widget, address: str) -> Widget:
     """
@@ -72,15 +67,16 @@ def show_tree(parent: Widget, filter: str = "", address: str = ""):
         child = parent.children[i]
         if filter in child.__class__.__name__:
             print(f"{' ' * 3 * len(address)} {child.__class__.__name__} @{address}{str(i)}")
-        if not isinstance(child, widgets.Image) and not isinstance(child, str) and not isinstance(child,
-                                                                                                  v.Html) and not isinstance(
-                parent.children[i], widgets.HTML) and not isinstance(child, FigureWidget) and not isinstance(child,
-                                                                                                             ColorTable) and not isinstance(
-                child, SubModelTable):
+        if (
+                not isinstance(child, widgets.Image) and not isinstance(child, str) and
+                not isinstance(child, v.Html) and not isinstance(parent.children[i], widgets.HTML) and
+                not isinstance(child, FigureWidget) and not isinstance(child, ColorTable) and
+                not isinstance(child, SubModelTable)
+        ):
             show_tree(child, filter, address=f"{address}{i}")
 
 
-def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
+def change_widget(root_widget: Widget, address: str, sub_widget: Widget | str):
     """
     Substitutes a sub_widget in a root_widget.
     Address is a sequence of childhood ranks as a string, root_widget first child address is  '0'
@@ -139,6 +135,7 @@ dummy_regions_df = pd.DataFrame(
         "% dataset": ["5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%"],
         "Sub-model": ["Linear regression", "Random forest", "Gradient boost", "Linear regression", "Random forest",
                       "Gradient boost", "Linear regression", "Random forest", "Gradient boost", "Linear regression"],
+        "color": ['blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue', 'blue']
     }
 )
 
@@ -150,64 +147,32 @@ headers = [
     }
     for column in dummy_regions_df.columns
 ]
-headers2 = headers.copy()[1:]
+headers2 = headers.copy()
 items = dummy_regions_df.to_dict('records')
-
-
-class ColorTable(v.VuetifyTemplate):
-    headers = traitlets.List([]).tag(sync=True, allow_null=True)
-    items = traitlets.List([]).tag(sync=True, allow_null=True)
-    colors = traitlets.List(colors).tag(sync=True)  # todo use region color
-    template = traitlets.Unicode('''
-        <template>
-            <v-data-table
-                :headers="headers"
-                :items="items"
-                item-key="Region"
-                show-select
-                single-select
-                :hide-default-footer="true"
-                @item-selected="tableselect"
-            >
-            <template v-slot:item.Region="variable">
-              <v-chip :color="colors[variable.value-1]" >
-              {{ variable.value }}
-              </v-chip>
-            </template>
-            </v-data-table>
-        </template>
-        ''').tag(sync=True)  # type: ignore
-    disable_sort = True
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.callback = None
-
-    # @click:row="tableclick"
-    # def vue_tableclick(self, data):
-    #     raise ValueError(f"click event data = {data}")
-
-    def set_callback(self, callback: callable):  # type: ignore
-        self.callback = callback
-
-    def vue_tableselect(self, data):
-        self.callback(data)
 
 
 class SubModelTable(v.VuetifyTemplate):
     headers = traitlets.List([]).tag(sync=True, allow_null=True)
     items = traitlets.List([]).tag(sync=True, allow_null=True)
+    selected = traitlets.List([]).tag(sync=True, allow_null=True)
     template = traitlets.Unicode('''
         <template>
             <v-data-table
+                v-model="selected"
                 :headers="headers"
                 :items="items"
                 item-key="Sub-model"
                 show-select
                 single-select
-                :hide-default-footer="true"
+                :hide-default-footer="false"
                 @item-selected="tableselect"
             >
+            
+            <template v-slot:item.delta="{ item }">
+              <v-chip :color="item.delta_color" label size="small">
+                    {{ item.delta }}
+              </v-chip>
+            </template>
             </v-data-table>
         </template>
         ''').tag(sync=True)  # type: ignore
@@ -231,7 +196,7 @@ class SubModelTable(v.VuetifyTemplate):
 # ------------------- Splash screen mega widget --------------------------------
 
 splash_widget = v.Layout(
-    class_="d-flex flex-column align-center justify-center",
+    class_="flex-column align-center justify-center",
     children=[
         widgets.Image(  # 0
             value=widgets.Image._load_file_value(
@@ -254,7 +219,7 @@ splash_widget = v.Layout(
                 v.Col(  # 11
                     class_="mt-3",
                     children=[
-                        v.ProgressLinear(
+                        v.ProgressLinear(# 110
                             style_="width: 80%",
                             class_="py-0 mx-5",
                             v_model=0,
@@ -755,7 +720,7 @@ app_widget = v.Col(
                                     ],
                                     layout={
                                         'height': 300,
-                                        'margin': {'t': 0, 'b': 0, 'l':0, 'r': 0},
+                                        'margin': {'t': 0, 'b': 0, 'l': 0, 'r': 0},
                                         'width': 600
                                     }
                                 ),
@@ -789,7 +754,7 @@ app_widget = v.Col(
                                     ],
                                     layout={
                                         'height': 300,
-                                        'margin': {'t': 0, 'b': 0, 'l':0, 'r': 0},
+                                        'margin': {'t': 0, 'b': 0, 'l': 0, 'r': 0},
                                         'width': 600
                                     }
                                 ),
@@ -1118,32 +1083,11 @@ app_widget = v.Col(
                                                  v.Container(  # 44001
                                                      class_="d-flex align-start",
                                                      children=[
-                                                         v.Col(  # 440010
-                                                             class_="d-flex align-start mr-0 pr-0",
-                                                             children=[
-                                                                 ColorTable(  # 4400100
-                                                                     headers=[headers[0]],
-                                                                     items=items,
-                                                                 )
-                                                             ],
-                                                         ),
-                                                         v.Col(  # 440011
-                                                             class_="ml-0 pl-0 flex-fill",
-                                                             children=[
-                                                                 v.DataTable(  # 4400110
-                                                                     # v_model="selected",
-                                                                     # show_select=True,
-                                                                     # item_key="Region",
-                                                                     # item_value="Region",
-                                                                     # single_select=True,
-                                                                     headers=headers2,
-                                                                     items=dummy_regions_df.to_dict(
-                                                                         "records"
-                                                                     ),
-                                                                     hide_default_footer=True,
-                                                                     disable_sort=True,
-                                                                 )
-                                                             ],
+                                                         ColorTable(  # 440010
+                                                             headers=headers2[:-1],
+                                                             items=dummy_regions_df.to_dict(
+                                                                 "records"
+                                                             ),
                                                          )
                                                      ],
                                                  ),
@@ -1287,7 +1231,7 @@ app_widget = v.Col(
                                                              label="Automatic number of clusters"
                                                          ),
                                                          v.ProgressLinear(  # 440212
-                                                             style_="width: 80%",
+                                                             style_="width: 100%",
                                                              class_="py-0 mx-5",
                                                              v_model=0,
                                                              color="primary",
