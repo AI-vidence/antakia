@@ -26,12 +26,10 @@ def test_init_PCA():
                                    'power_iteration_normalizer', 'random_state'])
 
 
-def test_fit_TSNEwrapper():  # not ok
+def test_fit_TSNEwrapper():
     tsn = TSNEwrapper()
     X = generate_df_series_callable()[0]
-    a = tsn.fit_transform(X)
-    b = pd.DataFrame(tsn.fit(X.values), index=X.index)
-    c = 1
+    tsn.fit_transform(X)
 
 
 def test_init_TSNEDimReduc():
@@ -120,20 +118,29 @@ def test_parameters_PacMAPDimReduc():
 
 
 def test_compute_projection():  # not ok
-    X, y, function = generate_df_series_callable()[0:3]
-    # dr_pca = PCADimReduc(X, 2, function)
+    function = generate_df_series_callable()[2]
+    X = pd.DataFrame(np.random.random((30, 5)), index=np.random.choice(np.random.randint(100, size=40), size=30),
+                     columns=[f'c{i}' for i in range(5)])
+    y = X.sum(axis=1)
+
     with pytest.raises(ValueError):
-        compute_projection(X, y, 1, 2, function)
+        compute_projection(X, y, 8, 2, function)
+
+    np.testing.assert_array_equal(compute_projection(X, y, 1, 2, function).index, X.index)
 
 
-def test_dim_reduction():
+def test_dim_reduction():  # ok sauf PaCMAP : windows fatal error (access violation File) pour PaCMAP
     X = pd.DataFrame(np.random.random((10, 5)), index=np.random.choice(np.random.randint(100, size=20), size=10),
                      columns=[f'c{i}' for i in range(5)])
     y = X.sum(axis=1)
 
-    for dim_method in DimReducMethod.dimreduc_methods_as_list():
+    # for dim_method in DimReducMethod.dimreduc_methods_as_list():
+    for dim_method in [1, 2, 3]:
         params = dim_reduc_factory.get(dim_method).parameters()
         params = {k: v['default'] for k, v in params.items()}
-        print(DimReducMethod.dimreduc_method_as_str(dim_method))
-        compute_projection(X, y, dim_method, 2, lambda x, y, z: None, **params)
-        compute_projection(X, y, dim_method, 3, lambda x, y, z: None, **params)
+        cpt_proj_2D = compute_projection(X, y, dim_method, 2, lambda x, y, z: None, **params)
+        assert cpt_proj_2D.shape == (len(X), 2)
+        assert X.index.equals(cpt_proj_2D.index)
+        cpt_proj_3D = compute_projection(X, y, dim_method, 3, lambda x, y, z: None, **params)
+        assert cpt_proj_3D.shape == (len(X), 3)
+        assert X.index.equals(cpt_proj_3D.index)

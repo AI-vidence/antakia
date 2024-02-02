@@ -1,42 +1,59 @@
 import mock
+import pandas as pd
 
 from antakia.gui.explanation_values import ExplanationValues
 from antakia.gui.widgets import get_widget, app_widget
-from tests.utils_fct import generate_ExplanationValues, EMPTYExplanation
+from tests.utils_fct import generate_ExplanationValues, EMPTYExplanation, generate_df_series_callable
 
 
-def test_init():
-    X_df, Y_ser, function, exp = generate_ExplanationValues('DT', 'SHAP')
+def test_init(): #ajouter test click
+    X, y, function = generate_df_series_callable()
+    X_exp = pd.DataFrame([[1, 7, 10],
+                          [5, 8, 11],
+                          [6, 9, 12]],
+                         index=[1, 2, 3],
+                         columns=['a', 'b', 'c'])
 
-    assert exp.X.equals(X_df)
-    assert exp.y.equals(Y_ser)
+    exp = generate_ExplanationValues('DT', callback=function)[3]
+    assert exp.X.equals(X)
+    assert exp.y.equals(y)
     assert exp.model == 'DT'
     assert exp.explanations == {'Imported': None, 'SHAP': None, 'LIME': None}
     assert exp.current_exp == 'SHAP'
     assert exp.on_change_callback == function
 
-    exp1 = ExplanationValues(X_df, Y_ser, 'DT', function, X_df)
+    exp1 = generate_ExplanationValues('DT', X_exp)[3]
     assert exp1.current_exp == 'Imported'
-    assert exp1.explanations['Imported'].X.equals(X_df)
+    assert exp1.explanations['Imported'].X.equals(X_exp)
     assert exp1.explanations['SHAP'] is None
     assert exp1.explanations['LIME'] is None
+
+    # get_widget(app_widget, "13000203").click()
+    # get_widget(app_widget, "13000303").click()
 
 
 @mock.patch('antakia.gui.explanation_values.compute_explanations')
 def test_initialize(cpt_exp):
-    X_df, Y_ser, X_exp, exp_val = generate_ExplanationValues('DT')
-    function = lambda *args: None
-    exp_val.initialize(function)
-    # cpt_exp.return_value = X_df
-    a = exp_val.on_change_callback
-    a1 = function
-    # tester que compute_explanation est bien appelé
-    # assert exp_val.current_exp == exp_val.available_exp[0]
-    # tester avec SHAP en current exp
-    # assert exp_val.get_explanation_select().v_model == exp_val.current_exp
-    z = 1
+    X, y, function = generate_df_series_callable()
+    X_exp = pd.DataFrame([[1, 7, 10],
+                          [5, 8, 11],
+                          [6, 9, 12]],
+                         index=[1, 2, 3],
+                         columns=['a', 'b', 'c'])
 
-    # assert exp.get_explanation_select().v_model ==
+    exp_val = generate_ExplanationValues('DT', X_exp, callback=function)[3]
+    exp_val.initialize(function)
+    assert get_widget(app_widget, '130000').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
+    assert get_widget(app_widget, '13000203').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
+    assert get_widget(app_widget, '130001').disabled == (exp_val.explanations[exp_val.available_exp[2]] is not None)
+    assert get_widget(app_widget, '13000303').disabled == (exp_val.explanations[exp_val.available_exp[2]] is not None)
+
+    assert exp_val.current_exp == exp_val.available_exp[0]
+    assert exp_val.get_explanation_select().v_model == 'Imported'
+
+    exp_val1 = generate_ExplanationValues('DT', callback=function)[3]
+    exp_val1.initialize(function)
+    assert exp_val1.get_explanation_select().v_model == 'SHAP'
 
 
 def test_current_pv():
@@ -76,7 +93,10 @@ def test_compute_explanation(cpt_exp):
                                                   {"text": 'SHAP', 'disabled': False},
                                                   {"text": 'LIME', 'disabled': True}]
 
-    # assert que update_compute_menu est bien fait
+    assert get_widget(app_widget, '130000').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget, '13000203').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget, '130001').disabled == (exp.explanations[exp.available_exp[2]] is not None)
+    assert get_widget(app_widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
 
 
 def test_update_compute_menu():
@@ -88,12 +108,11 @@ def test_update_compute_menu():
     assert get_widget(app_widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
 
 
-def test_compute_btn_clicked():
+def test_compute_btn_clicked(): #à compléter
     X, y, X_exp, exp_val = generate_ExplanationValues()
     # exp_val.compute_btn_clicked(get_widget(app_widget, "130000"), None, None)
     # exp_val.compute_btn_clicked(None, None, None)
     # assert get_widget(app_widget, "13000203").disabled
-    a = 1
     # assert exp_val.current_exp == 1
 
 

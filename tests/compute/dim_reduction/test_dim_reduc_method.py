@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.decomposition import PCA
 
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from tests.utils_fct import generate_df_series_callable
@@ -70,12 +71,10 @@ def test_dimension_as_str():
 
 
 def test_is_valid_dimreduc_method():
-    X = generate_df_series_callable()[0]
-    drm = DimReducMethod(1, None, 2, X)
-    assert not drm.is_valid_dimreduc_method(0)
-    assert drm.is_valid_dimreduc_method(1)
-    assert drm.is_valid_dimreduc_method(len(drm.dim_reduc_methods))
-    assert not drm.is_valid_dimreduc_method(len(drm.dim_reduc_methods) + 1)
+    assert not DimReducMethod.is_valid_dimreduc_method(0)
+    assert DimReducMethod.is_valid_dimreduc_method(1)
+    assert DimReducMethod.is_valid_dimreduc_method(len(DimReducMethod.dim_reduc_methods))
+    assert not DimReducMethod.is_valid_dimreduc_method(len(DimReducMethod.dim_reduc_methods) + 1)
 
 
 def test_is_valid_dim_number():
@@ -100,25 +99,26 @@ def test_parameters():
     assert drm.parameters() == {}
 
 
-def test_compute():
+def test_compute():  # ok rajouter test sur publish_progress
     X = generate_df_series_callable()[0]
-    drm = DimReducMethod(1, None, 2, X)
+    # drm = DimReducMethod(1, PCA, 2, X, default_parameters={'n_components': 2}, progress_updated= lambda x,y,z : k=max(k,z))
+    drm = DimReducMethod(1, PCA, 2, X, default_parameters={'n_components': 2})
+    a = drm.compute()
+    assert drm.default_parameters == {'n_components': 2}
+    # assert drm.
 
 
-
-def test_scale_value_space():  # not ok
+def test_scale_value_space():
     np.random.seed(10)
     X = pd.DataFrame(np.random.randint(0, 100, size=(6, 3)), columns=list('ABC'))
     y = X.sum(axis=1)
     drm = DimReducMethod(1, None, 2, X)
     a = drm.scale_value_space(X, y)
-    expected = pd.DataFrame([[-0.034347, -0, 0.006285],
-                             [-0.000592, 0, 0.041565],
-                             [0.001184, -0, 0.017234],
-                             [-0.050337, 0, -0.027778],
-                             [-0.021911, -0, -0.005880],
-                             [0.106003, 0, -0.031427]],
+    expected = pd.DataFrame([[-0.048086, -0.153033, 0.032684],
+                             [-0.000829, 0.350276, 0.216138],
+                             [0.001658, -0.200644, 0.089618],
+                             [-0.070471, 0.017004, -0.144444],
+                             [-0.030676, -0.180239, -0.030576],
+                             [0.148405, 0.166636, -0.163422]],
                             index=list(range(0, 6)), columns=list('ABC'))
-    test = (a.equals(expected))
-    b = 1
-    assert drm.scale_value_space(X, y).equals(expected)
+    assert np.round(drm.scale_value_space(X, y)[::], 6).equals(expected)

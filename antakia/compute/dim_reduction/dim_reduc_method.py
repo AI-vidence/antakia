@@ -18,7 +18,7 @@ class DimReducMethod(LongTask):
     """
 
     # Class attributes methods
-    dim_reduc_methods = ['PCA', 'TSNE', 'UMAP', 'PaCMAP', 'PCF']
+    dim_reduc_methods = ['PCA', 'TSNE', 'UMAP', 'PaCMAP']
     dimreduc_method = -1
 
     allowed_kwargs = []
@@ -64,9 +64,6 @@ class DimReducMethod(LongTask):
 
     @classmethod
     def dimreduc_method_as_str(cls, method: int) -> str:
-        """
-        Returns the dimreduc method that
-        """
         if method is None:
             return None
         elif 0 < method <= len(cls.dim_reduc_methods):
@@ -85,11 +82,11 @@ class DimReducMethod(LongTask):
             raise ValueError(f"{method} is an invalid dimensionality reduction method")
 
     @classmethod
-    def dimreduc_methods_as_list(cls) -> list:
+    def dimreduc_methods_as_list(cls) -> list[int]:
         return list(map(lambda x: x + 1, range(len(cls.dim_reduc_methods))))
 
     @classmethod
-    def dimreduc_methods_as_str_list(cls) -> list:
+    def dimreduc_methods_as_str_list(cls) -> list[str]:
         return cls.dim_reduc_methods.copy()
 
     @staticmethod
@@ -119,7 +116,7 @@ class DimReducMethod(LongTask):
         return self.dimension
 
     @classmethod
-    def parameters(cls):
+    def parameters(cls) -> dict[str, dict[str, any]]:
         return {}
 
     def compute(self, **kwargs) -> pd.DataFrame:
@@ -142,7 +139,7 @@ class DimReducMethod(LongTask):
     @classmethod
     def scale_value_space(cls, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         """
-        Scale the values in X to be between 0 and 1.
+        Scale the values in X so that it's reduced and centered and weighted with mi
         """
         std = X.std()
         std[std == 0] = 1

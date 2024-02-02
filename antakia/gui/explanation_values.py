@@ -136,7 +136,7 @@ class ExplanationValues:
 
     def explanation_select_changed(self, widget, event, data):
         """
-        Called when the user choses another dataframe
+        Called when the user chooses another dataframe
         """
         # Remember : impossible items ine thee Select are disabled = we have the desired values
         self.current_exp = data

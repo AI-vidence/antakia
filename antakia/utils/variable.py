@@ -60,7 +60,7 @@ class Variable:
             var = Variable(i, col_2, X.dtypes[col])
             if col_2.lower() in ["latitude", "lat"]:
                 var.lat = True
-            if col_2.lower() in ["longitude", "long"]:
+            if col_2.lower() in ["longitude", "long", "lon"]:
                 var.lon = True
             var.continuous = Variable.is_continuous(X[col])
             variables.append(var)
@@ -151,10 +151,16 @@ class DataVariables:
             text += str(var.col_index) + ") " + str(var) + "\n"
         return text
 
-    def sym_list(self):
+    def sym_list(self) -> List[str]:
+        """
+        Returns a list of all symbols used in the variable DataFrame
+        """
         return list(self.variables.keys())
 
-    def get_var(self, symbol: str):
+    def get_var(self, symbol: str) -> Variable:
+        """
+        Returns the Variable with the given symbol
+        """
         return self.variables.get(symbol)
 
     def __len__(self):

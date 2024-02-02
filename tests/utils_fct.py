@@ -14,7 +14,7 @@ def dr_callback(*args):
     pass
 
 
-def generate_ExplanationValues(model=None, X_exp=None):
+def generate_ExplanationValues(model=None, X_exp=None, callback=None):
     X = pd.DataFrame([[4, 7, 10],
                       [5, 8, 11],
                       [6, 9, 12]],
@@ -24,16 +24,21 @@ def generate_ExplanationValues(model=None, X_exp=None):
 
     if model is None:
         model = 'DT'
-    if X_exp is None:
-        X_exp = pd.DataFrame([[1, 7, 10],
-                              [5, 8, 11],
-                              [6, 9, 12]],
-                             index=[1, 2, 3],
-                             columns=['a', 'b', 'c'])
 
-    exp_val = ExplanationValues(X, y, model, lambda *args: None, X_exp)
+    exp_val = ExplanationValues(X, y, model, callback, X_exp)
 
     return X, y, X_exp, exp_val
+
+
+def generate_df_series_callable():
+    X = pd.DataFrame([[4, 7, 10],
+                      [5, 8, 11],
+                      [6, 9, 12]],
+                     index=[1, 2, 3],
+                     columns=['a', 'b', 'c'])
+    y = pd.Series([1, 2, 3])
+
+    return X, y, lambda *args: None
 
 
 class EMPTYExplanation(ExplanationMethod):
