@@ -3,18 +3,18 @@ import pandas as pd
 
 import ipyvuetify as v
 import IPython.display
-import ipywidgets as widgets
 
 from antakia.data_handler.projected_values import ProjectedValues
 from antakia.data_handler.region import ModelRegionSet, ModelRegion
 from antakia.gui.explanation_values import ExplanationValues
+from antakia.gui.progress_bar import ProgressBar, MultiStepProgressBar
 from antakia.utils.long_task import LongTask
 from antakia.compute.explanation.explanation_method import ExplanationMethod
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.skope_rule.skope_rule import skope_rules
 import antakia.config as config
-from antakia.data_handler.rules import Rule, RuleSet
+from antakia.data_handler.rules import RuleSet
 
 from antakia.gui.widgets import get_widget, change_widget, splash_widget, app_widget
 from antakia.gui.highdimexplorer import HighDimExplorer
@@ -160,76 +160,58 @@ class GUI:
 
         # We add both widgets to the current notebook cell and hide them
         IPython.display.display(splash_widget, app_widget)
-        splash_widget.hide()
         app_widget.hide()
         splash_widget.show()
 
-        get_widget(splash_widget, "110").color = "light blue"
-        get_widget(splash_widget, "110").v_model = 0
-        get_widget(splash_widget, "210").color = "light blue"
-        get_widget(splash_widget, "210").v_model = 0
+        exp_progress_bar = ProgressBar(
+            get_widget(splash_widget, "110"),
+            unactive_color="light blue",
+            reset_at_end=False
+        )
+        dimreduc_progress_bar = MultiStepProgressBar(
+            get_widget(splash_widget, "210"),
+            steps=2,
+            unactive_color="light blue",
+            reset_at_end=False
+        )
 
         # We trigger VS proj computation :
         get_widget(
             splash_widget, "220"
-        ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} x 2"
+        ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} 1/2"
 
-        self.vs_hde.initialize(progress_callback=self.update_splash_screen)
-        # self.vs_hde.compute_projs(False, self.update_splash_screen)
+        self.vs_hde.initialize(progress_callback=dimreduc_progress_bar.get_update(1))
 
         # We trigger ES explain computation if needed :
         if not self.exp_values.has_user_exp:  # No imported explanation values
-            msg = f"Computing {ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)} on {self.X.shape}"
+            exp_method = ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)
+            msg = f"Computing {exp_method} on {self.X.shape}"
         else:
             msg = f"Imported explained values {self.X.shape}"
-        self.exp_values.initialize(self.update_splash_screen)
+        self.exp_values.initialize(exp_progress_bar.update)
         get_widget(splash_widget, "120").v_model = msg
 
         # THen we trigger ES proj computation :
-        # self.es_hde.compute_projs(False, self.update_splash_screen)
-        self.es_hde.initialize(progress_callback=self.update_splash_screen)
+        get_widget(
+            splash_widget, "220"
+        ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} 2/2"
+        self.es_hde.initialize(
+            pv=self.exp_values.current_pv,
+            progress_callback=dimreduc_progress_bar.get_update(2)
+        )
         self.selection_changed(None, boolean_mask(self.X, True))
 
-        #TODO: call GUI.init_app from within GUI.__init__ ?
+        # TODO: call GUI.init_app from within GUI.__init__ ?
         # We init the app(init, config, UI logic)
         self.init_app()
 
-        #TODO : this should called in GUI.update_splash_screen
-        splash_widget.hide() 
+        # TODO : this should called in GUI.update_splash_screen
+        splash_widget.hide()
         app_widget.show()
 
-    def update_splash_screen(self, caller: LongTask, progress: int, duration: float):
-        """
-        Updates progress bars of the splash screen
-        """
-        # We select the proper progress bar :
-        if isinstance(caller, ExplanationMethod):
-            # It's an explanation
-            progress_linear = get_widget(splash_widget, "110")
-            number = 1
-        else:  # It's a projection
-            progress_linear = get_widget(splash_widget, "210")
-            number = 2  # (VS/ES) x (2D/3D)
-
-        if progress_linear.color == "light blue":
-            progress_linear.color = "blue"
-            progress_linear.v_model = 0
-
-        if isinstance(caller, ExplanationMethod):
-            progress_linear.v_model = round(progress / number)
-        else:
-            progress_linear.v_model += round(progress / number)
-
-        if progress_linear.v_model == 100:
-            progress_linear.color = "light blue"
-            #TODO : this should called here, not in GUI.show_splash_screen
-            # splash_widget.hide() 
-            # app_widget.show()
-
-
-    def explanation_changed_callback(self, progress_callback=None):
-        self.es_hde.update_pv(self.exp_values.current_pv, progress_callback)
-        self.es_rules_wgt.update_X(self.exp_values.current_pv.X)
+    def explanation_changed_callback(self, current_pv, progress_callback=None):
+        self.es_hde.update_pv(current_pv, progress_callback)
+        self.es_rules_wgt.update_X(current_pv.X)
 
     def disable_hde(self, disable):
         self.vs_hde.disable_widgets(disable)
@@ -237,10 +219,11 @@ class GUI:
         self.es_hde.disable_widgets(disable)
 
     def set_dimension(self, dim):
-        self.vs_hde.set_dimension(dim)
-        self.es_hde.set_dimension(dim)
+        get_widget(app_widget, "100").v_model = dim == 3
+        self.vs_hde.dim = dim
+        self.es_hde.dim = dim
 
-    def selection_changed(self, caller: HighDimExplorer, new_selection_mask: pd.Series):
+    def selection_changed(self, caller: HighDimExplorer | None, new_selection_mask: pd.Series):
         """Called when the selection of one HighDimExplorer changes"""
 
         # UI rules :
@@ -299,20 +282,20 @@ class GUI:
         # we refresh button and enable/disable the datatable
         self.refresh_buttons_tab_1()
 
-    def fig_size_changed(self, widget, event, data):
+    def fig_size_changed(self, widget, *args):
         """Called when the figureSizeSlider changed"""
         self.vs_hde.fig_width = self.es_hde.fig_width = round(widget.v_model / 2)
         self.vs_hde.update_fig_size()
         self.es_hde.update_fig_size()
 
-    def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series, skr: bool = False):
+    def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
         """
         Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
         The function asks the HDEs to display the rules result
         """
         # We make sure we're in 2D :
         # TODO : pourquoi on passe en dim 2 ici ?
-        get_widget(app_widget, "100").v_model == 2  # Switch button
+        # Switch button
         self.set_dimension(2)
 
         # We sent to the proper HDE the rules_indexes to render :
@@ -342,7 +325,7 @@ class GUI:
 
         # -------------- Dimension Switch --------------
 
-        get_widget(app_widget, "100").v_model == config.DEFAULT_DIMENSION
+        get_widget(app_widget, "100").v_model = config.DEFAULT_DIMENSION == 3
         get_widget(app_widget, "100").on_event("change", self.switch_dimension)
 
         # -------------- ColorChoiceBtnToggle ------------
@@ -354,13 +337,7 @@ class GUI:
 
         # We attach each HighDimExplorers component to the app_graph:
         change_widget(app_widget, "201", self.vs_hde.figure_container),
-        change_widget(app_widget, "14", self.vs_hde.get_projection_select())
-        change_widget(app_widget, "16", self.vs_hde.get_projection_prog_circ())
         change_widget(app_widget, "211", self.es_hde.figure_container)
-        change_widget(app_widget, "17", self.es_hde.get_projection_select())
-        change_widget(app_widget, "19", self.es_hde.get_projection_prog_circ())
-        change_widget(app_widget, "12", self.exp_values.get_explanation_select())
-        change_widget(app_widget, "13", self.exp_values.get_compute_menu())
 
         # ================ Tab 1 Selection ================
 
@@ -417,7 +394,7 @@ class GUI:
         # We wire select events on this checkbox :
         get_widget(app_widget, "440211").on_event("change", self.checkbox_auto_cluster_clicked)
 
-        def num_cluster_changed(widget, event, data):
+        def num_cluster_changed(*args):
             """
             Called when the user changes the number of clusters
             """
@@ -453,7 +430,6 @@ class GUI:
 
         self.select_tab(1)
         self.refresh_buttons_tab_1()
-
 
     def switch_dimension(self, widget, event, data):
         """
@@ -545,7 +521,6 @@ class GUI:
 
         es_skr_rules_list, es_skr_score_dict = skope_rules(self.selection_mask, self.es_hde.current_X, self.variables)
         es_skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-        print(es_skr_rules_list)
         self.es_rules_wgt.init_rules(es_skr_rules_list, es_skr_score_dict, self.selection_mask)
         self.refresh_buttons_tab_1()
         self.select_tab(1)
@@ -620,14 +595,13 @@ class GUI:
         # In any case, we enable the auto-cluster button
         get_widget(app_widget, "4402000").disabled = False
 
-        # We reveive either True or {}
-        if data != True:
-            data = False
+        # We reveive either True or {} (bool({})==False))
+        data = bool(data)
 
         # IF true, we disable the Slider
         get_widget(app_widget, "4402100").disabled = data
 
-    def auto_cluster_clicked(self, widget, event, data):
+    def auto_cluster_clicked(self, *args):
         """
         Called when the user clicks on the 'auto-cluster' button
         """
@@ -658,10 +632,27 @@ class GUI:
 
     def compute_auto_cluster(self, not_rules_indexes_list, cluster_num='auto'):
         if len(not_rules_indexes_list) > config.MIN_POINTS_NUMBER:
-            vs_proj_3d_df = self.vs_hde.get_current_X_proj(3, False, progress_callback=self.get_ac_progress_update(1))
-            es_proj_3d_df = self.es_hde.get_current_X_proj(3, False, progress_callback=self.get_ac_progress_update(2))
+            vs_compute = int(not self.vs_hde.projected_value_selector.is_computed(dim=3))
+            es_compute = int(not self.es_hde.projected_value_selector.is_computed(dim=3))
+            steps = 1 + vs_compute + es_compute
 
-            ac = AutoCluster(self.X, self.get_ac_progress_update(3))
+            progress_bar = MultiStepProgressBar(get_widget(app_widget, "440212"), steps=steps)
+            step = 1
+            vs_proj_3d_df = self.vs_hde.get_current_X_proj(
+                3,
+                False,
+                progress_callback=progress_bar.get_update(step)
+            )
+
+            step += vs_compute
+            es_proj_3d_df = self.es_hde.get_current_X_proj(
+                3,
+                False,
+                progress_callback=progress_bar.get_update(step)
+            )
+
+            step += es_compute
+            ac = AutoCluster(self.X, progress_bar.get_update(step))
 
             found_regions = ac.compute(
                 vs_proj_3d_df.loc[not_rules_indexes_list],
@@ -670,19 +661,9 @@ class GUI:
                 cluster_num,
             )  # type: ignore
             self.region_set.extend(found_regions)
+            progress_bar.set_progress(100)
         else:
             print('not enough points to cluster')
-
-    def get_ac_progress_update(self, step):
-        def update_ac_progress_bar(caller, progress: float, duration: float):
-            """
-            Called by the AutoCluster to update the progress bar
-            """
-            total_steps = 3
-            progress = ((step - 1) * 100 + progress) / total_steps
-            get_widget(app_widget, "440212").v_model = progress
-
-        return update_ac_progress_bar
 
     def disable_buttons(self, current_operation):
         selected_region_nums = [x['Region'] for x in self.selected_regions]
@@ -833,7 +814,7 @@ class GUI:
                 # clear selection if new region:
                 table.selected = []
 
-    def update_substitution_table(self, region: ModelRegion):
+    def update_substitution_table(self, region: ModelRegion | None):
         """
         Called twice to update table
         """

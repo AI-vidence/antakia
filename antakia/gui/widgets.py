@@ -9,14 +9,8 @@ import traitlets
 
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.gui.colorTable import ColorTable
-from antakia.utils.logging import conf_logger
 
 from importlib.resources import files
-
-import logging
-
-from antakia.utils.utils import colors
-
 
 def get_widget(root_widget: Widget, address: str) -> Widget:
     """
@@ -82,7 +76,7 @@ def show_tree(parent: Widget, filter: str = "", address: str = ""):
             show_tree(child, filter, address=f"{address}{i}")
 
 
-def change_widget(root_widget: Widget, address: str, sub_widget: Widget):
+def change_widget(root_widget: Widget, address: str, sub_widget: Widget | str):
     """
     Substitutes a sub_widget in a root_widget.
     Address is a sequence of childhood ranks as a string, root_widget first child address is  '0'
@@ -225,7 +219,7 @@ splash_widget = v.Layout(
                 v.Col(  # 11
                     class_="mt-3",
                     children=[
-                        v.ProgressLinear(
+                        v.ProgressLinear(# 110
                             style_="width: 80%",
                             class_="py-0 mx-5",
                             v_model=0,
@@ -1237,7 +1231,7 @@ app_widget = v.Col(
                                                              label="Automatic number of clusters"
                                                          ),
                                                          v.ProgressLinear(  # 440212
-                                                             style_="width: 80%",
+                                                             style_="width: 100%",
                                                              class_="py-0 mx-5",
                                                              v_model=0,
                                                              color="primary",

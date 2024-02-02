@@ -311,7 +311,12 @@ class Rule:
 
 
 class RuleSet:
-    def __init__(self, rules: list[Rule] = None):
+    """
+    set of rules
+    """
+
+    def __init__(self, rules: list[Rule] | RuleSet | None = None):
+
         if isinstance(rules, RuleSet):
             rules = rules.rules
         if rules:
@@ -319,11 +324,31 @@ class RuleSet:
         else:
             self.rules = []
 
-    def append(self, value):
+    def append(self, value: Rule):
+        """
+        add a new rule
+        Parameters
+        ----------
+        value
+
+        Returns
+        -------
+
+        """
         self.rules.append(value)
 
-    def pop(self, index=None):
-        self.rules.pop(index)
+    def pop(self, index: int = None) -> Rule:
+        """
+        remove and return index rule
+        Parameters
+        ----------
+        index
+
+        Returns
+        -------
+
+        """
+        return self.rules.pop(index)
 
     def __len__(self):
         return len(self.rules)
@@ -342,6 +367,16 @@ class RuleSet:
         return RuleSet(self.rules.copy())
 
     def set(self, new_rule: Rule):
+        """
+        edit a rule in the ruleset
+        Parameters
+        ----------
+        new_rule
+
+        Returns
+        -------
+
+        """
         for rule in self.rules:
             if rule.variable == new_rule.variable:
                 self.rules[self.rules.index(rule)] = new_rule
@@ -349,7 +384,17 @@ class RuleSet:
         # append if no rule on the variable
         self.append(new_rule)
 
-    def get_matching_mask(self, X):
+    def get_matching_mask(self, X: pd.DataFrame) -> pd.Series:
+        """
+        get the mask of samples validating the rule
+        Parameters
+        ----------
+        X: dataset to get the mask from
+
+        Returns
+        -------
+
+        """
         res = boolean_mask(X, True)
         if self.rules is not None:
             for rule in self.rules:
@@ -357,11 +402,32 @@ class RuleSet:
         return res
 
     def get_matching_indexes(self, X):
+        """
+        get the list indexes of X validating the rule
+        Parameters
+        ----------
+        X
+
+        Returns
+        -------
+
+        """
         res = self.get_matching_mask(X)
         return mask_to_index(res)
 
     @classmethod
     def sk_rules_to_rule_set(cls, skrules, variables: DataVariables):
+        """
+        transform skope rules to a RuleSet
+        Parameters
+        ----------
+        skrules
+        variables
+
+        Returns
+        -------
+
+        """
         tokens = skrules[0]
         precision = tokens[1][0]
         recall = tokens[1][1]
@@ -396,6 +462,17 @@ class RuleSet:
 
     @staticmethod
     def combine_rules_var(rule_list: list[Rule]) -> list[Rule]:
+        """
+        reduce rule list
+        all rules should share the same variable
+        Parameters
+        ----------
+        rule_list
+
+        Returns
+        -------
+
+        """
         rule_list = rule_list[:]
         i = 0
         while i < len(rule_list):
@@ -430,7 +507,17 @@ class RuleSet:
                 new_rules.extend(combined_rules)
         self.rules = new_rules
 
-    def find_rule(self, var: Variable):
+    def find_rule(self, var: Variable) -> Rule | None:
+        """
+        find a rule on the variable
+        Parameters
+        ----------
+        var
+
+        Returns
+        -------
+
+        """
         for rule in self.rules:
             if rule.variable.symbol == var.symbol:
                 return rule

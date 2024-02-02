@@ -1,17 +1,13 @@
 from __future__ import annotations
 
 import pandas as pd
-from ipywidgets import widgets
 import numpy as np
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier
 
-from antakia.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.region import Region, RegionSet
-
-from antakia.gui.widgets import get_widget, app_widget
+from antakia.gui.projected_value_selector import ProjectedValueSelector
 
 import antakia.utils.utils as utils
 import antakia.config as config
@@ -26,38 +22,19 @@ conf_logger(logger)
 
 class HighDimExplorer:
     """
-    An HighDimExplorer displays one or several high dim Dataframes on a scatter plot.
-    It uses several dimension reduction techniques, through the DimReduction class.
-    It can display in or 2 dimensions.
+    An HighDimExplorer displays one high dim Dataframes on a scatter plot.
+    This class is only responsible for displaying the provided projection
+    dimensionality reduction is handled by ProjectedValueSelector
 
-    Implemntation details :
-    It handes projections computation itself when needed.
-    But, it asks GUI when another dataframe is asked for (eg. compute SHAP or LIME)
-    It stores dataframes with the ProjectedValues class.
-    It stored the current projection method (in widget) but not the dimension (see _current_dim)
+    It can display in 3 or 2 dimensions.
+
+    Implementation details :
+    It handles projections computation and switch through ProjectedValueSelector
+    it can update its high dim dataframe through the update_pv method
+
     Attributes are mostly privates (underscorred) since they are not meant to be used outside of the class.
 
     Attributes :
-    pv_dict : dict(ProjectedValues) # a dict of one or several ProjectedValues (PV)
-        Keys are : 'original_values', 'imported_explanations', 'computed_shap', 'computed_lime'
-    current_pv : str in ['original_values', 'imported_explanations', 'computed_shap', 'computed_lime']
-        tells wich PV is currently displayed
-    is_value_space : bool
-    _y : pd.Series
-    _proj_params : dictionnary containing the parameters for the PaCMAP projection
-        nested keys are "previous" / "current", then "VS" / "ES", then "n_neighbors" / "MN_ratio" / "FP_ratio"
-    _current_dim
-    _current_selection : list of X indexes # Plotly hack
-    _has_lasso : bool # Plotly hack
-    selection_changed : callable (from GUI)
-    new_eplanation_values_required : callable (from GUI)
-
-    Widgets :
-    figure_2D and figure_3D : FigureWidget
-        Plotly scatter plot
-    container : a thin v.Container wrapper around the current Figure. Allows us to swap between 2D and 3D figures alone (without GUI)
-    _proj_params_cards : dict of VBox,  parameters for dimreduc methods
-    fig_size : int
 
     """
 
@@ -70,6 +47,16 @@ class HighDimExplorer:
 
     @staticmethod
     def trace_name(trace_id: int) -> str:
+        '''
+        get trace name from id
+        Parameters
+        ----------
+        trace_id : int
+
+        Returns
+        -------
+
+        '''
         if trace_id == HighDimExplorer.VALUES_TRACE:
             return 'values trace'
         elif trace_id == HighDimExplorer.RULES_TRACE:
@@ -83,19 +70,21 @@ class HighDimExplorer:
 
     def __init__(
             self,
-            pv: ProjectedValues,
+            pv: ProjectedValues | None,
             init_dim: int,
             fig_size: int,
             selection_changed: callable,
             space_type: str
     ):
         """
-        Instantiate a new HighDimExplorer.
 
-        Selected parameters :
-            X : orignal dataset. Will be stored in a ProjectedValues oject
-            X_exp : imported explained dataset. Idem.
-            init_proj, init_dim : int, int, used to initialize widgets
+        Parameters
+        ----------
+        pv: projected Value to display
+        init_dim : starting dimension
+        fig_size : starting figure size
+        selection_changed : callable called when a selection changed
+        space_type : VS or ES
         """
         if space_type not in ['ES', 'VS']:
             raise ValueError(f"HDE.init: space_type must be 'ES' or 'VS', not {space_type}")
@@ -103,31 +92,36 @@ class HighDimExplorer:
         if init_dim not in [2, 3]:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
+        # current active tab
         self.active_tab = 0
-
+        # mask of value to display to limit points on graph
         self._mask = None
+        # callback to notify gui that the selection has changed
         self.selection_changed = selection_changed
-        self.pv = pv
+        # projected values handler & widget
+        self.projected_value_selector = ProjectedValueSelector(
+            self.is_value_space,
+            init_dim,
+            self.redraw,
+            pv
+        )
 
-        # current projected values to display
-
-        # For each projection method, we store the widget (Card) that contains its parameters UI :
-        self._proj_params_cards = {}
-        self.build_all_proj_param_w()
-        self.update_proj_params_menu()
-
-        #  Now we can init figure
+        # Now we can init figure
         self.figure_container = v.Container()
         self.figure_container.class_ = "flex-fill"
 
+        # display parameters
         self.fig_width = fig_size
         self.fig_height = fig_size / 2
 
+        # is graph selectable
         self._selection_disabled = False
+        # current selection
         if pv is not None:
             self._current_selection = utils.boolean_mask(pv.X, True)
         else:
             self._current_selection = None
+        # is this selection first since last deselection ?
         self.first_selection = False
 
         # traces to show
@@ -135,189 +129,153 @@ class HighDimExplorer:
         # trace_colors
         self._colors: list[pd.Series | None] = [None, None, None, None]
 
+        # figures
         self.figure_2D = self.figure_3D = None
+        # is the class fully initialized
+        self.initialized = False
 
-    def initialize(self, progress_callback):
-        # progress_callback corresponds to gui.update_splash_screen : it is used to update the progress bar
-        # it's called once for each HDE
-        self.update_pv(self.pv, progress_callback)
-        self.close_progress_circular()
-        self.get_projection_select().on_event("change", self.projection_select_changed)
+    @property
+    def current_selection(self):
+        if self._current_selection is None:
+            self._current_selection = utils.boolean_mask(self.current_X, True)
+        return self._current_selection
+
+    @current_selection.setter
+    def current_selection(self, value):
+        self._current_selection = value
+
+    def initialize(self, progress_callback, pv=None):
+        """
+        inital computation (called at startup, after init to compute required values
+        Parameters
+        ----------
+        progress_callback : callable to notify progress
+
+        Returns
+        -------
+
+        """
+        if pv is not None:
+            # for ES space we need to manually provide the pv value in other to not trigger all auto updates
+            self.projected_value_selector.projected_value = pv
+        self.get_current_X_proj(progress_callback=progress_callback)
         self.create_figure()
+        self.initialized = True
 
-    ############
-    ## widget ##
-    ############
     def disable_widgets(self, is_disabled: bool):
         """
-        Called by GUI to enable/disable proj changes and explaination computation or change
-        """
-        self.get_projection_select().disabled = is_disabled
-        self.enable_proj_param_menu(not is_disabled)
+        disable dropdown select
+        Parameters
+        ----------
+        is_disabled: disable value
 
-    ################
-    ## properties ##
-    ################
+        Returns
+        -------
+
+        """
+        self.projected_value_selector.disable(is_disabled)
+
     @property
-    def current_dim(self):
+    def dim(self):
+        """
+        get current dimension
+        Returns
+        -------
+
+        """
         return self._current_dim
 
-    @current_dim.setter
-    def current_dim(self, dim):
+    @dim.setter
+    def dim(self, dim):
+        """
+        change current dim value
+        Parameters
+        ----------
+        dim : new dim value
+
+        Returns
+        -------
+
+        """
         self._current_dim = dim
+        self.projected_value_selector.update_dim(dim)
         # we recreate figure on dim change
         self.create_figure()
 
     @property
     def figure(self):
-        if self.current_dim == 2:
+        """
+        get current active figure to display/edit
+        Returns
+        -------
+
+        """
+        if self.dim == 2:
             return self.figure_2D
         return self.figure_3D
 
     @figure.setter
     def figure(self, fig):
-        if self.current_dim == 2:
+        """
+        change current figure
+        Parameters
+        ----------
+        fig : new figure value
+
+        Returns
+        -------
+
+        """
+        if self.dim == 2:
             self.figure_2D = fig
         else:
             self.figure_3D = fig
 
-    @property
-    def current_projected_values(self):
-        return self.pv
-
-    # --- select projection method ---
-
-    def projection_select_changed(self, widget, event, data):
-        """ "
-        Called when the user changes the projection method
-        If needed, we compute the new projection
-        """
-        self.get_projection_select().disabled = True
-        # We disable proj params if  not PaCMAP:
-
-        self.update_proj_params_menu()
-        self.redraw()
-        self.get_projection_select().disabled = False
-
-    def get_projection_prog_circ(self) -> v.ProgressCircular:
-        """
-       Called at startup by the GUI
-       """
-        return get_widget(app_widget, "16" if self.is_value_space else "19")
-
-    def update_progress_circular(
-            self, caller, progress: int, duration: float
-    ):
-        """
-        Each proj computation consists in 2 (2D and 3D) tasks.
-        So progress of each task in divided by 2 and summed together
-        """
-        prog_circular = self.get_projection_prog_circ()
-        if prog_circular.color == "grey":
-            prog_circular.color = "blue"
-            # Since we don't have fine-grained progress, we set it to 'indeterminate'
-            prog_circular.indeterminate = True
-            # But i still need to store total progress in v_model :
-            prog_circular.v_model = 0
-            # We lock it during computation :
-            prog_circular.disabled = True
-
-        # Strange sicen we're in 'indeterminate' mode, but i need it, cf supra
-        prog_circular.v_model = float(prog_circular.v_model) + round(progress)
-
-        if prog_circular.v_model == 100:
-            self.close_progress_circular()
-
-    def close_progress_circular(self):
-        prog_circular = self.get_projection_prog_circ()
-        prog_circular.indeterminate = False
-        prog_circular.color = "grey"
-        prog_circular.disabled = False
-
-    # ---- Projection parameters ---
-
-    @property
-    def proj_param_widget(self):
-        return get_widget(app_widget, "15" if self.is_value_space else "18")
-
-    def projection_kwargs(self, dim_reduc_method):
-        kwargs = self.pv.get_paramerters(dim_reduc_method, self.current_dim)['current']
-        return kwargs
-
-    def build_proj_param_widget(self, dim_reduc) -> list[v.Slider]:
-        parameters = dim_reduc_factory[dim_reduc].parameters()
-        sliders = []
-        for param, info in parameters.items():
-            min_, max_, step = utils.compute_step(info['min'], info['max'])
-            if self.pv is not None:
-                current_value = self.projection_kwargs(dim_reduc)[param]
-            else:
-                current_value = info['default']
-            if info['type'] == int:
-                step = max(round(step), 1)
-
-            slider = v.Slider(  # 15000
-                class_="ma-8 pa-2",
-                v_model=current_value,
-                min=float(min_),
-                max=float(max_),
-                step=step,
-                label=param,
-                thumb_label="always",
-                thumb_size=25,
-            )
-            slider.on_event("change", self._proj_params_changed)
-            sliders.append(slider)
-        return sliders
-
-    def build_all_proj_param_w(self):
-        for dim_reduc in DimReducMethod.dimreduc_methods_as_list():
-            self._proj_params_cards[dim_reduc] = self.build_proj_param_widget(dim_reduc)
-
-    def _proj_params_changed(self, widget, event, data):
-        """
-        Called when params slider changed"""
-        # We disable the prooj params menu :
-        self.enable_proj_param_menu(False)
-
-        changed_param = widget.label
-        # We compute the PaCMAP new projection :
-        self.pv.set_parameters(self._get_projection_method(), self.current_dim,
-                               {changed_param: data})
-        self.redraw()
-
-        self.enable_proj_param_menu(True)
-
-    def update_proj_params_menu(self):
-        """
-        Called at startup by the GUI
-        """
-        # We return
-        params = self._proj_params_cards[self._get_projection_method()]
-        self.enable_proj_param_menu(len(params) > 0)
-        # We neet to set a Card, depending on the projection method
-        self.proj_param_widget.children[0].children = [widgets.VBox(params)]
-        # proj_params_menu.children = [widgets.VBox(params)]
-
-    def enable_proj_param_menu(self, enable):
-        self.proj_param_widget.disabled = not enable
-
     # ---- display Methods ------
 
     def disable_selection(self, is_disabled: bool):
+        """
+        enable/disable selection on graph
+        Parameters
+        ----------
+        is_disabled
+
+        Returns
+        -------
+
+        """
         self._selection_disabled = is_disabled
         if self.figure_2D is not None:
             self.figure_2D.update_layout(
                 dragmode=False if is_disabled else "lasso"
             )
 
-    def show_trace(self, trace_id: int, show: bool):
+    def _show_trace(self, trace_id: int, show: bool):
+        """
+        show/hide trace
+        Parameters
+        ----------
+        trace_id : trace to show
+        show : show/hide
+
+        Returns
+        -------
+
+        """
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
     def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series):
-        """"
-        Displays the dots corresponding to our current rules in blue, the others in grey
+        """
+        display a rule vs a selection
+        Parameters
+        ----------
+        selection_mask: boolean series of selected points
+        rules_mask: boolean series of rule validating points
+
+        Returns
+        -------
+
         """
         color, _ = utils.get_mask_comparison_color(rules_mask, selection_mask)
 
@@ -325,13 +283,30 @@ class HighDimExplorer:
         self._display_zones(self.RULES_TRACE)
 
     def display_regionset(self, region_set: RegionSet):
-        """"
-        Displays each region in a different color
+        """
+        display a region set, each region in its color
+        Parameters
+        ----------
+        region_set
+
+        Returns
+        -------
+
         """
         self._colors[self.REGIONSET_TRACE] = region_set.get_color_serie()
         self._display_zones(self.REGIONSET_TRACE)
 
     def display_region(self, region: Region):
+        """
+        display a single region
+        Parameters
+        ----------
+        region
+
+        Returns
+        -------
+
+        """
         rs = RegionSet(self.current_X)
         rs.add(region)
         self._colors[self.REGION_TRACE] = rs.get_color_serie()
@@ -339,93 +314,109 @@ class HighDimExplorer:
 
     def _display_zones(self, trace=None):
         """
-        Paint on our extra scatter one or more zones using
-        the passed colors. Zones may be region(s) or rules
-        if index_list is None, we restore the original color
-        Common method for display_rules and display_regions
-        trace_id : (0 for default scatter plot) 1 for 'rules in progress' and 2 for 'regions' and 3 for 'region'
+        refresh provided trace or all trace if None
+        do not alter visibility
+        Parameters
+        ----------
+        trace
+
+        Returns
+        -------
+
         """
 
-        # We use three extra traces in the figure : the rules, the regions and the region traces (1, 2 and 3)
-
-        # pd Series of color names, 1 per point.
         if trace is None:
             for trace_id in range(self.NUM_TRACES):
-                self.display_color(trace_id=trace_id)
+                self.refresh_trace(trace_id=trace_id)
         else:
-            self.display_color(trace_id=trace)
+            self.refresh_trace(trace_id=trace)
 
-    def set_color(self, color, trace_id):
-        self._colors[trace_id] = color
-        self.display_color(trace_id)
-
-    def display_color(self, trace_id: int):
+    def set_color(self, color: pd.Series, trace_id: int):
         """
-        Draws one zone on one figure using the passed colors
+        set the provided color as the scatter point color on the provided trace id
+        do not alter show/hide trace
+        Parameters
+        ----------
+        color
+        trace_id
+
+        Returns
+        -------
+
+        """
+        self._colors[trace_id] = color
+        self.refresh_trace(trace_id)
+
+    def refresh_trace(self, trace_id: int):
+        """
+        refresh the provided trace id
+        do not alter show/hide trace
+
+        Parameters
+        ----------
+        trace_id
+
+        Returns
+        -------
+
         """
         if self.figure is None:
             self.create_figure()
         else:
             colors = self._colors[trace_id]
             if colors is None:
-                colors = self.pv.y
+                colors = self.y
             colors = colors[self.mask]
             with self.figure.batch_update():
                 self.figure.data[trace_id].marker.color = colors
 
     def update_fig_size(self):
+        """
+        update figure to match fig size attributes
+        Returns
+        -------
+
+        """
         self.figure.layout.width = self.fig_width
         self.figure.layout.height = self.fig_height
 
     def update_pv(self, pv: ProjectedValues, progress_callback=None):
-        #TODO : we need a Docstring here
-        if self.pv == pv:
-            return
-        if progress_callback is None:
-            # this computation has been triggered by HDE UI
-            progress_callback = self.update_progress_circular
-        
-        self.pv = pv 
+        """
+        changes the undelying projected value instance - update the data used in display
+        Parameters
+        ----------
+        pv
+        progress_callback
 
-        if self._current_selection is None:
-            self._current_selection = utils.boolean_mask(self.pv.X, True)
+        Returns
+        -------
+
+        """
+        # update value in selector
+        self.projected_value_selector.update_projected_value(pv)
+        # compute value if needed
         self.get_current_X_proj(progress_callback=progress_callback)
-        self.get_projection_select().v_model = DimReducMethod.dimreduc_method_as_str(
-            pv.current_proj[0]
-        )
-        if self.figure is None:
-            self.create_figure()
-        else:
-            self.redraw()
-
-    def set_dimension(self, dim: int):
-        # Dimension is stored in the instance variable _current_dim
-        """
-        At runtime, GUI calls this function and swap our 2 and 3D figures
-        """
-        self._current_dim = dim
-        self.create_figure()
-        self.figure_container.children = [self.figure]
-
-    def _get_projection_method(self) -> int:
-        # proj is stored in the proj Select widget
-        """
-        Returns the current projection method
-        """
-        if self.get_projection_select().v_model == '!!disabled!!':
-            self.get_projection_select().v_model = DimReducMethod.default_projection_as_str()
-            return DimReducMethod.default_projection_as_int()
-        return DimReducMethod.dimreduc_method_as_int(
-            self.get_projection_select().v_model
-        )
+        self.redraw()
 
     def selection_to_mask(self, row_numbers):
         """
-        to call between selection and setter
+
+        extrapolate selected row_numbers to full dataframe and return the selection mask on all the dataframe
+
+        Parameters
+        ----------
+        row_numbers
+
+        Returns
+        -------
+
         """
-        selection = utils.rows_to_mask(self.pv.X[self.mask], row_numbers)
-        if selection.mean() == 0:
-            return utils.boolean_mask(self.get_current_X_proj(masked=False), False)
+        selection = utils.rows_to_mask(self.current_X[self.mask], row_numbers)
+
+        if not selection.any() or selection.all():
+            return utils.boolean_mask(self.get_current_X_proj(masked=False), selection.mean())
+        if self.mask.all():
+            return selection
         X_train = self.get_current_X_proj()
         knn = KNeighborsClassifier().fit(X_train, selection)
         X_predict = self.get_current_X_proj(masked=False)
@@ -434,47 +425,90 @@ class HighDimExplorer:
         return guessed_selection.astype(bool)
 
     def _selection_event(self, trace, points, *args):
-        self.first_selection |= self._current_selection.all()
-        self._current_selection &= self.selection_to_mask(points.point_inds)
-        if self._current_selection.any():
+        """
+        callback triggered by selection on graph
+        selects points and update display on both hde (calls selection changed)
+        deselects if no points selected
+
+        update selection taking intersection
+        Parameters
+        ----------
+        trace
+        points
+        args
+
+        Returns
+        -------
+
+        """
+        self.first_selection |= self.current_selection.all()
+        self.current_selection &= self.selection_to_mask(points.point_inds)
+        if self.current_selection.any():
             self.create_figure()
-            self.selection_changed(self, self._current_selection)
+            self.selection_changed(self, self.current_selection)
         else:
             self._deselection_event(rebuild=True)
 
     def _deselection_event(self, *args, rebuild=False):
-        """Called on deselection"""
+        """
+        clear selection -- called by deselection on graph
+        synchronize hdes
+
+        Parameters
+        ----------
+        args
+        rebuild
+
+        Returns
+        -------
+
+        """
         # We tell the GUI
         self.first_selection = False
-        self._current_selection = utils.boolean_mask(self.pv.X, True)
-        self.display_rules(~self._current_selection, ~self._current_selection)
+        self.current_selection = utils.boolean_mask(self.current_X, True)
+        self.display_rules(~self.current_selection, ~self.current_selection)
         self.set_tab(0)
         if rebuild:
             self.create_figure()
         else:
-            self.update_selection()
-        self.selection_changed(self, self._current_selection)
+            self.display_selection()
+        self.selection_changed(self, self.current_selection)
 
     def set_selection(self, new_selection_mask: pd.Series):
         """
+        update selection from mask
+        no update_callback
         Called by tne UI when a new selection occured on the other HDE
+        Parameters
+        ----------
+        new_selection_mask
+
+        Returns
+        -------
+
         """
 
-        if self._current_selection.all() and new_selection_mask.all():
+        if self.current_selection.all() and new_selection_mask.all():
             # New selection is empty. We already have an empty selection : nothing to do
             return
 
         # selection event
-        self._current_selection = new_selection_mask
-        self.display_rules(~self._current_selection, ~self._current_selection)
-        self.update_selection()
+        self.current_selection = new_selection_mask
+        self.display_rules(~self.current_selection, ~self.current_selection)
+        self.display_selection()
         return
 
-    def update_selection(self):
-        if self.current_dim == 2:
+    def display_selection(self):
+        """
+        display selection on figure
+        Returns
+        -------
+
+        """
+        if self.dim == 2:
             fig = self.figure.data[0]
-            fig.update(selectedpoints=utils.mask_to_rows(self._current_selection[self.mask]))
-            fig.selectedpoints = utils.mask_to_rows(self._current_selection[self.mask])
+            fig.update(selectedpoints=utils.mask_to_rows(self.current_selection[self.mask]))
+            fig.selectedpoints = utils.mask_to_rows(self.current_selection[self.mask])
 
     @property
     def mask(self):
@@ -494,7 +528,6 @@ class HighDimExplorer:
 
     def create_figure(self):
         """
-        Called by __init__ and by set_selection
         Builds the FigureWidget for the given dimension
         """
         dim = self._current_dim
@@ -508,7 +541,7 @@ class HighDimExplorer:
                 if dim == 3:
                     z = proj_values[2]
 
-        hde_marker = {'color': self.pv.y, 'colorscale': "Viridis"}
+        hde_marker = {'color': self.y, 'colorscale': "Viridis"}
         if dim == 3:
             hde_marker['size'] = 2
 
@@ -517,7 +550,7 @@ class HighDimExplorer:
             'y': y,
             'mode': "markers",
             'marker': hde_marker,
-            'customdata': self.pv.y[self.mask],
+            'customdata': self.y[self.mask],
             'hovertemplate': "%{customdata:.3f}",
         }
         if dim == 3:
@@ -551,9 +584,9 @@ class HighDimExplorer:
         # We don't want the name of the trace to appear :
         for trace_id in range(len(self.figure.data)):
             self.figure.data[trace_id].showlegend = False
-            self.show_trace(trace_id, self._visible[trace_id])
-            self.display_color(trace_id)
-        self.update_selection()
+            self._show_trace(trace_id, self._visible[trace_id])
+            self.refresh_trace(trace_id)
+        self.display_selection()
 
         if dim == 2:
             # selection only on trace 0
@@ -563,28 +596,30 @@ class HighDimExplorer:
         self.figure_container.children = [self.figure]
 
     def redraw(self):
+        """
+        redraw all traces, without recreating figure
+        Returns
+        -------
+
+        """
+        if self.figure is None:
+            self.create_figure()
         projection = self.get_current_X_proj()
         x = projection[0]
         y = projection[1]
-        if self.current_dim == 3:
+        if self.dim == 3:
             z = projection[2]
 
         with self.figure.batch_update():
             for trace_id in range(len(self.figure.data)):
                 self.figure.data[trace_id].x = x
                 self.figure.data[trace_id].y = y
-                if self.current_dim == 3:
+                if self.dim == 3:
                     self.figure.data[trace_id].z = z
                 self.figure.data[trace_id].showlegend = False
-                self.show_trace(trace_id, self._visible[trace_id])
-                self.display_color(trace_id)
+                self._show_trace(trace_id, self._visible[trace_id])
+                self.refresh_trace(trace_id)
             self.update_fig_size()
-
-    def get_projection_select(self):
-        """
-       Called at startup by the GUI
-       """
-        return get_widget(app_widget, "14" if self.is_value_space else "17")
 
     def get_space_name(self) -> str:
         """
@@ -594,32 +629,63 @@ class HighDimExplorer:
 
     @property
     def current_X(self) -> pd.DataFrame | None:
-        if self.pv is None:
+        """
+        return hde current X value (not projected)
+
+        Returns
+        -------
+
+        """
+        if self.projected_value_selector is None:
             return None  # When we're an ES HDE and no explanation have been imported nor computed yet
-        return self.pv.X
+        return self.projected_value_selector.projected_value.X
+
+    @property
+    def y(self):
+        """
+        return y value
+        Returns
+        -------
+
+        """
+        return self.projected_value_selector.projected_value.y
 
     def get_current_X_proj(self, dim=None, masked: bool = True, progress_callback=None) -> pd.DataFrame | None:
-        if dim is None:
-            dim = self.current_dim
-        if progress_callback is None:
-            progress_callback = self.update_progress_circular
-        X = self.pv.get_projection(self._get_projection_method(), dim, progress_callback)
-        if X is None:
-            return
-        if masked:
-            return X.loc[self.mask]
-        return X
+        """
 
-    def proj_should_be_computed(self, dim=None):
-        if dim is None:
-            dim = self.current_dim
-        self.pv.is_present(self._get_projection_method(), dim)
+        return current projection value
+        its computes it if necessary - progress is published in the callback
+
+        Parameters
+        ----------
+        dim
+        masked
+        progress_callback
+
+        Returns
+        -------
+
+        """
+        X_proj = self.projected_value_selector.get_current_X_proj(dim, progress_callback)
+        if masked and X_proj is not None:
+            return X_proj.loc[self.mask]
+        return X_proj
 
     def set_tab(self, tab):
+        """
+        show/hide trace depending on tab
+        Parameters
+        ----------
+        tab
+
+        Returns
+        -------
+
+        """
         self.disable_selection(tab > 1)
-        self.show_trace(self.VALUES_TRACE, tab == 0)
-        self.show_trace(self.RULES_TRACE, tab == 1)
-        self.show_trace(self.REGIONSET_TRACE, tab == 2)
-        self.show_trace(self.REGION_TRACE, tab == 3)
+        self._show_trace(self.VALUES_TRACE, tab == 0)
+        self._show_trace(self.RULES_TRACE, tab == 1)
+        self._show_trace(self.REGIONSET_TRACE, tab == 2)
+        self._show_trace(self.REGION_TRACE, tab == 3)
         # and it's the only place where selection is allowed
         self.active_tab = tab

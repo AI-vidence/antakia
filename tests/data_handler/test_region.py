@@ -1,6 +1,6 @@
 import pandas as pd
 
-from antakia.data_handler.rules import Rule
+from antakia.data_handler.rules import Rule, RuleSet
 from antakia.data_handler.region import RegionSet, Region
 from antakia.utils.variable import Variable
 
@@ -19,7 +19,7 @@ def test_regions():
     rule1 = Rule(None, None, var, '<', 10)
     rule2 = Rule(2, '<=', var, None, None)
 
-    region = rs.add_region(rules=[rule1, rule2])
+    region = rs.add_region(rules=RuleSet([rule1, rule2]))
     assert rs.get(1) == region
     assert len(rs) == 1
     assert rs.get_max_num() == 1
@@ -29,7 +29,7 @@ def test_regions():
     assert (color == pd.Series(['grey', 'red', 'red', 'grey', 'grey'])).all()
 
     rs.clear_unvalidated()
-    rs.add_region([rule1, rule2], color='blue')
+    rs.add_region(RuleSet([rule1, rule2]), color='blue')
     assert rs.get_max_num() == 1
     assert rs.get_new_num() == 2
     assert rs.get(1).color == 'blue'
@@ -39,10 +39,10 @@ def test_regions():
 
     var2 = Variable(0, 'var2', 'float')
     rule3 = Rule(None, None, var2, '>', 1.5)
-    rs.add_region([rule3], color='blue')
+    rs.add_region(RuleSet([rule3]), color='blue')
     rs.stats()
 
-    r = Region(data, [rule3])
+    r = Region(data, RuleSet([rule3]))
     r.num = 1
 
     rs.add(r)
