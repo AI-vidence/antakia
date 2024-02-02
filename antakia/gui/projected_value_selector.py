@@ -205,7 +205,7 @@ class ProjectedValueSelector:
         # TODO reset_progress bar
         return X
 
-    def is_computed(self, projection_method=None, dim=None):
+    def is_computed(self, projection_method=None, dim=None) -> bool:
         if projection_method is None:
             projection_method = self.projection_method
         if dim is None:

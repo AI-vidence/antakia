@@ -35,7 +35,8 @@ class ProjectedValues:
         if self._parameters.get(Proj(projection_method, dimension)) is None:
             self.build_default_parameters(projection_method, dimension)
 
-        self._parameters[Proj(projection_method, dimension)]['previous'] = self._parameters[Proj(projection_method, dimension)][
+        self._parameters[Proj(projection_method, dimension)]['previous'] = \
+        self._parameters[Proj(projection_method, dimension)][
             'current'].copy()
         self._parameters[Proj(projection_method, dimension)]['current'].update(parameters)
         del self._projected_values[Proj(projection_method, dimension)]
@@ -97,7 +98,7 @@ class ProjectedValues:
         self.current_proj = Proj(projection_method, dimension)
         return self._projected_values[Proj(projection_method, dimension)]
 
-    def is_present(self, projection_method, dimension):
+    def is_present(self, projection_method, dimension) -> bool:
         """
         tests if the projection is already computed
         Parameters

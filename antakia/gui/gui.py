@@ -632,11 +632,9 @@ class GUI:
 
     def compute_auto_cluster(self, not_rules_indexes_list, cluster_num='auto'):
         if len(not_rules_indexes_list) > config.MIN_POINTS_NUMBER:
-            steps = (
-                    1
-                    + (not self.vs_hde.projected_value_selector.is_computed(dim=3))
-                    + (not self.es_hde.projected_value_selector.is_computed(dim=3))
-            )
+            vs_compute = int(not self.vs_hde.projected_value_selector.is_computed(dim=3))
+            es_compute = int(not self.es_hde.projected_value_selector.is_computed(dim=3))
+            steps = 1 + vs_compute + es_compute
 
             progress_bar = MultiStepProgressBar(get_widget(app_widget, "440212"), steps=steps)
             step = 1
@@ -646,14 +644,14 @@ class GUI:
                 progress_callback=progress_bar.get_update(step)
             )
 
-            step += not self.vs_hde.projected_value_selector.is_computed(dim=3)
+            step += vs_compute
             es_proj_3d_df = self.es_hde.get_current_X_proj(
                 3,
                 False,
                 progress_callback=progress_bar.get_update(step)
             )
 
-            step += not self.es_hde.projected_value_selector.is_computed(dim=3)
+            step += es_compute
             ac = AutoCluster(self.X, progress_bar.get_update(step))
 
             found_regions = ac.compute(
