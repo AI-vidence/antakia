@@ -195,7 +195,10 @@ class GUI:
         get_widget(
             splash_widget, "220"
         ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} 2/2"
-        self.es_hde.initialize(progress_callback=dimreduc_progress_bar.get_update(2))
+        self.es_hde.initialize(
+            pv=self.exp_values.current_pv,
+            progress_callback=dimreduc_progress_bar.get_update(2)
+        )
         self.selection_changed(None, boolean_mask(self.X, True))
 
         # TODO: call GUI.init_app from within GUI.__init__ ?

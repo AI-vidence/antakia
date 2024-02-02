@@ -10,6 +10,9 @@ class ProgressBar:
         ----------
         widget : widget element
         indeterminate : whether the progress is indeterminate or finegrained
+        active_color
+        unactive_color
+        reset_at_end : should we reset widget when 100% is reached
         """
         self.active_color = active_color
         self.unactive_color = unactive_color
@@ -44,17 +47,20 @@ class ProgressBar:
         self.progress = 0
         self.widget.indeterminate = False
         self.widget.color = self.unactive_color
-        self.widget.disabled = False
 
 
 class MultiStepProgressBar:
     def __init__(self, widget, steps=1, active_color='blue', unactive_color='grey', reset_at_end=True):
         """
         generic progress bar update
+
         Parameters
         ----------
         widget : widget element
-        indeterminate : whether the progress is indeterminate or finegrained
+        steps
+        active_color
+        unactive_color
+        reset_at_end : should we reset widget when 100% is reached
         """
         self.steps = steps
         self.widget = widget
@@ -92,4 +98,3 @@ class MultiStepProgressBar:
     def reset_progress_bar(self):
         self.progress = 0
         self.widget.color = self.unactive_color
-        self.widget.disabled = False

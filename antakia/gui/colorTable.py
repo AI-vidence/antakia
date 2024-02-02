@@ -4,6 +4,9 @@ from antakia.utils.utils import colors
 
 
 class ColorTable(v.VuetifyTemplate):
+    """
+    table to display regions
+    """
     headers = traitlets.List([]).tag(sync=True, allow_null=True)
     items = traitlets.List([]).tag(sync=True, allow_null=True)
     selected = traitlets.List([]).tag(sync=True, allow_null=True)

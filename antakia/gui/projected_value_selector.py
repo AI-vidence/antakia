@@ -100,6 +100,16 @@ class ProjectedValueSelector:
         return get_widget(app_widget, "15" if self.is_value_space else "18")
 
     def build_proj_param_widget(self, dim_reduc) -> list[v.Slider]:
+        """
+        build widget
+        Parameters
+        ----------
+        dim_reduc
+
+        Returns
+        -------
+
+        """
         parameters = dim_reduc_factory[dim_reduc].parameters()
         sliders = []
         for param, info in parameters.items():

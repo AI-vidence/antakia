@@ -22,38 +22,19 @@ conf_logger(logger)
 
 class HighDimExplorer:
     """
-    An HighDimExplorer displays one or several high dim Dataframes on a scatter plot.
-    It uses several dimension reduction techniques, through the DimReduction class.
-    It can display in or 2 dimensions.
+    An HighDimExplorer displays one high dim Dataframes on a scatter plot.
+    This class is only responsible for displaying the provided projection
+    dimensionality reduction is handled by ProjectedValueSelector
 
-    Implemntation details :
-    It handes projections computation itself when needed.
-    But, it asks GUI when another dataframe is asked for (eg. compute SHAP or LIME)
-    It stores dataframes with the ProjectedValues class.
-    It stored the current projection method (in widget) but not the dimension (see _current_dim)
+    It can display in 3 or 2 dimensions.
+
+    Implementation details :
+    It handles projections computation and switch through ProjectedValueSelector
+    it can update its high dim dataframe through the update_pv method
+
     Attributes are mostly privates (underscorred) since they are not meant to be used outside of the class.
 
     Attributes :
-    pv_dict : dict(ProjectedValues) # a dict of one or several ProjectedValues (PV)
-        Keys are : 'original_values', 'imported_explanations', 'computed_shap', 'computed_lime'
-    current_pv : str in ['original_values', 'imported_explanations', 'computed_shap', 'computed_lime']
-        tells wich PV is currently displayed
-    is_value_space : bool
-    _y : pd.Series
-    _proj_params : dictionnary containing the parameters for the PaCMAP projection
-        nested keys are "previous" / "current", then "VS" / "ES", then "n_neighbors" / "MN_ratio" / "FP_ratio"
-    _current_dim
-    _current_selection : list of X indexes # Plotly hack
-    _has_lasso : bool # Plotly hack
-    selection_changed : callable (from GUI)
-    new_eplanation_values_required : callable (from GUI)
-
-    Widgets :
-    figure_2D and figure_3D : FigureWidget
-        Plotly scatter plot
-    container : a thin v.Container wrapper around the current Figure. Allows us to swap between 2D and 3D figures alone (without GUI)
-    _proj_params_cards : dict of VBox,  parameters for dimreduc methods
-    fig_size : int
 
     """
 
@@ -111,10 +92,13 @@ class HighDimExplorer:
         if init_dim not in [2, 3]:
             raise ValueError(f"HDE.init: dim must be 2 or 3, not {init_dim}")
         self._current_dim = init_dim
+        # current active tab
         self.active_tab = 0
-
+        # mask of value to display to limit points on graph
         self._mask = None
+        # callback to notify gui that the selection has changed
         self.selection_changed = selection_changed
+        # projected values handler & widget
         self.projected_value_selector = ProjectedValueSelector(
             self.is_value_space,
             init_dim,
@@ -122,18 +106,22 @@ class HighDimExplorer:
             pv
         )
 
-        #  Now we can init figure
+        # Now we can init figure
         self.figure_container = v.Container()
         self.figure_container.class_ = "flex-fill"
 
+        # display parameters
         self.fig_width = fig_size
         self.fig_height = fig_size / 2
 
+        # is graph selectable
         self._selection_disabled = False
+        # current selection
         if pv is not None:
             self._current_selection = utils.boolean_mask(pv.X, True)
         else:
             self._current_selection = None
+        # is this selection first since last deselection ?
         self.first_selection = False
 
         # traces to show
@@ -141,7 +129,9 @@ class HighDimExplorer:
         # trace_colors
         self._colors: list[pd.Series | None] = [None, None, None, None]
 
+        # figures
         self.figure_2D = self.figure_3D = None
+        # is the class fully initialized
         self.initialized = False
 
     @property
@@ -152,8 +142,6 @@ class HighDimExplorer:
 
     @current_selection.setter
     def current_selection(self, value):
-        if self._current_selection is None:
-            self._current_selection = utils.boolean_mask(self.current_X, True)
         self._current_selection = value
 
     def initialize(self, progress_callback, pv=None):
@@ -167,14 +155,13 @@ class HighDimExplorer:
         -------
 
         """
-
+        if pv is not None:
+            # for ES space we need to manually provide the pv value in other to not trigger all auto updates
+            self.projected_value_selector.projected_value = pv
         self.get_current_X_proj(progress_callback=progress_callback)
         self.create_figure()
         self.initialized = True
 
-    ############
-    ## widget ##
-    ############
     def disable_widgets(self, is_disabled: bool):
         """
         disable dropdown select
@@ -188,9 +175,6 @@ class HighDimExplorer:
         """
         self.projected_value_selector.disable(is_disabled)
 
-    ################
-    ## properties ##
-    ################
     @property
     def dim(self):
         """
@@ -250,19 +234,48 @@ class HighDimExplorer:
     # ---- display Methods ------
 
     def disable_selection(self, is_disabled: bool):
+        """
+        enable/disable selection on graph
+        Parameters
+        ----------
+        is_disabled
+
+        Returns
+        -------
+
+        """
         self._selection_disabled = is_disabled
         if self.figure_2D is not None:
             self.figure_2D.update_layout(
                 dragmode=False if is_disabled else "lasso"
             )
 
-    def show_trace(self, trace_id: int, show: bool):
+    def _show_trace(self, trace_id: int, show: bool):
+        """
+        show/hide trace
+        Parameters
+        ----------
+        trace_id : trace to show
+        show : show/hide
+
+        Returns
+        -------
+
+        """
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
     def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series):
-        """"
-        Displays the dots corresponding to our current rules in blue, the others in grey
+        """
+        display a rule vs a selection
+        Parameters
+        ----------
+        selection_mask: boolean series of selected points
+        rules_mask: boolean series of rule validating points
+
+        Returns
+        -------
+
         """
         color, _ = utils.get_mask_comparison_color(rules_mask, selection_mask)
 
@@ -270,13 +283,30 @@ class HighDimExplorer:
         self._display_zones(self.RULES_TRACE)
 
     def display_regionset(self, region_set: RegionSet):
-        """"
-        Displays each region in a different color
+        """
+        display a region set, each region in its color
+        Parameters
+        ----------
+        region_set
+
+        Returns
+        -------
+
         """
         self._colors[self.REGIONSET_TRACE] = region_set.get_color_serie()
         self._display_zones(self.REGIONSET_TRACE)
 
     def display_region(self, region: Region):
+        """
+        display a single region
+        Parameters
+        ----------
+        region
+
+        Returns
+        -------
+
+        """
         rs = RegionSet(self.current_X)
         rs.add(region)
         self._colors[self.REGION_TRACE] = rs.get_color_serie()
@@ -284,29 +314,51 @@ class HighDimExplorer:
 
     def _display_zones(self, trace=None):
         """
-        Paint on our extra scatter one or more zones using
-        the passed colors. Zones may be region(s) or rules
-        if index_list is None, we restore the original color
-        Common method for display_rules and display_regions
-        trace_id : (0 for default scatter plot) 1 for 'rules in progress' and 2 for 'regions' and 3 for 'region'
+        refresh provided trace or all trace if None
+        do not alter visibility
+        Parameters
+        ----------
+        trace
+
+        Returns
+        -------
+
         """
 
-        # We use three extra traces in the figure : the rules, the regions and the region traces (1, 2 and 3)
-
-        # pd Series of color names, 1 per point.
         if trace is None:
             for trace_id in range(self.NUM_TRACES):
-                self.display_color(trace_id=trace_id)
+                self.refresh_trace(trace_id=trace_id)
         else:
-            self.display_color(trace_id=trace)
+            self.refresh_trace(trace_id=trace)
 
-    def set_color(self, color, trace_id):
-        self._colors[trace_id] = color
-        self.display_color(trace_id)
-
-    def display_color(self, trace_id: int):
+    def set_color(self, color: pd.Series, trace_id: int):
         """
-        Draws one zone on one figure using the passed colors
+        set the provided color as the scatter point color on the provided trace id
+        do not alter show/hide trace
+        Parameters
+        ----------
+        color
+        trace_id
+
+        Returns
+        -------
+
+        """
+        self._colors[trace_id] = color
+        self.refresh_trace(trace_id)
+
+    def refresh_trace(self, trace_id: int):
+        """
+        refresh the provided trace id
+        do not alter show/hide trace
+
+        Parameters
+        ----------
+        trace_id
+
+        Returns
+        -------
+
         """
         if self.figure is None:
             self.create_figure()
@@ -319,24 +371,52 @@ class HighDimExplorer:
                 self.figure.data[trace_id].marker.color = colors
 
     def update_fig_size(self):
+        """
+        update figure to match fig size attributes
+        Returns
+        -------
+
+        """
         self.figure.layout.width = self.fig_width
         self.figure.layout.height = self.fig_height
 
     def update_pv(self, pv: ProjectedValues, progress_callback=None):
+        """
+        changes the undelying projected value instance - update the data used in display
+        Parameters
+        ----------
+        pv
+        progress_callback
+
+        Returns
+        -------
+
+        """
         # update value in selector
         self.projected_value_selector.update_projected_value(pv)
         # compute value if needed
         self.get_current_X_proj(progress_callback=progress_callback)
-
         self.redraw()
 
     def selection_to_mask(self, row_numbers):
         """
-        to call between selection and setter
+
+        extrapolate selected row_numbers to full dataframe and return the selection mask on all the dataframe
+
+        Parameters
+        ----------
+        row_numbers
+
+        Returns
+        -------
+
         """
         selection = utils.rows_to_mask(self.current_X[self.mask], row_numbers)
-        if selection.mean() == 0:
-            return utils.boolean_mask(self.get_current_X_proj(masked=False), False)
+
+        if not selection.any() or selection.all():
+            return utils.boolean_mask(self.get_current_X_proj(masked=False), selection.mean())
+        if self.mask.all():
+            return selection
         X_train = self.get_current_X_proj()
         knn = KNeighborsClassifier().fit(X_train, selection)
         X_predict = self.get_current_X_proj(masked=False)
@@ -345,6 +425,22 @@ class HighDimExplorer:
         return guessed_selection.astype(bool)
 
     def _selection_event(self, trace, points, *args):
+        """
+        callback triggered by selection on graph
+        selects points and update display on both hde (calls selection changed)
+        deselects if no points selected
+
+        update selection taking intersection
+        Parameters
+        ----------
+        trace
+        points
+        args
+
+        Returns
+        -------
+
+        """
         self.first_selection |= self.current_selection.all()
         self.current_selection &= self.selection_to_mask(points.point_inds)
         if self.current_selection.any():
@@ -354,7 +450,19 @@ class HighDimExplorer:
             self._deselection_event(rebuild=True)
 
     def _deselection_event(self, *args, rebuild=False):
-        """Called on deselection"""
+        """
+        clear selection -- called by deselection on graph
+        synchronize hdes
+
+        Parameters
+        ----------
+        args
+        rebuild
+
+        Returns
+        -------
+
+        """
         # We tell the GUI
         self.first_selection = False
         self.current_selection = utils.boolean_mask(self.current_X, True)
@@ -363,12 +471,21 @@ class HighDimExplorer:
         if rebuild:
             self.create_figure()
         else:
-            self.update_selection()
+            self.display_selection()
         self.selection_changed(self, self.current_selection)
 
     def set_selection(self, new_selection_mask: pd.Series):
         """
+        update selection from mask
+        no update_callback
         Called by tne UI when a new selection occured on the other HDE
+        Parameters
+        ----------
+        new_selection_mask
+
+        Returns
+        -------
+
         """
 
         if self.current_selection.all() and new_selection_mask.all():
@@ -378,10 +495,16 @@ class HighDimExplorer:
         # selection event
         self.current_selection = new_selection_mask
         self.display_rules(~self.current_selection, ~self.current_selection)
-        self.update_selection()
+        self.display_selection()
         return
 
-    def update_selection(self):
+    def display_selection(self):
+        """
+        display selection on figure
+        Returns
+        -------
+
+        """
         if self.dim == 2:
             fig = self.figure.data[0]
             fig.update(selectedpoints=utils.mask_to_rows(self.current_selection[self.mask]))
@@ -405,7 +528,6 @@ class HighDimExplorer:
 
     def create_figure(self):
         """
-        Called by __init__ and by set_selection
         Builds the FigureWidget for the given dimension
         """
         dim = self._current_dim
@@ -462,9 +584,9 @@ class HighDimExplorer:
         # We don't want the name of the trace to appear :
         for trace_id in range(len(self.figure.data)):
             self.figure.data[trace_id].showlegend = False
-            self.show_trace(trace_id, self._visible[trace_id])
-            self.display_color(trace_id)
-        self.update_selection()
+            self._show_trace(trace_id, self._visible[trace_id])
+            self.refresh_trace(trace_id)
+        self.display_selection()
 
         if dim == 2:
             # selection only on trace 0
@@ -474,6 +596,12 @@ class HighDimExplorer:
         self.figure_container.children = [self.figure]
 
     def redraw(self):
+        """
+        redraw all traces, without recreating figure
+        Returns
+        -------
+
+        """
         if self.figure is None:
             self.create_figure()
         projection = self.get_current_X_proj()
@@ -489,8 +617,8 @@ class HighDimExplorer:
                 if self.dim == 3:
                     self.figure.data[trace_id].z = z
                 self.figure.data[trace_id].showlegend = False
-                self.show_trace(trace_id, self._visible[trace_id])
-                self.display_color(trace_id)
+                self._show_trace(trace_id, self._visible[trace_id])
+                self.refresh_trace(trace_id)
             self.update_fig_size()
 
     def get_space_name(self) -> str:
@@ -501,25 +629,63 @@ class HighDimExplorer:
 
     @property
     def current_X(self) -> pd.DataFrame | None:
+        """
+        return hde current X value (not projected)
+
+        Returns
+        -------
+
+        """
         if self.projected_value_selector is None:
             return None  # When we're an ES HDE and no explanation have been imported nor computed yet
         return self.projected_value_selector.projected_value.X
 
     @property
     def y(self):
+        """
+        return y value
+        Returns
+        -------
+
+        """
         return self.projected_value_selector.projected_value.y
 
     def get_current_X_proj(self, dim=None, masked: bool = True, progress_callback=None) -> pd.DataFrame | None:
+        """
+
+        return current projection value
+        its computes it if necessary - progress is published in the callback
+
+        Parameters
+        ----------
+        dim
+        masked
+        progress_callback
+
+        Returns
+        -------
+
+        """
         X_proj = self.projected_value_selector.get_current_X_proj(dim, progress_callback)
         if masked and X_proj is not None:
             return X_proj.loc[self.mask]
         return X_proj
 
     def set_tab(self, tab):
+        """
+        show/hide trace depending on tab
+        Parameters
+        ----------
+        tab
+
+        Returns
+        -------
+
+        """
         self.disable_selection(tab > 1)
-        self.show_trace(self.VALUES_TRACE, tab == 0)
-        self.show_trace(self.RULES_TRACE, tab == 1)
-        self.show_trace(self.REGIONSET_TRACE, tab == 2)
-        self.show_trace(self.REGION_TRACE, tab == 3)
+        self._show_trace(self.VALUES_TRACE, tab == 0)
+        self._show_trace(self.RULES_TRACE, tab == 1)
+        self._show_trace(self.REGIONSET_TRACE, tab == 2)
+        self._show_trace(self.REGION_TRACE, tab == 3)
         # and it's the only place where selection is allowed
         self.active_tab = tab
