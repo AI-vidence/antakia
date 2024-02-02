@@ -66,7 +66,7 @@ class MultiStepProgressBar:
         self.widget = widget
         self.active_color = active_color
         self.unactive_color = unactive_color
-        self.progress = 0
+        self.widget.v_model = 0
         self.reset_at_end = reset_at_end
 
     def get_update(self, step):
@@ -89,11 +89,24 @@ class MultiStepProgressBar:
             """
             self.widget.color = self.active_color
             progress = round(((step - 1) * 100 + progress) / self.steps)
-            self.widget.v_model = progress
-            if progress >= 100 and self.reset_at_end:
-                self.reset_progress_bar()
+            self.set_progress(progress)
 
         return update_ac_progress_bar
+
+    def set_progress(self, progress):
+        """
+        force progress value
+        Parameters
+        ----------
+        progress
+
+        Returns
+        -------
+
+        """
+        self.widget.v_model = progress
+        if progress >= 100 and self.reset_at_end:
+            self.reset_progress_bar()
 
     def reset_progress_bar(self):
         self.progress = 0

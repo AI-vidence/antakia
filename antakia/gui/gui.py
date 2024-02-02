@@ -639,19 +639,22 @@ class GUI:
             )
 
             progress_bar = MultiStepProgressBar(get_widget(app_widget, "440212"), steps=steps)
-
+            step = 1
             vs_proj_3d_df = self.vs_hde.get_current_X_proj(
                 3,
                 False,
-                progress_callback=progress_bar.get_update(1)
+                progress_callback=progress_bar.get_update(step)
             )
+
+            step += not self.vs_hde.projected_value_selector.is_computed(dim=3)
             es_proj_3d_df = self.es_hde.get_current_X_proj(
                 3,
                 False,
-                progress_callback=progress_bar.get_update(2)
+                progress_callback=progress_bar.get_update(step)
             )
 
-            ac = AutoCluster(self.X, progress_bar.get_update(3))
+            step += not self.es_hde.projected_value_selector.is_computed(dim=3)
+            ac = AutoCluster(self.X, progress_bar.get_update(step))
 
             found_regions = ac.compute(
                 vs_proj_3d_df.loc[not_rules_indexes_list],
@@ -660,6 +663,7 @@ class GUI:
                 cluster_num,
             )  # type: ignore
             self.region_set.extend(found_regions)
+            progress_bar.set_progress(100)
         else:
             print('not enough points to cluster')
 
