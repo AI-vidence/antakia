@@ -64,7 +64,7 @@ class AutoCluster(LongTask):
         self.publish_progress(0)
         clusters = self.cluster_algo.compute(X, shap_values, n_clusters)
         clusters = pd.Series(clusters, index=X.index, name='cluster')
-        self.publish_progress(90)
+        self.publish_progress(80)
         new_regions = self.clusters_to_rules(clusters, **kwargs)
         self.publish_progress(100)
         return new_regions

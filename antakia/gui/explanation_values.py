@@ -3,6 +3,7 @@ import pandas as pd
 from antakia import config
 from antakia.compute.explanation.explanations import compute_explanations, ExplanationMethod
 from antakia.data_handler.projected_values import ProjectedValues
+from antakia.gui.progress_bar import ProgressBar
 from antakia.gui.widgets import get_widget, app_widget
 
 
@@ -35,12 +36,14 @@ class ExplanationValues:
         self.get_explanation_select().v_model = self.current_exp
 
         self.on_change_callback = on_change_callback
+        self.initialized = False
 
     def initialize(self, progress_callback):
         if not self.has_user_exp:
-            self.compute_explanation(config.DEFAULT_EXPLANATION_METHOD, progress_callback)
-            self.on_change_callback(progress_callback)
+            self.compute_explanation(config.DEFAULT_EXPLANATION_METHOD, progress_callback, auto_update=False)
         self.get_explanation_select().v_model = self.current_exp
+        progress_callback(100, 0)
+        self.initialized = True
 
     @property
     def current_pv(self) -> ProjectedValues:
@@ -70,15 +73,19 @@ class ExplanationValues:
        """
         return get_widget(app_widget, "12")
 
-    def compute_explanation(self, explanation_method, progress_bar):
+    def compute_explanation(self, explanation_method, progress_bar, auto_update=True):
         self.current_exp = self.available_exp[explanation_method]
-        X_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
-        self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y)
         # We compute proj for this new PV :
+        X_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
+        # update explanation
+        self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y)
+        # refresh front
         self.update_explanation_select()
         self.update_compute_menu()
         self.get_explanation_select().v_model = self.current_exp
-        self.on_change_callback(progress_bar)
+        # call callback
+        if auto_update:
+            self.on_change_callback(self.current_pv, progress_bar)
 
     def update_compute_menu(self):
         is_shap_computed = self.explanations[self.available_exp[1]] is not None
@@ -98,35 +105,17 @@ class ExplanationValues:
 
         if widget == get_widget(app_widget, "13000203"):
             desired_explain_method = ExplanationMethod.SHAP
+            progress_widget = get_widget(app_widget, "13000201")
         else:
             desired_explain_method = ExplanationMethod.LIME
-        self.compute_explanation(desired_explain_method, self.update_progress_linear)
+            progress_widget = get_widget(app_widget, "13000301")
+
+        progress_bar = ProgressBar(progress_widget)
+        self.compute_explanation(desired_explain_method, progress_bar.update)
 
     def disable_selection(self, is_disabled: bool):
         self.get_compute_menu().disabled = is_disabled
         self.get_explanation_select().disabled = is_disabled
-
-    def update_progress_linear(self, method: ExplanationMethod, progress: int, duration: float):
-        """
-        Called by the computation process (SHAP or LUME) to udpate the progress linear
-        """
-
-        if method.explanation_method == ExplanationMethod.SHAP:
-            progress_linear = get_widget(app_widget, "13000201")
-            progress_linear.indeterminate = True
-        else:
-            progress_linear = get_widget(app_widget, "13000301")
-
-        progress_linear.v_model = progress
-
-        if progress == 100:
-            if method.explanation_method == ExplanationMethod.SHAP:
-                tab = get_widget(app_widget, "130000")
-                progress_linear.indeterminate = False
-            else:
-                tab = get_widget(app_widget, "130001")
-                progress_linear.v_model = progress
-            tab.disabled = True
 
     def explanation_select_changed(self, widget, event, data):
         """
@@ -135,4 +124,4 @@ class ExplanationValues:
         # Remember : impossible items ine thee Select are disabled = we have the desired values
         self.current_exp = data
 
-        self.on_change_callback()
+        self.on_change_callback(self.current_pv)
