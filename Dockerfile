@@ -1,13 +1,10 @@
-FROM python:3.11
+FROM jupyter/scipy-notebook
 
-RUN apt-get update && apt-get install -y python3 python3-pip git
+RUN pip install -U git+https://github.com/AI-vidence/antakia.git
 
-COPY . /demo/
-
-WORKDIR /demo
-
-RUN pip3 install -r requirements2.txt
+COPY examples/ /home/jovyan/examples
+COPY data/ /home/jovyan/data
 
 EXPOSE 8888
 
-CMD ["jupyter-lab","--port=8888 ", "--ip=0.0.0.0","--allow-root", "--no-browser", "--NotebookApp.iopub_data_rate_limit=1.0e10"]
+CMD jupyter-lab
