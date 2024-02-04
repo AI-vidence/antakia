@@ -1,4 +1,4 @@
-FROM python:3.10
+FROM python:3.11
 
 RUN apt-get update && apt-get install -y python3 python3-pip git
 
@@ -6,9 +6,7 @@ COPY . /demo/
 
 WORKDIR /demo
 
-RUN pip3 install -r requirements.txt
-# RUN pip install git+https://github.com/scikit-learn-contrib/skope-rules.git
-RUN pip3 install --editable .
+RUN pip3 install -r requirements2.txt
 
 EXPOSE 8888
 
