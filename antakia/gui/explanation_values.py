@@ -32,7 +32,7 @@ class ExplanationValues:
         self.initialized = False
 
         # init dict of explanations
-        self.explanations: dict[str | ProjectedValues] = {
+        self.explanations: dict[str, ProjectedValues | None] = {
             exp: None for exp in self.available_exp
         }
 
@@ -207,6 +207,7 @@ class ExplanationValues:
         Returns
         -------
 
+        Called when the user chooses another dataframe
         """
         self.current_exp = data
 

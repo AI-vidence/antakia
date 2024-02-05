@@ -1,4 +1,5 @@
 from collections import namedtuple
+import pandas as pd
 
 from antakia import config
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
@@ -8,14 +9,14 @@ Proj = namedtuple('Proj', ['reduction_method', 'dimension'])
 
 
 class ProjectedValues:
-    def __init__(self, X, y):
+    def __init__(self, X: pd.DataFrame, y: pd.Series):
         self.X = X
         self.y = y
         self._projected_values = {}
         self._parameters = {}
         self.current_proj = Proj(DimReducMethod.default_projection_as_int(), config.DEFAULT_DIMENSION)
 
-    def set_parameters(self, projection_method, dimension, parameters):
+    def set_parameters(self, projection_method: int, dimension: int, parameters: dict):
         """
         set new parameters for a (projection method, dimension)
         remove previously computed projected value
@@ -36,8 +37,8 @@ class ProjectedValues:
             self.build_default_parameters(projection_method, dimension)
 
         self._parameters[Proj(projection_method, dimension)]['previous'] = \
-        self._parameters[Proj(projection_method, dimension)][
-            'current'].copy()
+            self._parameters[Proj(projection_method, dimension)][
+                'current'].copy()
         self._parameters[Proj(projection_method, dimension)]['current'].update(parameters)
         del self._projected_values[Proj(projection_method, dimension)]
 
@@ -79,7 +80,7 @@ class ProjectedValues:
             'previous': current.copy()
         }
 
-    def get_projection(self, projection_method, dimension, progress_callback=None):
+    def get_projection(self, projection_method: int, dimension: int, progress_callback: callable = None):
         """
         get a projection value
         computes it if necessary
@@ -98,7 +99,7 @@ class ProjectedValues:
         self.current_proj = Proj(projection_method, dimension)
         return self._projected_values[Proj(projection_method, dimension)]
 
-    def is_present(self, projection_method, dimension) -> bool:
+    def is_present(self, projection_method: int, dimension: int) -> bool:
         """
         tests if the projection is already computed
         Parameters
@@ -112,7 +113,7 @@ class ProjectedValues:
         """
         return self._projected_values.get(Proj(projection_method, dimension)) is not None
 
-    def compute(self, projection_method, dimension, progress_callback):
+    def compute(self, projection_method: int, dimension: int, progress_callback: callable):
         """
         computes a projection and store it
         Parameters

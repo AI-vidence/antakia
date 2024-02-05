@@ -202,7 +202,6 @@ class ProjectedValueSelector:
         if progress_callback is None:
             progress_callback = self.progress_bar.update
         X = self.projected_value.get_projection(self.projection_method, dim, progress_callback)
-        # TODO reset_progress bar
         return X
 
     def is_computed(self, projection_method=None, dim=None) -> bool:
