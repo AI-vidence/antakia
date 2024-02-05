@@ -1,12 +1,13 @@
 import mock
 import pandas as pd
+import pytest
 
 from antakia.gui.explanation_values import ExplanationValues
 from antakia.gui.widgets import get_widget, app_widget
-from tests.utils_fct import generate_ExplanationValues, EMPTYExplanation, generate_df_series_callable
+from tests.utils_fct import generate_ExplanationValues, EMPTYExplanation, generate_df_series_callable, test_progress_bar
 
 
-def test_init(): #ajouter test click
+def test_init():  # ajouter test click
     X, y, function = generate_df_series_callable()
     X_exp = pd.DataFrame([[1, 7, 10],
                           [5, 8, 11],
@@ -41,7 +42,7 @@ def test_initialize(cpt_exp):
                          index=[1, 2, 3],
                          columns=['a', 'b', 'c'])
 
-    exp_val = generate_ExplanationValues('DT', X_exp, callback=function)[3]
+    exp_val = generate_ExplanationValues('DT', X_exp)[3]
     exp_val.initialize(function)
     assert get_widget(app_widget, '130000').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
     assert get_widget(app_widget, '13000203').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
@@ -88,7 +89,9 @@ def test_compute_explanation(cpt_exp):
     assert exp.explanations['SHAP'] is None
     assert exp.explanations['LIME'] is None
 
-    exp.compute_explanation(1, None)
+    exp.compute_explanation(1, test_progress_bar.update)
+
+    assert test_progress_bar.progress == 100
     assert exp.get_explanation_select().items == [{"text": 'Imported', 'disabled': False},
                                                   {"text": 'SHAP', 'disabled': False},
                                                   {"text": 'LIME', 'disabled': True}]
@@ -108,7 +111,7 @@ def test_update_compute_menu():
     assert get_widget(app_widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
 
 
-def test_compute_btn_clicked(): #à compléter
+def test_compute_btn_clicked():  # à compléter
     X, y, X_exp, exp_val = generate_ExplanationValues()
     # exp_val.compute_btn_clicked(get_widget(app_widget, "130000"), None, None)
     # exp_val.compute_btn_clicked(None, None, None)
@@ -126,44 +129,13 @@ def test_disable_selection():
     assert not (exp2.get_compute_menu().disabled and exp2.get_explanation_select().disabled)
 
 
-def test_update_progress_linear():
-    b = get_widget(app_widget, "13000201")
-    X, y, X_exp, exp_val = generate_ExplanationValues()
-    exp_meth_shap = EMPTYExplanation(X, y, X_exp, exp_val)
-    exp_meth_lime = EMPTYExplanation(X, y, X_exp, exp_val)
-    exp_meth_lime.explanation_method = 2
-
-    # Test SHAP incomplet
-    exp_val.update_progress_linear(exp_meth_shap, 2)
-    assert get_widget(app_widget, "13000201").indeterminate
-    assert get_widget(app_widget, "13000201").v_model == 2
-
-    # test LIME incomplet
-    exp_val.update_progress_linear(exp_meth_lime, 2)
-    assert get_widget(app_widget, "13000301").v_model == 2
-
-    # Test SHAP complet
-    exp_val.update_progress_linear(exp_meth_shap, 100)
-    assert not get_widget(app_widget, "13000201").indeterminate
-    assert get_widget(app_widget, "130000").disabled
-
-    # test LIME complet
-
-    exp_val.update_progress_linear(exp_meth_lime, 100)
-    assert get_widget(app_widget, "13000301").v_model == 100
-    assert get_widget(app_widget, "130001").disabled
-
-
 def test_explanation_select_changed():
-    data = 'data'
+    data = 'SHAP'
     X, y, X_exp, exp_val = generate_ExplanationValues()
     exp_val.explanation_select_changed(None, None, data)
     assert exp_val.current_exp == data
-    exp_val.explanation_select_changed(None, None, None)
-    assert exp_val.current_exp == None
+    with pytest.raises(KeyError):
+        exp_val.explanation_select_changed(None, None, None)
+    exp_val.explanation_select_changed(None, None, 'LIME')
+    assert exp_val.current_exp == 'LIME'
     # tester l'appel de on_change_callback
-
-# test_init()  # OK sauf click bouton
-# test_initialize()  # not ok
-
-# test_compute_btn_clicked()  # not ok

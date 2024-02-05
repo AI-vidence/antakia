@@ -147,11 +147,15 @@ class Variable:
                 self.lon == other.lon
         )
 
+    def __hash__(self):
+        return hash(self.symbol)
+
 
 class DataVariables:
     """
     collection of Variables
     """
+
     def __init__(self, variables: List[Variable]):
         self.variables = {var.symbol: var for var in variables}
 
@@ -185,6 +189,7 @@ class DataVariables:
                 return False
         return True
         # return set(list(self.variables.values())) == set(list(other.variables.values()))
+
 
 def var_from_symbol(variables: List[Variable], token: str) -> Variable:
     for var in variables:

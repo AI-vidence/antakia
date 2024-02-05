@@ -50,9 +50,12 @@ class DimReducMethod(LongTask):
             Stored in LongTask instance
         """
         if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method):
-            raise ValueError(
-                dimreduc_method, " is a bad dimensionality reduction method"
-            )
+            if dimreduc_method == -1:
+                print('warning - method is not yet supported')
+            else:
+                raise ValueError(
+                    dimreduc_method, " is a bad dimensionality reduction method"
+                )
         if not DimReducMethod.is_valid_dim_number(dimension):
             raise ValueError(dimension, " is a bad dimension number")
 

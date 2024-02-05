@@ -446,7 +446,6 @@ class GUI:
         """
 
         # Color : a pd.Series with one color value par row
-
         color = None
 
         if data == "y":

@@ -3,7 +3,9 @@ import numpy as np
 import mock
 import pandas as pd
 
-from antakia.data_handler.projected_values import ProjectedValues
+from antakia import config
+from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
+from antakia.data_handler.projected_values import ProjectedValues, Proj
 from tests.utils_fct import generate_df_series_callable
 
 from antakia.compute.dim_reduction.dim_reduction import compute_projection, dim_reduc_factory
@@ -15,9 +17,11 @@ def test_init():
     assert pv.X.equals(X)
     assert pv.y.equals(y)
     assert pv._projected_values == {}
-    assert pv._kwargs == {}
-    assert pv.current_proj == (int(os.environ.get('DEFAULT_VS_PROJECTION', 4)),
-                               int(os.environ.get('DEFAULT_VS_DIMENSION', 2)))
+    assert pv._parameters == {}
+    assert pv.current_proj == Proj(
+        DimReducMethod.default_projection_as_int(),
+        config.DEFAULT_DIMENSION
+    )
 
 
 @mock.patch('antakia.data_handler.projected_values.compute_projection')
@@ -26,32 +30,38 @@ def test_set_parameters(cpt_proj):
     pv = ProjectedValues(X, y)
     pv.compute(1, 2, function)
     pv.set_parameters(1, 2, {'n_neighbors': 2})
-    assert pv._kwargs == {(1, 2): {'current': {'n_neighbors': 2}, 'previous': {}}}
+    assert pv._parameters == {(1, 2): {'current': {'n_neighbors': 2}, 'previous': {}}}
     pv.compute(1, 2, function)
     pv.set_parameters(1, 2, {'MN_ratio': 4})
-    assert pv._kwargs == {(1, 2): {'current': {'MN_ratio': 4, 'n_neighbors': 2}, 'previous': {'n_neighbors': 2}}}
+    assert pv._parameters == {(1, 2): {'current': {'MN_ratio': 4, 'n_neighbors': 2}, 'previous': {'n_neighbors': 2}}}
 
 
 def test_get_parameters():
     X, y, tmp = generate_df_series_callable()
     pv = ProjectedValues(X, y)
-    assert pv.get_paramerters(1, 2) == {'current': {}, 'previous': {}}
+    assert pv.get_parameters(1, 2) == {'current': {}, 'previous': {}}
     pv1 = ProjectedValues(X, y)
     pv1.build_default_parameters(2, 3)
-    assert pv1.get_paramerters(2, 3) == {'current': {'learning_rate': 'auto', 'perplexity': 12},
-                                         'previous': {'learning_rate': 'auto', 'perplexity': 12}}
+    assert pv1.get_parameters(2, 3) == {
+        'current': {'min_dist': 0.1, 'n_neighbors': 15},
+        'previous': {'min_dist': 0.1, 'n_neighbors': 15}
+    }
 
 
 def test_build_default_parameters():
     X, y, tmp = generate_df_series_callable()
     pv = ProjectedValues(X, y)
     pv.build_default_parameters(1, 2)
-    assert pv._kwargs == {(1, 2): {'current': {}, 'previous': {}}}
+    assert pv._parameters == {(1, 2): {'current': {}, 'previous': {}}}
 
     pv1 = ProjectedValues(X, y)
     pv1.build_default_parameters(2, 3)
-    assert pv1._kwargs == {(2, 3): {'current': {'learning_rate': 'auto', 'perplexity': 12},
-                                    'previous': {'learning_rate': 'auto', 'perplexity': 12}}}
+    assert pv1._parameters == {
+        Proj(reduction_method=2, dimension=3): {
+            'current': {'min_dist': 0.1, 'n_neighbors': 15},
+            'previous': {'min_dist': 0.1, 'n_neighbors': 15}
+        }
+    }
 
 
 @mock.patch('antakia.data_handler.projected_values.compute_projection')
