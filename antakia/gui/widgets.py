@@ -1135,37 +1135,93 @@ app_widget = v.Col(
                                                  v.Row(  # 44011
                                                      class_="flex-column",
                                                      children=[
-                                                         v.Btn(  # 440110
-                                                             class_="ml-3 mt-3 blue",
-                                                             children=[
-                                                                 v.Icon(
-                                                                     class_="mr-2",
-                                                                     children=[
-                                                                         "mdi-animation-outline"
-                                                                     ],
-                                                                 ),
-                                                                 "Subdivide",
+                                                         v.Tooltip(  # 440110
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                     'name': 'activator',
+                                                                     'variable': 'tooltip',
+                                                                     'children':
+                                                                         v.Btn(  # 4401100
+                                                                             v_on='tooltip.on',
+                                                                             class_="ml-3 mt-8",
+                                                                             children=[
+                                                                                 v.Icon(
+                                                                                     class_="mr-2",
+                                                                                     children=[
+                                                                                         "mdi-content-cut"
+                                                                                     ],
+                                                                                 ),
+                                                                                 "Divide",
+                                                                             ],
+                                                                         )
+                                                                 }
                                                              ],
+                                                             children=[
+                                                                 'Divide a region into sub-regions']
                                                          )
                                                      ]
                                                  ),
-                                                 v.Row(  # 44012
+                                                v.Row(  # 44012
                                                      class_="flex-column",
                                                      children=[
-                                                         v.Btn(  # 440120
-                                                             class_="ml-3 mt-3 grey",
-                                                             children=[
-                                                                 v.Icon(
-                                                                     class_="mr-2",
-                                                                     children=[
-                                                                         "mdi-trash-can-outline"
-                                                                     ],
-                                                                 ),
-                                                                 "Delete",
+                                                         v.Tooltip(  # 440120
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                     'name': 'activator',
+                                                                     'variable': 'tooltip',
+                                                                     'children':
+                                                                         v.Btn(  # 4401200
+                                                                             v_on='tooltip.on',
+                                                                             class_="ml-3 mt-3",
+                                                                             children=[
+                                                                                 v.Icon(
+                                                                                     class_="mr-2",
+                                                                                     children=[
+                                                                                         "mdi-table-merge-cells"
+                                                                                     ],
+                                                                                 ),
+                                                                                 "Merge",
+                                                                             ],
+                                                                         )
+                                                                 }
                                                              ],
+                                                             children=[
+                                                                 'Merge regions']
                                                          )
                                                      ]
-                                                 )
+                                                 ),
+                                                 v.Row(  # 44013
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Tooltip(  # 440130
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                    'name': 'activator',
+                                                                    'variable': 'tooltip',
+                                                                    'children':
+                                                                        v.Btn(  # 4401300
+                                                                            v_on='tooltip.on',
+                                                                            class_="ml-3 mt-3",
+                                                                            children=[
+                                                                                v.Icon(
+                                                                                    class_="mr-2",
+                                                                                    children=[
+                                                                                        "mdi-delete"
+                                                                                    ],
+                                                                                ),
+                                                                                "Delete",
+                                                                            ],
+                                                                        )
+                                                                 }
+                                                             ],
+                                                             children=[
+                                                                 'Delete region']
+                                                         )
+                                                     ]
+                                                 ),
                                              ]  # End v.Sheet Col 2 children
                                          ),  # End v.Sheet Col 2 = buttons
                                          v.Col(  # v.Sheet Col 3 # 4402
@@ -1237,7 +1293,6 @@ app_widget = v.Col(
                                                              color="primary",
                                                              height="15",
                                                          )
-
                                                      ]
                                                  ),
                                              ]  # End v.Sheet Col 3 children
