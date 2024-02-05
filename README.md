@@ -1,3 +1,11 @@
+# Welcome to AntakIA !
+
+AntakIA is an open-source tool from AI-vidence to explain ML black box models.
+
+Here is a quick tour of AntakIA:
+![AntakIA demo](/docs/img/antakia.gif)
+
+See full video on [Youtube](https://youtu.be/wQFC_20OIOM).
 
 ## Install and run from source code
 
@@ -66,8 +74,8 @@ If you get JS errors in your notebook / see broken link icons for each widget / 
 Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
 
 ```
-docker build -t antakia .
-docker run -p 8888:8888 antakia
+docker build -t demo-antakia .
+docker run -p 8888:8888 demo-antakia
 ```
 
 In your Terminal, click on the `http://127.0.0.1:8888/lab?token=WHATEVER_YOUR_TOKEN_IS URL` link.

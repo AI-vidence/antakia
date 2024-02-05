@@ -2,7 +2,7 @@ import mock
 import numpy as np
 import pandas as pd
 
-from antakia.data_handler.rules import Rule
+from antakia.data_handler.rules import Rule, RuleSet
 from antakia.gui.ruleswidget import RuleWidget
 from antakia.utils.variable import Variable
 
@@ -16,10 +16,10 @@ def test_rule_widget():
     rule4 = Rule(10, '<=', var2, None, None)
 
     data = pd.DataFrame(np.arange(150).reshape((-1, 3)), columns=['var1', 'var2', 'y'])
-    rules1 = [rule1, rule4]
-    mask1 = rule1.rules_to_mask(rules1, data)
-    rules2 = [rule2, rule4]
-    mask2 = rule1.rules_to_mask(rules2, data)
+    rules1 = RuleSet([rule1, rule4])
+    mask1 = rules1.get_matching_mask(data)
+    rules2 = RuleSet([rule2, rule4])
+    mask2 = rules2.get_matching_mask(data)
 
     rw = RuleWidget(rule1, data.iloc[:, :2], data.iloc[:, 2], True, mask1, lambda x: None)
 

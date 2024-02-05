@@ -46,9 +46,9 @@ class AutoCluster(LongTask):
         for cluster in new_clusters:
             if cluster != -1:
                 cluster_mask = extended_clusters == cluster
-                rules_list, _ = skope_rules(cluster_mask, self.X, variables, precision, recall, random_state)
-                if len(rules_list) > 0:
-                    region_set.add_region(rules=rules_list, auto_cluster=True)
+                rule_set, _ = skope_rules(cluster_mask, self.X, variables, precision, recall, random_state)
+                if len(rule_set) > 0:
+                    region_set.add_region(rules=rule_set, auto_cluster=True)
                 else:
                     region_set.add_region(mask=cluster_mask, auto_cluster=True)
         return region_set
@@ -64,7 +64,7 @@ class AutoCluster(LongTask):
         self.publish_progress(0)
         clusters = self.cluster_algo.compute(X, shap_values, n_clusters)
         clusters = pd.Series(clusters, index=X.index, name='cluster')
-        self.publish_progress(90)
+        self.publish_progress(80)
         new_regions = self.clusters_to_rules(clusters, **kwargs)
         self.publish_progress(100)
         return new_regions

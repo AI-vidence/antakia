@@ -9,7 +9,7 @@ import pandas as pd
 import os
 import math
 
-from antakia.utils.utils import boolean_mask
+from antakia.utils.utils import boolean_mask, mask_to_index
 from antakia.utils.variable import Variable, DataVariables
 from antakia.utils.logging import conf_logger
 
@@ -220,12 +220,12 @@ class Rule:
             txt += f'{self.variable.symbol} {self.PRETTY_OPERATORS[self.operator_max]} {self.max}'
         return txt
 
-    def get_matching_indexes(self, X: pd.DataFrame) -> pd.Series:
+    def get_matching_mask(self, X: pd.DataFrame) -> pd.Series:
         """
         Returns a mask of indices matching the rule
         """
         # We're going to modify X, so we make a copy
-        col = X[self.variable.symbol]
+        col = X.loc[:, self.variable.symbol]
 
         if self.is_categorical_rule:
             return col.isin(self.cat_values)
@@ -241,27 +241,6 @@ class Rule:
         else:
             # Rule type 4
             return max_ | min_
-
-    @staticmethod
-    def rules_to_mask(rules_list: list | None, base_space_df: pd.DataFrame) -> pd.Series:
-        """"
-        Returns a mask of indices matching the rules
-        We assume rules_list contains rules, not list of rules
-        """
-        res = boolean_mask(base_space_df, True)
-        if rules_list is not None:
-            for rule in rules_list:
-                res &= rule.get_matching_indexes(base_space_df)
-        return res
-
-    @staticmethod
-    def rules_to_indexes(rules_list: list | None, base_space_df: pd.DataFrame) -> list[int]:
-        """"
-        Returns a mask of indices matching the rules
-        We assume rules_list contains rules, not list of rules
-        """
-        res = Rule.rules_to_mask(rules_list, base_space_df)
-        return base_space_df[res].index.tolist()
 
     def combine(self, rule: Rule) -> Rule | None:
         """ 
@@ -321,47 +300,133 @@ class Rule:
             #  Not the same variable, no combination possible
             return None
 
-    @staticmethod
-    def combine_rules_var(rule_list: list[Rule]) -> list[Rule]:
-        rule_list = rule_list[:]
-        i = 0
-        while i < len(rule_list):
-            j = i + 1
-            while j < len(rule_list):
-                combined_rule = rule_list[i].combine(rule_list[j])
-                if combined_rule is not None:
-                    rule_list[i] = combined_rule
-                    rule_list.pop(j)
-                else:
-                    j += 1
-            i += 1
-        return rule_list
+    def to_dict(self) -> dict:
+        return {
+            'Variable': self.variable.symbol,
+            'Unit': self.variable.unit,
+            'Desc': self.variable.descr,
+            'Critical': self.variable.critical,
+            'Rule': self.__repr__()
+        }
 
-    @staticmethod
-    def combine_rule_list(rule_list: list[Rule]) -> list[Rule]:
-        """
-        Try to combine all rules of the list into a smaller list of rules
-        """
-        rules_per_var = {}
-        for rule in rule_list:
-            if rule.variable not in rules_per_var:
-                rules_per_var[rule.variable] = [rule]
-            else:
-                rules_per_var[rule.variable].append(rule)
 
-        new_rules = []
-        for rules in rules_per_var.values():
-            if len(rules) == 1:
-                new_rules.append(rules[0])
-            else:
-                combined_rules = Rule.combine_rules_var(rules)
-                new_rules.extend(combined_rules)
-        return new_rules
+class RuleSet:
+    """
+    set of rules
+    """
 
-    @staticmethod
-    def _extract_rules(skrules, X: pd.DataFrame, variables: DataVariables) -> (list[Rule], dict[str, float]):
+    def __init__(self, rules: list[Rule] | RuleSet | None = None):
+
+        if isinstance(rules, RuleSet):
+            rules = rules.rules
+        if rules:
+            self.rules = rules
+        else:
+            self.rules = []
+
+    def append(self, value: Rule):
         """
-        Transforms a string into a list of rules
+        add a new rule
+        Parameters
+        ----------
+        value
+
+        Returns
+        -------
+
+        """
+        self.rules.append(value)
+
+    def pop(self, index: int = None) -> Rule:
+        """
+        remove and return index rule
+        Parameters
+        ----------
+        index
+
+        Returns
+        -------
+
+        """
+        return self.rules.pop(index)
+
+    def __len__(self):
+        return len(self.rules)
+
+    def __repr__(self):
+        if not self.rules:
+            return ""
+        return " and ".join([rule.__repr__() for rule in self.rules])
+
+    def to_dict(self):
+        if not self.rules:
+            return []
+        return [rule.to_dict() for rule in self.rules]
+
+    def copy(self):
+        return RuleSet(self.rules.copy())
+
+    def set(self, new_rule: Rule):
+        """
+        edit a rule in the ruleset
+        Parameters
+        ----------
+        new_rule
+
+        Returns
+        -------
+
+        """
+        for rule in self.rules:
+            if rule.variable == new_rule.variable:
+                self.rules[self.rules.index(rule)] = new_rule
+                return
+        # append if no rule on the variable
+        self.append(new_rule)
+
+    def get_matching_mask(self, X: pd.DataFrame) -> pd.Series:
+        """
+        get the mask of samples validating the rule
+        Parameters
+        ----------
+        X: dataset to get the mask from
+
+        Returns
+        -------
+
+        """
+        res = boolean_mask(X, True)
+        if self.rules is not None:
+            for rule in self.rules:
+                res &= rule.get_matching_mask(X)
+        return res
+
+    def get_matching_indexes(self, X):
+        """
+        get the list indexes of X validating the rule
+        Parameters
+        ----------
+        X
+
+        Returns
+        -------
+
+        """
+        res = self.get_matching_mask(X)
+        return mask_to_index(res)
+
+    @classmethod
+    def sk_rules_to_rule_set(cls, skrules, variables: DataVariables):
+        """
+        transform skope rules to a RuleSet
+        Parameters
+        ----------
+        skrules
+        variables
+
+        Returns
+        -------
+
         """
         tokens = skrules[0]
         precision = tokens[1][0]
@@ -375,7 +440,7 @@ class Rule:
 
         tokens = tokens[0].split(" and ")
 
-        rule_list = []
+        rule_list = RuleSet()
         for i in range(len(tokens)):
             tokens[i] = tokens[i].split(" ")
             variable = variables.get_var(tokens[i][0])
@@ -395,39 +460,64 @@ class Rule:
 
         return rule_list, score_dict
 
-    def to_dict(self) -> dict:
-        return {
-            'Variable': self.variable.symbol,
-            'Unit': self.variable.unit,
-            'Desc': self.variable.descr,
-            'Critical': self.variable.critical,
-            'Rule': self.__repr__()
-        }
-
     @staticmethod
-    def rules_to_dict_list(rules_list: list[Rule]) -> List[Dict[str, str]]:
-        """""
-        Returns a dict rep compatible with the v.DataTable widget
+    def combine_rules_var(rule_list: list[Rule]) -> list[Rule]:
         """
+        reduce rule list
+        all rules should share the same variable
+        Parameters
+        ----------
+        rule_list
 
-        if rules_list is None or len(rules_list) == 0:
-            return []
+        Returns
+        -------
 
-        return [rule.to_dict() for rule in rules_list]
-
-    @staticmethod
-    def multi_rules_to_string(rules_list: list) -> str:
         """
-        Returns a string representation of a list of rules
+        rule_list = rule_list[:]
+        i = 0
+        while i < len(rule_list):
+            j = i + 1
+            while j < len(rule_list):
+                combined_rule = rule_list[i].combine(rule_list[j])
+                if combined_rule is not None:
+                    rule_list[i] = combined_rule
+                    rule_list.pop(j)
+                else:
+                    j += 1
+            i += 1
+        return rule_list
+
+    def combine(self) -> None:
         """
-        if rules_list is None or len(rules_list) == 0:
-            return ""
-        else:
-            return " and ".join([rule.__repr__() for rule in rules_list])
+        Try to combine all rules of the list into a smaller list of rules
+        """
+        rules_per_var = {}
+        for rule in self.rules:
+            if rule.variable not in rules_per_var:
+                rules_per_var[rule.variable] = [rule]
+            else:
+                rules_per_var[rule.variable].append(rule)
 
+        new_rules = []
+        for rules in rules_per_var.values():
+            if len(rules) == 1:
+                new_rules.append(rules[0])
+            else:
+                combined_rules = self.combine_rules_var(rules)
+                new_rules.extend(combined_rules)
+        self.rules = new_rules
 
-def create_categorical_rule(variable: Variable, cat_values: list) -> Rule:
-    """
-    Creates a categorical rule for the given variable and list of values
-    """
-    return Rule(None, None, variable, None, None, cat_values)
+    def find_rule(self, var: Variable) -> Rule | None:
+        """
+        find a rule on the variable
+        Parameters
+        ----------
+        var
+
+        Returns
+        -------
+
+        """
+        for rule in self.rules:
+            if rule.variable.symbol == var.symbol:
+                return rule

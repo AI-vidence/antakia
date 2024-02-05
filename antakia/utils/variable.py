@@ -51,7 +51,8 @@ class Variable:
     @staticmethod
     def guess_variables(X: pd.DataFrame) -> 'DataVariables':
         """
-        Returns a list of Variable objects, one for each column in X.
+        guess Variables from the Dataframe values
+        Returns a DataVariable object, with one Variable for each column in X.
         """
         variables = []
         for i, col in enumerate(X.columns):
@@ -69,7 +70,8 @@ class Variable:
     @staticmethod
     def import_variable_df(df: pd.DataFrame) -> 'DataVariables':
         """
-        Import variables from a DataFrame
+        Builds The DataVariable object from a descriptive DataFrame
+        Returns a DataVariable object, with one Variable for each column in X.
         """
 
         if "col_index" not in df.columns:
@@ -86,7 +88,9 @@ class Variable:
     @staticmethod
     def import_variable_list(var_list: list) -> 'DataVariables':
         """
-        Import variables from a list of dicts
+        Builds The DataVariable object from alist of dict
+        Returns a DataVariable object, with one Variable for each column in X.
+
         """
         variables = []
         for i in range(len(var_list)):
@@ -103,6 +107,9 @@ class Variable:
 
     @staticmethod
     def is_continuous(serie: pd.Series) -> bool:
+        """
+        guess if a variable is continous from its values
+        """
         # TODO : precise continuous definition
         id_first_true = (serie > 0).idxmax()
         id_last_true = (serie > 0)[::-1].idxmax()
@@ -142,6 +149,9 @@ class Variable:
 
 
 class DataVariables:
+    """
+    collection of Variables
+    """
     def __init__(self, variables: List[Variable]):
         self.variables = {var.symbol: var for var in variables}
 
@@ -151,15 +161,15 @@ class DataVariables:
             text += str(var.col_index) + ") " + str(var) + "\n"
         return text
 
-    def sym_list(self) -> List[str]:
+    def sym_list(self):
         """
-        Returns a list of all symbols used in the variable DataFrame
+        get symbol list
         """
         return list(self.variables.keys())
 
-    def get_var(self, symbol: str) -> Variable:
+    def get_var(self, symbol: str):
         """
-        Returns the Variable with the given symbol
+        get variable by symbol
         """
         return self.variables.get(symbol)
 

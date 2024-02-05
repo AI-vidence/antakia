@@ -4,11 +4,17 @@ import pandas as pd
 from skrules import SkopeRules
 
 from antakia.utils.variable import Variable, DataVariables
-from antakia.data_handler.rules import Rule
+from antakia.data_handler.rules import Rule, RuleSet
 
 
-def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: DataVariables = None, precision: float = 0.7,
-                recall: float = 0.7, random_state=42) -> (list[Rule], dict[str,float]):
+def skope_rules(
+        df_mask: pd.Series,
+        base_space_df: pd.DataFrame,
+        variables: DataVariables = None,
+        precision: float = 0.7,
+        recall: float = 0.7,
+        random_state=42
+) -> (RuleSet, dict[str, float]):
     """
     variables : list of Variables of the app
     df_indexes : list of (DataFrame) indexes for the points selected in the GUI
@@ -37,14 +43,14 @@ def skope_rules(df_mask: pd.Series, base_space_df: pd.DataFrame, variables: Data
         sk_classifier.fit(base_space_df, y_train)
 
     if sk_classifier.rules_ != []:
-        rules_list, score_dict = Rule._extract_rules(sk_classifier.rules_, base_space_df, variables)
+        rules_list, score_dict = RuleSet.sk_rules_to_rule_set(sk_classifier.rules_, variables)
 
         if len(rules_list) >= 0:
-            rules_list = Rule.combine_rule_list(rules_list)
+            rules_list.combine()
 
         # We remove infinity in rules : we convert in simple rule if inf present
         # We had to wait for _combine_rule_list to proceed
         return rules_list, score_dict
 
     else:
-        return [], {}
+        return RuleSet(), {}

@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 import numpy as np
 import pandas as pd
 # from dotenv import load_dotenv
@@ -7,72 +9,47 @@ from antakia.compute.dim_reduction.dim_reduction import compute_projection
 from antakia.compute.auto_cluster.auto_cluster import AutoCluster
 from antakia.compute.skope_rule.skope_rule import skope_rules
 from antakia.data_handler.projected_values import ProjectedValues
+from antakia.gui.widgets import get_widget, app_widget
 from antakia.utils.dummy_datasets import load_dataset
 from antakia.utils.variable import Variable
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.data_handler.rules import Rule
-from antakia.utils.utils import in_index
+from antakia.utils.utils import in_index, mask_to_rows
 from tests.utils_fct import dr_callback, compare_indexes
+from sklearn.tree import DecisionTreeRegressor
 
 
 # @mock.patch('antakia.antakia.AntakIA._get_shap_values')
 def test_main():
     X, y = load_dataset('Corner', 1000, random_seed=42)
-    X = pd.DataFrame(X)
-    X[2] = np.random.random(len(X))
+    X = pd.DataFrame(X, columns=['X1', 'X2'])
+    X['X3'] = np.random.random(len(X))
     y = pd.Series(y)
 
-    class DummyModel:
-        def predict(self, X):
-            return ((X.loc[:, 0] > 0.5) & (X.loc[:, 1] > 0.5)).astype(int)
-
-        def score(self, X, y):
-            return 1
-
-    model = DummyModel()
-    x_exp = pd.concat([(X.loc[:, 0] > 0.5) * 0.5, (X.loc[:, 1] > 0.5) * 0.5, (X.loc[:, 2] > 2) * 1], axis=1)
+    model = DecisionTreeRegressor().fit(X, y)
+    x_exp = pd.concat([(X.iloc[:, 0] > 0.5) * 0.5, (X.iloc[:, 1] > 0.5) * 0.5, (X.iloc[:, 2] > 2) * 1], axis=1)
 
     atk = AntakIA(X, y, model, X_exp=x_exp)
     gui = atk.gui
     atk.start_gui()
-    for hde in [gui.vs_hde, gui.es_hde]:
-        hde.create_figure()
-        hde.update_fig_size()
-        x_proj = hde.get_current_X_proj()
-        x_proj = hde.get_current_X_proj(dim=3)
-        hde.explanation_select_changed(None, None, 'SHAP')
+    get_widget(app_widget, '13000203').click()  # click on compute shap
+    gui.switch_dimension(None, None, True)
+    gui.switch_dimension(None, None, False)
 
-    gui.es_hde.compute_explanation(1)
-    vs_pv = ProjectedValues(atk.X, atk.y, dr_callback)
+    selection = (X.iloc[:, 0] > 0.5)
+    points = namedtuple('points', ['point_inds'])
+    points(mask_to_rows(selection))
+
+    gui.vs_hde._selection_event(None, points(mask_to_rows(selection)))  # select points
+    get_widget(app_widget, "43010").click() # compute skope rules
+    gui.vs_rules_wgt.rule_widget_list[0]._widget_value_changed('', '', 0.6) # change rule value
+
+    vs_pv = ProjectedValues(atk.X, atk.y)
     proj_dim2 = vs_pv.get_projection(DimReducMethod.dimreduc_method_as_int("PCA"), 2)
     proj_dim3 = vs_pv.get_projection(DimReducMethod.dimreduc_method_as_int("PCA"), 3)
     assert proj_dim2.shape == (len(atk.X), 2)
     assert proj_dim3.shape == (len(atk.X), 3)
     assert compare_indexes(proj_dim2, atk.X)
-
-    # es_pv_imported = ProjectedValues(atk.X_exp)
-    # es_pv_imported.set_proj_values(
-    # 	DimReducMethod.dimreduc_method_as_int("TSNE"),
-    # 	3,
-    # 	compute_projection(
-    # 		atk.X_exp,
-    # 		DimReducMethod.dimreduc_method_as_int("TSNE"),
-    # 		3,
-    # 		dr_callback
-    # 	)
-    # )
-
-    # assert es_pv_imported.get_proj_values(DimReducMethod.dimreduc_method_as_int('TSNE'), 3).shape == (atk.X_exp.shape[0], 3)
-    # assert compare_indexes(es_pv_imported.get_proj_values(DimReducMethod.dimreduc_method_as_int('TSNE'), 3), atk.X) is True
-
-    # # Test explanation computation ---------
-
-    # es_pv_shap = ProjectedValues(
-    # 	compute_explanations(atk.X, atk.model, ExplanationMethod.SHAP, exp_callback)
-    # )
-
-    # assert es_pv_shap.X.shape == (atk.X.shape[0], atk.X.shape[1])
-    # assert compare_indexes(es_pv_shap.X, atk.X) is True
 
     # Test Skope rules -------------
 

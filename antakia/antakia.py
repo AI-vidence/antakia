@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List, Dict, Any
 
 import pandas as pd
-import shap
 
 from dotenv import load_dotenv
 
@@ -14,35 +13,47 @@ from antakia.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
 
 
-class AntakIA():
+class AntakIA:
     """
-    AntakIA class.
+    AntakIA class. 
 
     Antakia instances provide data and methods to explain a ML model.
 
     Instance attributes
     -------------------
-    X_list : a list of one or more pd.DataFrame 
-    X_method_list : a list starting with ExplanationMethod.NONE, followed by one or more ExplanationMethod
-    y : a pd.Series
-    Y_pred : a pd.Series
-    variables : a list of Variables, describing X_list[0]
+    X : pd.DataFrame the training dataset
+    y : pd.Series the target value
     model : Model
         the model to explain
-
-    regions : List of Selection objects
-
-
+    variables : a list of Variables, describing X_list[0]
+    X_test : pd.DataFrame the test dataset
+    y_test : pd.Series the test target value
+    score : reference scoring function
     """
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model,
-                 variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
-                 X_exp: pd.DataFrame | None = None, score: callable | str = 'mse'):
+    def __init__(
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            model,
+            variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
+            X_test: pd.DataFrame = None,
+            y_test: pd.Series = None,
+            X_exp: pd.DataFrame | None = None,
+            score: callable | str = 'mse'
+    ):
         """
         AntakiIA constructor.
 
         Parameters:
-        X : a pd.DataFrame
+            X : pd.DataFrame the training dataset
+            y : pd.Series the target value
+            model : Model
+                the model to explain
+            variables : a list of Variables, describing X_list[0]
+            X_test : pd.DataFrame the test dataset
+            y_test : pd.Series the test target value
+            score : reference scoring function
         """
 
         load_dotenv()
@@ -51,16 +62,19 @@ class AntakIA():
             raise ValueError(model, " should implement predict and score methods")
 
         self.X = X
+        self.X_test = X_test
         if y.ndim > 1:
             y = y.squeeze()
         self.y = y
+        if y_test is not None and y_test.ndim > 1:
+            y_test = y_test.squeeze()
+        self.y_test = y_test
         self.model = model
         self.score = score
-        self.Y_pred = model.predict(X)
 
         if X_exp is not None:
             # It's common to have column names ending with _shap, so we remove them
-            X_exp.columns=X_exp.columns.astype(str)
+            X_exp.columns = X_exp.columns.astype(str)
             X_exp.columns = X_exp.columns.str.replace('_shap', '')
         self.X_exp = X_exp
 
@@ -76,8 +90,16 @@ class AntakIA():
         else:
             self.variables = Variable.guess_variables(X)
 
-        self.regions = []
-        self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_exp, self.score)
+        self.gui = GUI(
+            self.X,
+            self.y,
+            self.model,
+            self.variables,
+            self.X_test,
+            self.y_test,
+            self.X_exp,
+            self.score
+        )
 
     def start_gui(self) -> GUI:
         return self.gui.show_splash_screen()
