@@ -466,13 +466,12 @@ class HighDimExplorer:
         # We tell the GUI
         self.first_selection = False
         self.current_selection = utils.boolean_mask(self.current_X, True)
+        self.selection_changed(self, self.current_selection)
         self.display_rules(~self.current_selection, ~self.current_selection)
-        self.set_tab(0)
         if rebuild:
             self.create_figure()
         else:
             self.display_selection()
-        self.selection_changed(self, self.current_selection)
 
     def set_selection(self, new_selection_mask: pd.Series):
         """

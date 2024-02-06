@@ -232,8 +232,7 @@ class GUI:
         if new_selection_mask.all():
             # Selection is empty
             # we display y as color
-            self.vs_hde.set_tab(0)
-            self.es_hde.set_tab(0)
+            self.select_tab(0)
             # We enable both HDEs (proj select, explain select etc.)
             self.disable_hde(False)
 
@@ -420,7 +419,7 @@ class GUI:
         get_widget(app_widget, "450100").disabled = True
 
         # We wire a select event on the 'substitution table' :
-        get_widget(app_widget, "45001").set_callback(self.sub_model_selected)
+        get_widget(app_widget, "45001").set_callback(self.sub_model_selected_callback)
 
         # We wire a ckick event on the "validate sub-model" button :
         get_widget(app_widget, "450100").on_event("click", self.validate_sub_model)
@@ -824,12 +823,11 @@ class GUI:
         self.update_subtitution_progress_bar()
         self.update_substitution_title(region)
 
-    def sub_model_selected(self, data):
-        is_selected = data["value"]
+    def sub_model_selected_callback(self, data):
+        is_selected = bool(data["value"])
         # We use this GUI attribute to store the selected sub-model
-        # TODO : read the selected sub-model from the SubModelTable
         self.selected_sub_model = [data['item']]
-        get_widget(app_widget, "450100").disabled = True if not is_selected else False
+        get_widget(app_widget, "450100").disabled = not is_selected
 
     def validate_sub_model(self, widget, event, data):
         # We get the sub-model data from the SubModelTable:
@@ -843,5 +841,6 @@ class GUI:
         region.validate()
         # empty selected region
         self.selected_regions = []
+        self.selected_sub_model = []
         # Show tab 2
         self.select_tab(2)

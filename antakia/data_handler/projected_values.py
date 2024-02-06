@@ -80,7 +80,8 @@ class ProjectedValues:
             'previous': current.copy()
         }
 
-    def get_projection(self, projection_method: int, dimension: int, progress_callback: callable = None):
+    def get_projection(self, projection_method: int, dimension: int, progress_callback: callable = None,
+                       set_current=True):
         """
         get a projection value
         computes it if necessary
@@ -96,7 +97,8 @@ class ProjectedValues:
         """
         if not self.is_present(projection_method, dimension):
             self.compute(projection_method, dimension, progress_callback)
-        self.current_proj = Proj(projection_method, dimension)
+        if set_current:
+            self.current_proj = Proj(projection_method, dimension)
         return self._projected_values[Proj(projection_method, dimension)]
 
     def is_present(self, projection_method: int, dimension: int) -> bool:

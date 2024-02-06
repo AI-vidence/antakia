@@ -74,10 +74,10 @@ def change_tab(gui, tab):
     widget.click()
 
 
-def select(gui, is_value_space, q=(1, 1)):
+def select_points(gui, is_value_space, q=(1, 1)):
     X = gui.vs_hde.get_current_X_proj(dim=2)
-    b = (X.iloc[:, 0] / X.iloc[:, 0].max()) * q[0] > 0.5
-    b &= (X.iloc[:, 1] / X.iloc[:, 1].max()) * q[1] > 0.5
+    b = (X.iloc[:, 0] / X.iloc[:, 0].max()) * q[0] > 0
+    b &= (X.iloc[:, 1] / X.iloc[:, 1].max()) * q[1] > 0
     if is_value_space:
         hde = gui.vs_hde
     else:
@@ -122,12 +122,14 @@ def auto_cluster(gui):
     btn.click()
 
 
-def select_region(gui, region_num):
+def toggle_select_region(gui, region_num):
+    value = len(list(filter(lambda r: r['Region'] == region_num, gui.selected_regions))) == 0
     data = {
-        'value': True,
+        'value': value,
         'item': {'Region': region_num}
     }
     gui.region_selected(data)
+    gui.selected_regions = [data['item']]
 
 
 def substitute(gui):
@@ -152,12 +154,14 @@ def delete(gui):
 
 
 def select_model(gui, model):
-    gui.sub_model_selected = {
+    data = {
         'value': True,
         'item': {'Sub-model': model}
     }
+    gui.sub_model_selected_callback(data)
 
-def validate(gui):
+
+def validate_model(gui):
     btn = get_widget(app_widget, "450100")
     if btn.disabled:
         raise ValueError('validate button disabled')

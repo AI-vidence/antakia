@@ -1,3 +1,4 @@
+from antakia import config
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.compute.dim_reduction.dim_reduction import dim_reduc_factory
 from antakia.gui.widgets import get_widget, app_widget
@@ -18,42 +19,39 @@ def check_hde_color(gui):
             c = gui.y_pred
         else:
             c = gui.y - gui.y_pred
-        if gui.vs_hde._colors[0] is not None:
-            assert (gui.vs_hde._colors[0] == c).all()
-            assert (gui.es_hde._colors[0] == c).all()
+        if gui.vs_hde._colors[gui.tab] is not None:
+            assert (gui.vs_hde._colors[gui.tab] == c).all()
+            assert (gui.es_hde._colors[gui.tab] == c).all()
         assert gui.vs_hde.active_tab == 0
         assert gui.es_hde.active_tab == 0
         assert gui.vs_hde._visible == [1, 0, 0, 0]
     elif gui.tab == 1:
         assert gui.vs_hde.active_tab in (1, 0)
         assert gui.es_hde.active_tab in (1, 0)
-        if gui.vs_hde.active_tab == 1:
-            assert gui.vs_hde._visible == [0, 1, 0, 0]
-        else:
-            assert gui.vs_hde._visible == [1, 0, 0, 0]
+        assert gui.vs_hde._visible == [0, 1, 0, 0]
         selection = gui.selection_mask
-        color = gui.vs_hde._colors[1]
+        color = gui.vs_hde._colors[gui.tab]
         if color is not None:
             assert len(color[selection].unique()) <= 2
             assert len(color[~selection].unique()) <= 2
             assert len(color.unique()) <= 4
-            assert (gui.vs_hde._colors[1] == gui.es_hde._colors[1]).all()
+            assert (gui.vs_hde._colors[gui.tab] == gui.es_hde._colors[gui.tab]).all()
     elif gui.tab == 2:
         assert gui.vs_hde.active_tab == 2
         assert gui.es_hde.active_tab == 2
         assert gui.vs_hde._visible == [0, 0, 1, 0]
 
         assert (gui.region_set.get_color_serie() == gui.vs_hde._colors[2]).all()
-        assert gui.vs_hde._colors[1] == gui.es_hde._colors[1]
+        assert (gui.vs_hde._colors[gui.tab] == gui.es_hde._colors[gui.tab]).all()
     elif gui.tab == 3:
         assert gui.vs_hde.active_tab == 3
         assert gui.es_hde.active_tab == 3
         assert gui.vs_hde._visible == [0, 0, 0, 1]
 
-        color = gui.vs_hde._colors[1]
+        color = gui.vs_hde._colors[gui.tab]
         if color is not None:
             assert len(color.unique()) <= 2
-            assert gui.vs_hde._colors[1] == gui.es_hde._colors[1]
+            assert (gui.vs_hde._colors[gui.tab] == gui.es_hde._colors[gui.tab]).all()
 
 
 def check_exp_menu(gui):
@@ -115,7 +113,12 @@ def check_tab_2_btn(gui):
     # substitute
     assert get_widget(app_widget, "4401000").disabled == (len(gui.selected_regions) != 1)
     # subdivide
-    assert get_widget(app_widget, "440110").disabled == (len(gui.selected_regions) != 1)
+    if gui.selected_regions:
+        first_region = gui.region_set.get(gui.selected_regions[0]['Region'])
+    else:
+        first_region = None
+    enable_sub = (len(gui.selected_regions) == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
+    assert get_widget(app_widget, "440110").disabled == (not enable_sub)
     # delete
     assert get_widget(app_widget, "440120").disabled == (len(gui.selected_regions) == 0)
 
@@ -123,15 +126,16 @@ def check_tab_2_btn(gui):
 def check_tab_3_btn(gui):
     assert get_widget(app_widget, "450100").disabled == (
             (gui.substitute_region is None) or
-            len(gui.selected_sub_model) > 0
+            len(gui.selected_sub_model) == 0
     )
 
 
-def check_all(gui):
-    check_dim(gui)
-    check_hde_color(gui)
-    check_exp_menu(gui)
-    check_proj_menu(gui)
-    check_tab_1_btn(gui)
-    check_tab_2_btn(gui)
-    check_tab_3_btn(gui)
+def check_all(gui, check=True):
+    if check:
+        check_dim(gui)
+        check_hde_color(gui)
+        check_exp_menu(gui)
+        check_proj_menu(gui)
+        check_tab_1_btn(gui)
+        check_tab_2_btn(gui)
+        check_tab_3_btn(gui)

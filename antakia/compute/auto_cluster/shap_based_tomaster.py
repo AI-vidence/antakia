@@ -23,7 +23,10 @@ class ShapBasedTomato(LongTask):
 
     @staticmethod
     def scale(X, shap_values):
-        return (X - X.mean()) / X.std() * np.abs(shap_values).mean()
+        std = X.std()
+        std[std == 0] = 1
+        coef = np.abs(shap_values).mean() / std
+        return (X - X.mean()) * coef
 
     @staticmethod
     def score_cluster(X, clusters):
@@ -36,4 +39,3 @@ class ShapBasedTomato(LongTask):
         else:
             clusters = tomato(points=X.values, n_clusters=n_clusters, k=20)
         return clusters
-
