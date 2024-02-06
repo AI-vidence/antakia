@@ -4,7 +4,7 @@ import pytest
 
 from antakia.gui.explanation_values import ExplanationValues
 from antakia.gui.widgets import get_widget, app_widget
-from tests.utils_fct import generate_ExplanationValues, EMPTYExplanation, generate_df_series_callable, test_progress_bar
+from tests.utils_fct import generate_ExplanationValues, generate_df_series_callable, test_progress_bar
 
 
 def test_init():  # ajouter test click
@@ -29,8 +29,8 @@ def test_init():  # ajouter test click
     assert exp1.explanations['SHAP'] is None
     assert exp1.explanations['LIME'] is None
 
-    # get_widget(app_widget, "13000203").click()
-    # get_widget(app_widget, "13000303").click()
+    # get_widget(app_widget.widget, "13000203").click()
+    # get_widget(app_widget.widget, "13000303").click()
 
 
 @mock.patch('antakia.gui.explanation_values.compute_explanations')
@@ -44,10 +44,10 @@ def test_initialize(cpt_exp):
 
     exp_val = generate_ExplanationValues('DT', X_exp)[3]
     exp_val.initialize(function)
-    assert get_widget(app_widget, '130000').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
-    assert get_widget(app_widget, '13000203').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
-    assert get_widget(app_widget, '130001').disabled == (exp_val.explanations[exp_val.available_exp[2]] is not None)
-    assert get_widget(app_widget, '13000303').disabled == (exp_val.explanations[exp_val.available_exp[2]] is not None)
+    assert get_widget(app_widget.widget, '130000').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
+    assert get_widget(app_widget.widget, '13000203').disabled == (exp_val.explanations[exp_val.available_exp[1]] is not None)
+    assert get_widget(app_widget.widget, '130001').disabled == (exp_val.explanations[exp_val.available_exp[2]] is not None)
+    assert get_widget(app_widget.widget, '13000303').disabled == (exp_val.explanations[exp_val.available_exp[2]] is not None)
 
     assert exp_val.current_exp == exp_val.available_exp[0]
     assert exp_val.get_explanation_select().v_model == 'Imported'
@@ -96,26 +96,26 @@ def test_compute_explanation(cpt_exp):
                                                   {"text": 'SHAP', 'disabled': False},
                                                   {"text": 'LIME', 'disabled': True}]
 
-    assert get_widget(app_widget, '130000').disabled == (exp.explanations[exp.available_exp[1]] is not None)
-    assert get_widget(app_widget, '13000203').disabled == (exp.explanations[exp.available_exp[1]] is not None)
-    assert get_widget(app_widget, '130001').disabled == (exp.explanations[exp.available_exp[2]] is not None)
-    assert get_widget(app_widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
+    assert get_widget(app_widget.widget, '130000').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget.widget, '13000203').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget.widget, '130001').disabled == (exp.explanations[exp.available_exp[2]] is not None)
+    assert get_widget(app_widget.widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
 
 
 def test_update_compute_menu():
     X_df, Y_ser, function, exp = generate_ExplanationValues('DT', 'SHAP')
     exp.update_compute_menu()
-    assert get_widget(app_widget, '130000').disabled == (exp.explanations[exp.available_exp[1]] is not None)
-    assert get_widget(app_widget, '13000203').disabled == (exp.explanations[exp.available_exp[1]] is not None)
-    assert get_widget(app_widget, '130001').disabled == (exp.explanations[exp.available_exp[2]] is not None)
-    assert get_widget(app_widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
+    assert get_widget(app_widget.widget, '130000').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget.widget, '13000203').disabled == (exp.explanations[exp.available_exp[1]] is not None)
+    assert get_widget(app_widget.widget, '130001').disabled == (exp.explanations[exp.available_exp[2]] is not None)
+    assert get_widget(app_widget.widget, '13000303').disabled == (exp.explanations[exp.available_exp[2]] is not None)
 
 
 def test_compute_btn_clicked():  # à compléter
     X, y, X_exp, exp_val = generate_ExplanationValues()
-    # exp_val.compute_btn_clicked(get_widget(app_widget, "130000"), None, None)
+    # exp_val.compute_btn_clicked(get_widget(app_widget.widget, "130000"), None, None)
     # exp_val.compute_btn_clicked(None, None, None)
-    # assert get_widget(app_widget, "13000203").disabled
+    # assert get_widget(app_widget.widget, "13000203").disabled
     # assert exp_val.current_exp == 1
 
 

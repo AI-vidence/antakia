@@ -10,8 +10,8 @@ def select_dim(gui, dim):
 
 def set_color(gui, color):
     colors = ['y', 'y^', 'residual']
-    get_widget(app_widget, '11').v_model = colors[color]
-    get_widget(app_widget, '11').fire_event('change')
+    get_widget(app_widget.widget, '11').v_model = colors[color]
+    get_widget(app_widget.widget, '11').fire_event('change')
 
 
 def set_exp_method(gui, method):
@@ -40,7 +40,7 @@ def compute_exp_method(gui, method):
         btn = '13000203'
     else:
         btn = '13000303'
-    btn = get_widget(app_widget, btn)
+    btn = get_widget(app_widget.widget, btn)
     if btn.disabled:
         raise ValueError('value already computed')
     btn.click()
@@ -50,18 +50,18 @@ def set_proj_method(gui, is_value_space, method):
     methods = ['PCA', 'UMAP', 'PaCMAP']
     proj = methods[method]
     if is_value_space:
-        widget = get_widget(app_widget, '14')
+        widget = get_widget(app_widget.widget, '14')
     else:
-        widget = get_widget(app_widget, '17')
+        widget = get_widget(app_widget.widget, '17')
     widget.v_model = proj
     widget.fire_event('change')
 
 
 def edit_parameter(gui, is_value_space):
     if is_value_space:
-        param = get_widget(app_widget, '15')
+        param = get_widget(app_widget.widget, '15')
     else:
-        param = get_widget(app_widget, '18')
+        param = get_widget(app_widget.widget, '18')
     widget_param_list = param.children[0].children[0].children
     for widget_p in widget_param_list:
         widget_p.v_model += 0.1
@@ -70,14 +70,17 @@ def edit_parameter(gui, is_value_space):
 
 def change_tab(gui, tab):
     adresses = ['40', '41', '42']
-    widget = get_widget(app_widget, adresses[tab])
+    widget = get_widget(app_widget.widget, adresses[tab])
     widget.click()
 
 
 def select_points(gui, is_value_space, q=(1, 1)):
     X = gui.vs_hde.get_current_X_proj(dim=2)
-    b = (X.iloc[:, 0] / X.iloc[:, 0].max()) * q[0] > 0
-    b &= (X.iloc[:, 1] / X.iloc[:, 1].max()) * q[1] > 0
+    std = X.std().replace(0, 1)
+    X_scaled = (X - X.mean()) / std
+
+    b = X_scaled.iloc[:, 0] * q[0] > 0
+    b &= X_scaled.iloc[:, 1] * q[1] > 0
     if is_value_space:
         hde = gui.vs_hde
     else:
@@ -95,28 +98,28 @@ def unselect(gui, is_value_space):
 
 
 def find_rules(gui):
-    btn = get_widget(app_widget, "43010")
+    btn = get_widget(app_widget.widget, "43010")
     if btn.disabled:
         raise ValueError('skr button disabled')
     btn.click()
 
 
 def undo(gui):
-    btn = get_widget(app_widget, "4302")
+    btn = get_widget(app_widget.widget, "4302")
     if btn.disabled:
         raise ValueError('undo button disabled')
     btn.click()
 
 
 def validate_rules(gui):
-    btn = get_widget(app_widget, "43030")
+    btn = get_widget(app_widget.widget, "43030")
     if btn.disabled:
         raise ValueError('validate_rules button disabled')
     btn.click()
 
 
 def auto_cluster(gui):
-    btn = get_widget(app_widget, "4402000")
+    btn = get_widget(app_widget.widget, "4402000")
     if btn.disabled:
         raise ValueError('auto_cluster button disabled')
     btn.click()
@@ -129,25 +132,28 @@ def toggle_select_region(gui, region_num):
         'item': {'Region': region_num}
     }
     gui.region_selected(data)
-    gui.selected_regions = [data['item']]
+    if value:
+        gui.selected_regions = [data['item']]
+    else:
+        gui.selected_regions = list(filter(lambda x: x['Region'] != region_num, gui.selected_regions))
 
 
 def substitute(gui):
-    btn = get_widget(app_widget, "4401000")
+    btn = get_widget(app_widget.widget, "4401000")
     if btn.disabled:
         raise ValueError('substitute button disabled')
     btn.click()
 
 
 def subdivide(gui):
-    btn = get_widget(app_widget, "440110")
+    btn = get_widget(app_widget.widget, "440110")
     if btn.disabled:
         raise ValueError('subdivide button disabled')
     btn.click()
 
 
 def delete(gui):
-    btn = get_widget(app_widget, "440120")
+    btn = get_widget(app_widget.widget, "440120")
     if btn.disabled:
         raise ValueError('delete button disabled')
     btn.click()
@@ -162,7 +168,7 @@ def select_model(gui, model):
 
 
 def validate_model(gui):
-    btn = get_widget(app_widget, "450100")
+    btn = get_widget(app_widget.widget, "450100")
     if btn.disabled:
         raise ValueError('validate button disabled')
     btn.click()

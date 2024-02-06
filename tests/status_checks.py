@@ -5,14 +5,14 @@ from antakia.gui.widgets import get_widget, app_widget
 
 
 def check_dim(gui):
-    dim = 3 if get_widget(app_widget, '100').v_model else 2
+    dim = 3 if get_widget(app_widget.widget, '100').v_model else 2
     assert gui.vs_hde.dim == dim
     assert gui.es_hde.dim == dim
 
 
 def check_hde_color(gui):
     if gui.tab == 0:
-        mode = get_widget(app_widget, '11').v_model
+        mode = get_widget(app_widget.widget, '11').v_model
         if mode == 'y':
             c = gui.y
         elif mode == 'y^':
@@ -66,12 +66,12 @@ def check_exp_menu(gui):
     assert select_options[2]['disabled'] == (gui.exp_values.explanations['LIME'] is None)
 
     # assert tab and button in same state
-    assert get_widget(app_widget, '130000').disabled == get_widget(app_widget, '13000203').disabled
-    assert get_widget(app_widget, '130001').disabled == get_widget(app_widget, '13000303').disabled
+    assert get_widget(app_widget.widget, '130000').disabled == get_widget(app_widget.widget, '13000203').disabled
+    assert get_widget(app_widget.widget, '130001').disabled == get_widget(app_widget.widget, '13000303').disabled
 
     # assert tab disabled if computed
-    assert get_widget(app_widget, '130000').disabled == (gui.exp_values.explanations['SHAP'] is not None)
-    assert get_widget(app_widget, '130001').disabled == (gui.exp_values.explanations['LIME'] is not None)
+    assert get_widget(app_widget.widget, '130000').disabled == (gui.exp_values.explanations['SHAP'] is not None)
+    assert get_widget(app_widget.widget, '130001').disabled == (gui.exp_values.explanations['LIME'] is not None)
 
 
 def check_proj_menu(gui):
@@ -81,7 +81,7 @@ def check_proj_menu(gui):
     assert vs_pvs.proj_param_widget.disabled == (
             (vs_pvs.projection_select.v_model == 'PCA') or not gui.selection_mask.all()
     )
-    assert len(get_widget(app_widget, "1500").children) == len(
+    assert len(get_widget(app_widget.widget, "1500").children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(vs_pvs.projection_select.v_model)].parameters())
 
     es_pvs = gui.es_hde.projected_value_selector
@@ -90,41 +90,41 @@ def check_proj_menu(gui):
     assert es_pvs.proj_param_widget.disabled == (
             (es_pvs.projection_select.v_model == 'PCA') or not gui.selection_mask.all()
     )
-    assert len(get_widget(app_widget, "1800").children) == len(
+    assert len(get_widget(app_widget.widget, "1800").children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(es_pvs.projection_select.v_model)].parameters())
 
 
 def check_tab_1_btn(gui):
     # data table
-    assert get_widget(app_widget, "4320").disabled == bool(gui.selection_mask.all())
+    assert get_widget(app_widget.widget, "4320").disabled == bool(gui.selection_mask.all())
     # skope_rule
-    assert get_widget(app_widget, "43010").disabled == (not gui.new_selection or bool(gui.selection_mask.all()))
+    assert get_widget(app_widget.widget, "43010").disabled == (not gui.new_selection or bool(gui.selection_mask.all()))
     # undo
-    assert get_widget(app_widget, "4302").disabled == (not (gui.vs_rules_wgt.rules_num > 1))
+    assert get_widget(app_widget.widget, "4302").disabled == (not (gui.vs_rules_wgt.rules_num > 1))
     # validate rule
-    assert get_widget(app_widget, "43030").disabled == (not (gui.vs_rules_wgt.rules_num > 0))
+    assert get_widget(app_widget.widget, "43030").disabled == (not (gui.vs_rules_wgt.rules_num > 0))
 
 
 def check_tab_2_btn(gui):
     # auto-cluster button
-    assert get_widget(app_widget, "4402000").disabled == False  # TODO
+    assert get_widget(app_widget.widget, "4402000").disabled == False
     # auto number == num slider disabled
-    assert get_widget(app_widget, "4402100").disabled == get_widget(app_widget, "440211").v_model
+    assert get_widget(app_widget.widget, "4402100").disabled == get_widget(app_widget.widget, "440211").v_model
     # substitute
-    assert get_widget(app_widget, "4401000").disabled == (len(gui.selected_regions) != 1)
+    assert get_widget(app_widget.widget, "4401000").disabled == (len(gui.selected_regions) != 1)
     # subdivide
     if gui.selected_regions:
         first_region = gui.region_set.get(gui.selected_regions[0]['Region'])
     else:
         first_region = None
     enable_sub = (len(gui.selected_regions) == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
-    assert get_widget(app_widget, "440110").disabled == (not enable_sub)
+    assert get_widget(app_widget.widget, "440110").disabled == (not enable_sub)
     # delete
-    assert get_widget(app_widget, "440120").disabled == (len(gui.selected_regions) == 0)
+    assert get_widget(app_widget.widget, "440120").disabled == (len(gui.selected_regions) == 0)
 
 
 def check_tab_3_btn(gui):
-    assert get_widget(app_widget, "450100").disabled == (
+    assert get_widget(app_widget.widget, "450100").disabled == (
             (gui.substitute_region is None) or
             len(gui.selected_sub_model) == 0
     )

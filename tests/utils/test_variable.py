@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from antakia.utils.variable import Variable, DataVariables, var_from_symbol
+from antakia.utils.variable import Variable, DataVariables
 
 
 def test_init_variable():
@@ -9,7 +9,7 @@ def test_init_variable():
                    lon=True)
 
     assert var.col_index == 0
-    assert var.symbol == 'var1'
+    assert var.column_name == 'var1'
     assert var.type == 'int'
     assert var.unit == 'seconds'
     assert var.descr == 'description'
@@ -21,7 +21,7 @@ def test_init_variable():
     var = Variable(0, 'var2', 'int64')
 
     assert var.col_index == 0
-    assert var.symbol == 'var2'
+    assert var.column_name == 'var2'
     assert var.type == 'int64'
     assert not var.critical
     assert var.continuous
@@ -87,22 +87,22 @@ def test_import_variable_df():
     assert Variable.import_variable_df(variables_df2) == DataVariables([Variable(0, 'MedInc', 'float64')])
 
     with pytest.raises(KeyError):
-        Variable.import_variable_df(variables_df1.drop('symbol', axis=1).reset_index(drop=True))
+        Variable.import_variable_df(variables_df1.drop('columns_name', axis=1).reset_index(drop=True))
     with pytest.raises(KeyError):
         Variable.import_variable_df(variables_df1.drop('type', axis=1))
 
 
 def test_import_variable_list():
-    list_var = [{'col_index': 0, "symbol": 'a', 'type': 'int64'},
-                {'col_index': 1, "symbol": 'b', 'type': 'int64'},
-                {'col_index': 2, "symbol": 'c', 'type': 'int64'}]
+    list_var = [{'col_index': 0, "columns_name": 'a', 'type': 'int64'},
+                {'col_index': 1, "columns_name": 'b', 'type': 'int64'},
+                {'col_index': 2, "columns_name": 'c', 'type': 'int64'}]
 
     assert Variable.import_variable_list(list_var) == DataVariables(
         [Variable(0, 'a', 'int64'),
          Variable(1, 'b', 'int64'),
          Variable(2, 'c', 'int64')])
 
-    list_var1 = [{'colonne_index': 0, "symbole": 'a', 'type_de_variable': 'int64'}]
+    list_var1 = [{'colonne_index': 0, "columns_namee": 'a', 'type_de_variable': 'int64'}]
 
     with pytest.raises(ValueError):
         Variable.import_variable_list(list_var1)
@@ -140,8 +140,8 @@ def test_sym_list():
          Variable(6, 'Latitude', 'float64', descr='Latitude', unit='degrees', lat=True),
          Variable(7, 'Longitude', 'float64', descr='Longitude', unit='degrees', lon=True)])
 
-    assert dv.sym_list() == ['MedInc', 'HouseAge', 'AveRooms', 'AveBedrms', 'Population', 'AveOccup', 'Latitude',
-                             'Longitude']
+    assert dv.columns_list() == ['MedInc', 'HouseAge', 'AveRooms', 'AveBedrms', 'Population', 'AveOccup', 'Latitude',
+                                 'Longitude']
 
 
 def test_get_var():
@@ -195,18 +195,3 @@ def test_eq_dv():
          Variable(7, 'Longitude', 'float64', descr='Longitude', unit='degrees', lon=True)])
 
     assert not dv1 == dv2
-
-
-def test_var_from_symbol():
-    var_list = [Variable(0, 'MedInc', 'float64', descr='Median income', unit='k$', critical=True),
-                Variable(1, 'HouseAge', 'int', descr='House age', unit='years'),
-                Variable(2, 'AveRooms', 'float64', descr='Average nb rooms', unit='rooms'),
-                Variable(3, 'AveBedrms', 'float64', descr='Average nb bedrooms', unit='rooms'),
-                Variable(4, 'Population', 'int', descr='Population', unit='people'),
-                Variable(5, 'AveOccup', 'float64', descr='Average occupancy', unit='ratio'),
-                Variable(6, 'Latitude', 'float64', descr='Latitude', unit='degrees', lat=True),
-                Variable(7, 'Longitude', 'float64', descr='Longitude', unit='degrees', lon=True)]
-
-    assert var_from_symbol(var_list, 'AveRooms') == Variable(2, 'AveRooms', 'float64', descr='Average nb rooms',
-                                                             unit='rooms')
-    assert var_from_symbol(var_list, 'Colonne') is None
