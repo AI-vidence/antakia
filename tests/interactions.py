@@ -146,14 +146,20 @@ def substitute(gui):
 
 
 def subdivide(gui):
-    btn = get_widget(app_widget.widget, "440110")
+    btn = get_widget(app_widget.widget, "4401100")
     if btn.disabled:
         raise ValueError('subdivide button disabled')
     btn.click()
 
 
+def merge(gui):
+    btn = get_widget(app_widget.widget, "4401200")
+    if btn.disabled:
+        raise ValueError('delete button disabled')
+    btn.click()
+
 def delete(gui):
-    btn = get_widget(app_widget.widget, "440120")
+    btn = get_widget(app_widget.widget, "4401300")
     if btn.disabled:
         raise ValueError('delete button disabled')
     btn.click()

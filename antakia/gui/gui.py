@@ -203,6 +203,7 @@ class GUI:
         # TODO : this should called in GUI.update_splash_screen
         splash_widget.widget.hide()
         app_widget.widget.show()
+        self.select_tab(0)
 
     def explanation_changed_callback(self, current_pv, progress_callback=None):
         self.es_hde.update_pv(current_pv, progress_callback)
@@ -427,7 +428,6 @@ class GUI:
         # We disable the Substitution table at startup :
         self.update_substitution_table(None)
 
-        self.select_tab(1)
         self.refresh_buttons_tab_1()
 
     def switch_dimension(self, widget, event, data):
@@ -465,6 +465,8 @@ class GUI:
         return call_fct
 
     def select_tab(self, tab, front=False):
+        if tab == 1 and (not self.selection_mask.any() or self.selection_mask.all()):
+            return self.select_tab(0)
         if tab == 2:
             self.update_region_table()
             self.vs_hde.display_regionset(self.region_set)
@@ -480,7 +482,7 @@ class GUI:
                 self.vs_hde.display_region(region)
                 self.es_hde.display_region(region)
         if not front:
-            get_widget(app_widget.widget, "4").v_model = tab - 1
+            get_widget(app_widget.widget, "4").v_model = max(tab - 1, 0)
         self.vs_hde.set_tab(tab)
         self.es_hde.set_tab(tab)
         self.tab = tab
@@ -555,10 +557,10 @@ class GUI:
         region.validate()
 
         # And update the rules table (tab 2)
-        # We force tab 2
-        self.select_tab(2)
         # we refresh buttons
         self.refresh_buttons_tab_1()
+        # We force tab 2
+        self.select_tab(2)
 
     # ==================== TAB 2 ==================== #
 
@@ -603,6 +605,7 @@ class GUI:
         """
         Called when the user clicks on the 'auto-cluster' button
         """
+        # We disable the AC button. Il will be re-enabled when the AC progress is 100%
         get_widget(app_widget.widget, "4402000").disabled = True
         if self.tab != 2:
             self.select_tab(2)
@@ -611,16 +614,16 @@ class GUI:
             # region_set coverage is > 80% : we need to clear it to do another auto-cluster
             self.region_set.clear_unvalidated()
 
-        # We disable the AC button. Il will be re-enabled when the AC progress is 100%
-
         # We assemble indices ot all existing regions :
         region_set_mask = self.region_set.mask
         not_rules_indexes_list = ~region_set_mask
-        # We call the auto_cluster with remaing X and explained(X) :
+        # We call the auto_cluster with remaining X and explained(X) :
         if get_widget(app_widget.widget, "440211").v_model:
             cluster_num = "auto"
         else:
             cluster_num = get_widget(app_widget.widget, "4402100").v_model - len(self.region_set)
+            if cluster_num <= 2:
+                cluster_num = 2
 
         self.compute_auto_cluster(not_rules_indexes_list, cluster_num)
 
@@ -684,7 +687,7 @@ class GUI:
         get_widget(app_widget.widget, "4401100").disabled = not enable_div
 
         # merge
-        enable_merge = (num_selected_regions > 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
+        enable_merge = (num_selected_regions > 1)
         get_widget(app_widget.widget, "4401200").disabled = not enable_merge
 
         # delete
@@ -703,7 +706,7 @@ class GUI:
         self.selected_regions = []
         self.disable_buttons(None)
 
-    def divide_region_clicked(self, widget, event, data):
+    def divide_region_clicked(self, *args):
         """
         Called when the user clicks on the 'divide' (region) button
         """
@@ -715,19 +718,43 @@ class GUI:
             # Then we delete the region in self.region_set
             self.region_set.remove(region.num)
             # we compute the subregions and add them to the region set
-            self.compute_auto_cluster(region.mask)
+            if get_widget(app_widget.widget, "440211").v_model:
+                cluster_num = "auto"
+            else:
+                cluster_num = get_widget(app_widget.widget, "4402100").v_model - len(self.region_set)
+                if cluster_num <= 2:
+                    cluster_num = 2
+            self.compute_auto_cluster(region.mask, cluster_num)
         self.select_tab(2)
         # There is no more selected region
         self.clear_selected_regions()
 
-    def merge_region_clicked(self, widget, event, data):
+    def merge_region_clicked(self, *args):
         """
         Called when the user clicks on the 'merge' (regions) button
         """
-        #TODO
-        pass
+        selected_regions = [self.region_set.get(r['Region']) for r in self.selected_regions]
+        mask = None
+        for region in selected_regions:
+            if mask is None:
+                mask = region.mask
+            else:
+                mask |= region.mask
 
-    def delete_region_clicked(self, widget, event, data):
+        # compute skope rules
+        skr_rules_list, _ = skope_rules(mask, self.vs_hde.current_X, self.variables)
+
+        # delete regions
+        for region in selected_regions:
+            self.region_set.remove(region.num)
+        # add new region
+        if len(skr_rules_list) > 0:
+            self.region_set.add_region(rules=skr_rules_list)
+        else:
+            self.region_set.add_region(mask=mask)
+        self.select_tab(2)
+
+    def delete_region_clicked(self, *args):
         """
         Called when the user clicks on the 'delete' (region) button
         """
@@ -840,7 +867,7 @@ class GUI:
         self.selected_sub_model = [data['item']]
         get_widget(app_widget.widget, "450100").disabled = not is_selected
 
-    def validate_sub_model(self, widget, event, data):
+    def validate_sub_model(self, *args):
         # We get the sub-model data from the SubModelTable:
         # get_widget(app_widget.widget,"45001").items[self.validated_sub_model]
 

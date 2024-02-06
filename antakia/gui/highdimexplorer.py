@@ -66,7 +66,7 @@ class HighDimExplorer:
         elif trace_id == HighDimExplorer.REGION_TRACE:
             return 'region trace'
         else:
-            return "unknox trace"
+            return "unknown trace"
 
     def __init__(
             self,
@@ -115,14 +115,14 @@ class HighDimExplorer:
         self.fig_height = fig_size / 2
 
         # is graph selectable
-        self._selection_disabled = False
+        self._selection_mode = 'lasso'
         # current selection
         if pv is not None:
             self._current_selection = utils.boolean_mask(pv.X, True)
         else:
             self._current_selection = None
         # is this selection first since last deselection ?
-        self.first_selection = False
+        self.first_selection = True
 
         # traces to show
         self._visible = [True, False, False, False]
@@ -244,10 +244,11 @@ class HighDimExplorer:
         -------
 
         """
-        self._selection_disabled = is_disabled
+
+        self._selection_mode = False if is_disabled else "lasso"
         if self.figure_2D is not None:
             self.figure_2D.update_layout(
-                dragmode=False if is_disabled else "lasso"
+                dragmode=self._selection_mode
             )
 
     def _show_trace(self, trace_id: int, show: bool):
@@ -412,7 +413,7 @@ class HighDimExplorer:
 
         """
         selection = utils.rows_to_mask(self.current_X[self.mask], row_numbers)
-
+        print(selection.mean(), row_numbers)
         if not selection.any() or selection.all():
             return utils.boolean_mask(self.get_current_X_proj(masked=False), selection.mean())
         if self.mask.all():
@@ -563,7 +564,7 @@ class HighDimExplorer:
         self.figure.add_trace(fig_builder(**fig_args))  # Trace 2 for region set
         self.figure.add_trace(fig_builder(**fig_args))  # Trace 3 for region
 
-        self.figure.update_layout(dragmode=False if self._selection_disabled else "lasso")
+        self.figure.update_layout(dragmode=self._selection_mode)
         self.figure.update_traces(
             selected={"marker": {"opacity": 1.0}},
             unselected={"marker": {"opacity": 0.1}},

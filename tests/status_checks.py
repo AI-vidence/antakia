@@ -26,10 +26,11 @@ def check_hde_color(gui):
         assert gui.es_hde.active_tab == 0
         assert gui.vs_hde._visible == [1, 0, 0, 0]
     elif gui.tab == 1:
-        assert gui.vs_hde.active_tab in (1, 0)
-        assert gui.es_hde.active_tab in (1, 0)
+        assert gui.vs_hde.active_tab == 1
+        assert gui.es_hde.active_tab == 1
         assert gui.vs_hde._visible == [0, 1, 0, 0]
         selection = gui.selection_mask
+        assert selection.mean() not in (0, 1)
         color = gui.vs_hde._colors[gui.tab]
         if color is not None:
             assert len(color[selection].unique()) <= 2
@@ -118,9 +119,12 @@ def check_tab_2_btn(gui):
     else:
         first_region = None
     enable_sub = (len(gui.selected_regions) == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
-    assert get_widget(app_widget.widget, "440110").disabled == (not enable_sub)
+    assert get_widget(app_widget.widget, "4401100").disabled == (not enable_sub)
+
+    enable_merge = (len(gui.selected_regions) > 1)
+    get_widget(app_widget.widget, "4401200").disabled = not enable_merge
     # delete
-    assert get_widget(app_widget.widget, "440120").disabled == (len(gui.selected_regions) == 0)
+    assert get_widget(app_widget.widget, "4401300").disabled == (len(gui.selected_regions) == 0)
 
 
 def check_tab_3_btn(gui):
