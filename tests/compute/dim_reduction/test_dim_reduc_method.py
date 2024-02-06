@@ -22,7 +22,7 @@ def test_init():
     assert drm1.default_parameters is None
     assert drm1.dimension == 2
     assert drm1.dimreduc_model is None
-    assert drm.progress_updated == function()
+    assert drm1.progress_updated == function
 
     with pytest.raises(ValueError):
         DimReducMethod(6, None, 2, X, progress_updated=function)

@@ -12,7 +12,7 @@ class Variable:
     col_index : int
         The index of the column in the dataframe i come from (ds or xds)
         #TODO : I shoudl code an Abstract class for Dataset and ExplanationDataset
-    columns_name : str
+    column_name : str
         How it should be displayed in the GUI
     descr : str
         A description of the variable
@@ -79,10 +79,10 @@ class Variable:
 
         if "col_index" not in df.columns:
             df['col_index'] = np.arange(len(df))
-        if 'columns_name' not in df.columns:
-            df['columns_name'] = df.index
-            if is_numeric_dtype(df['columns_name']):
-                raise KeyError('columns_name (index) column is mandatory and should be string')
+        if 'column_name' not in df.columns:
+            df['column_name'] = df.index
+            if is_numeric_dtype(df['column_name']):
+                raise KeyError('column_name (index) column is mandatory and should be string')
         if 'type' not in df.columns:
             raise KeyError('type column is mandatory')
         variables = df.apply(lambda row: Variable(**row), axis=1).to_list()
@@ -99,12 +99,12 @@ class Variable:
         for i in range(len(var_list)):
             if isinstance(var_list[i], dict):
                 item = var_list[i]
-                if "col_index" in item and "columns_name" in item and "type" in item:
+                if "col_index" in item and "column_name" in item and "type" in item:
                     var = Variable(**item)
                     variables.append(var)
                 else:
                     raise ValueError(
-                        "Variable must a list of {key:value} with mandatory keys : [col_index, columns_name, type] and optional keys : [unit, descr, critical, continuous, lat, lon]"
+                        "Variable must a list of {key:value} with mandatory keys : [col_index, column_name, type] and optional keys : [unit, descr, critical, continuous, lat, lon]"
                     )
         return DataVariables(variables)
 
@@ -170,15 +170,15 @@ class DataVariables:
 
     def columns_list(self):
         """
-        get columns_name list
+        get column_name list
         """
         return list(self.variables.keys())
 
-    def get_var(self, columns_name: str):
+    def get_var(self, column_name: str):
         """
-        get variable by columns_name
+        get variable by column_name
         """
-        return self.variables.get(columns_name)
+        return self.variables.get(column_name)
 
     def __len__(self):
         return len(self.variables)

@@ -46,7 +46,7 @@ def generate_ExplanationValues(model=None, X_exp=None):
 
     exp_val = ExplanationValues(X, y, model, on_change_callback, X_exp)
 
-    return X, y, X_exp, exp_val
+    return X, y, X_exp, exp_val, on_change_callback
 
 
 class EMPTYExplanation(ExplanationMethod):

@@ -87,22 +87,22 @@ def test_import_variable_df():
     assert Variable.import_variable_df(variables_df2) == DataVariables([Variable(0, 'MedInc', 'float64')])
 
     with pytest.raises(KeyError):
-        Variable.import_variable_df(variables_df1.drop('columns_name', axis=1).reset_index(drop=True))
+        Variable.import_variable_df(variables_df1.drop('column_name', axis=1).reset_index(drop=True))
     with pytest.raises(KeyError):
         Variable.import_variable_df(variables_df1.drop('type', axis=1))
 
 
 def test_import_variable_list():
-    list_var = [{'col_index': 0, "columns_name": 'a', 'type': 'int64'},
-                {'col_index': 1, "columns_name": 'b', 'type': 'int64'},
-                {'col_index': 2, "columns_name": 'c', 'type': 'int64'}]
+    list_var = [{'col_index': 0, "column_name": 'a', 'type': 'int64'},
+                {'col_index': 1, "column_name": 'b', 'type': 'int64'},
+                {'col_index': 2, "column_name": 'c', 'type': 'int64'}]
 
     assert Variable.import_variable_list(list_var) == DataVariables(
         [Variable(0, 'a', 'int64'),
          Variable(1, 'b', 'int64'),
          Variable(2, 'c', 'int64')])
 
-    list_var1 = [{'colonne_index': 0, "columns_namee": 'a', 'type_de_variable': 'int64'}]
+    list_var1 = [{'colonne_index': 0, "column_name": 'a', 'type_de_variable': 'int64'}]
 
     with pytest.raises(ValueError):
         Variable.import_variable_list(list_var1)
