@@ -789,7 +789,6 @@ class AppWidget:
                                         ),
                                     ]
                                 )
-
                             ],
                         ),
                     ],
@@ -1098,273 +1097,326 @@ class AppWidget:
                                                                  )
                                                              ],
 
-                                                         ),
-                                                     ]
-                                                 )
-                                             ],
-                                         ),
-                                     ]
-                                 ),
-                                 v.TabItem(  # Tab 2) Regions #44
-                                     children=[
-                                         v.Sheet(  # 440
-                                             class_="d-flex flex-row",
-                                             children=[
-                                                 v.Sheet(  # v.Sheet Col 1 # 4400
-                                                     children=[
-                                                         v.Html(  # 44000
-                                                             tag="h3",
-                                                             class_="ml-2",
-                                                             children=["Regions :"],
-                                                         ),
-                                                         v.Container(  # 44001
-                                                             class_="d-flex align-start",
-                                                             children=[
-                                                                 ColorTable(  # 440010
-                                                                     headers=headers2[:-1],
-                                                                     items=dummy_regions_df.to_dict(
-                                                                         "records"
-                                                                     ),
-                                                                 )
-                                                             ],
-                                                         ),
-                                                         v.Html(  # 44002
-                                                             tag="p",
-                                                             class_="ml-2 mb-2",
-                                                             children=["0 region, 0% of the dataset"],
-                                                         ),
-                                                     ]
-                                                 ),  # End Col 1
-                                                 v.Col(  # v.Sheet Col 2 = buttons #4401
-                                                     class_="flex-column ml-5 ",
-                                                     style_="size: 50%",
-                                                     children=[
-                                                         v.Row(  # 44010
-                                                             class_="flex-column",
-                                                             children=[
-                                                                 v.Tooltip(  # 440100
-                                                                     bottom=True,
-                                                                     v_slots=[
-                                                                         {
-                                                                             'name': 'activator',
-                                                                             'variable': 'tooltip',
-                                                                             'children':
-                                                                                 v.Btn(  # 4401000
-                                                                                     v_on='tooltip.on',
-                                                                                     class_="ml-3 mt-8 green white--text",
-                                                                                     children=[
-                                                                                         v.Icon(
-                                                                                             class_="mr-2",
-                                                                                             children=[
-                                                                                                 "mdi-swap-horizontal-circle-outline"
-                                                                                             ],
-                                                                                         ),
-                                                                                         "Substitute",
-                                                                                     ],
-                                                                                 )
-                                                                         }
-                                                                     ],
-                                                                     children=[
-                                                                         'Find an explicable surrogale model on this region']
-                                                                 )
-                                                             ]
-                                                         ),
-                                                         v.Row(  # 44011
-                                                             class_="flex-column",
-                                                             children=[
-                                                                 v.Btn(  # 440110
-                                                                     class_="ml-3 mt-3 blue",
-                                                                     children=[
-                                                                         v.Icon(
-                                                                             class_="mr-2",
-                                                                             children=[
-                                                                                 "mdi-animation-outline"
-                                                                             ],
-                                                                         ),
-                                                                         "Subdivide",
-                                                                     ],
-                                                                 )
-                                                             ]
-                                                         ),
-                                                         v.Row(  # 44012
-                                                             class_="flex-column",
-                                                             children=[
-                                                                 v.Btn(  # 440120
-                                                                     class_="ml-3 mt-3 grey",
-                                                                     children=[
-                                                                         v.Icon(
-                                                                             class_="mr-2",
-                                                                             children=[
-                                                                                 "mdi-trash-can-outline"
-                                                                             ],
-                                                                         ),
-                                                                         "Delete",
-                                                                     ],
-                                                                 )
-                                                             ]
-                                                         )
-                                                     ]  # End v.Sheet Col 2 children
-                                                 ),  # End v.Sheet Col 2 = buttons
-                                                 v.Col(  # v.Sheet Col 3 # 4402
-                                                     class_="flex-column ml-5",
-                                                     style_="size: 50%",
-                                                     children=[
-                                                         v.Row(  # 44020
-                                                             class_="flex-column",
-                                                             children=[
-                                                                 v.Tooltip(  # 440200
-                                                                     bottom=True,
-                                                                     v_slots=[
-                                                                         {
-                                                                             'name': 'activator',
-                                                                             'variable': 'tooltip',
-                                                                             'children':
-                                                                                 v.Btn(  # 4402000
-                                                                                     v_on='tooltip.on',
-                                                                                     class_="ml-3 mt-8 primary",
-                                                                                     children=[
-                                                                                         v.Icon(  # 44020000
-                                                                                             class_="mr-2",
-                                                                                             children=[
-                                                                                                 "mdi-auto-fix"
-                                                                                             ],
-                                                                                         ),
-                                                                                         "Auto-clustering",
-                                                                                     ],
-                                                                                 )
-                                                                         }
-                                                                     ],
-                                                                     children=[
-                                                                         'Find homogeneous regions in both spaces']
-                                                                 )
-                                                             ]
-                                                         ),
-                                                         v.Row(  # 44021
-                                                             class_="flex-column",
-                                                             children=[
-                                                                 v.Tooltip(  # 440210
-                                                                     bottom=True,
-                                                                     v_slots=[
-                                                                         {
-                                                                             'name': 'activator',
-                                                                             'variable': 'tooltip',
-                                                                             'children':
-                                                                                 v.Slider(  # 4402100
-                                                                                     v_on='tooltip.on',
-                                                                                     class_="mt-10",
-                                                                                     v_model=6,
-                                                                                     min=2,
-                                                                                     max=12,
-                                                                                     thumb_color='blue',  # marker color
-                                                                                     step=1,
-                                                                                     thumb_label="always"
-                                                                                 ),
-                                                                         }
-                                                                     ],
-                                                                     children=['Numner of clusters you expect to find']
-                                                                 ),
-                                                                 v.Checkbox(  # 440211
-                                                                     class_="ma-2",
-                                                                     v_model=True,
-                                                                     label="Automatic number of clusters"
-                                                                 ),
-                                                                 v.ProgressLinear(  # 440212
-                                                                     style_="width: 100%",
-                                                                     class_="py-0 mx-5",
-                                                                     v_model=0,
-                                                                     color="primary",
-                                                                     height="15",
-                                                                 )
-
-                                                             ]
-                                                         ),
-                                                     ]  # End v.Sheet Col 3 children
-                                                 )  # End v.Sheet Col 3
-                                             ]  # End v.Sheet children
-                                         ),  # End v.Sheet
-                                     ]  # End of v.TabItem #2 children
-                                 ),  # End of v.TabItem #2
-                                 v.TabItem(  # TabItem #3 Substitution #45
-                                     children=[
-                                         v.Sheet(  # 450
-                                             class_="d-flex",
-                                             children=[
-                                                 v.Sheet(  # Col1 #4500
-                                                     class_="ma-2 d-flex flex-column",
-                                                     children=[
-                                                         v.Sheet(  # 45000
-                                                             class_="ma-1 d-flex flex-row align-center",
-                                                             children=[
-                                                                 v.Html(class_="mr-2", tag="h3", children=["Region"]),
-                                                                 # 450000
-                                                                 v.Chip(  # 450001
-                                                                     color="red",
-                                                                     children=["1"],
-                                                                 ),
-                                                                 v.Html(class_="ml-2", tag="h3",
-                                                                        children=["3 rules, 240 points, 23% dataset"]),
-                                                                 # 450002
-                                                             ]
-                                                         ),
-                                                         SubModelTable(  # 45001
-                                                             headers=[
-                                                                 {
-                                                                     "text": column,
-                                                                     "sortable": True,
-                                                                     "value": column,
-                                                                     # "class": "primary white--text",\
-                                                                 }
-                                                                 for column in dummy_sub_models_df.columns
-                                                             ],
-                                                             items=dummy_sub_models_df.to_dict("records"),
-                                                         )
-                                                     ]
                                                  ),
-                                                 v.Sheet(  # Col2 #4501
-                                                     class_="ml-4 d-flex flex-column",
+                                             ]
+                                         )
+                                     ],
+                                 ),
+                             ]
+                         ),
+                         v.TabItem(  # Tab 2) Regions #44
+                             children=[
+                                 v.Sheet(  # 440
+                                     class_="d-flex flex-row",
+                                     children=[
+                                         v.Sheet(  # v.Sheet Col 1 # 4400
+                                             children=[
+                                                 v.Html(  # 44000
+                                                     tag="h3",
+                                                     class_="ml-2",
+                                                     children=["Regions :"],
+                                                 ),
+                                                 v.Container(  # 44001
+                                                     class_="d-flex align-start",
                                                      children=[
-                                                         v.Tooltip(  # 45010
+                                                         ColorTable(  # 440010
+                                                             headers=headers2[:-1],
+                                                             items=dummy_regions_df.to_dict(
+                                                                 "records"
+                                                             ),
+                                                         )
+                                                     ],
+                                                 ),
+                                                 v.Html(  # 44002
+                                                     tag="p",
+                                                     class_="ml-2 mb-2",
+                                                     children=["0 region, 0% of the dataset"],
+                                                 ),
+                                             ]
+                                         ),  # End Col 1
+                                         v.Col(  # v.Sheet Col 2 = buttons #4401
+                                             class_="flex-column ml-5 ",
+                                             style_="size: 50%",
+                                             children=[
+                                                 v.Row(  # 44010
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Tooltip(  # 440100
                                                              bottom=True,
                                                              v_slots=[
                                                                  {
                                                                      'name': 'activator',
                                                                      'variable': 'tooltip',
                                                                      'children':
-                                                                         v.Btn(  # 450100
+                                                                         v.Btn(  # 4401000
                                                                              v_on='tooltip.on',
-                                                                             class_="ma-1 mt-12 green white--text",
+                                                                             class_="ml-3 mt-8 green white--text",
                                                                              children=[
                                                                                  v.Icon(
                                                                                      class_="mr-2",
                                                                                      children=[
-                                                                                         "mdi-check"
+                                                                                         "mdi-swap-horizontal-circle-outline"
                                                                                      ],
                                                                                  ),
-                                                                                 "Validate sub-model",
+                                                                                 "Substitute",
                                                                              ],
-                                                                         ),
+                                                                         )
                                                                  }
                                                              ],
-                                                             children=['Chose this submodel']
-                                                         ),
-                                                         v.ProgressLinear(  # 45011
-                                                             style_="width: 80%",
-                                                             class_="py-0 mx-5 mt-6",
-                                                             v_model=0,
-                                                             height="15",
-                                                             indeterminate=True,
-                                                             color="blue",
+                                                             children=[
+                                                                 'Find an explicable surrogale model on this region']
                                                          )
                                                      ]
                                                  ),
+                                                 v.Row(  # 44011
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Tooltip(  # 440110
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                     'name': 'activator',
+                                                                     'variable': 'tooltip',
+                                                                     'children':
+                                                                         v.Btn(  # 4401100
+                                                                             v_on='tooltip.on',
+                                                                             class_="ml-3 mt-8",
+                                                                             children=[
+                                                                                 v.Icon(
+                                                                                     class_="mr-2",
+                                                                                     children=[
+                                                                                         "mdi-content-cut"
+                                                                                     ],
+                                                                                 ),
+                                                                                 "Divide",
+                                                                             ],
+                                                                         )
+                                                                 }
+                                                             ],
+                                                             children=[
+                                                                 'Divide a region into sub-regions']
+                                                         )
+                                                     ]
+                                                 ),
+                                                v.Row(  # 44012
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Tooltip(  # 440120
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                     'name': 'activator',
+                                                                     'variable': 'tooltip',
+                                                                     'children':
+                                                                         v.Btn(  # 4401200
+                                                                             v_on='tooltip.on',
+                                                                             class_="ml-3 mt-3",
+                                                                             children=[
+                                                                                 v.Icon(
+                                                                                     class_="mr-2",
+                                                                                     children=[
+                                                                                         "mdi-table-merge-cells"
+                                                                                     ],
+                                                                                 ),
+                                                                                 "Merge",
+                                                                             ],
+                                                                         )
+                                                                 }
+                                                             ],
+                                                             children=[
+                                                                 'Merge regions']
+                                                         )
+                                                     ]
+                                                 ),
+                                                 v.Row(  # 44013
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Tooltip(  # 440130
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                    'name': 'activator',
+                                                                    'variable': 'tooltip',
+                                                                    'children':
+                                                                        v.Btn(  # 4401300
+                                                                            v_on='tooltip.on',
+                                                                            class_="ml-3 mt-3",
+                                                                            children=[
+                                                                                v.Icon(
+                                                                                    class_="mr-2",
+                                                                                    children=[
+                                                                                        "mdi-delete"
+                                                                                    ],
+                                                                                ),
+                                                                                "Delete",
+                                                                            ],
+                                                                        )
+                                                                 }
+                                                             ],
+                                                             children=[
+                                                                 'Delete region']
+                                                         )
+                                                     ]
+                                                 ),
+                                             ]  # End v.Sheet Col 2 children
+                                         ),  # End v.Sheet Col 2 = buttons
+                                         v.Col(  # v.Sheet Col 3 # 4402
+                                             class_="flex-column ml-5",
+                                             style_="size: 50%",
+                                             children=[
+                                                 v.Row(  # 44020
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Tooltip(  # 440200
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                     'name': 'activator',
+                                                                     'variable': 'tooltip',
+                                                                     'children':
+                                                                         v.Btn(  # 4402000
+                                                                             v_on='tooltip.on',
+                                                                             class_="ml-3 mt-8 primary",
+                                                                             children=[
+                                                                                 v.Icon(  # 44020000
+                                                                                     class_="mr-2",
+                                                                                     children=[
+                                                                                         "mdi-auto-fix"
+                                                                                     ],
+                                                                                 ),
+                                                                                 "Auto-clustering",
+                                                                             ],
+                                                                         )
+                                                                 }
+                                                             ],
+                                                             children=['Find homogeneous regions in both spaces']
+                                                         )
+                                                     ]
+                                                 ),
+                                                 v.Row(  # 44021
+                                                     class_="flex-column",
+                                                     children=[
+                                                         v.Tooltip(  # 440210
+                                                             bottom=True,
+                                                             v_slots=[
+                                                                 {
+                                                                     'name': 'activator',
+                                                                     'variable': 'tooltip',
+                                                                     'children':
+                                                                         v.Slider(  # 4402100
+                                                                             v_on='tooltip.on',
+                                                                             class_="mt-10",
+                                                                             v_model=6,
+                                                                             min=2,
+                                                                             max=12,
+                                                                             thumb_color='blue',  # marker color
+                                                                             step=1,
+                                                                             thumb_label="always"
+                                                                         ),
+                                                                 }
+                                                             ],
+                                                             children=['Numner of clusters you expect to find']
+                                                         ),
+                                                         v.Checkbox(  # 440211
+                                                             class_="ma-2",
+                                                             v_model=True,
+                                                             label="Automatic number of clusters"
+                                                         ),
+                                                         v.ProgressLinear(  # 440212
+                                                             style_="width: 100%",
+                                                             class_="py-0 mx-5",
+                                                             v_model=0,
+                                                             color="primary",
+                                                             height="15",
+                                                         )
+                                                     ]
+                                                 ),
+                                             ]  # End v.Sheet Col 3 children
+                                         )  # End v.Sheet Col 3
+                                     ]  # End v.Sheet children
+                                 ),  # End v.Sheet
+                             ]  # End of v.TabItem #2 children
+                         ),  # End of v.TabItem #2
+                         v.TabItem(  # TabItem #3 Substitution #45
+                             children=[
+                                 v.Sheet(  # 450
+                                     class_="d-flex",
+                                     children=[
+                                         v.Sheet(  # Col1 #4500
+                                             class_="ma-2 d-flex flex-column",
+                                             children=[
+                                                 v.Sheet(  # 45000
+                                                     class_="ma-1 d-flex flex-row align-center",
+                                                     children=[
+                                                         v.Html(class_="mr-2", tag="h3", children=["Region"]),  # 450000
+                                                         v.Chip(  # 450001
+                                                             color="red",
+                                                             children=["1"],
+                                                         ),
+                                                         v.Html(class_="ml-2", tag="h3",
+                                                                children=["3 rules, 240 points, 23% dataset"]),
+                                                         # 450002
+                                                     ]
+                                                 ),
+                                                 SubModelTable(  # 45001
+                                                     headers=[
+                                                         {
+                                                             "text": column,
+                                                             "sortable": True,
+                                                             "value": column,
+                                                             # "class": "primary white--text",\
+                                                         }
+                                                         for column in dummy_sub_models_df.columns
+                                                     ],
+                                                     items=dummy_sub_models_df.to_dict("records"),
+                                                 )
                                              ]
-                                         )
+                                         ),
+                                         v.Sheet(  # Col2 #4501
+                                             class_="ml-4 d-flex flex-column",
+                                             children=[
+                                                 v.Tooltip(  # 45010
+                                                     bottom=True,
+                                                     v_slots=[
+                                                         {
+                                                             'name': 'activator',
+                                                             'variable': 'tooltip',
+                                                             'children':
+                                                                 v.Btn(  # 450100
+                                                                     v_on='tooltip.on',
+                                                                     class_="ma-1 mt-12 green white--text",
+                                                                     children=[
+                                                                         v.Icon(
+                                                                             class_="mr-2",
+                                                                             children=[
+                                                                                 "mdi-check"
+                                                                             ],
+                                                                         ),
+                                                                         "Validate sub-model",
+                                                                     ],
+                                                                 ),
+                                                         }
+                                                     ],
+                                                     children=['Chose this submodel']
+                                                 ),
+                                                 v.ProgressLinear(  # 45011
+                                                     style_="width: 80%",
+                                                     class_="py-0 mx-5 mt-6",
+                                                     v_model=0,
+                                                     height="15",
+                                                     indeterminate=True,
+                                                     color="blue",
+                                                 )
+                                             ]
+                                         ),
                                      ]
                                  )
                              ]
-                )  # End of v.Tabs
-            ]  # End v.Col children
-        )  # End of v.Col
+                         )
+                     ]
+        )  # End of v.Tabs
+    ]  # End v.Col children
+)  # End of v.Col
 
 
 app_widget = AppWidget()

@@ -366,15 +366,20 @@ class GUI:
         # button is disabled by default
         get_widget(app_widget.widget, "4401000").disabled = True
 
-        # We wire events on the 'subdivide' button:
-        get_widget(app_widget.widget, "440110").on_event("click", self.subdivide_region_clicked)
+        # We wire events on the 'divide' button:
+        get_widget(app_widget.widget, "4401100").on_event("click", self.divide_region_clicked)
         # button is disabled by default
-        get_widget(app_widget.widget, "440110").disabled = True
+        get_widget(app_widget.widget, "4401100").disabled = True
+
+        # We wire events on the 'merge' button:
+        get_widget(app_widget.widget, "4401200").on_event("click", self.merge_region_clicked)
+        # button is disabled by default
+        get_widget(app_widget.widget, "4401200").disabled = True
 
         # We wire events on the 'delete' button:
-        get_widget(app_widget.widget, "440120").on_event("click", self.delete_region_clicked)
+        get_widget(app_widget.widget, "4401300").on_event("click", self.delete_region_clicked)
         # The 'delete' button is disabled at startup
-        get_widget(app_widget.widget, "440120").disabled = True
+        get_widget(app_widget.widget, "4401300").disabled = True
 
         # We wire events on the 'auto-cluster' button :
         get_widget(app_widget.widget, "4402000").on_event("click", self.auto_cluster_clicked)
@@ -674,12 +679,16 @@ class GUI:
         # substitute
         get_widget(app_widget.widget, "4401000").disabled = num_selected_regions != 1
 
-        # subdivide
-        enable_sub = (num_selected_regions == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
-        get_widget(app_widget.widget, "440110").disabled = not enable_sub
+        # divide
+        enable_div = (num_selected_regions == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
+        get_widget(app_widget.widget, "4401100").disabled = not enable_div
+
+        # merge
+        enable_merge = (num_selected_regions > 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
+        get_widget(app_widget.widget, "4401200").disabled = not enable_merge
 
         # delete
-        get_widget(app_widget.widget, "440120").disabled = num_selected_regions == 0
+        get_widget(app_widget.widget, "4401300").disabled = num_selected_regions == 0
 
     def region_selected(self, data):
         if self.tab != 2:
@@ -694,9 +703,9 @@ class GUI:
         self.selected_regions = []
         self.disable_buttons(None)
 
-    def subdivide_region_clicked(self, widget, event, data):
+    def divide_region_clicked(self, widget, event, data):
         """
-        Called when the user clicks on the 'delete' (region) button
+        Called when the user clicks on the 'divide' (region) button
         """
         if self.tab != 2:
             self.select_tab(2)
@@ -710,6 +719,13 @@ class GUI:
         self.select_tab(2)
         # There is no more selected region
         self.clear_selected_regions()
+
+    def merge_region_clicked(self, widget, event, data):
+        """
+        Called when the user clicks on the 'merge' (regions) button
+        """
+        #TODO
+        pass
 
     def delete_region_clicked(self, widget, event, data):
         """
