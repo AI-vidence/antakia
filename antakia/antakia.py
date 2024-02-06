@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Dict, Any
 
+import numpy as np
 import pandas as pd
 
 from dotenv import load_dotenv
@@ -60,6 +61,7 @@ class AntakIA:
 
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
+        X, y, X_exp = self._preprocess_data(X, y, X_exp)
 
         self.X = X
         self.X_test = X_test
@@ -71,24 +73,9 @@ class AntakIA:
         self.y_test = y_test
         self.model = model
         self.score = score
-
-        if X_exp is not None:
-            # It's common to have column names ending with _shap, so we remove them
-            X_exp.columns = X_exp.columns.astype(str)
-            X_exp.columns = X_exp.columns.str.replace('_shap', '')
         self.X_exp = X_exp
 
-        if variables is not None:
-            if isinstance(variables, list):
-                self.variables: DataVariables = Variable.import_variable_list(variables)
-                if len(self.variables) != len(X.columns):
-                    raise ValueError("Provided variable list must be the same length of the dataframe")
-            elif isinstance(variables, pd.DataFrame):
-                self.variables = Variable.import_variable_df(variables)
-            else:
-                raise ValueError("Provided variable list must be a list or a pandas DataFrame")
-        else:
-            self.variables = Variable.guess_variables(X)
+        self.set_variables(X, variables)
 
         self.gui = GUI(
             self.X,
@@ -101,8 +88,40 @@ class AntakIA:
             self.score
         )
 
+    def set_variables(self, X, variables):
+        if variables is not None:
+            if isinstance(variables, list):
+                self.variables: DataVariables = Variable.import_variable_list(variables)
+                if len(self.variables) != len(X.columns):
+                    raise ValueError("Provided variable list must be the same length of the dataframe")
+            elif isinstance(variables, pd.DataFrame):
+                self.variables = Variable.import_variable_df(variables)
+            else:
+                raise ValueError("Provided variable list must be a list or a pandas DataFrame")
+        else:
+            self.variables = Variable.guess_variables(X)
+
     def start_gui(self) -> GUI:
         return self.gui.show_splash_screen()
 
     def export_regions(self):
         return self.gui.region_set
+
+    def _preprocess_data(self, X: pd.DataFrame, y, X_exp: pd.DataFrame):
+        if isinstance(X, np.ndarray):
+            X = pd.DataFrame(X)
+        if isinstance(X_exp, np.ndarray):
+            X_exp = pd.DataFrame(X_exp)
+        if isinstance(y, np.ndarray):
+            y = pd.Series(y)
+
+        X.columns = [str(col) for col in X.columns]
+        if X_exp is not None:
+            X_exp.columns = X.columns
+
+        if X_exp is not None:
+            pd.testing.assert_index_equal(X.index, X_exp.index, check_names=False)
+            if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
+                raise IndexError('X and X_exp must share the same index')
+        pd.testing.assert_index_equal(X.index, y.index, check_names=False)
+        return X, y, X_exp

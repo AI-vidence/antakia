@@ -30,7 +30,7 @@ def skope_rules(
             variables = Variable.guess_variables(base_space_df)
 
         sk_classifier = SkopeRules(
-            feature_names=variables.sym_list(),
+            feature_names=variables.columns_list(),
             random_state=random_state,
             n_estimators=5,
             recall_min=recall,

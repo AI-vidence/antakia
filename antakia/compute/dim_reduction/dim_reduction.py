@@ -41,7 +41,7 @@ class TSNEDimReduc(DimReducMethod):
     """
     T-SNE computation class.
     """
-    dimreduc_method = -1# DimReducMethod.dimreduc_method_as_int('TSNE')
+    dimreduc_method = -1  # DimReducMethod.dimreduc_method_as_int('TSNE')
 
     def __init__(self, X: pd.DataFrame, dimension: int = 2, callback: callable = None):
         super().__init__(
@@ -61,7 +61,7 @@ class TSNEDimReduc(DimReducMethod):
                                ]
 
     @classmethod
-    def parameters(cls):
+    def parameters(cls) -> dict:
         return {
             'perplexity': {
                 'type': float,
@@ -108,7 +108,7 @@ class UMAPDimReduc(DimReducMethod):
                                ]
 
     @classmethod
-    def parameters(cls):
+    def parameters(cls) -> dict:
         return {
             'n_neighbors': {
                 'type': int,
@@ -148,7 +148,7 @@ class PaCMAPDimReduc(DimReducMethod):
                                'intermediate_snapshots', 'random_state']
 
     @classmethod
-    def parameters(cls):
+    def parameters(cls) -> dict:
         return {
             'n_neighbors': {
                 'type': int,
@@ -178,7 +178,8 @@ dim_reduc_factory: dict[int, DimReducMethod] = {
 }
 
 
-def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dimension: int, progress_callback: callable = None,
+def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dimension: int,
+                       progress_callback: callable = None,
                        **kwargs) -> pd.DataFrame:
     if not DimReducMethod.is_valid_dimreduc_method(dimreduc_method) or not DimReducMethod.is_valid_dim_number(
             dimension):
@@ -190,6 +191,6 @@ def compute_projection(X: pd.DataFrame, y: pd.Series, dimreduc_method: int, dime
     default_kwargs = {'random_state': 9}
     default_kwargs.update(kwargs)
     dim_reduc_kwargs = {k: v for k, v in default_kwargs.items() if k in dim_reduc.allowed_kwargs}
-    proj_values = dim_reduc(X_scaled, dimension, progress_callback).compute(**dim_reduc_kwargs)
-    proj_values.index = X.index
+    proj_values = pd.DataFrame(dim_reduc(X_scaled, dimension, progress_callback).compute(**dim_reduc_kwargs).values,
+                               index=X.index)
     return proj_values

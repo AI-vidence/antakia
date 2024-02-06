@@ -1,94 +1,203 @@
-from collections import namedtuple
-
+import mock
 import numpy as np
 import pandas as pd
-# from dotenv import load_dotenv
+import pytest
+
 from antakia.antakia import AntakIA
-from sklearn.ensemble import GradientBoostingRegressor
-from antakia.compute.dim_reduction.dim_reduction import compute_projection
-from antakia.compute.auto_cluster.auto_cluster import AutoCluster
-from antakia.compute.skope_rule.skope_rule import skope_rules
-from antakia.data_handler.projected_values import ProjectedValues
-from antakia.gui.widgets import get_widget, app_widget
+from antakia.gui.widgets import splash_widget, app_widget
 from antakia.utils.dummy_datasets import load_dataset
-from antakia.utils.variable import Variable
-from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
-from antakia.data_handler.rules import Rule
-from antakia.utils.utils import in_index, mask_to_rows
-from tests.utils import dr_callback, compare_indexes
+from tests.interactions import *
+from tests.status_checks import check_all
 from sklearn.tree import DecisionTreeRegressor
 
+X, y = load_dataset('Corner', 1000, random_seed=42)
+X = pd.DataFrame(X, columns=['X1', 'X2'])
+X['X3'] = np.random.random(len(X))
+y = pd.Series(y)
 
-# @mock.patch('antakia.antakia.AntakIA._get_shap_values')
-def test_main():
-    X, y = load_dataset('Corner', 1000, random_seed=42)
-    X = pd.DataFrame(X, columns=['X1', 'X2'])
-    X['X3'] = np.random.random(len(X))
-    y = pd.Series(y)
 
-    model = DecisionTreeRegressor().fit(X, y)
-    x_exp = pd.concat([(X.iloc[:, 0] > 0.5) * 0.5, (X.iloc[:, 1] > 0.5) * 0.5, (X.iloc[:, 2] > 2) * 1], axis=1)
+class DummyModel:
+    def predict(self, X):
+        return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
 
-    atk = AntakIA(X, y, model, X_exp=x_exp)
-    gui = atk.gui
+    def score(self, *args):
+        return 1
+
+
+model_DT = DecisionTreeRegressor().fit(X, y)
+model_DT_np = DecisionTreeRegressor().fit(X.values, y.values)
+model_any = DummyModel()
+x_exp = pd.concat([(X.iloc[:, 0] > 0.5) * 0.5, (X.iloc[:, 1] > 0.5) * 0.5, (X.iloc[:, 2] > 2) * 1], axis=1)
+
+
+def test_1():
+    # vanilla run
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X, y, model_DT)
+    run_antakia(atk, True)
+
+
+def test_2():
+    # shape issue
+    splash_widget.reset()
+    app_widget.reset()
+    with pytest.raises(AssertionError):
+        atk = AntakIA(X, y.iloc[:10], model_DT, X_exp=x_exp)
+        run_antakia(atk, False)
+
+
+def test_3():
+    # run with explanations
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X, y, model_DT, X_exp=x_exp)
+    run_antakia(atk, True)
+
+
+def test_4():
+    # run with non tree model
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X, y, model_any, X_exp=x_exp)
+    run_antakia(atk, False)
+
+
+def test_5():
+    # run with non tree model and no x_exp
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X, y, model_any)
+    run_antakia(atk, False)
+
+
+def test_6():
+    # run with np array
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X.values, y.values, model_DT_np)
+    run_antakia(atk, False)
+
+
+def test_7():
+    # run with partial np array
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X, y.values, model_DT)
+    run_antakia(atk, False)
+
+
+def test_8():
+    # run with partial np array
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X.values, y, model_DT_np)
+    run_antakia(atk, False)
+
+
+def test_9():
+    # run with np array and x_exp
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X.values, y.values, model_DT_np, X_exp=x_exp.values)
+    run_antakia(atk, False)
+
+
+def test_10():
+    # run y as df
+    splash_widget.reset()
+    app_widget.reset()
+    atk = AntakIA(X, y.to_frame(), model_DT)
+    run_antakia(atk, False)
+
+
+def test_11():
+    # run with numerical cols
+    splash_widget.reset()
+    app_widget.reset()
+    X2 = X
+    X2.columns = range(len(X.T))
+    model_DT = DecisionTreeRegressor().fit(X2, y)
+
+    atk = AntakIA(X2, y, model_DT)
+    run_antakia(atk, False)
+
+
+def dummy_projection(_X, y, method, dim, callback, *args, **kwargs):
+    callback(100, 0)
+    return pd.DataFrame(_X.values[:, :dim], index=_X.index)
+
+
+def dummy_exp(_X, model, method, callback, *args, **kwargs):
+    callback(100, 0)
+    return pd.DataFrame(_X.values, index=_X.index, columns=_X.columns)
+
+
+@mock.patch('antakia.gui.explanation_values.compute_explanations', wraps=dummy_exp)
+@mock.patch('antakia.data_handler.projected_values.compute_projection', wraps=dummy_projection)
+def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     atk.start_gui()
-    get_widget(app_widget, '13000203').click()  # click on compute shap
-    gui.switch_dimension(None, None, True)
-    gui.switch_dimension(None, None, False)
+    # assert both progress bar are full after start up
+    assert get_widget(splash_widget.widget, '110').v_model == 100
+    assert get_widget(splash_widget.widget, '210').v_model == 100
 
-    selection = (X.iloc[:, 0] > 0.5)
-    points = namedtuple('points', ['point_inds'])
-    points(mask_to_rows(selection))
+    gui = atk.gui
+    check_all(gui, check)
+    for color in range(3):
+        set_color(gui, color)
+        check_all(gui, check)
+    if atk.X_exp is None:
+        exp_range = [1, 2]
+        compute = [2]
+    else:
+        exp_range = [0, 1, 2]
+        compute = [1, 2]
+    check_all(gui, check)
 
-    gui.vs_hde._selection_event(None, points(mask_to_rows(selection)))  # select points
-    get_widget(app_widget, "43010").click() # compute skope rules
-    gui.vs_rules_wgt.rule_widget_list[0]._widget_value_changed('', '', 0.6) # change rule value
+    for exp in compute:
+        compute_exp_method(gui, exp)
+        check_all(gui, check)
+    for exp in exp_range:
+        set_exp_method(gui, exp)
+        check_all(gui, check)
 
-    vs_pv = ProjectedValues(atk.X, atk.y)
-    proj_dim2 = vs_pv.get_projection(DimReducMethod.dimreduc_method_as_int("PCA"), 2)
-    proj_dim3 = vs_pv.get_projection(DimReducMethod.dimreduc_method_as_int("PCA"), 3)
-    assert proj_dim2.shape == (len(atk.X), 2)
-    assert proj_dim3.shape == (len(atk.X), 3)
-    assert compare_indexes(proj_dim2, atk.X)
+    for proj in range(3):
+        set_proj_method(gui, True, proj)
+        check_all(gui, check)
+        edit_parameter(gui, True)
+        check_all(gui, check)
+        set_proj_method(gui, False, proj)
+        check_all(gui, check)
 
-    # Test Skope rules -------------
+    for tab in range(3):
+        change_tab(gui, tab)
+        check_all(gui, check)
 
-    vs_proj_df = vs_pv.get_proj_values(DimReducMethod.dimreduc_method_as_int('PaCMAP'), 2)
+    change_tab(gui, 0)
+    check_all(gui, check)
+    select_points(gui, True)
+    check_all(gui, check)
+    select_points(gui, False)
+    check_all(gui, check)
+    unselect(gui, False)
+    check_all(gui, check)
 
-    x = vs_proj_df.iloc[:, 0]
-    y = vs_proj_df.iloc[:, 1]
-    selection_mask = (x > -22) & (x < -12) & (y > 10) & (y < 25)
+    select_points(gui, False)
+    find_rules(gui)
+    check_all(gui, check)
+    validate_rules(gui)
 
-    rules_list, score_dict = skope_rules(selection_mask, atk.X, atk.variables)
-
-    skope_rules_indexes = Rule.rules_to_indexes(rules_list, atk.X)
-
-    assert in_index(skope_rules_indexes, atk.X) is True
-
-    # Test Rules --------------------
-
-    variables = Variable.guess_variables(atk.X)
-    pop_var = variables.get_var('Population')
-    med_inc_var = variables.get_var('MedInc')
-
-    rule_pop = Rule(500, "<=", pop_var, "<", 700)
-    rule_med_inc = Rule(4.0, "<", med_inc_var, None, None)
-
-    selection = Rule.rules_to_indexes([rule_pop, rule_med_inc], atk.X)
-    assert in_index(selection, atk.X) is True
-
-    # # Test auto cluster --------------------
-
-    def ac_callback(*args):
-        pass
-
-    ac = AutoCluster(atk.X, ac_callback)
-    found_clusters = ac.compute(atk.X_exp, 6)
-    assert found_clusters.nunique() == 6
-
-    print(f"Clusters {len(found_clusters)}")
-    assert in_index(found_clusters.index, atk.X)
-
-
-if __name__ == '__main__':
-    test_main()
+    auto_cluster(gui)
+    check_all(gui, check)
+    toggle_select_region(gui, 1)
+    check_all(gui, check)
+    subdivide(gui)
+    check_all(gui, check)
+    toggle_select_region(gui, 1)
+    check_all(gui, check)
+    substitute(gui)
+    check_all(gui, check)
+    select_model(gui, 'Decision Tree')
+    check_all(gui, check)
+    validate_model(gui)
+    check_all(gui, check)

@@ -22,7 +22,7 @@ class ProjectedValueSelector:
         self.projection_select.on_event("change", self.projection_select_changed)
 
         self.progress_bar = ProgressBar(
-            get_widget(app_widget, "16" if self.is_value_space else "19"),
+            get_widget(app_widget.widget, "16" if self.is_value_space else "19"),
             True
         )
         self.progress_bar.update(100, 0)
@@ -54,7 +54,7 @@ class ProjectedValueSelector:
         -------
 
         """
-        return get_widget(app_widget, "14" if self.is_value_space else "17")
+        return get_widget(app_widget.widget, "14" if self.is_value_space else "17")
 
     @property
     def projection_method(self) -> int:
@@ -97,7 +97,7 @@ class ProjectedValueSelector:
         -------
 
         """
-        return get_widget(app_widget, "15" if self.is_value_space else "18")
+        return get_widget(app_widget.widget, "15" if self.is_value_space else "18")
 
     def build_proj_param_widget(self, dim_reduc) -> list[v.Slider]:
         """
@@ -199,10 +199,12 @@ class ProjectedValueSelector:
         """
         if dim is None:
             dim = self.current_dim
+        set_current = dim == self.current_dim
         if progress_callback is None:
             progress_callback = self.progress_bar.update
-        X = self.projected_value.get_projection(self.projection_method, dim, progress_callback)
-        # TODO reset_progress bar
+        X = self.projected_value.get_projection(
+            self.projection_method, dim, progress_callback, set_current
+        )
         return X
 
     def is_computed(self, projection_method=None, dim=None) -> bool:

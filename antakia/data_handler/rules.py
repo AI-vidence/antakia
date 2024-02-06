@@ -189,35 +189,35 @@ class Rule:
 
     def __repr__(self) -> str:
         if self.is_categorical_rule:
-            txt = f"{self.variable.symbol} \u2208  \u27E6"
+            txt = f"{self.variable.display_name} \u2208  \u27E6"
             txt += ', '.join(self.cat_values)
             txt += "\u27E7"
             return txt
         if self.rule_type == 1:
             # Rule type 1
-            txt = f"{self.variable.symbol} {self.PRETTY_OPERATORS[self.operator_max]} {self.max}"
+            txt = f"{self.variable.display_name} {self.PRETTY_OPERATORS[self.operator_max]} {self.max}"
             return txt
         if self.rule_type == 2:
             # Rule type 2
-            txt = f"{self.variable.symbol} {self.PRETTY_OPERATORS[4 - self.operator_min]} {self.min}"
+            txt = f"{self.variable.display_name} {self.PRETTY_OPERATORS[4 - self.operator_min]} {self.min}"
             return txt
         if self.rule_type == 3:
             # Rule type 3 : the rule is of the form : variable included in [min, max] interval, or min < variable < max
             if os.environ.get("USE_INTERVALS_FOR_RULES"):
-                txt = f"{self.variable.symbol} \u2208 {self.PRETTY_BRAKET[self.operator_min]} {self.min},"
+                txt = f"{self.variable.display_name} \u2208 {self.PRETTY_BRAKET[self.operator_min]} {self.min},"
                 txt += f" {self.max} {self.PRETTY_BRAKET[4 - self.operator_max]}"  # element of
                 return txt
-            txt = f'{self.min} {self.PRETTY_OPERATORS[self.operator_min]} {self.variable.symbol} '
+            txt = f'{self.min} {self.PRETTY_OPERATORS[self.operator_min]} {self.variable.display_name} '
             txt += f'{self.PRETTY_OPERATORS[self.operator_max]} {self.max}'
             return txt
         # Rule type 4 : the rule is of the form : variable not included in [min, max] interval or variable < min and variable > max
         if os.environ.get("USE_INTERVALS_FOR_RULES"):
-            txt = f"{self.variable.symbol} \u2209 {self.PRETTY_BRAKET[self.operator_min]} {self.min},"
+            txt = f"{self.variable.display_name} \u2209 {self.PRETTY_BRAKET[self.operator_min]} {self.min},"
             txt += f" {self.max} {self.PRETTY_BRAKET[4 - self.operator_max]}"  # element of
             return txt
         else:
-            txt = f'{self.variable.symbol} {self.PRETTY_OPERATORS[4 - self.operator_min]} {self.min} or '
-            txt += f'{self.variable.symbol} {self.PRETTY_OPERATORS[self.operator_max]} {self.max}'
+            txt = f'{self.variable.display_name} {self.PRETTY_OPERATORS[4 - self.operator_min]} {self.min} or '
+            txt += f'{self.variable.display_name} {self.PRETTY_OPERATORS[self.operator_max]} {self.max}'
         return txt
 
     def get_matching_mask(self, X: pd.DataFrame) -> pd.Series:
@@ -225,7 +225,7 @@ class Rule:
         Returns a mask of indices matching the rule
         """
         # We're going to modify X, so we make a copy
-        col = X.loc[:, self.variable.symbol]
+        col = X.loc[:, self.variable.column_name]
 
         if self.is_categorical_rule:
             return col.isin(self.cat_values)
@@ -302,7 +302,7 @@ class Rule:
 
     def to_dict(self) -> dict:
         return {
-            'Variable': self.variable.symbol,
+            'Variable': self.variable.display_name,
             'Unit': self.variable.unit,
             'Desc': self.variable.descr,
             'Critical': self.variable.critical,
@@ -519,5 +519,5 @@ class RuleSet:
 
         """
         for rule in self.rules:
-            if rule.variable.symbol == var.symbol:
+            if rule.variable.column_name == var.column_name:
                 return rule

@@ -33,7 +33,7 @@ class RuleWidget:
         '''
         self.rule: Rule = rule
         self.X: pd.DataFrame = X
-        self.X_col = X.loc[:, rule.variable.symbol]
+        self.X_col = X.loc[:, rule.variable.column_name]
         self.values_space: bool = values_space
         self.rule_updated: callable = rule_updated
         self.display_sliders: bool = self.values_space # enable rule edit
@@ -131,15 +131,15 @@ class RuleWidget:
 
         """
         if self.rule.is_categorical_rule:
-            title = f"{self.rule.variable.symbol} possible values :"
+            title = f"{self.rule.variable.display_name} possible values :"
         elif self.rule.rule_type == 1:  # var < max
-            title = f"{self.rule.variable.symbol} lesser than {'or equal to ' if self.rule.include_equals else ''}:"
+            title = f"{self.rule.variable.display_name} lesser than {'or equal to ' if self.rule.include_equals else ''}:"
         elif self.rule.rule_type == 2:  # var > min
-            title = f"{self.rule.variable.symbol} greater than {'or equal to ' if self.rule.include_equals else ''}:"
+            title = f"{self.rule.variable.display_name} greater than {'or equal to ' if self.rule.include_equals else ''}:"
         elif self.rule.is_inner_interval_rule:
-            title = f"{self.rule.variable.symbol} inside the interval:"
+            title = f"{self.rule.variable.display_name} inside the interval:"
         else:
-            title = f"{self.rule.variable.symbol} outside the interval:"
+            title = f"{self.rule.variable.display_name} outside the interval:"
         return change_widget(self.root_widget, "00", title)
 
     def _build_select_widget(self):
@@ -151,13 +151,13 @@ class RuleWidget:
         """
         if self.rule.is_categorical_rule:
             return v.Select(
-                label=self.rule.variable.symbol,
-                items=self.X[self.rule.variable.symbol].unique().tolist(),
+                label=self.rule.variable.display_name,
+                items=self.X[self.rule.variable.column_name].unique().tolist(),
                 style_="width: 150px",
                 multiple=True,
             )
-        min_ = float(self.X[self.rule.variable.symbol].min())
-        max_ = float(self.X[self.rule.variable.symbol].max())
+        min_ = float(self.X[self.rule.variable.column_name].min())
+        max_ = float(self.X[self.rule.variable.column_name].max())
         min_, max_, step = compute_step(min_, max_)
         slider_args = {
             'min': min_,
@@ -298,7 +298,7 @@ class RulesWidget:
         self.new_rules_defined = new_rules_defined
 
         # The root widget is a v.Col - we get it from app_widget
-        self.root_widget = get_widget(app_widget, "4310" if values_space else "4311")
+        self.root_widget = get_widget(app_widget.widget, "4310" if values_space else "4311")
 
         self.rules_db = []
         self.rule_widget_list = []

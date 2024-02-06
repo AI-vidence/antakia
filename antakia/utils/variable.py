@@ -12,7 +12,7 @@ class Variable:
     col_index : int
         The index of the column in the dataframe i come from (ds or xds)
         #TODO : I shoudl code an Abstract class for Dataset and ExplanationDataset
-    symbol : str
+    column_name : str
         How it should be displayed in the GUI
     descr : str
         A description of the variable
@@ -28,18 +28,18 @@ class Variable:
     def __init__(
             self,
             col_index: int,
-            symbol: str,
+            column_name: str,
             type: str,
             unit: str = None,
             descr: str = None,
             critical: bool = False,
-            continuous: bool = False,
+            continuous: bool = True,
             lat: bool = False,
             lon: bool = False,
             **kwargs  # to ignore unknown args in building object
     ):
         self.col_index = col_index
-        self.symbol = symbol
+        self.column_name = column_name
         self.type = type
         self.unit = unit
         self.descr = descr
@@ -47,6 +47,10 @@ class Variable:
         self.continuous = continuous
         self.lat = lat
         self.lon = lon
+
+    @property
+    def display_name(self):
+        return self.column_name.replace('_', ' ')
 
     @staticmethod
     def guess_variables(X: pd.DataFrame) -> 'DataVariables':
@@ -56,13 +60,12 @@ class Variable:
         """
         variables = []
         for i, col in enumerate(X.columns):
-            col_2 = str(col)
-            col_2.replace("_", " ")
-            var = Variable(i, col_2, X.dtypes[col])
-            if col_2.lower() in ["latitude", "lat"]:
-                var.lat = True
-            if col_2.lower() in ["longitude", "long"]:
-                var.lon = True
+            var = Variable(i, col, X.dtypes[col])
+            if isinstance(col, str):
+                if col.lower() in ["latitude", "lat"]:
+                    var.lat = True
+                if col.lower() in ["longitude", "long", "lon"]:
+                    var.lon = True
             var.continuous = Variable.is_continuous(X[col])
             variables.append(var)
         return DataVariables(variables)
@@ -76,10 +79,10 @@ class Variable:
 
         if "col_index" not in df.columns:
             df['col_index'] = np.arange(len(df))
-        if 'symbol' not in df.columns:
-            df['symbol'] = df.index
-            if is_numeric_dtype(df['symbol']):
-                raise KeyError('symbol (index) column is mandatory and should be string')
+        if 'column_name' not in df.columns:
+            df['column_name'] = df.index
+            if is_numeric_dtype(df['column_name']):
+                raise KeyError('column_name (index) column is mandatory and should be string')
         if 'type' not in df.columns:
             raise KeyError('type column is mandatory')
         variables = df.apply(lambda row: Variable(**row), axis=1).to_list()
@@ -96,12 +99,12 @@ class Variable:
         for i in range(len(var_list)):
             if isinstance(var_list[i], dict):
                 item = var_list[i]
-                if "col_index" in item and "symbol" in item and "type" in item:
+                if "col_index" in item and "column_name" in item and "type" in item:
                     var = Variable(**item)
                     variables.append(var)
                 else:
                     raise ValueError(
-                        "Variable must a list of {key:value} with mandatory keys : [col_index, symbol, type] and optional keys : [unit, descr, critical, continuous, lat, lon]"
+                        "Variable must a list of {key:value} with mandatory keys : [col_index, column_name, type] and optional keys : [unit, descr, critical, continuous, lat, lon]"
                     )
         return DataVariables(variables)
 
@@ -119,7 +122,7 @@ class Variable:
         """
         Displays the variable as a string
         """
-        text = f"{self.symbol}, col#:{self.col_index}, type:{self.type}"
+        text = f"{self.display_name}, col#:{self.col_index}, type:{self.type}"
         if self.descr is not None:
             text += f", descr:{self.descr}"
         if self.unit is not None:
@@ -134,13 +137,30 @@ class Variable:
             text += ", is lon"
         return text
 
+    def __eq__(self, other):
+        return (
+                self.col_index == other.col_index and
+                self.column_name == other.column_name and
+                self.type == other.type and
+                self.unit == other.unit and
+                self.descr == other.descr and
+                self.critical == other.critical and
+                self.continuous == other.continuous and
+                self.lat == other.lat and
+                self.lon == other.lon
+        )
+
+    def __hash__(self):
+        return hash(self.column_name)
+
 
 class DataVariables:
     """
     collection of Variables
     """
+
     def __init__(self, variables: List[Variable]):
-        self.variables = {var.symbol: var for var in variables}
+        self.variables = {var.column_name: var for var in variables}
 
     def __str__(self):
         text = ""
@@ -148,24 +168,26 @@ class DataVariables:
             text += str(var.col_index) + ") " + str(var) + "\n"
         return text
 
-    def sym_list(self):
+    def columns_list(self):
         """
-        get symbol list
+        get column_name list
         """
         return list(self.variables.keys())
 
-    def get_var(self, symbol: str):
+    def get_var(self, column_name: str):
         """
-        get variable by symbol
+        get variable by column_name
         """
-        return self.variables.get(symbol)
+        return self.variables.get(column_name)
 
     def __len__(self):
         return len(self.variables)
 
-
-def var_from_symbol(variables: List[Variable], token: str) -> Variable:
-    for var in variables:
-        if var.symbol == token:
-            return var
-    return None
+    def __eq__(self, other):
+        for i in self.variables.values():
+            if i not in other.variables.values():
+                return False
+        for j in other.variables.values():
+            if j not in self.variables.values():
+                return False
+        return True

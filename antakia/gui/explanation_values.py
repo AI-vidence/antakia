@@ -32,7 +32,7 @@ class ExplanationValues:
         self.initialized = False
 
         # init dict of explanations
-        self.explanations: dict[str | ProjectedValues] = {
+        self.explanations: dict[str, ProjectedValues | None] = {
             exp: None for exp in self.available_exp
         }
 
@@ -40,8 +40,8 @@ class ExplanationValues:
             self.explanations[self.available_exp[0]] = ProjectedValues(X_exp, y)
 
         # set up compute menu
-        get_widget(app_widget, "13000203").on_event("click", self.compute_btn_clicked)
-        get_widget(app_widget, "13000303").on_event("click", self.compute_btn_clicked)
+        get_widget(app_widget.widget, "13000203").on_event("click", self.compute_btn_clicked)
+        get_widget(app_widget.widget, "13000303").on_event("click", self.compute_btn_clicked)
         self.update_compute_menu()
 
         # init selected explanation
@@ -112,7 +112,7 @@ class ExplanationValues:
         -------
 
         """
-        return get_widget(app_widget, "13")
+        return get_widget(app_widget.widget, "13")
 
     def get_explanation_select(self):
         """
@@ -121,7 +121,7 @@ class ExplanationValues:
         -------
 
         """
-        return get_widget(app_widget, "12")
+        return get_widget(app_widget.widget, "12")
 
     def compute_explanation(self, explanation_method: int, progress_bar: callable, auto_update: bool = True):
         """
@@ -139,6 +139,8 @@ class ExplanationValues:
         self.current_exp = self.available_exp[explanation_method]
         # We compute proj for this new PV :
         X_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
+        pd.testing.assert_index_equal(X_exp.columns, self.X.columns)
+
         # update explanation
         self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y)
         # refresh front
@@ -156,12 +158,12 @@ class ExplanationValues:
 
         """
         is_shap_computed = self.explanations[self.available_exp[1]] is not None
-        get_widget(app_widget, "130000").disabled = is_shap_computed
-        get_widget(app_widget, "13000203").disabled = is_shap_computed
+        get_widget(app_widget.widget, "130000").disabled = is_shap_computed
+        get_widget(app_widget.widget, "13000203").disabled = is_shap_computed
 
         is_lime_computed = self.explanations[self.available_exp[2]] is not None
-        get_widget(app_widget, "130001").disabled = is_lime_computed
-        get_widget(app_widget, "13000303").disabled = is_lime_computed
+        get_widget(app_widget.widget, "130001").disabled = is_lime_computed
+        get_widget(app_widget.widget, "13000303").disabled = is_lime_computed
 
     def compute_btn_clicked(self, widget, event, data):
         """
@@ -170,12 +172,12 @@ class ExplanationValues:
         # This compute btn is no longer useful / clickable
         widget.disabled = True
 
-        if widget == get_widget(app_widget, "13000203"):
+        if widget == get_widget(app_widget.widget, "13000203"):
             desired_explain_method = ExplanationMethod.SHAP
-            progress_widget = get_widget(app_widget, "13000201")
+            progress_widget = get_widget(app_widget.widget, "13000201")
         else:
             desired_explain_method = ExplanationMethod.LIME
-            progress_widget = get_widget(app_widget, "13000301")
+            progress_widget = get_widget(app_widget.widget, "13000301")
 
         progress_bar = ProgressBar(progress_widget)
         self.compute_explanation(desired_explain_method, progress_bar.update)
@@ -207,6 +209,7 @@ class ExplanationValues:
         Returns
         -------
 
+        Called when the user chooses another dataframe
         """
         self.current_exp = data
 
