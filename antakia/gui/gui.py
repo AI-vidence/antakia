@@ -733,6 +733,7 @@ class GUI:
         """
         Called when the user clicks on the 'merge' (regions) button
         """
+
         selected_regions = [self.region_set.get(r['Region']) for r in self.selected_regions]
         mask = None
         for region in selected_regions:
@@ -749,9 +750,10 @@ class GUI:
             self.region_set.remove(region.num)
         # add new region
         if len(skr_rules_list) > 0:
-            self.region_set.add_region(rules=skr_rules_list)
+            r = self.region_set.add_region(rules=skr_rules_list)
         else:
-            self.region_set.add_region(mask=mask)
+            r = self.region_set.add_region(mask=mask)
+        self.selected_regions = [{'Region': r.num}]
         self.select_tab(2)
 
     def delete_region_clicked(self, *args):
