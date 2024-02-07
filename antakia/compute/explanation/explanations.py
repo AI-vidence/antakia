@@ -47,32 +47,24 @@ class LIMExplanation(ExplanationMethod):
 
         self.publish_progress(progress)
 
-        # TODO : It seems we defined class_name in order to work with California housing dataset. We should find a way to generalize this.
-        explainer = lime.lime_tabular.LimeTabularExplainer(np.array(self.X), feature_names=self.X.columns,
-                                                           class_names=['price'], verbose=False, mode='regression',
-                                                           discretize_continuous=True)
+        explainer = lime.lime_tabular.LimeTabularExplainer(
+            self.X.sample(min(len(self.X), 500)).values,
+            feature_names=self.X.columns,
+            verbose=False,
+            mode='regression',
+            discretize_continuous=True
+        )
 
-        N = self.X.shape[0]
-        values_lime = pd.DataFrame(np.zeros((N, self.X.shape[-1])))
-
-        for j in range(N):
-            l = []
-            exp = explainer.explain_instance(
-                self.X.values[j], self.model.predict
-            )
-            l = []
-            size = self.X.shape[-1]
-            for ii in range(size):
-                exp_map = exp.as_map()[0]
-                l.extend(exp_map[ii][1] for jj in range(size) if ii == exp_map[jj][0])
-
-            values_lime.iloc[j] = pd.Series(l)
+        values_lime = pd.DataFrame(
+            np.zeros(self.X.shape),
+            index=self.X.index,
+            columns=self.X.columns
+        )
+        for index, row in self.X.iterrows():
+            exp = explainer.explain_instance(row.values, self.model.predict)
+            values_lime.loc[index] = pd.Series(exp.local_exp[0], index=explainer.feature_names).str[1]
             progress += 100 / len(self.X)
             self.publish_progress(progress)
-        j = list(self.X.columns)
-        for i in range(len(j)):
-            j[i] = j[i] + "_lime"
-        values_lime.columns = j
         self.publish_progress(100)
         return values_lime
 

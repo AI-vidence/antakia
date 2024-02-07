@@ -10,6 +10,11 @@ from tests.interactions import *
 from tests.status_checks import check_all
 from sklearn.tree import DecisionTreeRegressor
 
+from antakia import config
+
+config.MIN_POINTS_NUMBER = 10
+config.MAX_DOTS = 100
+
 X, y = load_dataset('Corner', 1000, random_seed=42)
 X = pd.DataFrame(X, columns=['X1', 'X2'])
 X['X3'] = np.random.random(len(X))
@@ -182,7 +187,7 @@ def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     unselect(gui, False)
     check_all(gui, check)
 
-    select_points(gui, False)
+    select_points(gui, True)
     find_rules(gui)
     check_all(gui, check)
     validate_rules(gui)
