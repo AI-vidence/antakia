@@ -7,6 +7,8 @@ import pandas as pd
 
 from dotenv import load_dotenv
 
+from antakia.utils.utils import ProblemCategory
+
 load_dotenv()
 
 from antakia.utils.checks import is_valid_model
@@ -41,7 +43,8 @@ class AntakIA:
             X_test: pd.DataFrame = None,
             y_test: pd.Series = None,
             X_exp: pd.DataFrame | None = None,
-            score: callable | str = 'mse'
+            score: callable | str = 'auto',
+            problem_category: str = 'auto'
     ):
         """
         AntakiIA constructor.
@@ -67,13 +70,14 @@ class AntakIA:
         self.X_test = X_test
         if y.ndim > 1:
             y = y.squeeze()
-        self.y = y
+        self.y = y.astype(float)
         if y_test is not None and y_test.ndim > 1:
             y_test = y_test.squeeze()
         self.y_test = y_test
         self.model = model
-        self.score = score
         self.X_exp = X_exp
+        self.problem_category = self._preprocess_problem_category(problem_category, model, X)
+        self.score = self._preprocess_score(score, self.problem_category)
 
         self.set_variables(X, variables)
 
@@ -85,7 +89,8 @@ class AntakIA:
             self.X_test,
             self.y_test,
             self.X_exp,
-            self.score
+            self.score,
+            self.problem_category
         )
 
     def set_variables(self, X, variables):
@@ -125,3 +130,31 @@ class AntakIA:
                 raise IndexError('X and X_exp must share the same index')
         pd.testing.assert_index_equal(X.index, y.index, check_names=False)
         return X, y, X_exp
+
+    def _preprocess_problem_category(self, problem_category: str, model, X: pd.DataFrame) -> ProblemCategory:
+        if problem_category not in ProblemCategory:
+            raise ValueError('Invalid problem category')
+        if problem_category == 'auto':
+            if hasattr(model, 'predict_proba'):
+                return ProblemCategory('classification_with_proba')
+            pred = self.model.predict(self.X.sample(min(100, len(self.X))))
+            if len(pred.shape) > 1 and pred.shape[1] > 1:
+                return ProblemCategory('classification_proba')
+            return ProblemCategory('regression')
+        if problem_category == 'classification':
+            if hasattr(model, 'prodict_proba'):
+                return ProblemCategory('classification_with_proba')
+            pred = model.predict(X.sample(min(100, len(X))))
+            if len(pred.shape) > 1 and pred.shape[1] > 1:
+                return ProblemCategory('classification_proba')
+            return ProblemCategory('classification_label_only')
+        return ProblemCategory(problem_category)
+
+    def _preprocess_score(self, score, problem_category):
+        if callable(score):
+            return score
+        if score != 'auto':
+            return score
+        if problem_category == ProblemCategory.regression:
+            return 'mse'
+        return 'accuracy'

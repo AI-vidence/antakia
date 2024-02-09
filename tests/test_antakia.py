@@ -11,7 +11,7 @@ from antakia.gui.widgets import splash_widget, app_widget
 from antakia.utils.dummy_datasets import load_dataset
 from tests.interactions import *
 from tests.status_checks import check_all
-from sklearn.tree import DecisionTreeRegressor
+from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 
 from antakia import config
 
@@ -39,9 +39,10 @@ class TestAntakia(TestCase):
             def score(self, *args):
                 return 1
 
-        cls.model_DT = DecisionTreeRegressor().fit(cls.X, cls.y)
-        cls.model_DT_np = DecisionTreeRegressor().fit(cls.X.values, cls.y.values)
-        cls.model_any = DummyModel()
+        cls.regression_DT = DecisionTreeRegressor().fit(cls.X, cls.y)
+        cls.regression_DT_np = DecisionTreeRegressor().fit(cls.X.values, cls.y.values)
+        cls.regression_any = DummyModel()
+        cls.classifier_DT = DecisionTreeClassifier().fit(cls.X, cls.y)
         cls.x_exp = pd.concat(
             [(cls.X.iloc[:, 0] > 0.5) * 0.5, (cls.X.iloc[:, 1] > 0.5) * 0.5, (cls.X.iloc[:, 2] > 2) * 1], axis=1)
 
@@ -51,53 +52,53 @@ class TestAntakia(TestCase):
 
     def test_vanilla_run(self):
         # vanilla run
-        atk = AntakIA(self.X, self.y, self.model_DT)
+        atk = AntakIA(self.X, self.y, self.regression_DT)
         run_antakia(atk, True)
 
     def test_shape_issue(self):
         # shape issue
         with pytest.raises(AssertionError):
-            atk = AntakIA(self.X, self.y.iloc[:10], self.model_DT, X_exp=self.x_exp)
+            atk = AntakIA(self.X, self.y.iloc[:10], self.regression_DT, X_exp=self.x_exp)
             run_antakia(atk, False)
 
     def test_vanilla_with_exp(self):
         # run with explanations
-        atk = AntakIA(self.X, self.y, self.model_DT, X_exp=self.x_exp)
+        atk = AntakIA(self.X, self.y, self.regression_DT, X_exp=self.x_exp)
         run_antakia(atk, True)
 
     def test_vanilla_with_non_Tree_and_exp(self):
         # run with non tree model
-        atk = AntakIA(self.X, self.y, self.model_any, X_exp=self.x_exp)
+        atk = AntakIA(self.X, self.y, self.regression_any, X_exp=self.x_exp)
         run_antakia(atk, False)
 
     def test_vanilla_with_non_Tree_and_no_exp(self):
         # run with non tree model and no x_exp
-        atk = AntakIA(self.X, self.y, self.model_any)
+        atk = AntakIA(self.X, self.y, self.regression_any)
         run_antakia(atk, False)
 
     def test_with_np_arrays(self):
         # run with np array
-        atk = AntakIA(self.X.values, self.y.values, self.model_DT_np)
+        atk = AntakIA(self.X.values, self.y.values, self.regression_DT_np)
         run_antakia(atk, False)
 
     def test_partial_np_array(self):
         # run with partial np array
-        atk = AntakIA(self.X, self.y.values, self.model_DT)
+        atk = AntakIA(self.X, self.y.values, self.regression_DT)
         run_antakia(atk, False)
 
     def test_partial_np_array2(self):
         # run with partial np array
-        atk = AntakIA(self.X.values, self.y, self.model_DT_np)
+        atk = AntakIA(self.X.values, self.y, self.regression_DT_np)
         run_antakia(atk, False)
 
     def test_with_np_arrays_exp(self):
         # run with np array and x_exp
-        atk = AntakIA(self.X.values, self.y.values, self.model_DT_np, X_exp=self.x_exp.values)
+        atk = AntakIA(self.X.values, self.y.values, self.regression_DT_np, X_exp=self.x_exp.values)
         run_antakia(atk, False)
 
     def test_y_as_df(self):
         # run y as df
-        atk = AntakIA(self.X, self.y.to_frame(), self.model_DT)
+        atk = AntakIA(self.X, self.y.to_frame(), self.regression_DT)
         run_antakia(atk, False)
 
     def test_col_names_numeric(self):
@@ -113,15 +114,20 @@ class TestAntakia(TestCase):
         for _ in range(10):
             splash_widget.reset()
             app_widget.reset()
-            atk = AntakIA(self.X, self.y, self.model_DT)
+            atk = AntakIA(self.X, self.y, self.regression_DT)
             random_walk(atk, 20)
 
     def test_run_walk(self):
-        atk = AntakIA(self.X, self.y, self.model_DT)
+        atk = AntakIA(self.X, self.y, self.regression_DT)
         run_walk(
             atk,
-            [('select_points', [1]), ('find_rules', [])]
+            [('edit_parameter', [0]), ('set_color', [2]), ('select_points', [1]), ('set_color', [0]), ('find_rules', []), ('set_proj_method', [1, 1]), ('edit_parameter', [1]), ('change_tab', [0]), ('set_color', [0]), ('validate_rules', []), ('auto_cluster', []), ('auto_cluster', []), ('toggle_select_region', [3]), ('auto_cluster', []), ('substitute', [])]
+
         )
+
+    def test_classifier(self):
+        atk = AntakIA(self.X, self.y, self.classifier_DT)
+        run_antakia(atk, True)
 
 
 def dummy_projection(_X, y, method, dim, callback, *args, **kwargs):

@@ -137,6 +137,7 @@ class ModelRegion(Region):
     """
     supercharged Region with an explainable predictive model
     """
+
     def __init__(self, X, y, X_test, y_test, customer_model, rules: RuleSet | None = None,
                  mask: pd.Series | None = None, color=None,
                  score=None):
@@ -186,7 +187,7 @@ class ModelRegion(Region):
         """
         self.interpretable_models.select_model(model_name)
 
-    def train_subtitution_models(self):
+    def train_subtitution_models(self, task_type):
         """
         train substitution models
         Returns
@@ -199,7 +200,8 @@ class ModelRegion(Region):
                 self.X.loc[self.mask],
                 self.y.loc[self.mask],
                 self.X_test.loc[self.test_mask],
-                self.y_test.loc[self.test_mask]
+                self.y_test.loc[self.test_mask],
+                task_type=task_type
             )
         else:
             self.interpretable_models.get_models_performance(
@@ -207,7 +209,8 @@ class ModelRegion(Region):
                 self.X.loc[self.mask],
                 self.y.loc[self.mask],
                 None,
-                None
+                None,
+                task_type=task_type
             )
 
     @property
@@ -251,6 +254,7 @@ class RegionSet:
     """
     group of regions
     """
+
     def __init__(self, X):
         """
 
@@ -308,7 +312,7 @@ class RegionSet:
         self.insert_order.append(region.num)
         self.display_order.append(region)
 
-    def add_region(self, rules:RuleSet=None, mask=None, color=None, auto_cluster=False) -> Region:
+    def add_region(self, rules: RuleSet = None, mask=None, color=None, auto_cluster=False) -> Region:
         """
         create a Region from a rule set or a mask
         Parameters
@@ -494,10 +498,10 @@ class RegionSet:
 
 
 class ModelRegionSet(RegionSet):
-
     """
     Supercharged RegionSet to handle interpretable models
     """
+
     def __init__(self, X, y, X_test, y_test, model, score):
         """
 
@@ -517,7 +521,7 @@ class ModelRegionSet(RegionSet):
         self.model = model
         self.score = score
 
-    def add_region(self, rules:RuleSet=None, mask=None, color=None, auto_cluster=False) -> Region:
+    def add_region(self, rules: RuleSet = None, mask=None, color=None, auto_cluster=False) -> Region:
         """
         add new ModelRegion
         Parameters

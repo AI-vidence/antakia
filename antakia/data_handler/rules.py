@@ -43,32 +43,31 @@ class Rule:
     PRETTY_OPERATORS = ["<", "\u2264", "=", "\u2265", ">"]
     PRETTY_BRAKET = ["[", "\u27E6", "", "\u27E7", "]"]
 
-    def __init__(self, min: float | None, operator_min: str | int | None, variable: Variable,
-                 operator_max: str | int | None,
-                 max: float | None, cat_values: list[str] | None = None):
+    def __init__(self, variable_min: float | None, operator_min: str | int | None, variable: Variable,
+                 operator_max: str | int | None, variable_max: float | None, cat_values: list[str] | None = None):
         self.variable = variable
         self.cat_values = cat_values
-        assert min is None or isinstance(min, Number)
-        assert max is None or isinstance(max, Number)
+        assert variable_min is None or isinstance(variable_min, Number)
+        assert variable_max is None or isinstance(variable_max, Number)
 
         # operators may be int or str or None (simple rule).
         if isinstance(operator_min, int):
             self.operator_min = operator_min
-            self.min = min
+            self.min = variable_min
         elif isinstance(operator_min, str):
             self.operator_min = self.OPERATORS.index(operator_min)
-            self.min = min
-        if min == -math.inf or min is None:
+            self.min = variable_min
+        if variable_min == -math.inf or variable_min is None:
             self.operator_min = 2  # convention -> invarient par inversion
             self.min = -math.inf
 
         if isinstance(operator_max, int):
             self.operator_max = operator_max
-            self.max = max
+            self.max = variable_max
         elif isinstance(operator_max, str):
             self.operator_max = self.OPERATORS.index(operator_max)
-            self.max = max
-        if max == math.inf or max is None:
+            self.max = variable_max
+        if variable_max == math.inf or variable_max is None:
             self.operator_max = 2  # convention -> invarient par inversion
             self.max = math.inf
 

@@ -3,6 +3,7 @@ Utils module for the antakia package.
 """
 import math
 import time
+from enum import Enum, StrEnum, EnumMeta
 
 import numpy as np
 from functools import wraps
@@ -117,3 +118,21 @@ def get_mask_comparison_color(rules_mask, selection_mask):
 
 # First color can't be blue, reserved for the rules - grey is reserved to background
 colors = ["red", "blue", "green", "yellow", "orange", "pink", "brown", "cyan", "black"]
+
+
+class MetaEnum(EnumMeta):
+    def __contains__(cls, item):
+        try:
+            cls(item)
+        except ValueError:
+            return False
+        return True
+
+
+class BaseEnum(StrEnum, metaclass=MetaEnum):
+    pass
+
+
+ProblemCategory = BaseEnum('ProblemCategory',
+                           ['classification_with_proba', 'classification_proba', 'classification',
+                            'classification_label_only', 'regression', 'auto'])

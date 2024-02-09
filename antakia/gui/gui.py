@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import numpy as np
 import pandas as pd
 
 import ipyvuetify as v
@@ -24,7 +26,7 @@ import copy
 
 import logging
 from antakia.utils.logging import conf_logger
-from antakia.utils.utils import boolean_mask
+from antakia.utils.utils import boolean_mask, ProblemCategory
 from antakia.utils.variable import DataVariables
 
 logger = logging.getLogger(__name__)
@@ -72,6 +74,7 @@ class GUI:
             y_test: pd.Series,
             X_exp: pd.DataFrame | None = None,
             score: callable | str = "mse",
+            problem_category: ProblemCategory = ProblemCategory.regression
     ):
         self.tab = 1
         self.X = X
@@ -79,6 +82,7 @@ class GUI:
         self.y = y
         self.y_test = y_test
         self._y_pred = None
+        self.problem_category = problem_category
         self.model = model
         self.variables: DataVariables = variables
         self.score = score
@@ -147,7 +151,18 @@ class GUI:
     @property
     def y_pred(self):
         if self._y_pred is None:
-            self._y_pred = pd.Series(self.model.predict(self.X), index=self.X.index)
+            pred = self.model.predict(self.X)
+            if self.problem_category in [ProblemCategory.classification_with_proba]:
+                pred = self.model.predict_proba(self.X)
+
+            if len(pred.shape) > 1:
+                if pred.shape[1] == 1:
+                    pred = pred.squeeze()
+                if pred.shape[1] == 2:
+                    pred = np.array(pred)[:, 1]
+                else:
+                    pred = pred.argmax(axis=1)
+            self._y_pred = pd.Series(pred, index=self.X.index)
         return self._y_pred
 
     def show_splash_screen(self):
@@ -680,14 +695,14 @@ class GUI:
         num_selected_regions = len(selected_region_nums)
         if num_selected_regions:
             first_region = self.region_set.get(selected_region_nums[0])
+            enable_div = (num_selected_regions == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
         else:
-            first_region = None
+            enable_div = False
 
         # substitute
         get_widget(app_widget.widget, "4401000").disabled = num_selected_regions != 1
 
         # divide
-        enable_div = (num_selected_regions == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
         get_widget(app_widget.widget, "4401100").disabled = not enable_div
 
         # merge
@@ -785,7 +800,7 @@ class GUI:
             self.substitution_model_training = True
             # show tab 3 (and update)
             self.select_tab(3)
-            region.train_subtitution_models()
+            region.train_subtitution_models(task_type=self.problem_category)
 
             self.substitution_model_training = False
             # We update the substitution table a second time to show the results
@@ -847,6 +862,15 @@ class GUI:
                 if col != 'delta_color':
                     perfs[col] = series_to_str(perfs[col])
             perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
+            headers = [
+                {
+                    "text": column,
+                    "sortable": False,
+                    "value": column,
+                }
+                for column in perfs.drop('delta_color', axis=1).columns
+            ]
+            table.headers = headers
             table.items = perfs.to_dict("records")
             if region.interpretable_models.selected_model:
                 # we set to selected model if any

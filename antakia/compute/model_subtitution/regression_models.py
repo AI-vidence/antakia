@@ -1,6 +1,6 @@
 import pandas as pd
 
-from antakia.compute.model_subtitution.model_class import MLModel, LinearMLModel, AvgBaseline
+from antakia.compute.model_subtitution.model_class import MLModel, LinearMLModel, AvgRegressionBaseline
 from sklearn import linear_model
 from sklearn import tree
 import pygam
@@ -13,7 +13,7 @@ from interpret.glassbox import ExplainableBoostingRegressor
 
 class AvgBaselineModel(MLModel):
     def __init__(self):
-        super().__init__(AvgBaseline(), 'average baseline')
+        super().__init__(AvgRegressionBaseline(), 'average baseline')
 
 
 ####################################

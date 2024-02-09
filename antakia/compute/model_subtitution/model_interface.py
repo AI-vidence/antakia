@@ -1,17 +1,16 @@
 from typing import List
 
-import pandas as pd
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, accuracy_score, f1_score, \
     precision_score, recall_score
 from sklearn.model_selection import train_test_split
 
-from antakia.compute.model_subtitution.model_class import MLModel
-
 from joblib import Parallel, delayed
 
-from antakia.compute.model_subtitution.regression_models import LinearRegression, LassoRegression, RidgeRegression, GaM, \
-    EBM, DecisionTreeRegressor, AvgBaselineModel
+from antakia.compute.model_subtitution.regression_models import *
+from antakia.compute.model_subtitution.classification_models import *
 import re
+
+from antakia.utils.utils import ProblemCategory
 
 
 def pretty_model_name(model_name):
@@ -37,6 +36,7 @@ class InterpretableModels:
         'MAE': mean_absolute_error,
         'R2': r2_score,
         'ACC': accuracy_score,
+        'ACCURACY': accuracy_score,
         'F1': f1_score,
         'precision'.upper(): precision_score,
         'recall'.upper(): recall_score,
@@ -57,10 +57,10 @@ class InterpretableModels:
         self.selected_model = None
 
     def _get_available_models(self, task_type) -> List[type[MLModel]]:
-        if task_type == 'regression':
+        if task_type == ProblemCategory.regression:
             return [LinearRegression, LassoRegression, RidgeRegression, GaM,
                     EBM, DecisionTreeRegressor, AvgBaselineModel]
-        return [AvgBaselineModel]
+        return [AvgClassificationBaselineModel, DecisionTreeClassifier, LogisticRegression]
 
     def _init_models(self, task_type):
         for model_class in self._get_available_models(task_type):
@@ -69,7 +69,7 @@ class InterpretableModels:
                 self.models[model.name] = model
 
     def _init_scores(self, task_type):
-        if task_type == 'regression':
+        if task_type == ProblemCategory.regression:
             scores_list = ['MSE', 'MAE', 'R2']
         else:
             scores_list = ['ACC', 'F1', 'precision'.upper(), 'recall'.upper(), 'R2']

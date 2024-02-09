@@ -27,12 +27,20 @@ class MLModel:
         raise NotFittedError()
 
 
-class AvgBaseline:
+class AvgRegressionBaseline:
     def fit(self, X, y, *args, **kwargs):
         self.mean = y.mean()
 
     def predict(self, X, *args, **kwargs):
         return [self.mean] * len(X)
+
+class AvgClassificationBaseline:
+    def fit(self, X, y, *args, **kwargs):
+        lst = list(y)
+        self.majority_class = max(lst,key=lst.count)
+
+    def predict(self, X, *args, **kwargs):
+        return [self.majority_class] * len(X)
 
 
 class LinearMLModel(MLModel):
