@@ -33,7 +33,8 @@ def generate_df_series_callable():
     return X, y, test_progress_bar.update
 
 
-def generate_ExplanationValues(model=None, X_exp=None):
+def generate_ExplanationValues(model=None, X_exp=None) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame,
+                                                                ExplanationValues, callable]:
     X, y, progress_callback = generate_df_series_callable()
 
     def on_change_callback(pv, progress=None):

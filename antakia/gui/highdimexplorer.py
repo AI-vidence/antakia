@@ -144,7 +144,7 @@ class HighDimExplorer:
     def current_selection(self, value):
         self._current_selection = value
 
-    def initialize(self, progress_callback, pv=None):
+    def initialize(self, progress_callback, pv: ProjectedValues | None = None):
         """
         inital computation (called at startup, after init to compute required values
         Parameters
@@ -155,9 +155,7 @@ class HighDimExplorer:
         -------
 
         """
-        if pv is not None:
-            # for ES space we need to manually provide the pv value in other to not trigger all auto updates
-            self.projected_value_selector.projected_value = pv
+        self.projected_value_selector.initialize(progress_callback, pv)
         self.get_current_X_proj(progress_callback=progress_callback)
         self.create_figure()
         self.initialized = True
@@ -266,7 +264,7 @@ class HighDimExplorer:
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
-    def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series):
+    def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series = None):
         """
         display a rule vs a selection
         Parameters
@@ -278,6 +276,10 @@ class HighDimExplorer:
         -------
 
         """
+        if selection_mask.all():
+            selection_mask = ~selection_mask
+        if rules_mask is None:
+            rules_mask = selection_mask
         color, _ = utils.get_mask_comparison_color(rules_mask, selection_mask)
 
         self._colors[self.RULES_TRACE] = color
@@ -413,7 +415,6 @@ class HighDimExplorer:
 
         """
         selection = utils.rows_to_mask(self.current_X[self.mask], row_numbers)
-        print(selection.mean(), row_numbers)
         if not selection.any() or selection.all():
             return utils.boolean_mask(self.get_current_X_proj(masked=False), selection.mean())
         if self.mask.all():
@@ -444,6 +445,7 @@ class HighDimExplorer:
         """
         self.first_selection |= self.current_selection.all()
         self.current_selection &= self.selection_to_mask(points.point_inds)
+        self.display_rules(self.current_selection)
         if self.current_selection.any():
             self.create_figure()
             self.selection_changed(self, self.current_selection)
@@ -494,7 +496,7 @@ class HighDimExplorer:
 
         # selection event
         self.current_selection = new_selection_mask
-        self.display_rules(~self.current_selection, ~self.current_selection)
+        self.display_rules(self.current_selection, self.current_selection)
         self.display_selection()
         return
 

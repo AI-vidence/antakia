@@ -1,3 +1,6 @@
+import random
+from unittest import TestCase
+
 import mock
 import numpy as np
 import pandas as pd
@@ -12,120 +15,113 @@ from sklearn.tree import DecisionTreeRegressor
 
 from antakia import config
 
-config.MIN_POINTS_NUMBER = 10
-config.MAX_DOTS = 100
 
-X, y = load_dataset('Corner', 1000, random_seed=42)
-X = pd.DataFrame(X, columns=['X1', 'X2'])
-X['X3'] = np.random.random(len(X))
-y = pd.Series(y)
+class TestAntakia(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        config.MIN_POINTS_NUMBER = 10
+        config.MAX_DOTS = 100
 
+        X, y = load_dataset('Corner', 1000, random_seed=42)
+        cls.X = pd.DataFrame(X, columns=['X1', 'X2'])
+        cls.X['X3'] = np.random.random(len(X))
+        cls.y = pd.Series(y)
 
-class DummyModel:
-    def predict(self, X):
-        return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
+        X_test, y_test = load_dataset('Corner', 100, random_seed=56)
+        cls.X_test = pd.DataFrame(X_test, columns=['X1', 'X2'])
+        cls.X_test['X3'] = np.random.random(len(X_test))
+        cls.y_test = pd.Series(y_test)
 
-    def score(self, *args):
-        return 1
+        class DummyModel:
+            def predict(self, X):
+                return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
 
+            def score(self, *args):
+                return 1
 
-model_DT = DecisionTreeRegressor().fit(X, y)
-model_DT_np = DecisionTreeRegressor().fit(X.values, y.values)
-model_any = DummyModel()
-x_exp = pd.concat([(X.iloc[:, 0] > 0.5) * 0.5, (X.iloc[:, 1] > 0.5) * 0.5, (X.iloc[:, 2] > 2) * 1], axis=1)
+        cls.model_DT = DecisionTreeRegressor().fit(cls.X, cls.y)
+        cls.model_DT_np = DecisionTreeRegressor().fit(cls.X.values, cls.y.values)
+        cls.model_any = DummyModel()
+        cls.x_exp = pd.concat(
+            [(cls.X.iloc[:, 0] > 0.5) * 0.5, (cls.X.iloc[:, 1] > 0.5) * 0.5, (cls.X.iloc[:, 2] > 2) * 1], axis=1)
 
+    def setUp(self):
+        splash_widget.reset()
+        app_widget.reset()
 
-def test_1():
-    # vanilla run
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X, y, model_DT)
-    run_antakia(atk, True)
+    def test_vanilla_run(self):
+        # vanilla run
+        atk = AntakIA(self.X, self.y, self.model_DT)
+        run_antakia(atk, True)
 
+    def test_shape_issue(self):
+        # shape issue
+        with pytest.raises(AssertionError):
+            atk = AntakIA(self.X, self.y.iloc[:10], self.model_DT, X_exp=self.x_exp)
+            run_antakia(atk, False)
 
-def test_2():
-    # shape issue
-    splash_widget.reset()
-    app_widget.reset()
-    with pytest.raises(AssertionError):
-        atk = AntakIA(X, y.iloc[:10], model_DT, X_exp=x_exp)
+    def test_vanilla_with_exp(self):
+        # run with explanations
+        atk = AntakIA(self.X, self.y, self.model_DT, X_exp=self.x_exp)
+        run_antakia(atk, True)
+
+    def test_vanilla_with_non_Tree_and_exp(self):
+        # run with non tree model
+        atk = AntakIA(self.X, self.y, self.model_any, X_exp=self.x_exp)
         run_antakia(atk, False)
 
+    def test_vanilla_with_non_Tree_and_no_exp(self):
+        # run with non tree model and no x_exp
+        atk = AntakIA(self.X, self.y, self.model_any)
+        run_antakia(atk, False)
 
-def test_3():
-    # run with explanations
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X, y, model_DT, X_exp=x_exp)
-    run_antakia(atk, True)
+    def test_with_np_arrays(self):
+        # run with np array
+        atk = AntakIA(self.X.values, self.y.values, self.model_DT_np)
+        run_antakia(atk, False)
 
+    def test_partial_np_array(self):
+        # run with partial np array
+        atk = AntakIA(self.X, self.y.values, self.model_DT)
+        run_antakia(atk, False)
 
-def test_4():
-    # run with non tree model
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X, y, model_any, X_exp=x_exp)
-    run_antakia(atk, False)
+    def test_partial_np_array2(self):
+        # run with partial np array
+        atk = AntakIA(self.X.values, self.y, self.model_DT_np)
+        run_antakia(atk, False)
 
+    def test_with_np_arrays_exp(self):
+        # run with np array and x_exp
+        atk = AntakIA(self.X.values, self.y.values, self.model_DT_np, X_exp=self.x_exp.values)
+        run_antakia(atk, False)
 
-def test_5():
-    # run with non tree model and no x_exp
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X, y, model_any)
-    run_antakia(atk, False)
+    def test_y_as_df(self):
+        # run y as df
+        atk = AntakIA(self.X, self.y.to_frame(), self.model_DT)
+        run_antakia(atk, False)
 
+    def test_col_names_numeric(self):
+        # run with numerical cols
+        X2 = self.X.copy()
+        X2.columns = range(len(self.X.T))
+        model_DT = DecisionTreeRegressor().fit(X2, self.y)
 
-def test_6():
-    # run with np array
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X.values, y.values, model_DT_np)
-    run_antakia(atk, False)
+        atk = AntakIA(X2, self.y, model_DT)
+        run_antakia(atk, False)
 
+    def test_random(self):
+        for _ in range(10):
+            splash_widget.reset()
+            app_widget.reset()
+            atk = AntakIA(self.X, self.y, self.model_DT)
+            random_walk(atk, 20)
 
-def test_7():
-    # run with partial np array
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X, y.values, model_DT)
-    run_antakia(atk, False)
-
-
-def test_8():
-    # run with partial np array
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X.values, y, model_DT_np)
-    run_antakia(atk, False)
-
-
-def test_9():
-    # run with np array and x_exp
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X.values, y.values, model_DT_np, X_exp=x_exp.values)
-    run_antakia(atk, False)
-
-
-def test_10():
-    # run y as df
-    splash_widget.reset()
-    app_widget.reset()
-    atk = AntakIA(X, y.to_frame(), model_DT)
-    run_antakia(atk, False)
-
-
-def test_11():
-    # run with numerical cols
-    splash_widget.reset()
-    app_widget.reset()
-    X2 = X
-    X2.columns = range(len(X.T))
-    model_DT = DecisionTreeRegressor().fit(X2, y)
-
-    atk = AntakIA(X2, y, model_DT)
-    run_antakia(atk, False)
+    def test_run_walk(self):
+        atk = AntakIA(self.X, self.y, self.model_DT)
+        run_walk(
+            atk,
+            [('select_points', [1]), ('find_rules', [])]
+        )
 
 
 def dummy_projection(_X, y, method, dim, callback, *args, **kwargs):
@@ -147,62 +143,111 @@ def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     assert get_widget(splash_widget.widget, '210').v_model == 100
 
     gui = atk.gui
-    check_all(gui, check)
+    if check:
+        check_all(gui)
+    # change colors
     for color in range(3):
-        set_color(gui, color)
-        check_all(gui, check)
+        set_color(gui, color, check=check)
+    # iterate over compute exp and projection
+    # note compute and project are mocked
     if atk.X_exp is None:
         exp_range = [1, 2]
         compute = [2]
     else:
         exp_range = [0, 1, 2]
         compute = [1, 2]
-    check_all(gui, check)
 
     for exp in compute:
-        compute_exp_method(gui, exp)
-        check_all(gui, check)
+        compute_exp_method(gui, exp, check=check)
     for exp in exp_range:
-        set_exp_method(gui, exp)
-        check_all(gui, check)
+        set_exp_method(gui, exp, check=check)
 
     for proj in range(3):
-        set_proj_method(gui, True, proj)
-        check_all(gui, check)
-        edit_parameter(gui, True)
-        check_all(gui, check)
-        set_proj_method(gui, False, proj)
-        check_all(gui, check)
-
+        set_proj_method(gui, True, proj, check=check)
+        if proj:
+            edit_parameter(gui, True, check=check)
+        set_proj_method(gui, False, proj, check=check)
+    # iterate through tabs
     for tab in range(3):
-        change_tab(gui, tab)
-        check_all(gui, check)
+        change_tab(gui, tab, check=check)
+    # manipoulate selection
+    change_tab(gui, 0, check=check)
+    select_points(gui, True, check=check)
+    select_points(gui, False, check=check)
+    unselect(gui, False, check=check)
+    # select points, find rules, validate
+    select_points(gui, True, check=check)
+    find_rules(gui, check=check)
+    validate_rules(gui, check=check)
+    # autocluster - select - subdivide
+    auto_cluster(gui, check=check)
+    toggle_select_region(gui, 1, check=check)
+    subdivide(gui, check=check)
+    # merge
+    toggle_select_region(gui, 1, check=check)
+    toggle_select_region(gui, 2, check=check)
+    merge(gui, check=check)
+    clear_region_selection(gui)
+    # select - substitute - select model
+    toggle_select_region(gui, 1, check=check)
+    substitute(gui, check=check)
+    select_model(gui, 0, check=check)
+    validate_model(gui, check=check)
 
-    change_tab(gui, 0)
-    check_all(gui, check)
-    select_points(gui, True)
-    check_all(gui, check)
-    select_points(gui, False)
-    check_all(gui, check)
-    unselect(gui, False)
-    check_all(gui, check)
 
-    select_points(gui, True)
-    find_rules(gui)
-    check_all(gui, check)
-    validate_rules(gui)
+actions = {
+    'set_color': (set_color, range(3)),
+    'compute_exp_method': (compute_exp_method, range(3)),
+    'set_exp_method': (set_exp_method, range(3)),
+    'set_proj_method': (set_proj_method, range(2), range(3)),
+    'edit_parameter': (edit_parameter, range(2)),
+    'change_tab': (change_tab, range(3)),
+    'select_points': (select_points, range(2)),
+    'unselect': (unselect, range(2)),
+    'find_rules': (find_rules,),
+    'validate_rules': (validate_rules,),
+    'auto_cluster': (auto_cluster,),
+    'toggle_select_region': (toggle_select_region, range(4)),
+    'subdivide': (subdivide,),
+    'merge': (merge,),
+    'clear_selection': (clear_region_selection,),
+    'substitute': (substitute,),
+    'select_model': (select_model, range(10)),
+    'validate_model': (validate_model,)
+}
 
-    auto_cluster(gui)
-    check_all(gui, check)
-    toggle_select_region(gui, 1)
-    check_all(gui, check)
-    subdivide(gui)
-    check_all(gui, check)
-    toggle_select_region(gui, 1)
-    check_all(gui, check)
-    substitute(gui)
-    check_all(gui, check)
-    select_model(gui, 'Decision Tree')
-    check_all(gui, check)
-    validate_model(gui)
-    check_all(gui, check)
+
+def random_walk(atk, steps):
+    atk.start_gui()
+    gui = atk.gui
+
+    k = 0
+    walk = []
+    action_list = list(actions.keys())
+    while k <= steps:
+        action = action_list[random.randint(0, len(actions) - 1)]
+        action_fct, *action_param = actions[action]
+        if len(action_param) > 0:
+            params = [random.choice(value_list) for value_list in action_param]
+        else:
+            params = []
+        try:
+            action_fct(gui, *params, check=True)
+            walk.append((action, params))
+            k += 1
+        except InteractionError:
+            pass
+        except:
+            walk.append((action, params))
+            print(walk)
+            raise
+
+
+def run_walk(atk, walk):
+    atk.start_gui()
+    gui = atk.gui
+    k = 0
+    for action, params in walk:
+        action_fct, *_ = actions[action]
+        action_fct(gui, *params, check=True)
+        k += 1

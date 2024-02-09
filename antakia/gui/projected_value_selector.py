@@ -19,8 +19,6 @@ class ProjectedValueSelector:
         self.update_callback = update_callback
         self.projected_value = projected_value
 
-        self.projection_select.on_event("change", self.projection_select_changed)
-
         self.progress_bar = ProgressBar(
             get_widget(app_widget.widget, "16" if self.is_value_space else "19"),
             True
@@ -28,6 +26,14 @@ class ProjectedValueSelector:
         self.progress_bar.update(100, 0)
 
         self.build_all_proj_param_w()
+        self.projection_select.on_event("change", self.projection_select_changed)
+
+    def initialize(self, progress_callback, pv: ProjectedValues | None):
+        if pv is not None:
+            # for ES space we need to manually provide the pv value in other to not trigger all auto updates
+            self.projected_value = pv
+        self.get_current_X_proj(progress_callback=progress_callback)
+        self.refresh()
 
     def refresh(self):
         self.disable(True)
@@ -158,7 +164,6 @@ class ProjectedValueSelector:
         self.update_params(widget.label, data)
 
     def update_params(self, parameter, new_value):
-        # disable widget
         self.projected_value.set_parameters(self.projection_method, self.current_dim,
                                             {parameter: new_value})
         self.refresh()
@@ -173,16 +178,17 @@ class ProjectedValueSelector:
         self.proj_param_widget.children[0].children = [widgets.VBox(params)]
         self.update_proj_param_value()
 
-    def disable_select(self, is_disabled):
+    def disable_select(self, is_disabled: bool):
         self.projection_select.disabled = is_disabled
 
-    def disable_params(self, is_disabled):
-        params = self._proj_params_cards[self.projection_method]
-        is_disabled |= len(params) == 0
+    def disable_params(self, is_disabled: bool):
         self.proj_param_widget.disabled = is_disabled
 
     def disable(self, is_disabled):
+        params = self._proj_params_cards[self.projection_method]
         self.disable_select(is_disabled)
+        # do not enable proj parama menu if there are no parameters
+        is_disabled |= len(params) == 0
         self.disable_params(is_disabled)
 
     def get_current_X_proj(self, dim=None, progress_callback=None) -> pd.DataFrame | None:

@@ -194,6 +194,7 @@ class GUI:
             pv=self.exp_values.current_pv,
             progress_callback=dimreduc_progress_bar.get_update(2)
         )
+        self.es_rules_wgt.update_X(self.exp_values.current_pv.X)
         self.selection_changed(None, boolean_mask(self.X, True))
 
         # TODO: call GUI.init_app from within GUI.__init__ ?
@@ -204,12 +205,14 @@ class GUI:
         splash_widget.widget.hide()
         app_widget.widget.show()
         self.select_tab(0)
+        self.disable_hde()
 
     def explanation_changed_callback(self, current_pv, progress_callback=None):
         self.es_hde.update_pv(current_pv, progress_callback)
         self.es_rules_wgt.update_X(current_pv.X)
 
-    def disable_hde(self, disable):
+    def disable_hde(self):
+        disable = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
         self.vs_hde.disable_widgets(disable)
         self.exp_values.disable_selection(disable)
         self.es_hde.disable_widgets(disable)
@@ -225,13 +228,11 @@ class GUI:
         # UI rules :
         # If new selection (empty or not) : if exist, we remove any 'pending rule'
         self.new_selection = True
+        self.disable_hde()
         if new_selection_mask.all():
             # Selection is empty
             # we display y as color
             self.select_tab(0)
-            # We enable both HDEs (proj select, explain select etc.)
-            self.disable_hde(False)
-
             # we reset rules_widgets
             self.vs_rules_wgt.disable()
             self.es_rules_wgt.disable()
@@ -239,8 +240,6 @@ class GUI:
             self.vs_rules_wgt.reset_widget()
         else:
             # Selection is not empty anymore or changes
-            # We disable HDEs (proj select, explain select etc.)
-            self.disable_hde(True)
             X_rounded = copy.copy((self.X.loc[new_selection_mask])).round(3)
             change_widget(
                 app_widget.widget,
@@ -467,7 +466,10 @@ class GUI:
     def select_tab(self, tab, front=False):
         if tab == 1 and (not self.selection_mask.any() or self.selection_mask.all()):
             return self.select_tab(0)
-        if tab == 2:
+        if tab == 1:
+            self.vs_hde.display_selection()
+            self.es_hde.display_selection()
+        elif tab == 2:
             self.update_region_table()
             self.vs_hde.display_regionset(self.region_set)
             self.es_hde.display_regionset(self.region_set)
@@ -486,10 +488,12 @@ class GUI:
         self.vs_hde.set_tab(tab)
         self.es_hde.set_tab(tab)
         self.tab = tab
+        self.disable_hde()
 
     # ==================== TAB 1 ==================== #
 
     def refresh_buttons_tab_1(self):
+        self.disable_hde()
         # data table
         get_widget(app_widget.widget, "4320").disabled = bool(self.selection_mask.all())
         # skope_rule

@@ -1,3 +1,5 @@
+from functools import wraps
+
 from antakia import config
 from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.compute.dim_reduction.dim_reduction import dim_reduc_factory
@@ -80,7 +82,7 @@ def check_proj_menu(gui):
     assert vs_pvs.projection_method == vs_pvs.projected_value.current_proj.reduction_method
     assert vs_pvs.current_dim == vs_pvs.projected_value.current_proj.dimension
     assert vs_pvs.proj_param_widget.disabled == (
-            (vs_pvs.projection_select.v_model == 'PCA') or not gui.selection_mask.all()
+            (vs_pvs.projection_select.v_model == 'PCA') or (not gui.selection_mask.all() and gui.tab == 0)
     )
     assert len(get_widget(app_widget.widget, "1500").children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(vs_pvs.projection_select.v_model)].parameters())
@@ -89,7 +91,7 @@ def check_proj_menu(gui):
     assert es_pvs.projection_method == es_pvs.projected_value.current_proj.reduction_method
     assert es_pvs.current_dim == es_pvs.projected_value.current_proj.dimension
     assert es_pvs.proj_param_widget.disabled == (
-            (es_pvs.projection_select.v_model == 'PCA') or not gui.selection_mask.all()
+            (es_pvs.projection_select.v_model == 'PCA') or (not gui.selection_mask.all() and gui.tab == 0)
     )
     assert len(get_widget(app_widget.widget, "1800").children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(es_pvs.projection_select.v_model)].parameters())
@@ -134,12 +136,23 @@ def check_tab_3_btn(gui):
     )
 
 
-def check_all(gui, check=True):
-    if check:
-        check_dim(gui)
-        check_hde_color(gui)
-        check_exp_menu(gui)
-        check_proj_menu(gui)
-        check_tab_1_btn(gui)
-        check_tab_2_btn(gui)
-        check_tab_3_btn(gui)
+def check_all(gui):
+    check_dim(gui)
+    check_hde_color(gui)
+    check_exp_menu(gui)
+    check_proj_menu(gui)
+    check_tab_1_btn(gui)
+    check_tab_2_btn(gui)
+    check_tab_3_btn(gui)
+
+
+def check(method):
+    @wraps(method)
+    def check(gui, *args, check=False, **kw):
+        result = method(gui, *args, **kw)
+        if check:
+            check_all(gui)
+            return result
+
+    return check
+

@@ -24,39 +24,42 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
-ipykernel = "^6.26.0"
-ipython = "^8.17.2"
 ipyvuetify = "^1.8.10"
 ipywidgets = "^8.1.1"
-jupyterlab = "^4.0.8"
-jupyterlab-widgets = "^3.0.9"
 lime = "^0.2.0.1"
 numba = "^0.58.1"
 plotly = "^5.18.0"
-pre-commit = "^3.5.0"
 scikit-learn = "^1.3.2"
 shap = "^0.43.0"
 umap-learn = "^0.5.4"
 skope-rules = {git = "https://github.com/scikit-learn-contrib/skope-rules.git"}
 pandas = ">=1.5.3"
-jupyter = "^1.0.0"
 pacmap = "^0.7.1"
 pygam = "^0.9.0"
 interpret = "^0.4.4"
 voila = "^0.5.5"
 tomaster = "^0.0.5"
-mkdocs = "^1.5.3"
 opentsne = "^1.0.0"
 python-dotenv = "^1.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
+ipykernel = "^6.26.0"
+ipython = "^8.17.2"
+pre-commit = "^3.5.0"
+mkdocs = "^1.5.3"
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.8"
+jupyterlab-widgets = "^3.0.9"
 mock = "^5.1.0"
 pytest = "^7.4.3"
 pytest-cov = "^4.1.0"
 
 
 [tool.poetry.group.demo.dependencies]
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.8"
+jupyterlab-widgets = "^3.0.9"
 catboost = "^1.2.2"
 
 [project.urls]
