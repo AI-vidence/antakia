@@ -6,17 +6,16 @@ import pandas as pd
 import ipyvuetify as v
 import IPython.display
 
-from antakia.data_handler.projected_values import ProjectedValues
-from antakia.data_handler.region import ModelRegionSet, ModelRegion
+from antakia_core.data_handler.projected_values import ProjectedValues
+from antakia_core.data_handler.region import ModelRegionSet, ModelRegion
 from antakia.gui.explanation_values import ExplanationValues
 from antakia.gui.progress_bar import ProgressBar, MultiStepProgressBar
-from antakia.utils.long_task import LongTask
-from antakia.compute.explanation.explanation_method import ExplanationMethod
-from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
-from antakia.compute.auto_cluster.auto_cluster import AutoCluster
-from antakia.compute.skope_rule.skope_rule import skope_rules
+from antakia.explanation.explanation_method import ExplanationMethod
+from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
+from antakia_ac.auto_cluster import AutoCluster
+from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import antakia.config as config
-from antakia.data_handler.rules import RuleSet
+from antakia_core.data_handler.rules import RuleSet
 
 from antakia.gui.widgets import get_widget, change_widget, splash_widget, app_widget
 from antakia.gui.highdimexplorer import HighDimExplorer
@@ -26,8 +25,8 @@ import copy
 
 import logging
 from antakia.utils.logging import conf_logger
-from antakia.utils.utils import boolean_mask, ProblemCategory
-from antakia.utils.variable import DataVariables
+from antakia_core.utils.utils import boolean_mask, ProblemCategory
+from antakia_core.utils.variable import DataVariables
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)

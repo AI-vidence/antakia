@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from antakia.compute.explanation.explanations import compute_explanations
+from antakia.explanation.explanations import compute_explanations
 from antakia.utils.dummy_datasets import load_dataset
 from sklearn.tree import DecisionTreeRegressor
 

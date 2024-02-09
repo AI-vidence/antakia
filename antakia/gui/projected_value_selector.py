@@ -1,14 +1,14 @@
 import pandas as pd
 
-from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
-from antakia.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia.data_handler.projected_values import ProjectedValues, Proj
+from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
+from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
+from antakia_core.data_handler.projected_values import ProjectedValues, Proj
 from antakia.gui.progress_bar import ProgressBar
 from antakia.gui.widgets import get_widget, app_widget
 from ipywidgets import widgets
 import ipyvuetify as v
 
-from antakia.utils import utils
+from antakia_core.utils import utils
 
 
 class ProjectedValueSelector:

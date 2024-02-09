@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import shap
 
-from antakia.compute.explanation.explanation_method import ExplanationMethod
+from antakia.explanation.explanation_method import ExplanationMethod
 
 
 # ===========================================================

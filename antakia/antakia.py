@@ -7,12 +7,12 @@ import pandas as pd
 
 from dotenv import load_dotenv
 
-from antakia.utils.utils import ProblemCategory
+from antakia_core.utils.utils import ProblemCategory
 
 load_dotenv()
 
 from antakia.utils.checks import is_valid_model
-from antakia.utils.variable import Variable, DataVariables
+from antakia_core.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
 
 

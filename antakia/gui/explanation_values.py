@@ -1,8 +1,8 @@
 import pandas as pd
 
 from antakia import config
-from antakia.compute.explanation.explanations import compute_explanations, ExplanationMethod
-from antakia.data_handler.projected_values import ProjectedValues
+from antakia.explanation.explanations import compute_explanations, ExplanationMethod
+from antakia_core.data_handler.projected_values import ProjectedValues
 from antakia.gui.progress_bar import ProgressBar
 from antakia.gui.widgets import get_widget, app_widget
 
@@ -37,7 +37,8 @@ class ExplanationValues:
         }
 
         if X_exp is not None:
-            self.explanations[self.available_exp[0]] = ProjectedValues(X_exp, y)
+            self.explanations[self.available_exp[0]] = ProjectedValues(X_exp, y, (
+            config.DEFAULT_PROJECTION, config.DEFAULT_DIMENSION))
 
         # set up compute menu
         get_widget(app_widget.widget, "13000203").on_event("click", self.compute_btn_clicked)
@@ -142,7 +143,8 @@ class ExplanationValues:
         pd.testing.assert_index_equal(X_exp.columns, self.X.columns)
 
         # update explanation
-        self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y)
+        self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y, (
+            config.DEFAULT_PROJECTION, config.DEFAULT_DIMENSION))
         # refresh front
         self.update_explanation_select()
         self.update_compute_menu()

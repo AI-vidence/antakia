@@ -1,4 +1,4 @@
-from antakia.compute.explanation.explanation_method import ExplanationMethod
+from antakia.explanation.explanation_method import ExplanationMethod
 from antakia.gui.explanation_values import ExplanationValues
 
 import pandas as pd

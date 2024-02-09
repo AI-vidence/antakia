@@ -1,6 +1,6 @@
 import pandas as pd
 
-from antakia.utils.long_task import LongTask
+from antakia_core.utils.long_task import LongTask
 
 
 class ExplanationMethod(LongTask):

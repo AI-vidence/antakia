@@ -6,12 +6,12 @@ from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier
 
-from antakia.data_handler.region import Region, RegionSet
+from antakia_core.data_handler.region import Region, RegionSet
 from antakia.gui.projected_value_selector import ProjectedValueSelector
 
-import antakia.utils.utils as utils
+import antakia_core.utils.utils as utils
 import antakia.config as config
-from antakia.data_handler.projected_values import ProjectedValues
+from antakia_core.data_handler.projected_values import ProjectedValues
 
 import logging as logging
 from antakia.utils.logging import conf_logger

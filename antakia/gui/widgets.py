@@ -7,7 +7,7 @@ import ipyvuetify as v
 from plotly.graph_objects import FigureWidget, Histogram, Scattergl
 import traitlets
 
-from antakia.compute.dim_reduction.dim_reduc_method import DimReducMethod
+from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia.gui.colorTable import ColorTable
 
 from importlib.resources import files
