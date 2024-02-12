@@ -1,4 +1,5 @@
 import pandas as pd
+from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
 from antakia import config
 from antakia.explanation.explanations import compute_explanations, ExplanationMethod
@@ -144,7 +145,8 @@ class ExplanationValues:
 
         # update explanation
         self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y, (
-            config.DEFAULT_PROJECTION, config.DEFAULT_DIMENSION))
+            DimReducMethod.dimreduc_method_as_int(config.DEFAULT_PROJECTION),
+            config.DEFAULT_DIMENSION))
         # refresh front
         self.update_explanation_select()
         self.update_compute_menu()

@@ -3,6 +3,8 @@ import pandas as pd
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
 from antakia_core.data_handler.projected_values import ProjectedValues, Proj
+
+from antakia import config
 from antakia.gui.progress_bar import ProgressBar
 from antakia.gui.widgets import get_widget, app_widget
 from ipywidgets import widgets
@@ -71,8 +73,7 @@ class ProjectedValueSelector:
 
         """
         if self.projection_select.v_model == '!!disabled!!':
-            self.projection_select.v_model = DimReducMethod.default_projection_as_str()
-            return DimReducMethod.default_projection_as_int()
+            self.projection_select.v_model = config.DEFAULT_PROJECTION
         return DimReducMethod.dimreduc_method_as_int(
             self.projection_select.v_model
         )

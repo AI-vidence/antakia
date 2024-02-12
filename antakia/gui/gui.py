@@ -91,7 +91,8 @@ class GUI:
         init_dim = config.DEFAULT_DIMENSION
         # first hde
         self.vs_hde = HighDimExplorer(
-            ProjectedValues(self.X, self.y),
+            ProjectedValues(self.X, self.y, (
+                DimReducMethod.dimreduc_method_as_int(config.DEFAULT_PROJECTION), config.DEFAULT_DIMENSION)),
             init_dim,
             int(config.INIT_FIG_WIDTH / 2),
             self.selection_changed,
@@ -183,11 +184,10 @@ class GUI:
             unactive_color="light blue",
             reset_at_end=False
         )
-
         # We trigger VS proj computation :
         get_widget(
             splash_widget.widget, "220"
-        ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} 1/2"
+        ).v_model = f"{config.DEFAULT_PROJECTION} on {self.X.shape} 1/2"
 
         self.vs_hde.initialize(progress_callback=dimreduc_progress_bar.get_update(1))
 
@@ -203,7 +203,7 @@ class GUI:
         # THen we trigger ES proj computation :
         get_widget(
             splash_widget.widget, "220"
-        ).v_model = f"{DimReducMethod.default_projection_as_str()} on {self.X.shape} 2/2"
+        ).v_model = f"{config.DEFAULT_PROJECTION} on {self.X.shape} 2/2"
         self.es_hde.initialize(
             pv=self.exp_values.current_pv,
             progress_callback=dimreduc_progress_bar.get_update(2)

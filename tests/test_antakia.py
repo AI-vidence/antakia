@@ -141,7 +141,7 @@ def dummy_exp(_X, model, method, callback, *args, **kwargs):
 
 
 @mock.patch('antakia.gui.explanation_values.compute_explanations', wraps=dummy_exp)
-@mock.patch('antakia.data_handler.projected_values.compute_projection', wraps=dummy_projection)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection', wraps=dummy_projection)
 def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     atk.start_gui()
     # assert both progress bar are full after start up

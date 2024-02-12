@@ -59,7 +59,7 @@ umap-learn = "^0.5.5"
 type = "git"
 url = "ssh://git@code.ai-vidence.com:29418/ai-vidence/antakia-core.git"
 reference = "HEAD"
-resolved_reference = "f9a17c1898fa62b40f3cf2905d95c650fd232097"
+resolved_reference = "684a80f43ddcdcdee8fed7345ead1d3dc4efe7e7"
 
 [[package]]
 name = "anyio"
