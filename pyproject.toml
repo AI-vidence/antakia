@@ -29,7 +29,6 @@ ipywidgets = "^8.1.1"
 lime = "^0.2.0.1"
 plotly = "^5.18.0"
 shap = "^0.43.0"
-skope-rules = {git = "https://github.com/scikit-learn-contrib/skope-rules.git"}
 voila = "^0.5.5"
 python-dotenv = "^1.0.0"
 #antakia-core = {path = "../antakia_core", develop=true}
