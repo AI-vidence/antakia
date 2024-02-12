@@ -55,6 +55,12 @@ class TestAntakia(TestCase):
         atk = AntakIA(self.X, self.y, self.regression_DT)
         run_antakia(atk, True)
 
+    def test_vanilla_run_test(self):
+        # vanilla run
+        atk = AntakIA(self.X, self.y, self.regression_DT,
+                      X_test=self.X_test, y_test=self.y_test)
+        run_antakia(atk, True)
+
     def test_shape_issue(self):
         # shape issue
         with pytest.raises(AssertionError):
@@ -121,7 +127,10 @@ class TestAntakia(TestCase):
         atk = AntakIA(self.X, self.y, self.regression_DT)
         run_walk(
             atk,
-            [('edit_parameter', [0]), ('set_color', [2]), ('select_points', [1]), ('set_color', [0]), ('find_rules', []), ('set_proj_method', [1, 1]), ('edit_parameter', [1]), ('change_tab', [0]), ('set_color', [0]), ('validate_rules', []), ('auto_cluster', []), ('auto_cluster', []), ('toggle_select_region', [3]), ('auto_cluster', []), ('substitute', [])]
+            [('edit_parameter', [0]), ('set_color', [2]), ('select_points', [1]), ('set_color', [0]),
+             ('find_rules', []), ('set_proj_method', [1, 1]), ('edit_parameter', [1]), ('change_tab', [0]),
+             ('set_color', [0]), ('validate_rules', []), ('auto_cluster', []), ('auto_cluster', []),
+             ('toggle_select_region', [3]), ('auto_cluster', []), ('substitute', [])]
 
         )
 
