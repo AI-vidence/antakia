@@ -135,3 +135,5 @@ class HighDimExplorer:
     def set_selection(self, *args, **kwargs):
         return self.figure.set_selection(*args, **kwargs)
 
+    def set_dim(self, dim:int):
+        self.projected_value_selector.update_dim(dim)

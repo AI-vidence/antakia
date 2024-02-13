@@ -73,11 +73,6 @@ class FigureDisplay:
         y: target value (default color)
         selection_changed : callable called when a selection changed
         """
-        if X is not None:
-            self.dim = X.shape[1]
-            assert self.dim in (2, 3)
-        else:
-            self.dim = 2
         # current active tab
         self.active_tab = 0
         # mask of value to display to limit points on graph
@@ -93,8 +88,8 @@ class FigureDisplay:
         self.widget.class_ = "flex-fill"
 
         # display parameters
-        self.fig_width = config.INIT_FIG_WIDTH
-        self.fig_height = config.INIT_FIG_WIDTH / 2
+        self.fig_width = config.INIT_FIG_WIDTH / 2
+        self.fig_height = config.INIT_FIG_WIDTH / 4
 
         # is graph selectable
         self._selection_mode = 'lasso'
@@ -112,9 +107,29 @@ class FigureDisplay:
         self._colors: list[pd.Series | None] = [None, None, None, None]
 
         # figures
-        self.figure = None
+        self.figure_2D = self.figure_3D = None
         # is the class fully initialized
         self.initialized = False
+
+    @property
+    def figure(self):
+        if self.dim == 2:
+            return self.figure_2D
+        else:
+            return self.figure_3D
+
+    @figure.setter
+    def figure(self, value):
+        if self.dim == 2:
+            self.figure_2D = value
+        else:
+            self.figure_3D = value
+
+    @property
+    def dim(self):
+        if self.X is None:
+            return config.DEFAULT_DIMENSION
+        return self.X.shape[1]
 
     @property
     def current_selection(self):
@@ -524,6 +539,7 @@ class FigureDisplay:
                 self._show_trace(trace_id, self._visible[trace_id])
                 self.refresh_trace(trace_id)
             self.update_fig_size()
+        self.widget.children = [self.figure]
 
     def get_X(self, masked: bool) -> pd.DataFrame | None:
         """

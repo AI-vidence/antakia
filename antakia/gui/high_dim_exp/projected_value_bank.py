@@ -1,4 +1,4 @@
-from antakia_core.data_handler.projected_values import ProjectedValues, Proj
+from antakia_core.data_handler.projected_values import ProjectedValues
 
 
 class ProjectedValueBank:

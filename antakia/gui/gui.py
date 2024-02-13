@@ -87,7 +87,6 @@ class GUI:
         # Init value space widgets
         self.new_selection = False
         self.selection_mask = boolean_mask(X, True)
-        init_dim = config.DEFAULT_DIMENSION
 
         self.pv_bank = ProjectedValueBank(y)
 
@@ -226,8 +225,8 @@ class GUI:
 
     def set_dimension(self, dim):
         get_widget(self.widget, "100").v_model = dim == 3
-        self.vs_hde.dim = dim
-        self.es_hde.dim = dim
+        self.vs_hde.set_dim(dim)
+        self.es_hde.set_dim(dim)
 
     def selection_changed(self, caller: HighDimExplorer | None, new_selection_mask: pd.Series):
         """Called when the selection of one HighDimExplorer changes"""

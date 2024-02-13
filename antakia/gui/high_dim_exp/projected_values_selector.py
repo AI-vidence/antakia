@@ -39,10 +39,10 @@ class ProjectedValuesSelector:
                 label="Projection in the ES :",
                 items=DimReducMethod.dimreduc_methods_as_str_list(),
                 style_="width: 15%",
-                class_="ml-4 mr-4",
+                class_="ml-2 mr-2",
             ),
             v.Menu(  # 141 # ES proj settings
-                class_="ml-4 mr-4",
+                class_="ml-2 mr-2",
                 v_slots=[
                     {
                         "name": "activator",
@@ -114,10 +114,10 @@ class ProjectedValuesSelector:
                 color="blue",
                 width="6",
                 size="35",
-                class_="ml-4 mr-4",
+                class_="ml-2 mr-2 mt-2",
             )
         ])
-        self.progress_bar = ProgressBar(self.widget.children[2])
+        self.progress_bar = ProgressBar(self.widget.children[2], indeterminate=True)
         self.progress_bar.update(100, 0)
         self.projection_select.on_event("change", self.projection_select_changed)
         self.build_all_proj_param_w()
