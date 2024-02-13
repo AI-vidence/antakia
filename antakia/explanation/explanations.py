@@ -21,7 +21,10 @@ class SHAPExplanation(ExplanationMethod):
 
     def compute(self) -> pd.DataFrame:
         self.publish_progress(0)
-        explainer = shap.TreeExplainer(self.model)
+        try:
+            explainer = shap.TreeExplainer(self.model)
+        except:
+            explainer = shap.KernelExplainer(self.model.predict, self.X.sample(min(200, len(self.X))))
         chunck_size = 200
         shap_val_list = []
         for i in range(0, len(self.X), chunck_size):

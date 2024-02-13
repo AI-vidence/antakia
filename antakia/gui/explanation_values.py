@@ -1,11 +1,9 @@
 import pandas as pd
-from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
+import ipyvuetify as v
 
 from antakia import config
 from antakia.explanation.explanations import compute_explanations, ExplanationMethod
-from antakia_core.data_handler.projected_values import ProjectedValues
 from antakia.gui.progress_bar import ProgressBar
-from antakia.gui.widgets import get_widget, app_widget
 
 
 class ExplanationValues:
@@ -20,12 +18,13 @@ class ExplanationValues:
 
         Parameters
         ----------
-        X: orignal train DataFrame
+        X: original train DataFrame
         y: target variable
         model: customer model
         on_change_callback: callback to notify explanation change
         X_exp: user provided explanations
         """
+        self.widget = None
         self.X = X
         self.y = y
         self.model = model
@@ -33,18 +32,12 @@ class ExplanationValues:
         self.initialized = False
 
         # init dict of explanations
-        self.explanations: dict[str, ProjectedValues | None] = {
+        self.explanations: dict[str, pd.DataFrame | None] = {
             exp: None for exp in self.available_exp
         }
 
         if X_exp is not None:
-            self.explanations[self.available_exp[0]] = ProjectedValues(X_exp, y, (
-            config.DEFAULT_PROJECTION, config.DEFAULT_DIMENSION))
-
-        # set up compute menu
-        get_widget(app_widget.widget, "13000203").on_event("click", self.compute_btn_clicked)
-        get_widget(app_widget.widget, "13000303").on_event("click", self.compute_btn_clicked)
-        self.update_compute_menu()
+            self.explanations[self.available_exp[0]] = X_exp
 
         # init selected explanation
         if X_exp is not None:
@@ -52,10 +45,34 @@ class ExplanationValues:
         else:
             self.current_exp = self.available_exp[1]
 
+        self.build_widget()
+
+    def build_widget(self):
+        self.widget = v.Row(children=[
+            v.Select(  # Select of explanation method
+                label="Explanation method",
+                items=[
+                    {"text": "Imported", "disabled": True},
+                    {"text": "SHAP", "disabled": True},
+                    {"text": "LIME", "disabled": True},
+                ],
+                class_="ml-6 mr-6",
+                style_="width: 15%",
+                disabled=False,
+            ),
+            v.ProgressCircular(  # exp menu progress bar
+                class_="ml-6 mr-6",
+                indeterminate=False,
+                color="grey",
+                width="6",
+                size="35",
+            )
+        ])
         # refresh select menu
         self.update_explanation_select()
-        # set up callback
         self.get_explanation_select().on_event("change", self.explanation_select_changed)
+        # set up callback
+        self.get_progress_bar().reset_progress_bar()
 
     def initialize(self, progress_callback):
         """
@@ -70,13 +87,13 @@ class ExplanationValues:
         """
         if not self.has_user_exp:
             # compute explanation if not provided
-            self.compute_explanation(config.DEFAULT_EXPLANATION_METHOD, progress_callback, auto_update=False)
-        # ensure progess is at 100%
+            self.compute_explanation(config.DEFAULT_EXPLANATION_METHOD, progress_callback)
+        # ensure progress is at 100%
         progress_callback(100, 0)
         self.initialized = True
 
     @property
-    def current_pv(self) -> ProjectedValues:
+    def current_exp_df(self) -> pd.DataFrame:
         """
         currently selected explanation projected values instance
         Returns
@@ -102,19 +119,25 @@ class ExplanationValues:
         -------
 
         """
-        self.get_explanation_select().items = [
-            {"text": exp, "disabled": self.explanations[exp] is None} for exp in self.available_exp
-        ]
+        exp_values = []
+        for exp in self.available_exp:
+            if exp == 'Imported':
+                exp_values.append({
+                    "text": exp,
+                    'disabled': self.explanations[exp] is None
+                })
+            else:
+                exp_values.append({
+                    "text": exp + (' (compute)' if self.explanations[exp] is None else ''),
+                    'disabled': False
+                })
+        self.get_explanation_select().items = exp_values
         self.get_explanation_select().v_model = self.current_exp
 
-    def get_compute_menu(self):
-        """
-        returns the compute menu widget
-        Returns
-        -------
-
-        """
-        return get_widget(app_widget.widget, "13")
+    def get_progress_bar(self):
+        progress_widget = self.widget.children[1]
+        progress_bar = ProgressBar(progress_widget)
+        return progress_bar
 
     def get_explanation_select(self):
         """
@@ -123,16 +146,15 @@ class ExplanationValues:
         -------
 
         """
-        return get_widget(app_widget.widget, "12")
+        return self.widget.children[0]
 
-    def compute_explanation(self, explanation_method: int, progress_bar: callable, auto_update: bool = True):
+    def compute_explanation(self, explanation_method: int, progress_bar: callable):
         """
         compute explanation and refresh widgets (select the new explanation method)
         Parameters
         ----------
         explanation_method: desired explanation
         progress_bar : progress bar to notify progress to
-        auto_update : should trigger the on change callback
 
         Returns
         -------
@@ -140,51 +162,13 @@ class ExplanationValues:
         """
         self.current_exp = self.available_exp[explanation_method]
         # We compute proj for this new PV :
-        X_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
-        pd.testing.assert_index_equal(X_exp.columns, self.X.columns)
+        x_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
+        pd.testing.assert_index_equal(x_exp.columns, self.X.columns)
 
         # update explanation
-        self.explanations[self.current_exp] = ProjectedValues(X_exp, self.y, (
-            DimReducMethod.dimreduc_method_as_int(config.DEFAULT_PROJECTION),
-            config.DEFAULT_DIMENSION))
+        self.explanations[self.current_exp] = x_exp
         # refresh front
         self.update_explanation_select()
-        self.update_compute_menu()
-        # call callback
-        if auto_update:
-            self.on_change_callback(self.current_pv, progress_bar)
-
-    def update_compute_menu(self):
-        """
-        refresh compute menu
-        Returns
-        -------
-
-        """
-        is_shap_computed = self.explanations[self.available_exp[1]] is not None
-        get_widget(app_widget.widget, "130000").disabled = is_shap_computed
-        get_widget(app_widget.widget, "13000203").disabled = is_shap_computed
-
-        is_lime_computed = self.explanations[self.available_exp[2]] is not None
-        get_widget(app_widget.widget, "130001").disabled = is_lime_computed
-        get_widget(app_widget.widget, "13000303").disabled = is_lime_computed
-
-    def compute_btn_clicked(self, widget, event, data):
-        """
-        Called when new explanation computed values are wanted
-        """
-        # This compute btn is no longer useful / clickable
-        widget.disabled = True
-
-        if widget == get_widget(app_widget.widget, "13000203"):
-            desired_explain_method = ExplanationMethod.SHAP
-            progress_widget = get_widget(app_widget.widget, "13000201")
-        else:
-            desired_explain_method = ExplanationMethod.LIME
-            progress_widget = get_widget(app_widget.widget, "13000301")
-
-        progress_bar = ProgressBar(progress_widget)
-        self.compute_explanation(desired_explain_method, progress_bar.update)
 
     def disable_selection(self, is_disabled: bool):
         """
@@ -197,7 +181,6 @@ class ExplanationValues:
         -------
 
         """
-        self.get_compute_menu().disabled = is_disabled
         self.get_explanation_select().disabled = is_disabled
 
     def explanation_select_changed(self, widget, event, data):
@@ -215,6 +198,14 @@ class ExplanationValues:
 
         Called when the user chooses another dataframe
         """
+        if not isinstance(data, str):
+            raise KeyError('invalid explanation')
+        data = data.replace(' ', '').replace('(compute)', '')
         self.current_exp = data
 
-        self.on_change_callback(self.current_pv)
+        if self.explanations[self.current_exp] is None:
+            exp_method = ExplanationMethod.explain_method_as_int(self.current_exp)
+            progress_bar = self.get_progress_bar()
+            self.compute_explanation(exp_method, progress_bar)
+
+        self.on_change_callback(self.current_exp_df)

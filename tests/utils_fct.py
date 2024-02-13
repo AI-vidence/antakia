@@ -20,6 +20,16 @@ def dr_callback(*args):
 test_progress_bar = ProgressBar(v.ProgressLinear(), reset_at_end=False)
 
 
+class DummyModel:
+    def predict(self, X):
+        if isinstance(X, pd.DataFrame):
+            return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
+        return ((X[:, 0] > 0.5) & (X[:, 1] > 0.5)).astype(int)
+
+    def score(self, *args):
+        return 1
+
+
 def generate_df_series_callable():
     test_progress_bar.reset_progress_bar()
 
@@ -43,7 +53,7 @@ def generate_ExplanationValues(model=None, X_exp=None) -> tuple[pd.DataFrame, pd
         progress(100, 0)
 
     if model is None:
-        model = 'DT'
+        model = DummyModel()
 
     exp_val = ExplanationValues(X, y, model, on_change_callback, X_exp)
 

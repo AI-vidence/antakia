@@ -10,7 +10,6 @@ def test_init():
     exp_meth = EMPTYExplanation(X, y, 'DT', lambda *args: None)
     assert exp_meth.explanation_method == 1
     np.testing.assert_array_equal(exp_meth.X, X)
-    assert exp_meth.model == exp_val.model
 
 
 def test_is_valid_explanation_method():

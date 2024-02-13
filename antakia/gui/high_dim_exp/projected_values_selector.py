@@ -2,56 +2,147 @@ import pandas as pd
 
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia_core.data_handler.projected_values import ProjectedValues, Proj
+from antakia_core.data_handler.projected_values import Proj
 
 from antakia import config
+from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia.gui.progress_bar import ProgressBar
-from antakia.gui.widgets import get_widget, app_widget
 from ipywidgets import widgets
 import ipyvuetify as v
 
 from antakia_core.utils import utils
 
 
-class ProjectedValueSelector:
-    def __init__(self, is_value_space: bool, dim: int, update_callback: callable, projected_value: ProjectedValues):
+class ProjectedValuesSelector:
+    def __init__(self, pv_bank: ProjectedValueBank, update_callback: callable):
+        self.widget = None
+        self.progress_bar = None
+        self.projected_value = None
         self._proj_params_cards = {}
-        self.current_dim = dim
-        self.is_value_space = is_value_space
         self.update_callback = update_callback
-        self.projected_value = projected_value
+        self.pv_bank = pv_bank
+        self.build_widget()
 
-        self.progress_bar = ProgressBar(
-            get_widget(app_widget.widget, "16" if self.is_value_space else "19"),
-            True
+        self.X = None
+        self.current_proj = Proj(
+            DimReducMethod.dimreduc_method_as_int(config.DEFAULT_PROJECTION),
+            config.DEFAULT_DIMENSION
         )
-        self.progress_bar.update(100, 0)
 
+    @property
+    def current_dim(self):
+        return self.current_proj.dimension
+
+    def build_widget(self):
+        self.widget = v.Row(children=[
+            v.Select(  # 140 # Selection of ES proj method
+                label="Projection in the ES :",
+                items=DimReducMethod.dimreduc_methods_as_str_list(),
+                style_="width: 15%",
+                class_="ml-4 mr-4",
+            ),
+            v.Menu(  # 141 # ES proj settings
+                class_="ml-4 mr-4",
+                v_slots=[
+                    {
+                        "name": "activator",
+                        "variable": "props",
+                        "children": v.Btn(
+                            v_on="props.on",
+                            icon=True,
+                            size="x-large",
+                            children=[
+                                v.Icon(
+                                    children=["mdi-cogs"],
+                                    size="large",
+                                )
+                            ],
+                            class_="ma-2 pa-3",
+                            elevation="3",
+                        ),
+                    }
+                ],
+                children=[
+                    v.Card(  # 1410
+                        class_="pa-4",
+                        rounded=True,
+                        children=[
+                            widgets.VBox(  # 14100
+                                [
+                                    v.Slider(  # 141000
+                                        class_="ma-8 pa-2",
+                                        v_model=10,
+                                        min=5,
+                                        max=30,
+                                        step=1,
+                                        label="Number of neighbours",
+                                        thumb_label="always",
+                                        thumb_size=25,
+                                    ),
+                                    v.Slider(  # 141001
+                                        class_="ma-8 pa-2",
+                                        v_model=0.5,
+                                        min=0.1,
+                                        max=0.9,
+                                        step=0.1,
+                                        label="MN ratio",
+                                        thumb_label="always",
+                                        thumb_size=25,
+                                    ),
+                                    v.Slider(  # 141002
+                                        class_="ma-8 pa-2",
+                                        v_model=2,
+                                        min=0.1,
+                                        max=5,
+                                        step=0.1,
+                                        label="FP ratio",
+                                        thumb_label="always",
+                                        thumb_size=25,
+                                    )
+                                ],
+                            )
+                        ],
+                        min_width="500",
+                    )
+                ],
+                v_model=False,
+                close_on_content_click=False,
+                offset_y=True,
+            ),
+            v.ProgressCircular(  # 142 # ES side progress bar
+                indeterminate=True,
+                color="blue",
+                width="6",
+                size="35",
+                class_="ml-4 mr-4",
+            )
+        ])
+        self.progress_bar = ProgressBar(self.widget.children[2])
+        self.progress_bar.update(100, 0)
+        self.projection_select.on_event("change", self.projection_select_changed)
         self.build_all_proj_param_w()
         self.projection_select.on_event("change", self.projection_select_changed)
 
-    def initialize(self, progress_callback, pv: ProjectedValues | None):
-        if pv is not None:
-            # for ES space we need to manually provide the pv value in other to not trigger all auto updates
-            self.projected_value = pv
+    def initialize(self, progress_callback, X: pd.DataFrame):
+        self.projected_value = self.pv_bank.get_projected_values(X)
         self.get_current_X_proj(progress_callback=progress_callback)
         self.refresh()
 
     def refresh(self):
         self.disable(True)
         self.projection_select.v_model = DimReducMethod.dimreduc_method_as_str(
-            self.projected_value.current_proj.reduction_method
+            self.current_proj.reduction_method
         )
         self.update_proj_params_menu()
         self.update_callback()
         self.disable(False)
 
-    def update_projected_value(self, new_projected_value: ProjectedValues):
-        self.projected_value = new_projected_value
+    def update_X(self, X: pd.DataFrame):
+        self.projected_value = self.pv_bank.get_projected_values(X)
         self.refresh()
 
     def update_dim(self, dim):
-        self.current_dim = dim
+        self.current_proj = Proj(self.current_proj.reduction_method, dim)
         self.refresh()
 
     @property
@@ -62,7 +153,7 @@ class ProjectedValueSelector:
         -------
 
         """
-        return get_widget(app_widget.widget, "14" if self.is_value_space else "17")
+        return self.widget.children[0]
 
     @property
     def projection_method(self) -> int:
@@ -92,7 +183,7 @@ class ProjectedValueSelector:
         -------
 
         """
-        self.projected_value.current_proj = Proj(self.projection_method, self.current_dim)
+        self.current_proj = Proj(self.projection_method, self.current_dim)
         self.update_proj_params_menu()
         self.refresh()
 
@@ -104,7 +195,7 @@ class ProjectedValueSelector:
         -------
 
         """
-        return get_widget(app_widget.widget, "15" if self.is_value_space else "18")
+        return self.widget.children[1]
 
     def build_proj_param_widget(self, dim_reduc) -> list[v.Slider]:
         """
@@ -140,7 +231,7 @@ class ProjectedValueSelector:
         return sliders
 
     def update_proj_param_value(self):
-        parameters = self.projected_value.get_parameters(self.projection_method, self.current_dim)['current']
+        parameters = self.projected_value.get_parameters(self.current_proj)['current']
         param_widget = self._proj_params_cards[self.projection_method]
         for slider in param_widget:
             slider.v_model = parameters[slider.label]
@@ -165,7 +256,7 @@ class ProjectedValueSelector:
         self.update_params(widget.label, data)
 
     def update_params(self, parameter, new_value):
-        self.projected_value.set_parameters(self.projection_method, self.current_dim,
+        self.projected_value.set_parameters(self.current_proj,
                                             {parameter: new_value})
         self.refresh()
 
@@ -206,11 +297,10 @@ class ProjectedValueSelector:
         """
         if dim is None:
             dim = self.current_dim
-        set_current = dim == self.current_dim
         if progress_callback is None:
             progress_callback = self.progress_bar.update
         X = self.projected_value.get_projection(
-            self.projection_method, dim, progress_callback, set_current
+            Proj(self.current_proj.reduction_method, dim), progress_callback
         )
         return X
 
@@ -219,4 +309,4 @@ class ProjectedValueSelector:
             projection_method = self.projection_method
         if dim is None:
             dim = self.current_dim
-        return self.projected_value.is_present(projection_method, dim)
+        return self.projected_value.is_present(Proj(projection_method, dim))
