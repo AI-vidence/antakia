@@ -301,19 +301,6 @@ class FigureDisplay:
             with self.figure.batch_update():
                 self.figure.data[trace_id].marker.color = colors
 
-    def update_fig_size(self, width: float = None, height: float = None):
-        """
-        update figure to match fig size attributes
-        Returns
-        -------
-
-        """
-        if width:
-            self.fig_width = width
-        if height:
-            self.fig_height = height
-        self.figure.layout.width = self.fig_width
-        self.figure.layout.height = self.fig_height
 
     def update_X(self, X: pd.DataFrame):
         """
@@ -494,6 +481,7 @@ class FigureDisplay:
             selector={'type': "scatter"}
         )
         self.figure.update_layout(
+            autosize=True,
             margin={
                 't': 0,
                 'b': 0,
@@ -501,7 +489,6 @@ class FigureDisplay:
                 'r': 0
             },
         )
-        self.update_fig_size()
         self.figure._config = self.figure._config | {"displaylogo": False}
         self.figure._config = self.figure._config | {'displayModeBar': True}
         # We don't want the name of the trace to appear :
@@ -538,7 +525,6 @@ class FigureDisplay:
                 self.figure.data[trace_id].showlegend = False
                 self._show_trace(trace_id, self._visible[trace_id])
                 self.refresh_trace(trace_id)
-            self.update_fig_size()
         self.widget.children = [self.figure]
 
     def get_X(self, masked: bool) -> pd.DataFrame | None:

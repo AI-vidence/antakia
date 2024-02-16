@@ -352,21 +352,10 @@ class AppWidget:
                                 }
                             ],
                             children=[
-                                v.Card(  # 030
+                                v.Card(  # 030 parameters menu
                                     class_="pa-4",
                                     rounded=True,
                                     children=[
-                                        widgets.VBox(  # 0300
-                                            [
-                                                v.Slider(  # 03000
-                                                    v_model=400,
-                                                    min=100,
-                                                    max=3000,
-                                                    step=10,
-                                                    label="Figure width",
-                                                )
-                                            ]
-                                        )
                                     ],
                                     min_width="500",
                                 )

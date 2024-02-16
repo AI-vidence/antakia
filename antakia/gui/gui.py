@@ -284,9 +284,7 @@ class GUI:
 
     def fig_size_changed(self, widget, *args):
         """Called when the figureSizeSlider changed"""
-        fig_width = round(widget.v_model / 2)
-        self.vs_hde.figure.update_fig_size(width=fig_width)
-        self.es_hde.figure.update_fig_size(width=fig_width)
+        pass
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
         """
@@ -318,9 +316,9 @@ class GUI:
         # ------------------Figure size -----------------
 
         # We wire the input event on the figureSizeSlider (050100)
-        get_widget(self.widget, "03000").on_event("input", self.fig_size_changed)
+        # get_widget(self.widget, "03000").on_event("input", self.fig_size_changed)
         # We set the init value to default :
-        get_widget(self.widget, "03000").v_model = config.INIT_FIG_WIDTH
+        # get_widget(self.widget, "03000").v_model = config.INIT_FIG_WIDTH
 
         # -------------- Dimension Switch --------------
 
