@@ -16,6 +16,12 @@ class ModelExplorer:
         pass
 
     def build_widget(self):
+        self.feature_importance_tab = v.TabItem(  # Tab 1) feature importances # 43
+                             class_="mt-2",
+                             children=[]
+                         )
+        self.pdp_feature_select = v.Select()
+        self.pdp_figure = v.Container()
         self.widget = v.Tabs(  # 4
             v_model=0,  # default active tab
             children=[
@@ -25,16 +31,13 @@ class ModelExplorer:
                      ]
                      +
                      [
-                         v.TabItem(  # Tab 1) feature importances # 43
-                             class_="mt-2",
-                             children=[]
-                         ),
+                         self.feature_importance_tab,
                          v.TabItem(  # Tab 2) Partial dependency #44
                              children=[
                                  v.Col(
                                      children=[
-                                         v.Select(),
-                                         v.Container()
+                                         self.pdp_feature_select,
+                                         self.pdp_figure
                                      ]
                                  )
                              ]
@@ -46,17 +49,6 @@ class ModelExplorer:
         )
         self.pdp_feature_select.on_event('change', self.display_pdp)
 
-    @property
-    def feature_importance_tab(self) -> v.TabItem:
-        return self.widget.children[3]
-
-    @property
-    def pdp_feature_select(self) -> v.TabItem:
-        return self.widget.children[4].children[0].children[0]
-
-    @property
-    def pdp_figure(self) -> v.TabItem:
-        return self.widget.children[4].children[0].children[1]
 
     def update_selected_model(self, model: MLModel):
         self.model = model
