@@ -16,6 +16,7 @@ from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import antakia.config as config
 from antakia_core.data_handler.rules import RuleSet
 
+from antakia.gui.tabs.model_explorer import ModelExplorer
 from antakia.gui.widgets import get_widget, change_widget, splash_widget, app_widget
 from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
 from antakia.gui.ruleswidget import RulesWidget
@@ -109,13 +110,13 @@ class GUI:
         # finally rules
         self.es_rules_wgt = RulesWidget(X_exp, self.y, self.variables, False)
 
-        # init selection to all points
-
         # We set empty rules for now :
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
 
         # init tabs
+        self.model_explorer = ModelExplorer(self.X)
+
         self.region_num_for_validated_rules = None  # tab 1 : number of the region created when validating rules
         self.region_set = ModelRegionSet(self.X, self.y, self.X_test, self.y_test, self.model, self.score)
         self.substitute_region = None
@@ -434,6 +435,7 @@ class GUI:
 
         # We wire a ckick event on the "validate sub-model" button :
         get_widget(self.widget, "450100").on_event("click", self.validate_sub_model)
+        get_widget(self.widget, "4502").children = [self.model_explorer.widget]
 
         # We disable the Substitution table at startup :
         self.update_substitution_table(None)
@@ -890,6 +892,10 @@ class GUI:
         # We use this GUI attribute to store the selected sub-model
         self.selected_sub_model = [data['item']]
         get_widget(self.widget, "450100").disabled = not is_selected
+        if is_selected:
+            region = self.region_set.get(self.selected_regions[0]['Region'])
+            self.model_explorer.update_selected_model(region.get_model(data['item']['Sub-model']))
+
 
     def validate_sub_model(self, *args):
         # We get the sub-model data from the SubModelTable:

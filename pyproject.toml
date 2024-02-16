@@ -36,6 +36,7 @@ python-dotenv = "^1.0.0"
 umap-learn = "^0.5.5"
 antakia-core = {git = "ssh://git@code.ai-vidence.com:29418/ai-vidence/antakia-core.git"}
 antakia-ac = {git = "ssh://git@code.ai-vidence.com:29418/ai-vidence/antakia-ac.git"}
+pdpbox = "^0.3.0"
 
 
 [tool.poetry.group.dev.dependencies]

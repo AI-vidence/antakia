@@ -1338,6 +1338,12 @@ class AppWidget:
                                                          )
                                                      ]
                                                  ),
+                                                 v.Sheet(  # Col3 #4502
+                                                     class_="ml-4 d-flex flex-column",
+                                                     children=[
+
+                                                     ]
+                                                 ),
                                              ]
                                          )
                                      ]
