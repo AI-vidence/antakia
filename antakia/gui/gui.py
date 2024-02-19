@@ -221,10 +221,11 @@ class GUI:
         self.es_rules_wgt.update_X(current_exp_df)
 
     def disable_hde(self):
-        disable = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
-        self.vs_hde.disable(disable)
-        self.exp_values.disable_selection(disable)
-        self.es_hde.disable(disable)
+        disable_proj = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
+        disable_figure = bool(self.tab > 1)
+        self.vs_hde.disable(disable_figure, disable_proj)
+        self.exp_values.disable_selection(disable_proj)
+        self.es_hde.disable(disable_figure, disable_proj)
 
     def set_dimension(self, dim):
         get_widget(self.widget, "100").v_model = dim == 3
@@ -897,7 +898,6 @@ class GUI:
         if is_selected:
             region = self.region_set.get(self.selected_regions[0]['Region'])
             self.model_explorer.update_selected_model(region.get_model(data['item']['Sub-model']))
-
 
     def validate_sub_model(self, *args):
         # We get the sub-model data from the SubModelTable:

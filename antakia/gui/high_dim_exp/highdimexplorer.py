@@ -77,7 +77,7 @@ class HighDimExplorer:
         self.figure.initialize(self.get_current_X_proj())
         self.initialized = True
 
-    def disable(self, is_disabled: bool):
+    def disable(self, disable_figure: bool, disable_projection: bool):
         """
         disable dropdown select
         Parameters
@@ -88,13 +88,13 @@ class HighDimExplorer:
         -------
 
         """
-        self.figure.disable_selection(is_disabled)
-        self.projected_value_selector.disable(is_disabled)
+        self.figure.disable_selection(disable_figure)
+        self.projected_value_selector.disable(disable_projection)
 
     def refresh(self, progress_callback=None):
-        self.disable(True)
+        self.disable(True, True)
         self.figure.update_X(self.get_current_X_proj(progress_callback=progress_callback))
-        self.disable(False)
+        self.disable(False, False)
 
     def update_X(self, X: pd.DataFrame, progress_callback=None):
         """
@@ -128,12 +128,11 @@ class HighDimExplorer:
             return None  # When we're an ES HDE and no explanation have been imported nor computed yet
         return self.projected_value_selector.projected_value.X
 
-
     def set_tab(self, *args, **kwargs):
         return self.figure.set_tab(*args, **kwargs)
 
     def set_selection(self, *args, **kwargs):
         return self.figure.set_selection(*args, **kwargs)
 
-    def set_dim(self, dim:int):
+    def set_dim(self, dim: int):
         self.projected_value_selector.update_dim(dim)
