@@ -27,7 +27,6 @@ class ModelExplorer:
             children=[
                          v.Tab(children=["Feature Importance"]),
                          v.Tab(children=["Partial Dependency"]),
-                         v.Tab(children=["qq plot"]),
                      ]
                      +
                      [
@@ -42,9 +41,6 @@ class ModelExplorer:
                                  )
                              ]
                          ),  # End of v.TabItem #2
-                         v.TabItem(  # TabItem #3 qq plot #45
-                             children=[]
-                         )
                      ]
         )
         self.pdp_feature_select.on_event('change', self.display_pdp)
