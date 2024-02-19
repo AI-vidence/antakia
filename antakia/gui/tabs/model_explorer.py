@@ -1,9 +1,7 @@
 import ipyvuetify as v
 import pandas as pd
 from antakia_core.compute.model_subtitution.model_class import MLModel
-from antakia_core.data_handler.region import ModelRegion
 from plotly.graph_objects import FigureWidget, Bar
-import plotly.express as px
 
 from pdpbox.pdp import PDPIsolate, PDPInteract
 
@@ -22,7 +20,7 @@ class ModelExplorer:
                          )
         self.pdp_feature_select = v.Select()
         self.pdp_figure = v.Container()
-        self.widget = v.Tabs(  # 4
+        self.widget = v.Tabs(
             v_model=0,  # default active tab
             children=[
                          v.Tab(children=["Feature Importance"]),
@@ -31,7 +29,7 @@ class ModelExplorer:
                      +
                      [
                          self.feature_importance_tab,
-                         v.TabItem(  # Tab 2) Partial dependency #44
+                         v.TabItem(  # Tab 2) Partial dependence
                              children=[
                                  v.Col(
                                      children=[
@@ -84,7 +82,7 @@ class ModelExplorer:
         ).plot()[0]
         self.figure_pdp = FigureWidget(figure)
         self.figure_pdp.update_layout(
-            autosize=True,
+            autosize=True, width = None, height=None,
             margin={
                 't': 0,
                 'b': 0,

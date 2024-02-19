@@ -101,7 +101,14 @@ class GUI:
 
         # init Explanation space
         # first explanation getter/compute
-        self.exp_values = ExplanationValues(self.X, self.y, self.model, self.explanation_changed_callback, X_exp)
+        self.exp_values = ExplanationValues(
+            self.X,
+            self.y,
+            self.model,
+            self.explanation_changed_callback,
+            self.disable_hde,
+            X_exp
+        )
         # then hde
         self.es_hde = HighDimExplorer(
             self.pv_bank,
@@ -129,11 +136,11 @@ class GUI:
 
     @property
     def selected_regions(self):
-        return get_widget(self.widget, "440010").selected
+        return get_widget(self.widget, "44001").selected
 
     @selected_regions.setter
     def selected_regions(self, value):
-        get_widget(self.widget, "440010").selected = value
+        get_widget(self.widget, "44001").selected = value
         self.disable_buttons(None)
 
     @property
@@ -220,9 +227,13 @@ class GUI:
         self.es_hde.update_X(current_exp_df, progress_callback)
         self.es_rules_wgt.update_X(current_exp_df)
 
-    def disable_hde(self):
-        disable_proj = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
-        disable_figure = bool(self.tab > 1)
+    def disable_hde(self, disable='auto'):
+        if disable == 'auto':
+            disable_proj = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
+            disable_figure = bool(self.tab > 1)
+        else:
+            disable_proj = disable
+            disable_figure = disable
         self.vs_hde.disable(disable_figure, disable_proj)
         self.exp_values.disable_selection(disable_proj)
         self.es_hde.disable(disable_figure, disable_proj)
@@ -374,7 +385,7 @@ class GUI:
         # We wire the click event on 'Tab 2'
         get_widget(self.widget, "41").on_event("click", self.select_tab_front(2))
 
-        get_widget(self.widget, "440010").set_callback(self.region_selected)
+        get_widget(self.widget, "44001").set_callback(self.region_selected)
 
         # We wire events on the 'substitute' button:
         get_widget(self.widget, "4401000").on_event("click", self.substitute_clicked)
@@ -592,7 +603,7 @@ class GUI:
         temp_items = self.region_set.to_dict()
 
         # We populate the ColorTable :
-        get_widget(self.widget, "440010").items = temp_items
+        get_widget(self.widget, "44001").items = temp_items
 
         region_stats = self.region_set.stats()
         str_stats = [
@@ -813,7 +824,7 @@ class GUI:
         get_widget(self.widget, "450001").children = [str(region.num)] if region else ["-"]
 
     def update_subtitution_progress_bar(self):
-        prog_circular = get_widget(self.widget, "45011")
+        prog_circular = get_widget(self.widget, "450110")
         if self.substitution_model_training:
             prog_circular.disabled = False
             prog_circular.color = "blue"

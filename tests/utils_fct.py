@@ -26,6 +26,9 @@ class DummyModel:
             return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
         return ((X[:, 0] > 0.5) & (X[:, 1] > 0.5)).astype(int)
 
+    def fit(self, X, y):
+        pass
+
     def score(self, *args):
         return 1
 
@@ -44,7 +47,7 @@ def generate_df_series_callable():
 
 
 def generate_ExplanationValues(model=None, X_exp=None) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame,
-                                                                ExplanationValues, callable]:
+ExplanationValues, callable]:
     X, y, progress_callback = generate_df_series_callable()
 
     def on_change_callback(pv, progress=None):

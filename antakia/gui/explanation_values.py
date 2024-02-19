@@ -13,7 +13,7 @@ class ExplanationValues:
     """
     available_exp = ['Imported', 'SHAP', 'LIME']
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable, X_exp=None):
+    def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable, disable_gui:callable, X_exp=None):
         """
 
         Parameters
@@ -29,6 +29,7 @@ class ExplanationValues:
         self.y = y
         self.model = model
         self.on_change_callback = on_change_callback
+        self.disable_gui = disable_gui
         self.initialized = False
 
         # init dict of explanations
@@ -160,6 +161,7 @@ class ExplanationValues:
         -------
 
         """
+        self.disable_gui(True)
         self.current_exp = self.available_exp[explanation_method]
         # We compute proj for this new PV :
         x_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
@@ -169,6 +171,7 @@ class ExplanationValues:
         self.explanations[self.current_exp] = x_exp
         # refresh front
         self.update_explanation_select()
+        self.disable_gui(False)
 
     def disable_selection(self, is_disabled: bool):
         """
