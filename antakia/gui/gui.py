@@ -211,6 +211,8 @@ class GUI:
 
         self.splash_widget.hide()
         self.widget.show()
+        self.vs_hde.figure.create_figure()
+        self.es_hde.figure.create_figure()
         self.select_tab(0)
         self.disable_hde()
 
