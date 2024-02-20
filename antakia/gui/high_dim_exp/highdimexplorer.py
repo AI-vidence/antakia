@@ -35,6 +35,7 @@ class HighDimExplorer:
             self,
             pv_bank: ProjectedValueBank,
             selection_changed: callable,
+            space
     ):
         """
 
@@ -48,7 +49,8 @@ class HighDimExplorer:
         # projected values handler & widget
         self.projected_value_selector = ProjectedValuesSelector(
             pv_bank,
-            self.refresh
+            self.refresh,
+            space
         )
 
         self.figure = FigureDisplay(

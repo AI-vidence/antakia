@@ -137,7 +137,7 @@ def dummy_projection(_X, y, method, dim, callback, *args, **kwargs):
     return pd.DataFrame(_X.values[:, :dim], index=_X.index)
 
 
-def dummy_exp(_X, model, method, callback, *args, **kwargs):
+def dummy_exp(_X, model, method, task_type, callback, *args, **kwargs):
     callback(100, 0)
     return pd.DataFrame(_X.values, index=_X.index, columns=_X.columns)
 

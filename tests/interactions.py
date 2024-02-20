@@ -234,7 +234,7 @@ def select_model(gui, model):
 def validate_model(gui):
     if gui.tab != 3:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "450100")
+    btn = get_widget(gui.widget, "4501000")
     if btn.disabled:
         raise InteractionError('validate button disabled')
     btn.click()

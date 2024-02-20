@@ -1,10 +1,11 @@
 import mock
 import pandas as pd
 import pytest
+from antakia_core.utils.utils import ProblemCategory
 
 from antakia.gui.explanation_values import ExplanationValues
 from antakia.gui.widgets import get_widget, app_widget
-from tests.utils_fct import generate_ExplanationValues, generate_df_series_callable, test_progress_bar
+from tests.utils_fct import generate_ExplanationValues, generate_df_series_callable, test_progress_bar, dummy_callable
 
 
 def test_init():  # ajouter test click
@@ -105,11 +106,11 @@ def test_compute_btn_clicked():  # à compléter
 
 def test_disable_selection():
     X_df, Y_ser, function, exp, _ = generate_ExplanationValues()
-    exp0 = ExplanationValues(X_df, Y_ser, 'DT', function)
+    exp0 = ExplanationValues(X_df, Y_ser, 'DT', ProblemCategory.regression, function, dummy_callable)
     exp0.disable_selection(True)
     assert exp0.get_explanation_select().disabled
 
-    exp2 = ExplanationValues(X_df, Y_ser, 'DT1', function)
+    exp2 = ExplanationValues(X_df, Y_ser, 'DT1', ProblemCategory.regression, function, dummy_callable)
     exp2.disable_selection(False)
     assert not exp2.get_explanation_select().disabled
 

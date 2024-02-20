@@ -37,10 +37,10 @@ class ProgressBar:
         -------
 
         """
+        self.progress = progress
         self.widget.color = self.active_color
         self.widget.indeterminate = self.indeterminate
 
-        self.progress = progress
 
         if math.ceil(progress) >= 100 and self.reset_at_end:
             self.reset_progress_bar()

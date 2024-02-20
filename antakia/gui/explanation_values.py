@@ -13,7 +13,8 @@ class ExplanationValues:
     """
     available_exp = ['Imported', 'SHAP', 'LIME']
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable, disable_gui:callable, X_exp=None):
+    def __init__(self, X: pd.DataFrame, y: pd.Series, model, task_type, on_change_callback: callable,
+                 disable_gui: callable, X_exp=None):
         """
 
         Parameters
@@ -28,6 +29,7 @@ class ExplanationValues:
         self.X = X
         self.y = y
         self.model = model
+        self.task_type = task_type
         self.on_change_callback = on_change_callback
         self.disable_gui = disable_gui
         self.initialized = False
@@ -164,7 +166,7 @@ class ExplanationValues:
         self.disable_gui(True)
         self.current_exp = self.available_exp[explanation_method]
         # We compute proj for this new PV :
-        x_exp = compute_explanations(self.X, self.model, explanation_method, progress_bar)
+        x_exp = compute_explanations(self.X, self.model, explanation_method, self.task_type, progress_bar)
         pd.testing.assert_index_equal(x_exp.columns, self.X.columns)
 
         # update explanation

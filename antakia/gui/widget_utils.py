@@ -27,7 +27,8 @@ def recursive_get_widget(root_widget: Widget, address: list[int]):
         return root_widget
 
     if isinstance(root_widget, v.Tooltip):
-        new_root = root_widget.v_slots[0]["children"][address.pop(0)]
+        assert address.pop(0) == 0
+        new_root = root_widget.v_slots[0]["children"]
     else:
         new_root = root_widget.children[address.pop(0)]
     return recursive_get_widget(new_root, address)

@@ -95,6 +95,7 @@ class GUI:
         self.vs_hde = HighDimExplorer(
             self.pv_bank,
             self.selection_changed,
+            'VS'
         )
         # then rules
         self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True, self.new_rules_defined)
@@ -105,6 +106,7 @@ class GUI:
             self.X,
             self.y,
             self.model,
+            problem_category,
             self.explanation_changed_callback,
             self.disable_hde,
             X_exp
@@ -113,6 +115,7 @@ class GUI:
         self.es_hde = HighDimExplorer(
             self.pv_bank,
             self.selection_changed,
+            'ES'
         )
         # finally rules
         self.es_rules_wgt = RulesWidget(X_exp, self.y, self.variables, False)
@@ -442,13 +445,13 @@ class GUI:
 
         # UI rules :
         # At startup validate sub-model btn is disabled :
-        get_widget(self.widget, "450100").disabled = True
+        get_widget(self.widget, "4501000").disabled = True
 
         # We wire a select event on the 'substitution table' :
         get_widget(self.widget, "45001").set_callback(self.sub_model_selected_callback)
 
         # We wire a ckick event on the "validate sub-model" button :
-        get_widget(self.widget, "450100").on_event("click", self.validate_sub_model)
+        get_widget(self.widget, "4501000").on_event("click", self.validate_sub_model)
         get_widget(self.widget, "4502").children = [self.model_explorer.widget]
 
         # We disable the Substitution table at startup :
@@ -905,7 +908,7 @@ class GUI:
         is_selected = bool(data["value"])
         # We use this GUI attribute to store the selected sub-model
         self.selected_sub_model = [data['item']]
-        get_widget(self.widget, "450100").disabled = not is_selected
+        get_widget(self.widget, "4501000").disabled = not is_selected
         if is_selected:
             region = self.region_set.get(self.selected_regions[0]['Region'])
             self.model_explorer.update_selected_model(region.get_model(data['item']['Sub-model']))
@@ -914,7 +917,7 @@ class GUI:
         # We get the sub-model data from the SubModelTable:
         # get_widget(self.widget,"45001").items[self.validated_sub_model]
 
-        get_widget(self.widget, "450100").disabled = True
+        get_widget(self.widget, "4501000").disabled = True
 
         # We udpate the region
         region = self.region_set.get(self.selected_regions[0]['Region'])

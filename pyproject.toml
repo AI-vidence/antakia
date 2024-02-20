@@ -31,11 +31,11 @@ plotly = "^5.18.0"
 shap = "^0.43.0"
 voila = "^0.5.5"
 python-dotenv = "^1.0.0"
-#antakia-core = {path = "../antakia_core", develop=true}
-#antakia-ac = {path = "../antakia_ac", develop=true}
 umap-learn = "^0.5.5"
 antakia-core = {git = "ssh://git@code.ai-vidence.com:29418/ai-vidence/antakia-core.git"}
+#antakia-core = {path = "../antakia_core", develop = true}
 antakia-ac = {git = "ssh://git@code.ai-vidence.com:29418/ai-vidence/antakia-ac.git"}
+#antakia-ac = {path = "../antakia_ac", develop = true}
 pdpbox = "^0.3.0"
 
 

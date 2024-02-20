@@ -1,3 +1,5 @@
+from antakia_core.utils.utils import ProblemCategory
+
 from antakia.explanation.explanation_method import ExplanationMethod
 from antakia.gui.explanation_values import ExplanationValues
 
@@ -13,7 +15,7 @@ def compare_indexes(df1, df2) -> bool:
 
 # Test Dim Reduction --------------------
 
-def dr_callback(*args):
+def dummy_callable(*args):
     pass
 
 
@@ -58,14 +60,14 @@ ExplanationValues, callable]:
     if model is None:
         model = DummyModel()
 
-    exp_val = ExplanationValues(X, y, model, on_change_callback, X_exp)
+    exp_val = ExplanationValues(X, y, model, ProblemCategory.regression, on_change_callback, dummy_callable, X_exp)
 
     return X, y, X_exp, exp_val, on_change_callback
 
 
 class EMPTYExplanation(ExplanationMethod):
     def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable):
-        super().__init__(1, X, model, on_change_callback)
+        super().__init__(1, X, model, ProblemCategory.regression, on_change_callback)
 
     def compute(self):
         self.publish_progress(100)

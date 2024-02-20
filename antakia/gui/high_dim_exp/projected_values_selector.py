@@ -14,14 +14,14 @@ from antakia_core.utils import utils
 
 
 class ProjectedValuesSelector:
-    def __init__(self, pv_bank: ProjectedValueBank, update_callback: callable):
+    def __init__(self, pv_bank: ProjectedValueBank, update_callback: callable, space):
         self.widget = None
         self.progress_bar = None
         self.projected_value = None
         self._proj_params_cards = {}
         self.update_callback = update_callback
         self.pv_bank = pv_bank
-        self.build_widget()
+        self.space = space
 
         self.X = None
         self.current_proj = Proj(
@@ -29,19 +29,21 @@ class ProjectedValuesSelector:
             config.DEFAULT_DIMENSION
         )
 
+        self.build_widget()
+
     @property
     def current_dim(self):
         return self.current_proj.dimension
 
     def build_widget(self):
         self.widget = v.Row(children=[
-            v.Select(  # 140 # Selection of ES proj method
-                label="Projection in the ES :",
+            v.Select(  # Selection of proj method
+                label=f"Projection in the {self.space} :",
                 items=DimReducMethod.dimreduc_methods_as_str_list(),
                 style_="width: 15%",
                 class_="ml-2 mr-2",
             ),
-            v.Menu(  # 141 # ES proj settings
+            v.Menu(  # proj settings
                 class_="ml-2 mr-2",
                 v_slots=[
                     {
@@ -109,7 +111,7 @@ class ProjectedValuesSelector:
                 close_on_content_click=False,
                 offset_y=True,
             ),
-            v.ProgressCircular(  # 142 # ES side progress bar
+            v.ProgressCircular(  # progress bar
                 indeterminate=True,
                 color="blue",
                 width="6",

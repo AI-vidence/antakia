@@ -137,7 +137,7 @@ def check_tab_2_btn(gui):
 
 
 def check_tab_3_btn(gui):
-    assert get_widget(gui.widget, "450100").disabled == (
+    assert get_widget(gui.widget, "4501000").disabled == (
             (gui.substitute_region is None) or
             len(gui.selected_sub_model) == 0
     )

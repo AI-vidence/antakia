@@ -1184,7 +1184,7 @@ class AppWidget:
                                                      ]  # End v.Sheet Col 2 children
                                                  ),  # End v.Sheet Col 2 = buttons
                                                  v.Col(  # v.Sheet Col 3 # 4402
-                                                     class_="col-2",
+                                                     class_="col-2 px-6",
                                                      style_="size: 50%",
                                                      children=[
                                                          v.Row(  # 44020
@@ -1199,7 +1199,7 @@ class AppWidget:
                                                                              'children':
                                                                                  v.Btn(  # 4402000
                                                                                      v_on='tooltip.on',
-                                                                                     class_="ml-3 mt-8 primary",
+                                                                                     class_="mt-8 primary",
                                                                                      children=[
                                                                                          v.Icon(  # 44020000
                                                                                              class_="mr-2",
@@ -1229,7 +1229,7 @@ class AppWidget:
                                                                              'children':
                                                                                  v.Slider(  # 4402100
                                                                                      v_on='tooltip.on',
-                                                                                     class_="mt-10",
+                                                                                     class_="mt-10 mx-2",
                                                                                      v_model=6,
                                                                                      min=2,
                                                                                      max=12,
@@ -1242,13 +1242,13 @@ class AppWidget:
                                                                      children=['Numner of clusters you expect to find']
                                                                  ),
                                                                  v.Checkbox(  # 440211
-                                                                     class_="ma-2",
+                                                                     class_="px-3",
                                                                      v_model=True,
                                                                      label="Automatic number of clusters"
                                                                  ),
                                                                  v.ProgressLinear(  # 440212
                                                                      style_="width: 100%",
-                                                                     class_="py-0 mx-5",
+                                                                     class_="px-3",
                                                                      v_model=0,
                                                                      color="primary",
                                                                      height="15",
@@ -1310,7 +1310,7 @@ class AppWidget:
                                                                              'name': 'activator',
                                                                              'variable': 'tooltip',
                                                                              'children':
-                                                                                 v.Btn(  # 450100
+                                                                                 v.Btn(  # 4501000
                                                                                      v_on='tooltip.on',
                                                                                      class_="ma-1 mt-12 green white--text",
                                                                                      children=[

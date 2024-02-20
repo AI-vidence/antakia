@@ -21,13 +21,15 @@ class ExplanationMethod(LongTask):
             self,
             explanation_method: int,
             X: pd.DataFrame,
-            model=None,
+            model,
+            task_type,
             progress_updated: callable = None,
     ):
         if not ExplanationMethod.is_valid_explanation_method(explanation_method):
             raise ValueError(explanation_method, " is a bad explanation method")
         self.explanation_method = explanation_method
         super().__init__(X, progress_updated)
+        self.task_type = task_type
         self.model = model
 
     @staticmethod
