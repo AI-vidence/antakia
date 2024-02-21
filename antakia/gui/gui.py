@@ -24,7 +24,6 @@ from antakia.gui.ruleswidget import RulesWidget
 
 import copy
 from os import path
-import atexit
 from json import dumps, loads
 
 import logging
@@ -135,12 +134,11 @@ class GUI:
         get_widget(app_widget.widget, "4320").disabled = True
 
         # We count the number of times this GUI has been initialized
-        self.counter = loads(open("counter.json", "r").read()) + 1 if path.exists("counter.json") else 0
-        # We register a function to save the counter on exit
-        def write_counter():
-            with open("counter.json", "w") as f:
+        self.counter = loads(open("counter.json", "r").read()) if path.exists("counter.json") else 0
+        self.counter += 1 
+        with open("counter.json", "w") as f:
                 f.write(dumps(self.counter))
-        atexit.register(write_counter)
+        logger.debug(f"GUI has been initialized {self.counter} times")
 
     @property
     def selected_regions(self):
