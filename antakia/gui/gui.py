@@ -23,6 +23,9 @@ from antakia.gui.highdimexplorer import HighDimExplorer
 from antakia.gui.ruleswidget import RulesWidget
 
 import copy
+from os import path
+import atexit
+from json import dumps, loads
 
 import logging
 from antakia.utils.logging import conf_logger
@@ -131,6 +134,14 @@ class GUI:
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(app_widget.widget, "4320").disabled = True
 
+        # We count the number of times this GUI has been initialized
+        self.counter = loads(open("counter.json", "r").read()) + 1 if path.exists("counter.json") else 0
+        # We register a function to save the counter on exit
+        def write_counter():
+            with open("counter.json", "w") as f:
+                f.write(dumps(self.counter))
+        atexit.register(write_counter)
+
     @property
     def selected_regions(self):
         return get_widget(app_widget.widget, "440010").selected
@@ -221,6 +232,11 @@ class GUI:
         app_widget.widget.show()
         self.select_tab(0)
         self.disable_hde()
+
+        # We display our star_dialog on 10th launch
+        if self.counter == 10:
+            pass # @TODO call Dialog , see examples/star_dialog
+
 
     def explanation_changed_callback(self, current_pv, progress_callback=None):
         self.es_hde.update_pv(current_pv, progress_callback)
