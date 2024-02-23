@@ -32,6 +32,7 @@ shap = "^0.43.0"
 python-dotenv = "^1.0.0"
 antakia-core = "*"
 antakia-ac = ">=0.2.4"
+#antakia-ac = {path = "../antakia_ac", develop = true}
 
 
 [tool.poetry.group.dev.dependencies]
