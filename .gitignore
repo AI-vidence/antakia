@@ -31,7 +31,6 @@ site/
 .coverage.*
 *.pytest_cache/
 .coverage
-.coveragerc
 
 # poetry
 poetry.lock

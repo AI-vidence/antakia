@@ -24,7 +24,7 @@ At least you'll need `california_housing.ipynb`and `california_housing.csv` from
 
 
 > [!IMPORTANT] 
-If you're using a virtual env, it's handy to be able to chose it from Jupyter's kernel list. Do the following :
+> If you're using a virtual env, it's handy to be able to chose it from Jupyter's kernel list. Do the following :
 
 ```
 python -m ipykernel install --user --name your_venv_name --display-name "My great virtual env"
@@ -41,7 +41,7 @@ Note it runs on a simple server and may be busy. You may want to log with other 
 ## Run with Docker
 
 > [!IMPORTANT] 
-Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
+> Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
 
 ```
 docker build -t antakia .

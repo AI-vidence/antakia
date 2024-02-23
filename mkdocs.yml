@@ -1,13 +1,15 @@
 site_name: AntakIA. AI explained.
 
-site_url: https://example.com/
+site_url: https://doc.antakia.ai/
 
 nav:
   - Home: index.md
+  - Getting started: getting_started.md
+  - Tutorial (1/2): tutorial1.md
+  - Tutorial (2/2): tutorial2.md
+  - Regional explainability: regional_explain.md
   - About: about.md
-  - Installation: install.md
-  - Usage: usage.md
-  - Explainability: explain.md
   - Credits: credits.md
 
 theme: readthedocs
+

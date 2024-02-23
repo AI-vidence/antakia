@@ -7,12 +7,12 @@ This is the part 2 of our tutorial. We'll dive into the actual use of AntakIA. I
 ### A first glimpse of AntakIA
 
 > [!IMPORTANT] 
-The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say **"regions"**, hence the *regional explainability*) where we can substitute the inital complex trained model (often reffered to as a **black box**) with simple and explainable models, one for each region.
+> The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say **"regions"**, hence the *regional explainability*) where we can substitute the inital complex trained model (often reffered to as a **black box**) with simple and explainable models, one for each region.
 
 Then the main question is : how to define these regions ?
 
 > [!IMPORTANT] 
-The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "**values space**" or "**VS**"), and a space with the same records, but using, as variables, the explanations for each variables. We call the latter the "**explanations space**" or "**ES**". Put another way, **VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.**
+> The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "**values space**" or "**VS**"), and a space with the same records, but using, as variables, the explanations for each variables. We call the latter the "**explanations space**" or "**ES**". Put another way, **VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.**
 
 Then, finding relevant regions consists in finding clusters in VS corresponding to clusters in ES. Then we find regions where records are alike and records are explained similarly. **Then, on these regions we can find simple models, with few variables that are explainable and replace the former "black box".**
 
@@ -47,7 +47,7 @@ If you passed to AntakIA some pre-computed explanation values, such as `shap_val
 As we saw earlier, we also need to compute the dimensionality reductions for both VS and ES spaces. Since we display the values in 2D and 3D, we have 4 computations. That's what is shown on the second progres bar of the splash screen. Note we only compute projections for the default reduction technique.
 
 > [!NOTE] 
-You can put in your working directory an `.env` file with some default values for AntakIA.
+> You can put in your working directory an `.env` file with some default values for AntakIA.
 
 Below is an example of such an .env file :
 
@@ -97,7 +97,7 @@ As previously explained, the idea is to find regions homogenous in both spaces a
 Using the "lasso" tool, you can select points in one space, and then, see the corresponding selection in the other space.
 
 > [!IMPORTANT]
-If you want to empty your selection, just do a multiple click anywhere in a grey area.
+> If you want to empty your selection, just do a multiple click anywhere in a grey area.
 
 In this example, we see a region in the VS space, with a relatively homogeneous counterpart in the ES space :
 
@@ -119,7 +119,7 @@ Actually, Skope rules is a binary classifier : it predicts wether a record belon
 Under the title "Rule(s) applied to the values space", you can read the rules that have been found : Here, it is `MedInc <= 7.409 and AveRooms >= 5.502 and Latitude <= 37.355`.
 
 > [!NOTE]
-Rules have only been found in the VS. As a matter of fact, the Skope rules algorithm doesn't systematically find rules in both spaces. Here, it didn't find rules (expressed with a subset of our 8 variables) able to describe the ES selection (with explained values) effectively.
+> Rules have only been found in the VS. As a matter of fact, the Skope rules algorithm doesn't systematically find rules in both spaces. Here, it didn't find rules (expressed with a subset of our 8 variables) able to describe the ES selection (with explained values) effectively.
 
 ### 3. Adjust the rules
 

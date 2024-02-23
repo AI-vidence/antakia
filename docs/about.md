@@ -1,6 +1,6 @@
 # About us
 
-<div style="text-align:left"><img src="img/AI-vidence.png" height="50"></div>
+![](img/AI-vidence.png)
 
 Hi! AntakIA has been first released by [AI-vidence](https://www.ai-vidence.com) a French start-up commited to AI explainabily and trusted AI in general.
 

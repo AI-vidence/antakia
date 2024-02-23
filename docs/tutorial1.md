@@ -25,12 +25,12 @@ The dataset also gives for each block group the average price of a house. This d
 In our noteboox, this dataset is stored in a Pandas Dataframe named `X`.
 If you type `X.head()` you'll get :
 
-![](img/head_X.png)
+![](img/head_x.png)
 
 The "medium house values" are stored in a Pandas Series named `y`.
 A `y.head()` will give you something like :
 
-<div><img src="img/y.png" height="120"></div>
+![](img/y.png)
 
 ## The use case
 
@@ -50,6 +50,7 @@ Let's analyze the first cells :
 import pandas as pd
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
 ````
+
 We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So make this tutorial quicker and more pleaseant, our CSV file includes these pre-computed SHAP values.
 
 ```
@@ -63,6 +64,7 @@ df = df.loc[df['HouseAge']<50]
 df = df.loc[(df['Latitude']<38.07)&(df['Latitude']>37.2)]
 df = df.loc[(df['Longitude']>-122.5)&(df['Longitude']<-121.75)]
 ```
+
 In the same way, the previous lines are not compulsory. But it appears that the dataset for the sole city of San Francisco is better to get rapidly a good intuition of how AntakIA works.
 
 ```
@@ -70,6 +72,7 @@ X = df.iloc[:,0:8] # the dataset
 y = df.iloc[:,9] # the target variable
 shap_values = df.iloc[:,[10,11,12,13,14,15,16,17]] # the SHAP values
 ```
+
 Here we have extracted from our big CSV dataset : the `X` values, the `y` Series and the `shap_values` (we'll explain those values further).
 
 ```
@@ -77,6 +80,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 model = GradientBoostingRegressor(random_state = 9)
 model.fit(X, y)
 ```
+
 We decided to use a GradientBoosting model and have it trained (or fitted) on our data. Now our data is prepared and our model trained, we can then launch AntakIA :
 
 ````
@@ -84,6 +88,7 @@ from antakia.antakia import AntakIA
 atk = AntakIA([X], y, model)
 atk.start_gui()
 ````
+
 It's that simple !
 
 Yet, in this tutorial we'll use another method to launch AntakIA :
