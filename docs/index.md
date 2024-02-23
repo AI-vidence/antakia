@@ -2,11 +2,25 @@
 
 # Welcome to AntakIA !
 
-AntakIA is a software allowing you to explore a trained machine learning (ML) model and discover what it has understood from the training data. A key use case is to explain (one speaks of 'explainability' of AI) the model to have it approved and certified to be compliant with the law. As a matter of fact, Europe should issue by the beginning of 2024 or its 'AI act'. This text will require companies, when they use AI for certain use cases, to have their model certified.
+**AntakIA** is a software allowing you mainly to explore a trained machine learning (ML) model and discover what it has understood from the training data. A key issue for data scientist is to explain (one speaks of *explainability* of AI, aka X-AI) the model to have it adopted, and also in a short time certified to be compliant with the law. As a matter of fact, Europe has issue its *AI act* by the beginning of 2024. This text requires companies, when they use AI for certain use cases (*high risk*), to have their model certified, or sometimes self-certified.
 
-AntakIA is a solution for this compliance issue. But it does more. For instancee it allows datascientist to better understand their dataset and model. Marketing teams can get new insights on their customers etc.
+AntakIA is a solution for this compliance issue. But it does more. For instancee it allows data scientist:
+* to themselves better understand their dataset and model,
+* help marketing teams to get new insights on their customers,
+* help compliance officers to better understand the limits of the model,
+* etc.
 
-AntakIA is an open-source project by AI-vidence, a French company, showcasing our regional approach for AI explainability. Besides local and global explainability, we believe in a more relevant and intermediate scale to observe phenomena. We divide the multidimensional space of input values in regions where we can substitute the original 'black box' model with simmpler and explainable models. Because we split the space in smaller pieces, we named our approach from the antique city Antakia (in Türkiye nowadays) famous for its roman mosaics.
+Here is a quick tour of AntakIA:
+![](img/antakia.gif)
+
+See full video on [Youtube](https://www.youtube.com/watch?v=wQFC_20OIOM)
+
+AntakIA is an open-source project by [AI-vidence](https://www.ai-vidence.com), a French start-up commited on trustworthy AI. It showcases their regional approach for AI explainability.
+
+1. Besides local and global explainability, we believe in a more relevant and intermediate scale to observe phenomena. Through a dyadic approach, it is then possible to divide accordingly the multidimensional space of input values in regions, sub-spaces where both the observations, and their explanations are alike.
+2. Bonus : data scientists can consequently try and substitute the original black box model with simpler and explainable models on each region.
+
+Because we split the space in smaller pieces, with simpler surrogate models on each piece, we named our approach from **the antique city Antakia** (in Türkiye nowadays) famous for its roman mosaics. By the way, it also stands for A New Tool to Acquire Knowledge from artificIAl intelligence, and that what've been working on for a while !
 
 Now, you're only a ```pip install antakia``` away from AntakIA  :) ... See our [getting started](getting_started.md) page for detailed instructions
 
@@ -16,7 +30,6 @@ Now, you're only a ```pip install antakia``` away from AntakIA  :) ... See our [
 Below is what you'll find in this documentation :
 * [Getting started](getting_started.md) : install and usage
 * A step by step tutorial : [first part](tutorial1.md) and [second part](tutorial2.md)
-* [Advanced usage](advanced.md)
 * [Regional explainability](regional_explain.md) and the science behind it
 * [About](about.md) AI-vidence, the team behind AntakIA
 * [Credits](credits)
