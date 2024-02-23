@@ -9,7 +9,7 @@ from tests.utils_fct import generate_ExplanationValues, generate_df_series_calla
 
 
 def test_init():  # ajouter test click
-    X, y, function = generate_df_series_callable()
+    # X, y, function = generate_df_series_callable()
     X_exp = pd.DataFrame([[1, 7, 10],
                           [5, 8, 11],
                           [6, 9, 12]],

@@ -1,10 +1,10 @@
-from antakia_core.utils.utils import ProblemCategory
-
-from antakia.explanation.explanation_method import ExplanationMethod
-from antakia.gui.explanation_values import ExplanationValues
-
 import pandas as pd
 import ipyvuetify as v
+from pandas.api.types import is_bool_dtype
+
+from antakia_core.utils.utils import ProblemCategory
+from antakia.explanation.explanation_method import ExplanationMethod
+from antakia.gui.explanation_values import ExplanationValues
 
 from antakia.gui.progress_bar import ProgressBar
 
@@ -72,3 +72,11 @@ class EMPTYExplanation(ExplanationMethod):
     def compute(self):
         self.publish_progress(100)
         return 0
+
+
+def is_mask_of_X(mask, X):
+    return (
+            isinstance(mask, pd.Series) and
+            is_bool_dtype(mask) and
+            pd.testing.assert_index_equal(mask.index, X.index)
+    )

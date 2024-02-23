@@ -25,7 +25,7 @@ class ProgressBar:
         self.progress = 0
         self.reset_at_end = reset_at_end
 
-    def update(self, progress: float, time_elapsed):
+    def update(self, progress: float, time_elapsed = None):
         """
 
         Parameters
@@ -40,7 +40,6 @@ class ProgressBar:
         self.progress = progress
         self.widget.color = self.active_color
         self.widget.indeterminate = self.indeterminate
-
 
         if math.ceil(progress) >= 100 and self.reset_at_end:
             self.reset_progress_bar()
@@ -58,7 +57,7 @@ class ProgressBar:
         return self.widget.v_model
 
     @progress.setter
-    def progress(self, value):
+    def progress(self, value: float):
         if value is None or pd.isna(value):
             self.widget.indeterminate = True
         else:
@@ -113,7 +112,7 @@ class MultiStepProgressBar:
 
         return update_ac_progress_bar
 
-    def set_progress(self, progress):
+    def set_progress(self, progress: float):
         """
         force progress value
         Parameters
