@@ -14,6 +14,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
 # Jupyter Notebook
 .ipynb_checkpoints
 
@@ -23,12 +24,15 @@ ipython_config.py
 
 # Others
 /examples/catboost_info/
+/examples/counter.json
 
 # docs
 site/
 
 # test
 .coverage.*
+*.pytest_cache/
+.coverage
 
 # poetry
 poetry.lock
