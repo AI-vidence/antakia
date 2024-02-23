@@ -143,42 +143,8 @@ class GUI:
         self.counter = loads(open("counter.json", "r").read()) if path.exists("counter.json") else 0
         self.counter += 1
         with open("counter.json", "w") as f:
-                f.write(dumps(self.counter))
+            f.write(dumps(self.counter))
         logger.debug(f"GUI has been initialized {self.counter} times")
-
-    @property
-    def selected_regions(self):
-        return get_widget(self.widget, "44001").selected
-
-    @selected_regions.setter
-    def selected_regions(self, value):
-        get_widget(self.widget, "44001").selected = value
-        self.disable_buttons(None)
-
-    @property
-    def selected_sub_model(self):
-        return get_widget(self.widget, "45001").selected
-
-    @selected_sub_model.setter
-    def selected_sub_model(self, value):
-        get_widget(self.widget, "45001").selected = value
-
-    @property
-    def y_pred(self):
-        if self._y_pred is None:
-            pred = self.model.predict(self.X)
-            if self.problem_category in [ProblemCategory.classification_with_proba]:
-                pred = self.model.predict_proba(self.X)
-
-            if len(pred.shape) > 1:
-                if pred.shape[1] == 1:
-                    pred = pred.squeeze()
-                if pred.shape[1] == 2:
-                    pred = np.array(pred)[:, 1]
-                else:
-                    pred = pred.argmax(axis=1)
-            self._y_pred = pd.Series(pred, index=self.X.index)
-        return self._y_pred
 
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
@@ -236,107 +202,7 @@ class GUI:
         self.disable_hde()
 
         if self.counter == 10:
-            pass # @TODO call Dialog , see examples/star_dialog
-
-    def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: callable = None):
-        self.es_hde.update_X(current_exp_df, progress_callback)
-        self.es_rules_wgt.update_X(current_exp_df)
-
-    def disable_hde(self, disable='auto'):
-        if disable == 'auto':
-            disable_proj = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
-            disable_figure = bool(self.tab > 1)
-        else:
-            disable_proj = disable
-            disable_figure = disable
-        self.vs_hde.disable(disable_figure, disable_proj)
-        self.exp_values.disable_selection(disable_proj)
-        self.es_hde.disable(disable_figure, disable_proj)
-
-    def set_dimension(self, dim):
-        get_widget(self.widget, "100").v_model = dim == 3
-        self.vs_hde.set_dim(dim)
-        self.es_hde.set_dim(dim)
-
-    def selection_changed(self, caller: HighDimExplorer | None, new_selection_mask: pd.Series):
-        """Called when the selection of one HighDimExplorer changes"""
-
-        # UI rules :
-        # If new selection (empty or not) : if exists, we remove any 'pending rule'
-        self.new_selection = True
-        self.disable_hde()
-        if new_selection_mask.all():
-            # Selection is empty
-            # we display y as color
-            self.select_tab(0)
-            # we reset rules_widgets
-            self.vs_rules_wgt.disable()
-            self.es_rules_wgt.disable()
-            self.es_rules_wgt.reset_widget()
-            self.vs_rules_wgt.reset_widget()
-        else:
-            # Selection is not empty anymore or changes
-            X_rounded = copy.copy((self.X.loc[new_selection_mask])).round(3)
-            change_widget(
-                self.widget,
-                "432010",
-                v.DataTable(
-                    v_model=[],
-                    show_select=False,
-                    headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=X_rounded.to_dict("records"),
-                    hide_default_footer=False,
-                    disable_sort=False,
-                ),
-            )
-
-        # We store the new selection
-        self.selection_mask = new_selection_mask
-        # We synchronize selection between the two HighDimExplorers
-        if caller is None:
-            self.es_hde.set_selection(self.selection_mask)
-            self.vs_hde.set_selection(self.selection_mask)
-        else:
-            other_hde = self.es_hde if caller == self.vs_hde.figure else self.vs_hde
-            other_hde.set_selection(self.selection_mask)
-
-        # We update the selection status :
-        if not self.selection_mask.all():
-            selection_status_str_1 = f"{self.selection_mask.sum()} point selected"
-            selection_status_str_2 = f"{100 * self.selection_mask.mean():.2f}% of the  dataset"
-        else:
-            selection_status_str_1 = f"0 point selected"
-            selection_status_str_2 = f"0% of the  dataset"
-        change_widget(self.widget, "4300000", selection_status_str_1)
-        change_widget(self.widget, "430010", selection_status_str_2)
-        # we refresh button and enable/disable the datatable
-        self.refresh_buttons_tab_1()
-
-    def fig_size_changed(self, widget, *args):
-        """Called when the figureSizeSlider changed"""
-        pass
-
-    def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
-        """
-        Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
-        The function asks the HDEs to display the rules result
-        """
-        # We make sure we're in 2D :
-        # TODO : pourquoi on passe en dim 2 ici ?
-        # Switch button
-        self.set_dimension(2)
-
-        # We sent to the proper HDE the rules_indexes to render :
-        self.vs_hde.figure.display_rules(selection_mask=self.selection_mask, rules_mask=df_mask)
-        self.es_hde.figure.display_rules(selection_mask=self.selection_mask, rules_mask=df_mask)
-
-        # sync selection between rules_widgets
-        if rules_widget == self.vs_rules_wgt:
-            self.es_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
-        else:
-            self.vs_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
-
-        self.refresh_buttons_tab_1()
+            pass  # @TODO call Dialog , see examples/star_dialog
 
     def init_app(self):
         """
@@ -471,6 +337,137 @@ class GUI:
 
         self.refresh_buttons_tab_1()
 
+    # ==================== properties ==================== #
+
+    @property
+    def selected_regions(self):
+        return get_widget(self.widget, "44001").selected
+
+    @selected_regions.setter
+    def selected_regions(self, value):
+        get_widget(self.widget, "44001").selected = value
+        self.disable_buttons(None)
+
+    @property
+    def selected_sub_model(self):
+        return get_widget(self.widget, "45001").selected
+
+    @selected_sub_model.setter
+    def selected_sub_model(self, value):
+        get_widget(self.widget, "45001").selected = value
+
+    @property
+    def y_pred(self):
+        if self._y_pred is None:
+            pred = self.model.predict(self.X)
+            if self.problem_category in [ProblemCategory.classification_with_proba]:
+                pred = self.model.predict_proba(self.X)
+
+            if len(pred.shape) > 1:
+                if pred.shape[1] == 1:
+                    pred = pred.squeeze()
+                if pred.shape[1] == 2:
+                    pred = np.array(pred)[:, 1]
+                else:
+                    pred = pred.argmax(axis=1)
+            self._y_pred = pd.Series(pred, index=self.X.index)
+        return self._y_pred
+
+    # ==================== sync callbacks ==================== #
+
+    def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: callable = None):
+        self.es_hde.update_X(current_exp_df, progress_callback)
+        self.es_rules_wgt.update_X(current_exp_df)
+
+    def disable_hde(self, disable='auto'):
+        if disable == 'auto':
+            disable_proj = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
+            disable_figure = bool(self.tab > 1)
+        else:
+            disable_proj = disable
+            disable_figure = disable
+        self.vs_hde.disable(disable_figure, disable_proj)
+        self.exp_values.disable_selection(disable_proj)
+        self.es_hde.disable(disable_figure, disable_proj)
+
+    def selection_changed(self, caller: HighDimExplorer | None, new_selection_mask: pd.Series):
+        """Called when the selection of one HighDimExplorer changes"""
+
+        # UI rules :
+        # If new selection (empty or not) : if exists, we remove any 'pending rule'
+        self.new_selection = True
+        self.disable_hde()
+        if new_selection_mask.all():
+            # Selection is empty
+            # we display y as color
+            self.select_tab(0)
+            # we reset rules_widgets
+            self.vs_rules_wgt.disable()
+            self.es_rules_wgt.disable()
+            self.es_rules_wgt.reset_widget()
+            self.vs_rules_wgt.reset_widget()
+        else:
+            # Selection is not empty anymore or changes
+            X_rounded = copy.copy((self.X.loc[new_selection_mask])).round(3)
+            change_widget(
+                self.widget,
+                "432010",
+                v.DataTable(
+                    v_model=[],
+                    show_select=False,
+                    headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
+                    items=X_rounded.to_dict("records"),
+                    hide_default_footer=False,
+                    disable_sort=False,
+                ),
+            )
+
+        # We store the new selection
+        self.selection_mask = new_selection_mask
+        # We synchronize selection between the two HighDimExplorers
+        if caller is None:
+            self.es_hde.set_selection(self.selection_mask)
+            self.vs_hde.set_selection(self.selection_mask)
+        else:
+            other_hde = self.es_hde if caller == self.vs_hde.figure else self.vs_hde
+            other_hde.set_selection(self.selection_mask)
+
+        # We update the selection status :
+        if not self.selection_mask.all():
+            selection_status_str_1 = f"{self.selection_mask.sum()} point selected"
+            selection_status_str_2 = f"{100 * self.selection_mask.mean():.2f}% of the  dataset"
+        else:
+            selection_status_str_1 = f"0 point selected"
+            selection_status_str_2 = f"0% of the  dataset"
+        change_widget(self.widget, "4300000", selection_status_str_1)
+        change_widget(self.widget, "430010", selection_status_str_2)
+        # we refresh button and enable/disable the datatable
+        self.refresh_buttons_tab_1()
+
+    def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
+        """
+        Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
+        The function asks the HDEs to display the rules result
+        """
+        # We sent to the proper HDE the rules_indexes to render :
+        self.vs_hde.figure.display_rules(selection_mask=self.selection_mask, rules_mask=df_mask)
+        self.es_hde.figure.display_rules(selection_mask=self.selection_mask, rules_mask=df_mask)
+
+        # sync selection between rules_widgets
+        if rules_widget == self.vs_rules_wgt:
+            self.es_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
+        else:
+            self.vs_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
+
+        self.refresh_buttons_tab_1()
+
+    # ==================== top bar ==================== #
+
+    def set_dimension(self, dim):
+        get_widget(self.widget, "100").v_model = dim == 3
+        self.vs_hde.set_dim(dim)
+        self.es_hde.set_dim(dim)
+
     def switch_dimension(self, widget, event, data):
         """
         Called when the switch changes.
@@ -498,6 +495,8 @@ class GUI:
         self.vs_hde.figure.set_color(color, 0)
         self.es_hde.figure.set_color(color, 0)
         self.select_tab(0)
+
+    # ==================== TAB handling ==================== #
 
     def select_tab_front(self, tab):
         def call_fct(*args):
