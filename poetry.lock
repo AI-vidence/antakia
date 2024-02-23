@@ -24,39 +24,35 @@ files = [
 
 [[package]]
 name = "antakia-ac"
-version = "0.2.2"
+version = "0.2.4"
 description = ""
 optional = false
-python-versions = ">=3.11,<3.13"
+python-versions = ">=3.11,<3.12"
 files = [
-    {file = "antakia_ac-0.2.2-py3-none-any.whl", hash = "sha256:feb7635cdb8602a11e82d9a4b5c24e7187e397ac56f3dec188607696df10b798"},
-    {file = "antakia_ac-0.2.2.tar.gz", hash = "sha256:d18f9a94b4d80655c228a484ddfd0c4f01ef7f9137d1ec4371acca6f7b954662"},
+    {file = "antakia_ac-0.2.4-py3-none-any.whl", hash = "sha256:dc50a4ec5c65b54ee416e2116ffdc9c48c0fe0dfc72d69a14242391eeb24f6a9"},
+    {file = "antakia_ac-0.2.4.tar.gz", hash = "sha256:53156aa70be16f9987d923f86ad42be28266d970a322407e9804fe6c1046156a"},
 ]
 
 [package.dependencies]
 antakia-core = "*"
 numba = ">=0.59.0,<0.60.0"
-pandas = ">=2.2.0,<3.0.0"
-pyarmor = ">=8.4.7,<9.0.0"
-pyarmor-webui = ">=2.2,<3.0"
 scikit-learn = ">=1.4.0,<2.0.0"
 scipy = ">=1.12.0,<2.0.0"
 tomaster = ">=0.0.5,<0.0.6"
-umap-learn = ">=0.5.5,<0.6.0"
 
 [[package]]
 name = "antakia-core"
-version = "0.2.4"
+version = "0.2.5"
 description = "Core modules for AntakIA"
 optional = false
 python-versions = ">=3.11,<3.13"
 files = [
-    {file = "antakia_core-0.2.4-py3-none-any.whl", hash = "sha256:63cc961285288b3eac4966102aaebb31136a896c03ac097fc5573ac7e3308cd5"},
-    {file = "antakia_core-0.2.4.tar.gz", hash = "sha256:1b819630a22c279a8e613cb18a82fa40b7a34fa79b8bce553b36e3e94e58c530"},
+    {file = "antakia_core-0.2.5-py3-none-any.whl", hash = "sha256:c71b31d3c3628ca3a6c3a5b27f45ca7593986b0411378e2ce545b4740ad7034a"},
+    {file = "antakia_core-0.2.5.tar.gz", hash = "sha256:7756da00fabfc31153b91cdf64af2444af28fc6c731dc52b55a76c1213375547"},
 ]
 
 [package.dependencies]
-interpret = ">=0.5.1,<0.6.0"
+interpret = "*"
 openTSNE = "*"
 pacmap = "*"
 pandas = ">=2.2.0,<3.0.0"
@@ -3040,102 +3036,6 @@ files = [
 tests = ["pytest"]
 
 [[package]]
-name = "pyarmor"
-version = "8.4.7"
-description = "A tool used to obfuscate python scripts, bind obfuscated scripts to fixed machine or expire obfuscated scripts."
-optional = false
-python-versions = "*"
-files = [
-    {file = "pyarmor-8.4.7-py3-none-any.whl", hash = "sha256:be4bd3b1d1f124dd76249ada4dde520fd05603e8a2fe2325173076bf7a802f24"},
-    {file = "pyarmor-8.4.7.zip", hash = "sha256:82d647bf8f6cd57776c2a41376f523433e6b7963f35b972197155617f3453e9b"},
-]
-
-[package.dependencies]
-"pyarmor.cli.core" = ">=5.4.3,<5.5.0"
-
-[[package]]
-name = "pyarmor-cli-core"
-version = "5.4.3"
-description = "Provide extension module pytransform3 for Pyarmor"
-optional = false
-python-versions = "*"
-files = [
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-macosx_10_14_x86_64.whl", hash = "sha256:e05df7166b5639a4eb227f04b45dd64f92f9910fb9fd8979060b3785d08aa7a8"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-macosx_11_0_arm64.whl", hash = "sha256:4fb0dd1e1740b2854c06dd993b460827790316c7ff42512a4e56f5ed4db02932"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-manylinux1_i686.whl", hash = "sha256:ab5816b63a97e267fbe308228726a4afc5bd9b7f23110c8ba208d84c5114620c"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-manylinux1_x86_64.whl", hash = "sha256:f007810f8e09675fdc5dee8a0a1fda75728749c3ae69597d1430a83241ce6c49"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-manylinux2014_aarch64.whl", hash = "sha256:32abd44d7701d4b67190c5f08cfd26b29e0428d646043314135dd4c40fc78918"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-manylinux2014_armv7l.whl", hash = "sha256:3698d8e244b89cd466e572747ea727435a06ed9e50f9030572ae8f1c157a5474"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-musllinux_1_1_aarch64.whl", hash = "sha256:23cfdc252ee27467c79799a62e5835b32d07ed2b0434732ad30760fd0078ad0b"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-musllinux_1_1_x86_64.whl", hash = "sha256:32a802df4995e9d218516ac82386ec8d306273135a2dd056d142032c573d1143"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-win32.whl", hash = "sha256:dde1d922dab1925c71b40826b7265341f589c41810a2ab23da91473edcca46cc"},
-    {file = "pyarmor.cli.core-5.4.3-cp310-none-win_amd64.whl", hash = "sha256:b836fab82bb12e9c62e9c7ec6ff7c1aaacb9c0b30dc6ca6ceed20ca42557591a"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-macosx_10_14_x86_64.whl", hash = "sha256:2317a5cadad53676887f4e26a1f98970f230b6ffd7af38b898321c24e4f1fb03"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-macosx_11_0_arm64.whl", hash = "sha256:c3b51ad0c58084b3f4012310e1f043291be8e4d1918ef693c3282b89ac121240"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-manylinux1_i686.whl", hash = "sha256:0af6fba60bc1ed3117816cd063440c863a39a9afcdac7da170af7f928574929e"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-manylinux1_x86_64.whl", hash = "sha256:0e9e400e8e9457f25e380354d8009a234b74be9ee516c30e52d37d5db05c8d9e"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-manylinux2014_aarch64.whl", hash = "sha256:ffa5afb733e30efd501b8b32b5faabd4b52f413d948f8d2708e75ccbcd04e19c"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-manylinux2014_armv7l.whl", hash = "sha256:8ff2c85e626c95d195a731f1931079614699559f6ac6972313c214a80d05de4b"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-musllinux_1_1_aarch64.whl", hash = "sha256:3ff836485554e2d6e058cf8a485168ee9cc1891f61d6ca91968fc5e6f99abafd"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-musllinux_1_1_x86_64.whl", hash = "sha256:d84d96ab4a5a198ebd18229148c8e6ee54648072a245455632ea6c12ea89f2bf"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-win32.whl", hash = "sha256:cd6c93cbd9409f41a3022038bab9f815c9e32c70ad5561f78eeabff88248c875"},
-    {file = "pyarmor.cli.core-5.4.3-cp311-none-win_amd64.whl", hash = "sha256:10b404bd3031ccad30af546313da67d1433f56c68677e5ada69d4e37f1e66c79"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-macosx_10_14_x86_64.whl", hash = "sha256:580863eb519d9c4343a05d77093c6fba9ed51de5f3ebf6bbfcb61ed2bfe30dcd"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-macosx_11_0_arm64.whl", hash = "sha256:ec334bb03410a8a0e6dedb8d58c8ea56341846762f535e3fba5cb45a5c0fe858"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-manylinux1_i686.whl", hash = "sha256:3f30b53563d484d8d4810b4dfee9a183d935925b535480ba8788da1d68b6afcb"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-manylinux1_x86_64.whl", hash = "sha256:4c93331ed28e4e46ab9e1ac3ca28aa2898a379c5c72d180685883b964802f774"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-manylinux2014_aarch64.whl", hash = "sha256:904a60a4d7a69145d3ed0f21b2030594f37f1d44534f18085f9d234d85c2dbc3"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-manylinux2014_armv7l.whl", hash = "sha256:7adc7e66266efe2e2f02ad3ed9f67d8a6e28aaa4e50f17cd6d5328e702f1b9d0"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-musllinux_1_1_aarch64.whl", hash = "sha256:7ea74e8094feed1c57d55e454a94dff82a5e2d283f6fd5c94ffe8461b03d037f"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-musllinux_1_1_x86_64.whl", hash = "sha256:05595415880d2b40f6ebf3f0eb3e8fb9f47744f2bea8d216ab3c9c8754b3c178"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-win32.whl", hash = "sha256:12669e361a182b1430d64dde58eea39c742d1a3349c5749f7821b4b124346f01"},
-    {file = "pyarmor.cli.core-5.4.3-cp312-none-win_amd64.whl", hash = "sha256:7e371a1ca328116ac2c6ba72c07c3617940ef1e9e3c0958e93f3ccbd5a82bb45"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-macosx_10_14_x86_64.whl", hash = "sha256:d95a694057a4cd4e90b9ee961c270f0b68fa8fa65446b86010a8249f19b244b0"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-manylinux1_i686.whl", hash = "sha256:66983f44359c5d9d3a6ec9066eda201e45cd0a95a9049dd2451a8c911f432ae0"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-manylinux1_x86_64.whl", hash = "sha256:036f03afcb23c71a349a714f601b4130fa534b1853a9c2e5bea69529fed78907"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-manylinux2014_aarch64.whl", hash = "sha256:baafc90848333aa15cca4adf0451015a9e0e18c6325fc0a7b7d6d24c6f008021"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-manylinux2014_armv7l.whl", hash = "sha256:a2fa64eada34a3d0d9854da4f5f2200dbbffe032ca24c804e29b3a336b632534"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-musllinux_1_1_aarch64.whl", hash = "sha256:228eac26a8b6e7c78063a42fe22b334006980e1d0fe112269a420c3f9d4cac97"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-musllinux_1_1_x86_64.whl", hash = "sha256:5306daae29c49b989833e0e109752113ebc69cd56bc08652e5270b170d23a8cf"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-win32.whl", hash = "sha256:aa9e0e3357e4206674476532725def12d67e9887dcf76481d4ef34e18273fa98"},
-    {file = "pyarmor.cli.core-5.4.3-cp37-none-win_amd64.whl", hash = "sha256:3a639c0ab7a3e83548f5856df15908856859490e2a91da44a831ccbe5a52f789"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-macosx_10_14_x86_64.whl", hash = "sha256:9e4f077420c75f46d0f12b6ba74920b6765f3384f030b146660ffc6d346b076c"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-manylinux1_i686.whl", hash = "sha256:5dda2cc381e74c9cd968a0b922b5899bfff321e6d09cc8a629ea8502fd2d0968"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-manylinux1_x86_64.whl", hash = "sha256:40b706127547ca997033bc9f890828b41d54daf15c2f461e08263cc6956d2dee"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-manylinux2014_aarch64.whl", hash = "sha256:6c039bc942106c71c64fa32cc79ea72c2f1adc6f4feb7a01942b706908827747"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-manylinux2014_armv7l.whl", hash = "sha256:bbbfbf46e718b39a257e8c4801030adfec525ec0599ebada76bc6e34201b619f"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-musllinux_1_1_aarch64.whl", hash = "sha256:fd6ac30efc477c5f3ad1d8006ecdc39c2b5b5e18ccc193cbe85d492695af35db"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-musllinux_1_1_x86_64.whl", hash = "sha256:7867380dd4741b4b61a7f066547ec2c8354fdb5835bbaec9568dbc073a0d88de"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-win32.whl", hash = "sha256:f42f9bd878ff00294893b036c0e403efd02c0619bc410e94879c7ad8faf032b1"},
-    {file = "pyarmor.cli.core-5.4.3-cp38-none-win_amd64.whl", hash = "sha256:9df1119c10f9a500a4af3df1c9e4e141aa51f0459be45aabf5e642836429d27a"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-macosx_10_14_x86_64.whl", hash = "sha256:af3c8991842ecaa31748dac64b68a7e280df9a42ce29d67304a3979736a96439"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-macosx_11_0_arm64.whl", hash = "sha256:7d4ec2ee55c6423e69b43589a368ce85239062735557bee22920a0a00f1a05b6"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-manylinux1_i686.whl", hash = "sha256:807285b3c4d1aca55cbf1a3022cbf3653cfbdfdab1da3677cb5f0bbbf127017f"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-manylinux1_x86_64.whl", hash = "sha256:4f8ced6c532e53f649822e50e14b4a571e4c427caa3987f54f2c04106a8d2304"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-manylinux2014_aarch64.whl", hash = "sha256:cfc9df5a31969beea319119a550a2911311757e6e7e9224af373c86639e9bac7"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-manylinux2014_armv7l.whl", hash = "sha256:e54efc45ac22a733c9c1bd3359e98b3678b1e718f3cc73b7b0c1a4ea1ae4f891"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-musllinux_1_1_aarch64.whl", hash = "sha256:3d5773e232af9afff3b471a4aa974ef953939d8e77528555127c368f07594d7f"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-musllinux_1_1_x86_64.whl", hash = "sha256:31dd236d79bd5b9d29693e5a90be0ff5960d60c4a6ce385a49a1c49e89e50c1c"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-win32.whl", hash = "sha256:75b041463a92d6ffbb1b598c336e78a7cf23dc4a52b41c6a2781040e56565074"},
-    {file = "pyarmor.cli.core-5.4.3-cp39-none-win_amd64.whl", hash = "sha256:cbfacbe76d504dae92ff5cad24dab5411f2300a53c81aa3d1cd9a70568381d3e"},
-    {file = "pyarmor.cli.core-5.4.3-py3-none-any.whl", hash = "sha256:8ccfbd24b31de162032c34b258ee61349f9dc82e33c4df2f96ca577e5baae88e"},
-    {file = "pyarmor.cli.core-5.4.3.zip", hash = "sha256:13c928f167ee792ff690c2413a8c258fa13a507447e309057ffe7d9f14167790"},
-]
-
-[[package]]
-name = "pyarmor-webui"
-version = "2.2"
-description = "A webui tool used to obfuscate and pack python scripts based on pyarmor"
-optional = false
-python-versions = "*"
-files = [
-    {file = "pyarmor-webui-2.2.zip", hash = "sha256:1dbf84e64a33ee531ad1196c51c88a96cd15c455c1227196c0bb71407c65d2a4"},
-]
-
-[package.dependencies]
-pyarmor = ">=8.2.2"
-
-[[package]]
 name = "pycparser"
 version = "2.21"
 description = "C parser in Python"
@@ -4740,4 +4640,4 @@ testing = ["coverage (>=5.0.3)", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.12"
-content-hash = "09be1be57866cc0c6db6ebbff9235602c4d1a83e0cf23992f1af5b5ea180dcbf"
+content-hash = "2d5eea927623b5353158a8f084bb3a496624e56992881a80873b2e8e21e87326"

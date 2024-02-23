@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "antakia"
-version = "0.2.1"
+version = "0.2.7"
 description = "AI made Xplainable"
 readme = "README.md"
 authors = [
@@ -31,7 +31,7 @@ lime = "^0.2.0.1"
 shap = "^0.43.0"
 python-dotenv = "^1.0.0"
 antakia-core = "*"
-antakia-ac = "*"
+antakia-ac = ">=0.2.4"
 
 
 [tool.poetry.group.dev.dependencies]
