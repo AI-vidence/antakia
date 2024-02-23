@@ -17,19 +17,17 @@ pip install antakia
 
 ## Quick start
 
-You can download some of our notebook examples from our repo : https://pypi.org/project/antakia/
+Once you've installed `antakia`, you can download some of our notebook examples from our repo :
+ * download notebooks here : https://github.com/AI-vidence/antakia/tree/main/examples
+ * and related data here : https://github.com/AI-vidence/antakia/tree/main/examples/data 
 
-After you've installed `antakia`, download the `examples` folder and launch a Jupyter server from there :
+Then, launch a Jupyter server from the notebook file (`.ipynb`) location :
 
 ```
-cd examples
 jupyter notebook # or jupyter lab
-
 ```
 
-Open and run one of our notebooks.
-
-You'll find a complete tutorial for our Callifornia housing here : https://doc.antakia.ai
+You'll find a complete tutorial for our California housing example here : https://doc.antakia.ai
 
 > [!IMPORTANT] 
 If you're using a virtual env, it's handy to be able to chose it from Jupyter's kernel list. Do the following :
@@ -41,8 +39,9 @@ python -m ipykernel install --user --name your_venv_name --display-name "My grea
 ## Online demo
 
 You can give `antakia` a try online  : https://demo.antakia.ai 
-Log as `demo` and with password `antakia`.
-Note this it runs on a simple server and may be busy. You may want to log with other accouts : `demo1` to `demo5` are accepted with the same password.
+
+Log as `demo`  with password `antakia`.
+Note it runs on a simple server and may be busy. You may want to log with other accounts : `demo1` to `demo5` are accepted with the same password.
 
 
 ## Run with Docker
