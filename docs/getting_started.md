@@ -23,8 +23,9 @@ jupyter notebook # or jupyter lab
 At least you'll need `california_housing.ipynb`and `california_housing.csv` from our repo if you want to do our [tutorial](tutorial1.md). 
 
 
-> [!IMPORTANT] 
-> If you're using a virtual env, it's handy to be able to chose it from Jupyter's kernel list. Do the following :
+!!! Important
+
+    If you're using a virtual env, it's handy to be able to chose it from Jupyter's kernel list. Do the following :
 
 ```
 python -m ipykernel install --user --name your_venv_name --display-name "My great virtual env"
