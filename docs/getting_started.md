@@ -40,8 +40,9 @@ Note it runs on a simple server and may be busy. You may want to log with other 
 
 ## Run with Docker
 
-> [!IMPORTANT] 
-> Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
+!!! Important
+
+    Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
 
 ```
 docker build -t antakia .

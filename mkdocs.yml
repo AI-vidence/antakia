@@ -11,5 +11,9 @@ nav:
   - About: about.md
   - Credits: credits.md
 
+markdown_extensions:
+  - admonition
+  - attr_list
+
 theme: readthedocs
 

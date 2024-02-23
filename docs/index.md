@@ -1,4 +1,4 @@
-![](img/antakia.png)
+![](img/antakia.png){: style="height:200px"}
 
 # Welcome to AntakIA !
 
