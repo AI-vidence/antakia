@@ -1,7 +1,7 @@
 # Apple
 .DS_Store
 
-# VSCode
+# IDE
 .vscode/
 *.code-workspace
 .idea/
@@ -27,3 +27,8 @@ ipython_config.py
 # docs
 site/
 
+# test
+.coverage.*
+
+# poetry
+poetry.lock
