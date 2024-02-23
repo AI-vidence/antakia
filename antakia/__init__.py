@@ -1,5 +1,7 @@
 
-__version__ = "0.2.1"
-__author__ = "AI-vidence "
+import importlib.metadata
+
+__version__ = importlib.metadata.version("antakia")
+__author__ = "AI-vidence"
 
 from antakia.antakia import AntakIA
