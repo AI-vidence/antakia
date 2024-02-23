@@ -1,6 +1,6 @@
 from traitlets import traitlets
 import ipyvuetify as v
-from antakia.utils.utils import colors
+from antakia_core.utils.utils import colors
 
 
 class ColorTable(v.VuetifyTemplate):

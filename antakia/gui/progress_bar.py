@@ -1,4 +1,7 @@
+import math
+
 import ipyvuetify as v
+import pandas as pd
 
 
 class ProgressBar:
@@ -34,19 +37,36 @@ class ProgressBar:
         -------
 
         """
+        self.progress = progress
         self.widget.color = self.active_color
         self.widget.indeterminate = self.indeterminate
 
-        self.progress = progress
-        self.widget.v_model = round(progress)
 
-        if round(progress) >= 100 and self.reset_at_end:
+        if math.ceil(progress) >= 100 and self.reset_at_end:
             self.reset_progress_bar()
 
     def reset_progress_bar(self):
-        self.progress = 0
+        self.progress = 100
         self.widget.indeterminate = False
         self.widget.color = self.unactive_color
+
+    def __call__(self, *args, **kwargs):
+        return self.update(*args, **kwargs)
+
+    @property
+    def progress(self):
+        return self.widget.v_model
+
+    @progress.setter
+    def progress(self, value):
+        if value is None or pd.isna(value):
+            self.widget.indeterminate = True
+        else:
+            if self.indeterminate and value <= 99:
+                self.widget.indeterminate = True
+            else:
+                self.widget.indeterminate = False
+            self.widget.v_model = value
 
 
 class MultiStepProgressBar:

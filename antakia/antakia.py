@@ -7,12 +7,12 @@ import pandas as pd
 
 from dotenv import load_dotenv
 
-from antakia.utils.utils import ProblemCategory
+from antakia_core.utils.utils import ProblemCategory
 
 load_dotenv()
 
 from antakia.utils.checks import is_valid_model
-from antakia.utils.variable import Variable, DataVariables
+from antakia_core.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
 
 
@@ -132,23 +132,23 @@ class AntakIA:
         return X, y, X_exp
 
     def _preprocess_problem_category(self, problem_category: str, model, X: pd.DataFrame) -> ProblemCategory:
-        if problem_category not in ProblemCategory:
+        if problem_category not in [e.name for e in ProblemCategory]:
             raise ValueError('Invalid problem category')
         if problem_category == 'auto':
             if hasattr(model, 'predict_proba'):
-                return ProblemCategory('classification_with_proba')
+                return ProblemCategory['classification_with_proba']
             pred = self.model.predict(self.X.sample(min(100, len(self.X))))
             if len(pred.shape) > 1 and pred.shape[1] > 1:
-                return ProblemCategory('classification_proba')
-            return ProblemCategory('regression')
+                return ProblemCategory['classification_proba']
+            return ProblemCategory['regression']
         if problem_category == 'classification':
             if hasattr(model, 'prodict_proba'):
-                return ProblemCategory('classification_with_proba')
+                return ProblemCategory['classification_with_proba']
             pred = model.predict(X.sample(min(100, len(X))))
             if len(pred.shape) > 1 and pred.shape[1] > 1:
-                return ProblemCategory('classification_proba')
-            return ProblemCategory('classification_label_only')
-        return ProblemCategory(problem_category)
+                return ProblemCategory['classification_proba']
+            return ProblemCategory['classification_label_only']
+        return ProblemCategory[problem_category]
 
     def _preprocess_score(self, score, problem_category):
         if callable(score):

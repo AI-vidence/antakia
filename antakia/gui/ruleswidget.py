@@ -3,11 +3,11 @@ import pandas as pd
 import ipyvuetify as v
 from plotly.graph_objects import FigureWidget, Histogram
 
-from antakia.data_handler.rules import Rule, RuleSet
+from antakia_core.data_handler.rules import Rule, RuleSet
 from antakia.gui.widgets import change_widget, get_widget, app_widget
 
-from antakia.utils.utils import compute_step, get_mask_comparison_color
-from antakia.utils.variable import DataVariables
+from antakia_core.utils.utils import compute_step, get_mask_comparison_color
+from antakia_core.utils.variable import DataVariables
 
 
 class RuleWidget:

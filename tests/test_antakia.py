@@ -14,6 +14,7 @@ from tests.status_checks import check_all
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 
 from antakia import config
+from tests.utils_fct import DummyModel
 
 
 class TestAntakia(TestCase):
@@ -32,13 +33,6 @@ class TestAntakia(TestCase):
         cls.X_test['X3'] = np.random.random(len(X_test))
         cls.y_test = pd.Series(y_test)
 
-        class DummyModel:
-            def predict(self, X):
-                return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
-
-            def score(self, *args):
-                return 1
-
         cls.regression_DT = DecisionTreeRegressor().fit(cls.X, cls.y)
         cls.regression_DT_np = DecisionTreeRegressor().fit(cls.X.values, cls.y.values)
         cls.regression_any = DummyModel()
@@ -53,6 +47,12 @@ class TestAntakia(TestCase):
     def test_vanilla_run(self):
         # vanilla run
         atk = AntakIA(self.X, self.y, self.regression_DT)
+        run_antakia(atk, True)
+
+    def test_vanilla_run_test(self):
+        # vanilla run
+        atk = AntakIA(self.X, self.y, self.regression_DT,
+                      X_test=self.X_test, y_test=self.y_test)
         run_antakia(atk, True)
 
     def test_shape_issue(self):
@@ -121,8 +121,10 @@ class TestAntakia(TestCase):
         atk = AntakIA(self.X, self.y, self.regression_DT)
         run_walk(
             atk,
-            [('edit_parameter', [0]), ('set_color', [2]), ('select_points', [1]), ('set_color', [0]), ('find_rules', []), ('set_proj_method', [1, 1]), ('edit_parameter', [1]), ('change_tab', [0]), ('set_color', [0]), ('validate_rules', []), ('auto_cluster', []), ('auto_cluster', []), ('toggle_select_region', [3]), ('auto_cluster', []), ('substitute', [])]
-
+            [('change_tab', [0]), ('change_tab', [1]), ('set_exp_method', [2]), ('auto_cluster', []),
+             ('set_color', [1]), ('set_proj_method', [1, 2]), ('set_exp_method', [1]), ('unselect', [1]),
+             ('edit_parameter', [1]), ('set_color', [1]), ('select_points', [1]), ('select_points', [0]),
+             ('set_color', [2]), ('find_rules', []), ('select_points', [1])]
         )
 
     def test_classifier(self):
@@ -135,20 +137,20 @@ def dummy_projection(_X, y, method, dim, callback, *args, **kwargs):
     return pd.DataFrame(_X.values[:, :dim], index=_X.index)
 
 
-def dummy_exp(_X, model, method, callback, *args, **kwargs):
+def dummy_exp(_X, model, method, task_type, callback, *args, **kwargs):
     callback(100, 0)
     return pd.DataFrame(_X.values, index=_X.index, columns=_X.columns)
 
 
 @mock.patch('antakia.gui.explanation_values.compute_explanations', wraps=dummy_exp)
-@mock.patch('antakia.data_handler.projected_values.compute_projection', wraps=dummy_projection)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection', wraps=dummy_projection)
 def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     atk.start_gui()
     # assert both progress bar are full after start up
-    assert get_widget(splash_widget.widget, '110').v_model == 100
-    assert get_widget(splash_widget.widget, '210').v_model == 100
 
     gui = atk.gui
+    assert get_widget(gui.splash_widget, '110').v_model == 100
+    assert get_widget(gui.splash_widget, '210').v_model == 100
     if check:
         check_all(gui)
     # change colors
@@ -163,8 +165,6 @@ def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
         exp_range = [0, 1, 2]
         compute = [1, 2]
 
-    for exp in compute:
-        compute_exp_method(gui, exp, check=check)
     for exp in exp_range:
         set_exp_method(gui, exp, check=check)
 
@@ -203,7 +203,6 @@ def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
 
 actions = {
     'set_color': (set_color, range(3)),
-    'compute_exp_method': (compute_exp_method, range(3)),
     'set_exp_method': (set_exp_method, range(3)),
     'set_proj_method': (set_proj_method, range(2), range(3)),
     'edit_parameter': (edit_parameter, range(2)),
