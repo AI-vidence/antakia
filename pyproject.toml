@@ -24,15 +24,16 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
-ipyvuetify = "^1.8.10"
+ipyvuetify = "<1.9.0"
 ipywidgets = "^8.1.1"
 plotly = "^5.18.0"
 lime = "^0.2.0.1"
 shap = "^0.43.0"
 python-dotenv = "^1.0.0"
-antakia-core = "*"
-antakia-ac = ">=0.2.4"
-#antakia-ac = {path = "../antakia_ac", develop = true}
+#antakia-core = "*"
+#antakia-ac = ">=0.2.4"
+antakia-ac = {path = "../antakia_ac", develop = true}
+antakia-core = {path = "../antakia_core", develop = true}
 
 
 [tool.poetry.group.dev.dependencies]
