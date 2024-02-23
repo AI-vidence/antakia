@@ -7,6 +7,8 @@ import ipyvuetify as v
 import IPython.display
 
 from antakia_core.data_handler.region import ModelRegionSet, ModelRegion
+
+from antakia.gui.antakia_logo import AntakiaLogo
 from antakia.gui.explanation_values import ExplanationValues
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia.gui.progress_bar import ProgressBar, MultiStepProgressBar
@@ -92,6 +94,9 @@ class GUI:
         self.selection_mask = boolean_mask(X, True)
 
         self.pv_bank = ProjectedValueBank(y)
+
+        # star dialog
+        self.logo = AntakiaLogo()
 
         # first hde
         self.vs_hde = HighDimExplorer(
@@ -202,19 +207,16 @@ class GUI:
         self.disable_hde()
 
         if self.counter == 10:
-            pass  # @TODO call Dialog , see examples/star_dialog
+            self.logo.open()
 
     def init_app(self):
         """
         Inits and wires the app_widget, and implements UI logic
         """
 
-        # ------------------Figure size -----------------
+        # -------------- Dimension Switch --------------
 
-        # We wire the input event on the figureSizeSlider (050100)
-        # get_widget(self.widget, "03000").on_event("input", self.fig_size_changed)
-        # We set the init value to default :
-        # get_widget(self.widget, "03000").v_model = config.INIT_FIG_WIDTH
+        get_widget(self.widget,'00').children = [self.logo.widget]
 
         # -------------- Dimension Switch --------------
 
