@@ -8,11 +8,9 @@ AntakIA is available on [PyPI](https://pypi.org/project/antakia/) :
 pip install antakia
 ```
 
-## Quick start
+## Running example notebooks
 
-Once you've pip installed `antakia`, you can download some of our notebook examples from our repo :
- * download notebooks here : https://github.com/AI-vidence/antakia/tree/main/examples
- * and related data here : https://github.com/AI-vidence/antakia/tree/main/examples/data 
+Once you've installed `antakia`, you can download some of our notebook examples from our repo [here](https://github.com/AI-vidence/antakia/tree/main/examples).
 
 Then, launch a Jupyter server from the notebook file (`.ipynb`) location :
 
