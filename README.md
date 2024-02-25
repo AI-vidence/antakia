@@ -15,7 +15,7 @@ AntakIA is available on [PyPI](https://pypi.org/project/antakia/) :
 pip install antakia
 ```
 
-## Running examples
+## Running example notebooks
 
 Once you've installed `antakia`, you can download some of our notebook examples from our repo [here](https://github.com/AI-vidence/antakia/tree/main/examples).
 

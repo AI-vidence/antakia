@@ -15,7 +15,6 @@ __pycache__/
 *$py.class
 dist/
 
-
 # Jupyter Notebook
 .ipynb_checkpoints
 
@@ -25,7 +24,6 @@ ipython_config.py
 
 # docs
 site/
-
 
 # test
 .coverage.*
