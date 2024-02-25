@@ -1,4 +1,5 @@
 
+from io import StringIO
 import pandas as pd
 import urllib.request
 import requests
@@ -37,7 +38,9 @@ def get_github_url(ex: str, ds: str = None) -> str:
     elif ex == "climate_change_survey":
         if ds not in ["X_train", "X_test", "y_train", "y_test"]:
             raise ValueError(f"Dataset must be one of the following : 'X_train', 'X_test', 'y_train', 'y_test'.")
-        return base_url + ex + "/" + ds + ".csv"
+        url = base_url + ex + "/" + ds.lower() + ".csv"
+        logger.debug(f"Dataset {ex}/{ds} download URL : {url}")
+        return url
     else:
         url = base_url + ex + ".csv"
         logger.debug(f"Dataset {ex}/{ds} download URL : {url}")
@@ -84,7 +87,27 @@ def get_download_url(oid:str, size:int) -> str:
     str
         The ream download URL of the file
     """
-    return None
+
+    url = "https://github.com/AI-vidence/antakia.git/info/lfs/objects/batch"
+    payload = {
+        'operation': 'download', 
+        'transfer': ['basic'], 
+        'objects': [
+            {
+                'oid': oid, 
+                'size': size
+            }
+        ]
+    }
+    headers = {'content-type': 'application/json', 'Accept': 'application/vnd.git-lfs+json'}
+    
+    # Note the json.dumps(payload) that serializes the dict to a string, otherwise requests doesn't understand nested dicts !
+    r = requests.post(url, data= json.dumps(payload), headers=headers)
+
+    dwl_url = r.json()["objects"][0]['actions']['download']['href']
+    logger.debug(f"Download URL : {dwl_url}")
+    return dwl_url
+
 
 def fetch_dataset(ex: str, ds: str = None) -> pd.DataFrame:
     """
@@ -102,29 +125,8 @@ def fetch_dataset(ex: str, ds: str = None) -> pd.DataFrame:
     pd.DataFrame
         A DataFrame corresponding to the dataset requested of the specified example.
     """
-    
-    url = "https://github.com/AI-vidence/antakia.git/info/lfs/objects/batch"
-
-    _, sha256, size = get_lfs_pointer(get_github_url(ex, ds))
-    payload = {
-        'operation': 'download', 
-        'transfer': ['basic'], 
-        'objects': [
-            {
-                'oid': sha256, 
-                'size': size
-            }
-        ]
-    }
-    payload_j = json.dumps(payload) 
-
-    headers = {'content-type': 'application/json', 'Accept': 'application/vnd.git-lfs+json'}
-    headers_j = json.dumps(headers)
-    
-    r = requests.post(url, data= payload_j, headers=headers_j)
-
-    logger.debug(f"payload_j : {payload_j}")
-    logger.debug(f"headers_j : {headers_j}")
-    logger.debug(f"Content : {r.content}")
-
-    return pd.read_csv(r.content)
+    _, oid, size = get_lfs_pointer(get_github_url(ex, ds))
+    url = get_download_url(oid, size)
+    r = requests.get(url)
+    logger.debug(f"Fetched dataset file: {r.text}")
+    return pd.read_csv(StringIO(r.text))

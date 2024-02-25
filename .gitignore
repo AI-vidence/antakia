@@ -1,6 +1,9 @@
 # Apple
 .DS_Store
 
+# AntakIA
+ counter.json
+
 # IDE
 .vscode/
 *.code-workspace
