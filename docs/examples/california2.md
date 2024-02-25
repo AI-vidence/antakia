@@ -1,6 +1,6 @@
-# Tutorial (2/2)
+# California housing tutorial (2/2)
 
-This is the part 2 of our tutorial. We'll dive into the actual use of AntakIA. If you have questions on the California housing dataset and how to start AntakIA, you should start with the [first part](tutorial1.md) of the tutorial.
+This is the part 2 of our tutorial. We'll dive into the actual use of AntakIA. If you have questions on the California housing dataset and how to start AntakIA, you should start with the [first part](./california1.md) of the tutorial.
 
 ## The AntakIA UI
 
@@ -22,25 +22,25 @@ Then, finding relevant regions consists in finding clusters in VS corresponding 
 
 We introduced the idea of "explanation values". To get an intuition of it, let's consider a dataset with only 2 variables x1 and x2. Now let's take a look at one specific record A. We can plot it on a 2D value space. To compute the explanation values, different methods exist. In AntakIA we use two of them : SHAP and LIME. In the "explanations space" A's coordinates or the importance of variables x1 and x2 according to SHAP for the predictions by the model :
 
-![](img/shap.png)
+![](../img/shap.png)
 
 This is a very simple example : since our California housing dataset `X` has 8 variables, we would need to display an 8-dimension space ! Of course it's not feasible : a human can only understand 2D ond 3D representations.
 
 Hence the idea of **dimensionality reduction**. Various techniques can project a N-dimension space in 2 dimensions. Some are illustrated below :
 
-![](img/dim_reduc.png)
+![](../img/dim_reduc.png)
 
 These 2D plots illustrate our California housing dataset projected in 2D using the [PCA](https://en.wikipedia.org/wiki/Principal_component_analysis), [t-SNE](https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding) and [PaCMAP](https://github.com/YingfanWang/PaCMAP) techniques. Note, AntakIA also proposes the [UMAP](https://umap-learn.readthedocs.io/en/latest/) method.
 
 These dimensionality reduction technique can also project in 3D :
 
-![](img/pacmap.png)
+![](../img/pacmap.png)
 
 ### The splash screen
 
 When you type `atk.start_gui()` the application shows a splash screen first :
 
-![](img/splash.png)
+![](../img/splash.png)
 
 AntakIA needs computed explanation values in order to display the ES.
 
@@ -73,7 +73,7 @@ MIN_POINTS_NUMBER = 100 #minumum number of point to allow autocluster and substi
 
 Here is an explanation fo the main window generic tools :
 
-![](img/ui.png)
+![](../img/ui.png)
 
 ## Understanding the Antakia worlflow
 
@@ -93,7 +93,7 @@ AntakIA workflow can be summarized as below :
 
 The example below is a pretty good example :
 
-![](img/dyadic.png)
+![](../img/dyadic.png)
 
 As previously explained, the idea is to find regions homogenous in both spaces at the same time.
 
@@ -112,11 +112,11 @@ In this example, we see a region in the VS space, with a relatively homogeneous 
 
 Whenever the selection is not empty, you'll see a blue "Find rules" button :
 
-![](img/find_rules.png)
+![](../img/find_rules.png)
 
 You can click it. It launches an algoritm called Skope rules that tries to find rules to describe your selection :
 
-![](img/rules.png)
+![](../img/rules.png)
 
 Actually, Skope rules is a binary classifier : it predicts wether a record belongs to your selection (positive) or not (negative). The dots in blue correspond to the positives records of the rules found, for both VS and ES.
 
@@ -138,7 +138,7 @@ When you're done, you can click on the "validate rules" button
 
 When a set of rules has been validated, AntakIA show another tab named "Regions" :
 
-![](img/one_region.png)
+![](../img/one_region.png)
 
 You see the region has been given a color, here : red.
 
@@ -150,7 +150,7 @@ In the table, select the region with the checkbox, then click on the "substitute
 
 What you see is a proposal of submodels :
 
-![](img/submodel.png)
+![](../img/submodel.png)
 
 You can read the performance of various surrogate models, compared (delta) with the orginal model.
 
@@ -164,7 +164,7 @@ Instead of finding each region one by one, you can try our auto-clustering metho
 
 Below is an example of what you can get :
 
-![](img/ac.png)
+![](../img/ac.png)
 
 It's often a good way to start, then refine your regions !
 

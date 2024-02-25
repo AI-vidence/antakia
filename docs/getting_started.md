@@ -18,7 +18,7 @@ Then, launch a Jupyter server from the notebook file (`.ipynb`) location :
 jupyter notebook # or jupyter lab
 ```
 
-At least you'll need `california_housing.ipynb`and `california_housing.csv` from our repo if you want to do our [tutorial](tutorial1.md). 
+At least you'll need `california_housing.ipynb`and `california_housing.csv` from our repo if you want to do our [tutorial](./examples/california1.md). 
 
 
 !!! Important

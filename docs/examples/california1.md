@@ -1,10 +1,10 @@
-# Tutorial (1/2)
+# California housing tutorial (1/2)
 
-This is the part 1 of our tutorial. It explains how to prepare data and launch AntakIA. Those steps are common to most of AntakIA usages. If you feel familiar enough, you can directly jump to the [second part](tutorial2.md).
+This is the part 1 of our tutorial. It explains how to prepare data and launch AntakIA. Those steps are common to most of AntakIA usages. If you feel familiar enough, you can directly jump to the [second part](./california2.md).
 
 ## The California housing dataset
 
-We'll use the [California housing](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html) dataset, very famous in the datascience ecosystem.
+We'll use the [California housing](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html) dataset, very famous in the datascience ecosystem
 
 This dataset describes 20 640 block groups (ie. groups of houses) in California using 8 variables :
 
@@ -25,12 +25,12 @@ The dataset also gives for each block group the average price of a house. This d
 In our noteboox, this dataset is stored in a Pandas Dataframe named `X`.
 If you type `X.head()` you'll get :
 
-![](img/head_x.png)
+![](../img/head_x.png)
 
 The "medium house values" are stored in a Pandas Series named `y`.
 A `y.head()` will give you something like :
 
-![](img/y.png)
+![](../img/y.png)
 
 ## The use case
 
@@ -42,7 +42,7 @@ It's quite the same story: you have a dataset `X`, you do a supervised training 
 
 ## Preparing the data
 
-Launch a Jupyter server and open the notebook `california_housing.ipynb` (see [Getting started](getting_started.md) page).
+Launch a Jupyter server and open the notebook `california_housing.ipynb` (see [Getting started](../getting_started.md) page).
 
 Let's analyze the first cells :
 
@@ -122,4 +122,4 @@ Two differences with this method :
 
 2. we've also passed pre-computed SHAP values.
 
-Now we're ready to discover AntakIA. You can go to [the second part of our tutorial](tutorial2.md).
+Now we're ready to discover AntakIA. You can go to [the second part of our tutorial](./california2.md).

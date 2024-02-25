@@ -1,2 +1,8 @@
-__version__ = "0.1.1"
+import importlib.metadata
+
+__version__ = importlib.metadata.version("antakia")
 __author__ = "AI-vidence"
+
+"""
+This is antakia.gui package documentation.
+"""

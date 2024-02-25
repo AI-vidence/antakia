@@ -15,10 +15,14 @@ from antakia.utils.checks import is_valid_model
 from antakia_core.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
 
+import importlib.metadata
+
+__version__ = importlib.metadata.version("antakia")
+__author__ = "AI-vidence"
+
 
 class AntakIA:
-    """
-    AntakIA class. 
+    """AntakIA class. 
 
     Antakia instances provide data and methods to explain a ML model.
 

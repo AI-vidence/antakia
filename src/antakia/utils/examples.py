@@ -12,7 +12,7 @@ conf_logger(logger)
 
 examples = ["california_housing", "climate_change_survey", "wages"]
 
-branch = "dev"
+branch = "dev" #TODO change to "main" when merging
 
 def get_github_url(ex: str, ds: str = None) -> str:
     """
@@ -62,7 +62,7 @@ def get_lfs_pointer(url: str) -> tuple[str, str, int]:
     
     """
     path, _ = urllib.request.urlretrieve(url)
-    f = open(path, 'r') #TODO would be better not to use a file
+    f = open(path, 'r') #TODO would be better not to use a file -> we should use requests.get(url).text
     meta = f.read().strip().split('\n')
     f.close()
     server_url = meta[0].split(' ')[1]

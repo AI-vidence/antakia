@@ -31,8 +31,8 @@ Now, you're only a ```pip install antakia``` away from AntakIA  :) ... See our [
 Below is what you'll find in this documentation :
 
 * [Getting started](getting_started.md) : install and usage
-* A step by step tutorial : [first part](tutorial1.md) and [second part](tutorial2.md)
+* [Tutorials](tutorials.md) : step by step guides to run AntakIA on some datasets
 * [Regional explainability](regional_explain.md) and the science behind it
 * [About](about.md) AI-vidence, the team behind AntakIA
-* [Credits](credits)
+* [Credits](credits.md)
 

@@ -5,8 +5,10 @@ from plotly.graph_objects import FigureWidget, Bar
 
 from pdpbox.pdp import PDPIsolate, PDPInteract
 
-
 class ModelExplorer:
+    """
+    This is ModelExplorer docstring.
+    """
     def __init__(self, X: pd.DataFrame):
         self.build_widget()
         self.model: MLModel | None = None

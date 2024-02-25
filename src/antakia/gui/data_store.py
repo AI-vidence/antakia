@@ -1,3 +1,7 @@
+"""
+This is DataStore class.
+"""
+
 class DataStore:
     def __init__(
             self,
@@ -6,3 +10,4 @@ class DataStore:
             X_test,
             y_test,
     ):
+        pass
