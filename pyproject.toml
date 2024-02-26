@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "antakia"
-version = "0.2.7"
+version = "0.2.8"
 description = "AI made Xplainable"
 readme = "README.md"
 authors = [
@@ -24,16 +24,16 @@ keywords = [
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.12"
-ipyvuetify = "<1.9.0"
+ipyvuetify = "*"
 ipywidgets = "^8.1.1"
 plotly = "^5.18.0"
 lime = "^0.2.0.1"
 shap = "^0.43.0"
 python-dotenv = "^1.0.0"
-#antakia-core = "*"
-#antakia-ac = ">=0.2.4"
-antakia-ac = {path = "../antakia-ac", develop = true}
-antakia-core = {path = "../antakia-core", develop = true}
+antakia-core = "*"
+antakia-ac = ">=0.2.4"
+#antakia-ac = {path = "../antakia-ac", develop = true}
+#antakia-core = {path = "../antakia-core", develop = true}
 requests = "^2.31.0"
 
 [tool.poetry.group.dev.dependencies]
@@ -52,7 +52,6 @@ mkdocstrings = "^0.24.0"
 mkdocstrings-python = "^1.8.0"
 mkdocs-gen-files = "^0.5.0"
 mkdocs-literate-nav = "^0.6.1"
-
 
 [tool.poetry.group.demo.dependencies]
 jupyter = "^1.0.0"
