@@ -4,7 +4,6 @@ from pandas.api.types import is_bool_dtype
 
 from antakia_core.utils.utils import ProblemCategory
 from antakia.explanation.explanation_method import ExplanationMethod
-from antakia.gui.explanation_values import ExplanationValues
 
 from antakia.gui.progress_bar import ProgressBar
 
@@ -33,37 +32,6 @@ class DummyModel:
 
     def score(self, *args):
         return 1
-
-
-def generate_df_series_callable():
-    test_progress_bar.reset_progress_bar()
-
-    X = pd.DataFrame([[4, 7, 10],
-                      [5, 8, 11],
-                      [6, 9, 12]],
-                     index=[1, 2, 3],
-                     columns=['a', 'b', 'c'])
-    y = pd.Series([1, 2, 3])
-
-    return X, y, test_progress_bar.update
-
-
-def generate_ExplanationValues(model=None, X_exp=None) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame,
-ExplanationValues, callable]:
-    X, y, progress_callback = generate_df_series_callable()
-
-    def on_change_callback(pv, progress=None):
-        if progress is None:
-            progress = test_progress_bar.update
-        progress(100, 0)
-
-    if model is None:
-        model = DummyModel()
-
-    exp_val = ExplanationValues(X, y, model, ProblemCategory.regression, on_change_callback, dummy_callable, X_exp)
-
-    return X, y, X_exp, exp_val, on_change_callback
-
 
 class EMPTYExplanation(ExplanationMethod):
     def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable):
