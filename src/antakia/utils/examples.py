@@ -10,9 +10,9 @@ from antakia.utils.logging import conf_logger
 logger = logging.getLogger(__name__)
 conf_logger(logger)
 
-examples = ["california_housing", "climate_change_survey", "wages"]
+examples = ["california_housing", "climate_change_survey", "wages", "titanic"]
 
-branch = "dev" #TODO change to "main" when merging
+branch = "main"
 
 def get_github_url(ex: str, ds: str = None) -> str:
     """
@@ -39,6 +39,12 @@ def get_github_url(ex: str, ds: str = None) -> str:
         if ds not in ["X_train", "X_test", "y_train", "y_test"]:
             raise ValueError(f"Dataset must be one of the following : 'X_train', 'X_test', 'y_train', 'y_test'.")
         url = base_url + ex + "/" + ds.lower() + ".csv"
+        logger.debug(f"Dataset {ex}/{ds} download URL : {url}")
+        return url
+    elif ex=="titanic":
+        if ds not in ["train", "test"]:
+            raise ValueError(f"Dataset must be one of the following : 'train', 'test'.")
+        url = base_url + ex + "-" + ds + ".csv"
         logger.debug(f"Dataset {ex}/{ds} download URL : {url}")
         return url
     else:
@@ -108,7 +114,6 @@ def get_download_url(oid:str, size:int) -> str:
     logger.debug(f"Download URL : {dwl_url}")
     return dwl_url
 
-
 def fetch_dataset(ex: str, ds: str = None) -> pd.DataFrame:
     """
     Fetchs the dataset from our examples/data folder. Called by our examples notebooks.
@@ -116,7 +121,7 @@ def fetch_dataset(ex: str, ds: str = None) -> pd.DataFrame:
     Parameters
     ----------
     ex : str
-        The name of the example. Must be one of the following: "california_housing", "climate_change_survey", "wages"
+        The name of the example. Must be one of the following: "california_housing", "climate_change_survey", "wages", "titanic"
     ds : str (optional)
         The name of the dataset if needed. For example: "X_train", "X_test", "y_train", "y_test"
     
