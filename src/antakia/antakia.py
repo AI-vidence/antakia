@@ -69,17 +69,22 @@ class AntakIA:
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
         X, y, X_exp = self._preprocess_data(X, y, X_exp)
+        X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
 
         self.X = X
-        self.X_test = X_test
         if y.ndim > 1:
             y = y.squeeze()
         self.y = y.astype(float)
+
+        self.X_test = X_test
         if y_test is not None and y_test.ndim > 1:
             y_test = y_test.squeeze()
         self.y_test = y_test
+
         self.model = model
+
         self.X_exp = X_exp
+
         self.problem_category = self._preprocess_problem_category(problem_category, model, X)
         self.score = self._preprocess_score(score, self.problem_category)
 
@@ -116,7 +121,7 @@ class AntakIA:
     def export_regions(self):
         return self.gui.region_set
 
-    def _preprocess_data(self, X: pd.DataFrame, y, X_exp: pd.DataFrame):
+    def _preprocess_data(self, X: pd.DataFrame, y, X_exp: pd.DataFrame | None):
         if isinstance(X, np.ndarray):
             X = pd.DataFrame(X)
         if isinstance(X_exp, np.ndarray):
