@@ -10,9 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class MetaData:
+    metadata_file = str(files("antakia").joinpath("assets/metadata.json"))
     def __init__(self):
         try:
-            metadata: dict = json.loads(open("counter.json", "r").read()) if path.exists("counter.json") else 0
+            metadata: dict = json.loads(open(self.metadata_file, "r").read()) if path.exists(self.metadata_file) else 0
             if isinstance(metadata, int):
                 self.counter = metadata
                 self.last_checked_version = None
@@ -45,8 +46,7 @@ class MetaData:
 
     def save(self):
         try:
-            file = files("antakia").joinpath("assets/metadata.json")
-            with open(file, "w") as f:
+            with open(self.metadata_file, "w") as f:
                 f.write(json.dumps({
                     'counter': self.counter,
                     'last_checked_version': self.latest_version
