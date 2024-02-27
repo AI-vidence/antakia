@@ -10,7 +10,7 @@ from antakia.utils.logging import conf_logger
 logger = logging.getLogger(__name__)
 conf_logger(logger)
 
-AVAILABLE_EXAMPLES = ["california_housing", "climate_change_survey", "wages"]
+AVAILABLE_EXAMPLES = ["california_housing", "climate_change_survey", "wages", "titanic"]
 
 BRANCH = "dev"  # TODO change to "main" when merging
 
@@ -38,10 +38,15 @@ def get_github_url(dataset_name: str, frame_name: str = None) -> str:
         raise ValueError(f"Example {dataset_name} not found, dataset should be one of {AVAILABLE_EXAMPLES}")
     elif dataset_name == "climate_change_survey":
         if frame_name not in ["X_train", "X_test", "y_train", "y_test"]:
-            raise ValueError(f"Frame name must be one of the following : 'X_train', 'X_test', 'y_train', 'y_test'.")
+            raise ValueError(f"Dataset must be one of the following : 'X_train', 'X_test', 'y_train', 'y_test'.")
         url = base_url + dataset_name + "/" + frame_name.lower() + ".csv"
         logger.debug(f"Dataset {dataset_name}/{frame_name} download URL : {url}")
         return url
+    elif dataset_name == "titanic":
+        if frame_name not in ["train", "test"]:
+            raise ValueError(f"Dataset must be one of the following : 'train', 'test'.")
+        url = base_url + dataset_name + "-" + frame_name + ".csv"
+        logger.debug(f"Dataset {dataset_name}/{frame_name} download URL : {url}")
     else:
         url = base_url + dataset_name + ".csv"
         logger.debug(f"Dataset {dataset_name}/{frame_name} download URL : {url}")
@@ -119,7 +124,7 @@ def fetch_dataset(dataset_name: str, frame_name: str = None) -> pd.DataFrame:
     Parameters
     ----------
     dataset_name : str
-        The name of the example. Must be one of the following: "california_housing", "climate_change_survey", "wages"
+        The name of the example. Must be one of the following: "california_housing", "climate_change_survey", "wages", "titanic"
     frame_name : str (optional)
         The name of the dataset if needed. For example: "X_train", "X_test", "y_train", "y_test"
     
