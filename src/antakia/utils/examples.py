@@ -12,7 +12,7 @@ conf_logger(logger)
 
 examples = ["california_housing", "climate_change_survey", "wages", "titanic"]
 
-branch = "main"
+branch = "dev"
 
 def get_github_url(ex: str, ds: str = None) -> str:
     """
