@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><link rel="canonical" href="https://example.com/tutorial1/" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Tutorial - AntakIA. AI explained.</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Tutorial";
+        var mkdocs_page_input_path = "tutorial1.md";
+        var mkdocs_page_url = "/tutorial1/";
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> AntakIA. AI explained.
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../about/">About</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="" href="../install.md">Installation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="" href="../usage.md">Usage</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="" href="../explain.md">Explainability</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../credits/">Credits</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">AntakIA. AI explained.</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Tutorial</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="tutorial">Tutorial</h1>
+<p>This is the part 1 of our tutorial. It explains how to prepare data and launch AntakIA. Those steps are common to most of AntakIA uses. If you feel familiar enough, you can directly jump to second part.</p>
+<h2 id="the-california-housing-dataset">The California housing dataset</h2>
+<p>We'll use the <a href="https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html">California housing</a> dataset, very famous in the datascience ecosystem.</p>
+<p>This dataset describes 20 640 block groups (ie. groups of houses) in California using 8 variables :
+* MedInc        median income in block group
+* HouseAge      median house age in block group
+* AveRooms      average number of rooms per household
+* AveBedrms     average number of bedrooms per household
+* Population    block group population
+* AveOccup      average number of household members
+* Latitude      block group latitude
+* Longitude     block group longitude</p>
+<p>The dataset also gives for each block group the average price of a house. This data comes from real real estate transactions.</p>
+<p>In our noteboox, this dataset is stored in a Pandas Dataframe named <code>X</code>.
+If you type <code>X.head()</code> you'll get :</p>
+<p><img alt="" src="img/head_X.png" /></p>
+<p>The "medium house values" are stored in a Pandas Series named <code>y</code>.
+A <code>y.head()</code> will give you somethin like :</p>
+<div><img src="img/y.png" height="120"></div>
+
+<h2 id="the-use-case">The use case</h2>
+<p>We can imagine several use cases where AntakIA could be very useful. For instance :
+* Let's say you're a real estate agent in California. A datascientist in your team has trained a wonderful ML model that is capable to predict the market value of any house in the state, as long as you provide sufficent data. You're amazed and want to unnderstand how this model works in order to gain insights of your market : what drives the price ? any segmentation ? So you decided to use AntakIA.
+* Or, you don't have such model. But you still want to have an accurate understanding of your market. Then you ask a datascientist to train a model. ANd then you use AntakIA on it.</p>
+<p>It's quite the same story : you have dataset <code>X</code>, you do a supervised training (<code>X</code>,<code>y</code>) to get a fitted model M. AntakIA will help you to understand how and why M can predict house values.</p>
+<h2 id="preparing-the-data">Preparing the data</h2>
+<p>Open the file <code>california_housing.ipynb</code> (in the <code>examples</code> folder of the code, or wherever you downloaded it) </p>
+<p>Let's analyze the first cells :</p>
+<pre><code>import pandas as pd
+df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
+````
+We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values calues (eg. SHAP values for the data and the model). So make this tutorial quicker and more pleaseant, our CSV file includes these values pre-computed.
+
+</code></pre>
+<h1 id="remove-outliers">Remove outliers:</h1>
+<p>df = df.loc[df['Population']&lt;10000] 
+df = df.loc[df['AveOccup']&lt;6]
+df = df.loc[df['AveBedrms']&lt;1.5]
+df = df.loc[df['HouseAge']&lt;50]</p>
+<h1 id="only-san-francisco"># Only San Francisco :</h1>
+<p>df = df.loc[(df['Latitude']&lt;38.07)&amp;(df['Latitude']&gt;37.2)]
+df = df.loc[(df['Longitude']&gt;-122.5)&amp;(df['Longitude']&lt;-121.75)]</p>
+<pre><code>In the same way, the previous lines are not compulsory. But it appears that the dataset for the sole city of San Francisco is better to get rapidly a good intuition of how AntakIA works.
+
+</code></pre>
+<p>X = df.iloc[:,0:8] # the dataset
+y = df.iloc[:,9] # the target variable
+shap_values = df.iloc[:,[10,11,12,13,14,15,16,17]] # the SHAP values
+<code>``
+Here we have extracted from our big CSV dataset : the</code>X<code>values, the</code>y<code>Series and the</code>shap_values` (we'll explain those values further).</p>
+<h2 id="_1"></h2>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
