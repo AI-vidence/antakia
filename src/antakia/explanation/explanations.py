@@ -36,6 +36,9 @@ class SHAPExplanation(ExplanationMethod):
         shap_val_list = []
         for i in range(0, len(self.X), chunck_size):
             explanations = explainer.shap_values(self.X.iloc[i:i + chunck_size])
+            if isinstance(explanations, list):
+                # classification, use only class 1 probabilities
+                explanations = explanations[-1]
             shap_val_list.append(
                 pd.DataFrame(explanations, columns=self.X.columns, index=self.X.index[i:i + chunck_size]))
             self.publish_progress(int(100 * (i * chunck_size) / len(self.X)))
