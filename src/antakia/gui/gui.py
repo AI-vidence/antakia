@@ -8,7 +8,7 @@ import IPython.display
 
 from antakia_core.data_handler.region import ModelRegionSet, ModelRegion
 
-from antakia.gui.antakia_logo import AntakiaLogo
+from antakia.gui.antakia_logo import TopBar
 from antakia.gui.explanation_values import ExplanationValues
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia.gui.progress_bar import ProgressBar, MultiStepProgressBar
@@ -19,13 +19,13 @@ import antakia.config as config
 from antakia_core.data_handler.rules import RuleSet
 
 from antakia.gui.tabs.model_explorer import ModelExplorer
-from antakia.gui.widgets import get_widget, change_widget, splash_widget, app_widget
+from antakia.gui.widget_utils import get_widget, change_widget
+from antakia.gui.widgets import splash_widget, app_widget
 from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
 from antakia.gui.ruleswidget import RulesWidget
 
 import copy
-from os import path
-from json import dumps, loads
+from antakia.gui.metadata import metadata
 
 import logging
 from antakia.utils.logging import conf_logger
@@ -96,7 +96,7 @@ class GUI:
         self.pv_bank = ProjectedValueBank(y)
 
         # star dialog
-        self.logo = AntakiaLogo()
+        self.topbar = TopBar()
 
         # first hde
         self.vs_hde = HighDimExplorer(
@@ -143,13 +143,6 @@ class GUI:
         # UI rules :
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(self.widget, "4320").disabled = True
-
-        # We count the number of times this GUI has been initialized
-        self.counter = loads(open("counter.json", "r").read()) if path.exists("counter.json") else 0
-        self.counter += 1
-        with open("counter.json", "w") as f:
-            f.write(dumps(self.counter))
-        logger.debug(f"GUI has been initialized {self.counter} times")
 
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
@@ -206,8 +199,9 @@ class GUI:
         self.select_tab(0)
         self.disable_hde()
 
-        if self.counter == 10:
-            self.logo.open()
+        if metadata.counter == 10:
+            self.topbar.open()
+        metadata.save()
 
     def init_app(self):
         """
@@ -216,7 +210,7 @@ class GUI:
 
         # -------------- Dimension Switch --------------
 
-        get_widget(self.widget,'00').children = [self.logo.widget]
+        change_widget(self.widget, '0', self.topbar.widget)
 
         # -------------- Dimension Switch --------------
 
