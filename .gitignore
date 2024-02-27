@@ -2,7 +2,7 @@
 .DS_Store
 
 # AntakIA
- counter.json
+*metadata.json
 
 # IDE
 .vscode/
