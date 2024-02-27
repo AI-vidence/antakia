@@ -8,15 +8,15 @@ This is the part 2 of our tutorial. We'll dive into the actual use of AntakIA. I
 
 !!! Important
 
-    The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say **"regions"**, hence the *regional explainability*) where we can substitute the inital complex trained model (often reffered to as a **black box**) with simple and explainable models, one for each region.
+    The main idea of our AntakIA method is to divide the dataset `X` in several parts (we say **"regions"**, hence the *regional explainability*) where we can substitute the inital complex trained model (often refered to as a **black box**) with simple and explainable models, one for each region.
 
 Then the main question is : how to define these regions ?
 
 !!! Important
 
-    The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "**values space**" or "**VS**"), and a space with the same records, but using, as variables, the explanations for each variables. We call the latter the "**explanations space**" or "**ES**". Put another way, **VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.**
+    The AntakIA method consists in finding clusters in **two spaces** at the same time : the space with our `X` values (aka "**values space**" or "**VS**"), and a space with the same dimensionality, but with the explanations (e.g. shapley values, or LIME values) for each observation. We call the latter the "**explanations space**" or "**ES**". Put in another way, **VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.**
 
-Then, finding relevant regions consists in finding clusters in VS corresponding to clusters in ES. Then we find regions where records are alike and records are explained similarly. **Then, on these regions we can find simple models, with few variables that are explainable and replace the former "black box".**
+Then, finding relevant regions consists in finding clusters in VS corresponding to clusters in ES. Then we find regions where records are alike and records are explained similarly. **Then, on these regions we can find simple models, with fewer variables that the initial model and consistent explanations. We may confidently replace the former "black box".**
 
 ### The different dataset at stake
 
@@ -26,7 +26,7 @@ We introduced the idea of "explanation values". To get an intuition of it, let's
 
 This is a very simple example : since our California housing dataset `X` has 8 variables, we would need to display an 8-dimension space ! Of course it's not feasible : a human can only understand 2D ond 3D representations.
 
-Hence the idea of **dimensionality reduction**. Various techniques can project a N-dimension space in 2 dimensions. Some are illustrated below :
+Hence the idea of **dimensionality reduction**. Various techniques can project a N-dimension space in 2 or 3 dimensions. Some are illustrated below :
 
 ![](../img/dim_reduc.png)
 
@@ -84,7 +84,7 @@ AntakIA workflow can be summarized as below :
 3. adjust these rules according to your needs
 4. add this rules-defined zone to your list of "region"
 5. chose a submodel for substitution
-6. start again from step 1
+6. start again from step 1 with the remaining points
 
 
 ## Applying AntakIA workflow on our dataset
@@ -106,7 +106,7 @@ Using the "lasso" tool, you can select points in one space, and then, see the co
 In this example, we see a region in the VS space, with a relatively homogeneous counterpart in the ES space :
 
 * dots in VS are grouped : they are closed (the distance is small), so they are similar. In our example, this means we have selected block groups with similar attributes
-* dots in the are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction
+* dots in the ES are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction
 
 ### 2. Find rules matching our selection
 
@@ -118,7 +118,7 @@ You can click it. It launches an algoritm called Skope rules that tries to find 
 
 ![](../img/rules.png)
 
-Actually, Skope rules is a binary classifier : it predicts wether a record belongs to your selection (positive) or not (negative). The dots in blue correspond to the positives records of the rules found, for both VS and ES.
+Actually, Skope rules is a binary classifier : it predicts wether a record belongs to your selection (positive) or not (negative). The dots in blue correspond to the positive records of the rules found, for both VS and ES.
 
 Under the title "Rule(s) applied to the values space", you can read the rules that have been found : Here, it is `MedInc <= 7.409 and AveRooms >= 5.502 and Latitude <= 37.355`.
 
@@ -130,7 +130,7 @@ Under the title "Rule(s) applied to the values space", you can read the rules th
 
 On the last picture, you see, under the rules, 3 sliders to adjust the thresholds of the rules, one for each variable.
 
-Working with a "market expert" (here, a real estate expert) you may adjust those threshold to match specific values.
+Working with a "market expert" (here, a real estate expert) you may adjust those thresholds to match specific values.
 
 ### 4. Validate the region
 
@@ -152,7 +152,7 @@ What you see is a proposal of submodels :
 
 ![](../img/submodel.png)
 
-You can read the performance of various surrogate models, compared (delta) with the orginal model.
+You can read the performance of various surrogate models, compared (delta) with the original model.
 
 You can select one model and "validate sub-model" to add the submodel in your region list.
 
