@@ -1,81 +1,55 @@
 # Welcome to AntakIA !
 
-AntakIA is an open-source tool from AI-vidence to explain ML black box models.
+AntakIA is an open-source tool from AI-vidence to explain ML black box models. See [doc](https://doc.antakia.ai).
 
-Here is a quick tour of AntakIA:
+Here is a quick overview on AntakIA:
 ![AntakIA demo](/docs/img/antakia.gif)
 
 See full video on [Youtube](https://youtu.be/wQFC_20OIOM).
 
-## Install and run from source code
+## Install
 
-Clone the repo and create a virtual environment
-
-```
-git clone https://github.com/AI-vidence/antakia.git
-cd antakia
-```
-
-Then, with `pip` :
+AntakIA is available on [PyPI](https://pypi.org/project/antakia/) :
 
 ```
-python3.10 -m venv .
-source bin/activate
-pip install -e .
+pip install antakia
 ```
 
-Or,if you prefer `poetry` :
+## Running example notebooks
+
+Once you've installed `antakia`, you can download some of our notebook examples from our repo [here](https://github.com/AI-vidence/antakia/tree/main/examples).
+
+Then, launch a Jupyter server from the notebook file (`.ipynb`) location :
 
 ```
-poetry shell
-peotry install
+jupyter notebook # or jupyter lab
 ```
 
-Got to https://doc.antakia.ai to learn how to use AntakIA.
-
-You may also need to install Git LFS to download our CSV files in /data:
-```
-brew install git-lfs # if you're a Mac / brew user
-git lfs install
-cd antakia
-git lfs track "*.csv"
-git add .gitattributes
-git lfs fetch
-git lfs checkout
-```
-
-Reference : [see Git-LFS website](https://git-lfs.com)
+You'll find a complete tutorial for our California housing example here : https://doc.antakia.ai
 
 > [!IMPORTANT] 
-Install your antakia env in IPython, in order to select it from Jupyter :
+If you're using a virtual env, it's handy to be able to chose it from Jupyter's kernel list. Do the following :
 
 ```
-python -m ipykernel install --user --name antakia --display-name "Antakia"
+python -m ipykernel install --user --name your_venv_name --display-name "My great virtual env"
 ```
 
-Finally, launch Jupyter server from `antakia` folder :
-```
-jupyter notebook
-```
-and open a notebook .ipynb file in `example` folder.
+## Online demo
 
-### Troubleshooting 
+You can give `antakia` a try online  : https://demo.antakia.ai 
 
-If you get JS errors in your notebook / see broken link icons for each widget / see this kind of errors `404 GET /static/jupyterlab-plotly.js` or other missing JS library :
-* try to remove your local `etc/` folder in `antakia` folder
-* try `jupyter lab` instead of `jupyter notebook`
-* probably useless but worth trying : `jupyter nbextension enable --py widgetsnbextension`
-* try to `pip install --force-reinstall` ipywidgets widgetsnbextension
- 
+Log as `demo`  with password `antakia`.
+Note it runs on a simple server and may be busy. You may want to log with other accounts : `demo1` to `demo5` are accepted with the same password.
 
-## Install and run with Docker
+
+## Run with Docker
 
 > [!IMPORTANT] 
 Be sure to have a Docker engine running on your computer (ie. launch Docker Desktop)
 
 ```
-docker build -t demo-antakia .
-docker run -p 8888:8888 demo-antakia
+docker build -t antakia .
+docker run -p 8888:8888 antakia
 ```
 
 In your Terminal, click on the `http://127.0.0.1:8888/lab?token=WHATEVER_YOUR_TOKEN_IS URL` link.

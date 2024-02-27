@@ -1,4 +1,6 @@
-from antakia.compute.explanation.explanation_method import ExplanationMethod
+from antakia_core.utils.utils import ProblemCategory
+
+from antakia.explanation.explanation_method import ExplanationMethod
 from antakia.gui.explanation_values import ExplanationValues
 
 import pandas as pd
@@ -13,11 +15,24 @@ def compare_indexes(df1, df2) -> bool:
 
 # Test Dim Reduction --------------------
 
-def dr_callback(*args):
+def dummy_callable(*args):
     pass
 
 
 test_progress_bar = ProgressBar(v.ProgressLinear(), reset_at_end=False)
+
+
+class DummyModel:
+    def predict(self, X):
+        if isinstance(X, pd.DataFrame):
+            return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
+        return ((X[:, 0] > 0.5) & (X[:, 1] > 0.5)).astype(int)
+
+    def fit(self, X, y):
+        pass
+
+    def score(self, *args):
+        return 1
 
 
 def generate_df_series_callable():
@@ -33,7 +48,8 @@ def generate_df_series_callable():
     return X, y, test_progress_bar.update
 
 
-def generate_ExplanationValues(model=None, X_exp=None):
+def generate_ExplanationValues(model=None, X_exp=None) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame,
+ExplanationValues, callable]:
     X, y, progress_callback = generate_df_series_callable()
 
     def on_change_callback(pv, progress=None):
@@ -42,16 +58,16 @@ def generate_ExplanationValues(model=None, X_exp=None):
         progress(100, 0)
 
     if model is None:
-        model = 'DT'
+        model = DummyModel()
 
-    exp_val = ExplanationValues(X, y, model, on_change_callback, X_exp)
+    exp_val = ExplanationValues(X, y, model, ProblemCategory.regression, on_change_callback, dummy_callable, X_exp)
 
     return X, y, X_exp, exp_val, on_change_callback
 
 
 class EMPTYExplanation(ExplanationMethod):
     def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable):
-        super().__init__(1, X, model, on_change_callback)
+        super().__init__(1, X, model, ProblemCategory.regression, on_change_callback)
 
     def compute(self):
         self.publish_progress(100)
