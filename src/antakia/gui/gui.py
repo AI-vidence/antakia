@@ -894,10 +894,11 @@ class GUI:
             table.items = perfs.to_dict("records")
             if region.interpretable_models.selected_model:
                 # we set to selected model if any
-                table.selected = [
-                    {'item': {'Sub-model': region.interpretable_models.selected_model}, 'value': True}]
+                table.selected = [{'Sub-model': region.interpretable_models.selected_model}]
+                self.model_explorer.update_selected_model(region.get_selected_model(), region)
             else:
                 # clear selection if new region:
+                self.model_explorer.reset()
                 table.selected = []
 
     def update_substitution_table(self, region: ModelRegion | None):
@@ -918,7 +919,9 @@ class GUI:
         get_widget(self.widget, "4501000").disabled = not is_selected
         if is_selected:
             region = self.region_set.get(self.selected_regions[0]['Region'])
-            self.model_explorer.update_selected_model(region.get_model(data['item']['Sub-model']))
+            self.model_explorer.update_selected_model(region.get_model(data['item']['Sub-model']), region)
+        else:
+            self.model_explorer.reset()
 
     def validate_sub_model(self, *args):
         # We get the sub-model data from the SubModelTable:
