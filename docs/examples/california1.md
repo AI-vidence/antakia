@@ -25,12 +25,12 @@ The dataset also gives for each block group the average price of a house. This d
 In our noteboox, this dataset is stored in a Pandas Dataframe named `X`.
 If you type `X.head()` you'll get :
 
-![](../img/head_x.png)
+![](../img/california/head_x.png)
 
 The "medium house values" are stored in a Pandas Series named `y`.
 A `y.head()` will give you something like :
 
-![](../img/y.png)
+![](../img/california/y.png)
 
 ## The use case
 

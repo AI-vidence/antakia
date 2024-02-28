@@ -32,7 +32,7 @@ the segments are note obvious...
 ### Dyadic display : ES and VS
 we chose to use the linear reduction of dimension (PCA) for both the Explanation Space (ES) and the Value Space (VS). Here what comes to the fore :
 
-![](../img/Wages_Antakia_1.png)
+![](../img/wages/Wages_Antakia_1.png)
 
 ### Exploring through the ES
 The true innovation of AntakIA relies in taking into account the 'knowledge' retrieved from AI models, but hidden in the 'blackbox'... To unveil that, we explore the ES.
@@ -41,29 +41,29 @@ We identify that two clusters of similar wage levels are to be seen on the right
 - all the points in the VS are very close to one another
 Hopefully, we'll be able to define a first region...
 
-![](../img/Wages_Antakia_2.png)
+![](../img/wages/Wages_Antakia_2.png)
 
 ### Refining a region
 AntakIA enables to explore at the predictor-level what the selection / region looks like. 
 The first predictor used in the rule is the **age** (~< 25!):
 
-![](../img/Wages_Antakia_3.png)
+![](../img/wages/Wages_Antakia_3.png)
 
 we might extend slightly the value of the threshold and observe the relevance of the modification : the added points appear in orange either on the distribution...
 
-![](../img/Wages_Antakia_4.png)
+![](../img/wages/Wages_Antakia_4.png)
 
 ... or in the dyadic visualisation : we can see that the added points 'jump' on other clusters in the ES... we should stay with the original value, to make the regions as consistent as possible, explanation wise. Nonetheless, we can see that some seemingly consistent points of the manual selection are not included in our rule (represented in red)
 
-![](../img/Wages_Antakia_5.png)
+![](../img/wages/Wages_Antakia_5.png)
 
 The second predictor in this rule is the **education** level :
 
-![](../img/Wages_Antakia_6.png)
+![](../img/wages/Wages_Antakia_6.png)
 
 The distribution of the selection is not different from the global distribution. There could be no reason to cut the lower part of it... 
 
-![](../img/Wages_Antakia_7.png)
+![](../img/wages/Wages_Antakia_7.png)
 
 So finally :
 - age : we reverted to the inital value
@@ -71,21 +71,21 @@ So finally :
 
 we eventually got this representation : it looks like a region !
 
-![](../img/Wages_Antakia_8.png)
+![](../img/wages/Wages_Antakia_8.png)
 
 ### Substituing by a simpler model on a region
 We chose to go on to the next step : can we define a simpler model than the original one ?
 We push the 'validate rule' button.
 
-![](../img/Wages_Antakia_9.png)
+![](../img/wages/Wages_Antakia_9.png)
 
 We reach the second screen listing the regions defined (one, so far). Let's select it, and push the 'substitute' button.
 
-![](../img/Wages_Antakia_10.png)
+![](../img/wages/Wages_Antakia_10.png)
 
 AntakIA automatically fits some alternate simpler, and more explainable models, benchmarking their comparative performance versus the original one.
 
-![](../img/Wages_Antakia_11.png)
+![](../img/wages/Wages_Antakia_11.png)
 
 This is where the Data scientist and the business expert have to ponder together on the subject, and come to a mutual conclusion. And especially, the moment where some DS know how should come into consideration. For example here, there does not seem to have a huge difference in performance, so the bias-variance trade off should advocate for choosing the simplest model. 
 - the original model show very little dependence on any predictor in the range of the region == age<25 (looks at the PDP displays on the right, and the Feature Importance)
@@ -93,11 +93,11 @@ This is where the Data scientist and the business expert have to ponder together
 
 so we chose stick to the simplest model. The original data were generated with pure noise around and average value : chosing this one could be a nice try ! let's go for it. We push the 'Validate Sub-model' button
 
-![](../img/Wages_Antakia_12.png)
+![](../img/wages/Wages_Antakia_12.png)
 
 AntakIA brings us back to the region tab, with a fresh new model on the region, briefly described.
 
-![](../img/Wages_Antakia_13.png)
+![](../img/wages/Wages_Antakia_13.png)
 
 Congrats ! we've just gone through the creation of our first region, and regional surrogate model :)
 
@@ -112,16 +112,16 @@ One other way to define other regions is to ask AntakIA to try and identify the 
 Starting after the creation of a first region e.g., we can also push the *'auto-clustering'* button.
 Then AntakIA tries to run an automatic dyadic auto-clustering. Here is what we get :
 
-![](../img/Wages_Antakia_20.png)
+![](../img/wages/Wages_Antakia_20.png)
 
 AntakIA automatically suggests to tell data from the 'sex' value.
 We could ask him to dive deeper : that's why the *'divide'* stands for
 
-![](../img/Wages_Antakia_21.png)
+![](../img/wages/Wages_Antakia_21.png)
 
 Selecting the red cluster, and applying the function gives the following result :
 
-![](../img/Wages_Antakia_22.png)
+![](../img/wages/Wages_Antakia_22.png)
 
 Two conclusions :
 - AntakIA did propose a split at age 40 : cool !
@@ -129,11 +129,11 @@ Two conclusions :
 
 So we added a *'merge'* button. Selecting yellow and green regions, and merging them give us the following result :
 
-![](../img/Wages_Antakia_23.png)
+![](../img/wages/Wages_Antakia_23.png)
 
 Finally, doing the same with the remaining blue cluster, we obtain :
 
-![](../img/Wages_Antakia_24.png)
+![](../img/wages/Wages_Antakia_24.png)
 
 That'a a nice try :)
 
