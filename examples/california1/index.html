@@ -1352,10 +1352,10 @@
 <p>The dataset also gives for each block group the average price of a house. This data comes from real real estate transactions.</p>
 <p>In our noteboox, this dataset is stored in a Pandas Dataframe named <code>X</code>.
 If you type <code>X.head()</code> you'll get :</p>
-<p><img alt="" src="../../img/head_x.png" /></p>
+<p><img alt="" src="../../img/california/head_x.png" /></p>
 <p>The "medium house values" are stored in a Pandas Series named <code>y</code>.
 A <code>y.head()</code> will give you something like :</p>
-<p><img alt="" src="../../img/y.png" /></p>
+<p><img alt="" src="../../img/california/y.png" /></p>
 <h2 id="the-use-case">The use case</h2>
 <p>We can imagine several use cases where AntakIA could be useful:
 * Let's say you're a real estate agent in California. A data scientist in your team has trained a wonderful ML model that is capable of predicting the market value of any house in the state, as long as you provide sufficent data. You're amazed and want to understand how this model works in order to gain insights of your market: what drives the price ? any segmentation ? So you decided to use AntakIA.
@@ -1367,7 +1367,7 @@ A <code>y.head()</code> will give you something like :</p>
 <pre><code>import pandas as pd
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
 </code></pre>
-<p>We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package <a href="https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html">here</a>. As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So make this tutorial quicker and more pleaseant, our CSV file includes these pre-computed SHAP values.</p>
+<p>We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package <a href="https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html">here</a>. As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So as to make this tutorial quicker and more pleaseant, our CSV file includes these pre-computed SHAP values.</p>
 <pre><code># Remove outliers:
 df = df.loc[df['Population']&lt;10000] 
 df = df.loc[df['AveOccup']&lt;6]

@@ -1410,26 +1410,26 @@
 <h3 id="a-first-glimpse-of-antakia">A first glimpse of AntakIA</h3>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
-<p>The main idea of our AntakIA method is to divide the dataset <code>X</code> in several parts (we say <strong>"regions"</strong>, hence the <em>regional explainability</em>) where we can substitute the inital complex trained model (often reffered to as a <strong>black box</strong>) with simple and explainable models, one for each region.</p>
+<p>The main idea of our AntakIA method is to divide the dataset <code>X</code> in several parts (we say <strong>"regions"</strong>, hence the <em>regional explainability</em>) where we can substitute the inital complex trained model (often refered to as a <strong>black box</strong>) with simple and explainable models, one for each region.</p>
 </div>
 <p>Then the main question is : how to define these regions ?</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
-<p>The AntakIA method consists in finding clusters in <strong>two spaces</strong> at the same time : the space with our <code>X</code> values (aka "<strong>values space</strong>" or "<strong>VS</strong>"), and a space with the same records, but using, as variables, the explanations for each variables. We call the latter the "<strong>explanations space</strong>" or "<strong>ES</strong>". Put another way, <strong>VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.</strong></p>
+<p>The AntakIA method consists in finding clusters in <strong>two spaces</strong> at the same time : the space with our <code>X</code> values (aka "<strong>values space</strong>" or "<strong>VS</strong>"), and a space with the same dimensionality, but with the explanations (e.g. shapley values, or LIME values) for each observation. We call the latter the "<strong>explanations space</strong>" or "<strong>ES</strong>". Put in another way, <strong>VS shows the values as we seee them, and ES shows the same values, but as the trained model sees them.</strong></p>
 </div>
-<p>Then, finding relevant regions consists in finding clusters in VS corresponding to clusters in ES. Then we find regions where records are alike and records are explained similarly. <strong>Then, on these regions we can find simple models, with few variables that are explainable and replace the former "black box".</strong></p>
+<p>Then, finding relevant regions consists in finding clusters in VS corresponding to clusters in ES. Then we find regions where records are alike and records are explained similarly. <strong>Then, on these regions we can find simple models, with fewer variables that the initial model and consistent explanations. We may confidently replace the former "black box".</strong></p>
 <h3 id="the-different-dataset-at-stake">The different dataset at stake</h3>
 <p>We introduced the idea of "explanation values". To get an intuition of it, let's consider a dataset with only 2 variables x1 and x2. Now let's take a look at one specific record A. We can plot it on a 2D value space. To compute the explanation values, different methods exist. In AntakIA we use two of them : SHAP and LIME. In the "explanations space" A's coordinates or the importance of variables x1 and x2 according to SHAP for the predictions by the model :</p>
-<p><img alt="" src="../../img/shap.png" /></p>
+<p><img alt="" src="../../img/california/shap.png" /></p>
 <p>This is a very simple example : since our California housing dataset <code>X</code> has 8 variables, we would need to display an 8-dimension space ! Of course it's not feasible : a human can only understand 2D ond 3D representations.</p>
-<p>Hence the idea of <strong>dimensionality reduction</strong>. Various techniques can project a N-dimension space in 2 dimensions. Some are illustrated below :</p>
-<p><img alt="" src="../../img/dim_reduc.png" /></p>
+<p>Hence the idea of <strong>dimensionality reduction</strong>. Various techniques can project a N-dimension space in 2 or 3 dimensions. Some are illustrated below :</p>
+<p><img alt="" src="../../img/california/dim_reduc.png" /></p>
 <p>These 2D plots illustrate our California housing dataset projected in 2D using the <a href="https://en.wikipedia.org/wiki/Principal_component_analysis">PCA</a>, <a href="https://en.wikipedia.org/wiki/T-distributed_stochastic_neighbor_embedding">t-SNE</a> and <a href="https://github.com/YingfanWang/PaCMAP">PaCMAP</a> techniques. Note, AntakIA also proposes the <a href="https://umap-learn.readthedocs.io/en/latest/">UMAP</a> method.</p>
 <p>These dimensionality reduction technique can also project in 3D :</p>
-<p><img alt="" src="../../img/pacmap.png" /></p>
+<p><img alt="" src="../../img/california/pacmap.png" /></p>
 <h3 id="the-splash-screen">The splash screen</h3>
 <p>When you type <code>atk.start_gui()</code> the application shows a splash screen first :</p>
-<p><img alt="" src="../../img/splash.png" /></p>
+<p><img alt="" src="../../img/california/splash.png" /></p>
 <p>AntakIA needs computed explanation values in order to display the ES.</p>
 <p>If you passed to AntakIA some pre-computed explanation values, such as <code>shap_values</code>, then you'll see in the splah screen that the first progress bar isn't active and its status is <em>ìmported explained values</em>. Otherwise you would have to wait for its computation.</p>
 <p>As we saw earlier, we also need to compute the dimensionality reductions for both VS and ES spaces. Since we display the values in 2D and 3D, we have 4 computations. That's what is shown on the second progres bar of the splash screen. Note we only compute projections for the default reduction technique.</p>
@@ -1453,7 +1453,7 @@ MIN_POINTS_NUMBER = 100 #minumum number of point to allow autocluster and substi
 </code></pre>
 <h3 id="the-main-window">The main window</h3>
 <p>Here is an explanation fo the main window generic tools :</p>
-<p><img alt="" src="../../img/ui.png" /></p>
+<p><img alt="" src="../../img/california/ui.png" /></p>
 <h2 id="understanding-the-antakia-worlflow">Understanding the Antakia worlflow</h2>
 <p>AntakIA workflow can be summarized as below :</p>
 <ol>
@@ -1462,12 +1462,12 @@ MIN_POINTS_NUMBER = 100 #minumum number of point to allow autocluster and substi
 <li>adjust these rules according to your needs</li>
 <li>add this rules-defined zone to your list of "region"</li>
 <li>chose a submodel for substitution</li>
-<li>start again from step 1</li>
+<li>start again from step 1 with the remaining points</li>
 </ol>
 <h2 id="applying-antakia-workflow-on-our-dataset">Applying AntakIA workflow on our dataset</h2>
 <h3 id="1-find-a-good-selection">1. Find a "good" selection</h3>
 <p>The example below is a pretty good example :</p>
-<p><img alt="" src="../../img/dyadic.png" /></p>
+<p><img alt="" src="../../img/california/dyadic.png" /></p>
 <p>As previously explained, the idea is to find regions homogenous in both spaces at the same time.</p>
 <p>Using the "lasso" tool, you can select points in one space, and then, see the corresponding selection in the other space.</p>
 <div class="admonition important">
@@ -1477,14 +1477,14 @@ MIN_POINTS_NUMBER = 100 #minumum number of point to allow autocluster and substi
 <p>In this example, we see a region in the VS space, with a relatively homogeneous counterpart in the ES space :</p>
 <ul>
 <li>dots in VS are grouped : they are closed (the distance is small), so they are similar. In our example, this means we have selected block groups with similar attributes</li>
-<li>dots in the are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction</li>
+<li>dots in the ES are also groupes : this means the model predicts their price values similarly, ie. their descriptive variables play a nearly identical role in the prediction</li>
 </ul>
 <h3 id="2-find-rules-matching-our-selection">2. Find rules matching our selection</h3>
 <p>Whenever the selection is not empty, you'll see a blue "Find rules" button :</p>
-<p><img alt="" src="../../img/find_rules.png" /></p>
+<p><img alt="" src="../../img/california/find_rules.png" /></p>
 <p>You can click it. It launches an algoritm called Skope rules that tries to find rules to describe your selection :</p>
-<p><img alt="" src="../../img/rules.png" /></p>
-<p>Actually, Skope rules is a binary classifier : it predicts wether a record belongs to your selection (positive) or not (negative). The dots in blue correspond to the positives records of the rules found, for both VS and ES.</p>
+<p><img alt="" src="../../img/california/rules.png" /></p>
+<p>Actually, Skope rules is a binary classifier : it predicts wether a record belongs to your selection (positive) or not (negative). The dots in blue correspond to the positive records of the rules found, for both VS and ES.</p>
 <p>Under the title "Rule(s) applied to the values space", you can read the rules that have been found : Here, it is <code>MedInc &lt;= 7.409 and AveRooms &gt;= 5.502 and Latitude &lt;= 37.355</code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -1492,24 +1492,24 @@ MIN_POINTS_NUMBER = 100 #minumum number of point to allow autocluster and substi
 </div>
 <h3 id="3-adjust-the-rules">3. Adjust the rules</h3>
 <p>On the last picture, you see, under the rules, 3 sliders to adjust the thresholds of the rules, one for each variable.</p>
-<p>Working with a "market expert" (here, a real estate expert) you may adjust those threshold to match specific values.</p>
+<p>Working with a "market expert" (here, a real estate expert) you may adjust those thresholds to match specific values.</p>
 <h3 id="4-validate-the-region">4. Validate the region</h3>
 <p>When you're done, you can click on the "validate rules" button</p>
 <p>When a set of rules has been validated, AntakIA show another tab named "Regions" :</p>
-<p><img alt="" src="../../img/one_region.png" /></p>
+<p><img alt="" src="../../img/california/one_region.png" /></p>
 <p>You see the region has been given a color, here : red.</p>
 <h3 id="5-substitute-the-initial-model-with-a-surrogate-model">5. Substitute the initial model with a surrogate model</h3>
 <p>Now you can either go back to step 1 and find another region, or find a submodel for substitution. Let's do this.</p>
 <p>In the table, select the region with the checkbox, then click on the "substitute" button.</p>
 <p>What you see is a proposal of submodels :</p>
-<p><img alt="" src="../../img/submodel.png" /></p>
-<p>You can read the performance of various surrogate models, compared (delta) with the orginal model.</p>
+<p><img alt="" src="../../img/california/submodel.png" /></p>
+<p>You can read the performance of various surrogate models, compared (delta) with the original model.</p>
 <p>You can select one model and "validate sub-model" to add the submodel in your region list.</p>
 <h2 id="the-auto-clustering-way">The auto-clustering way</h2>
 <p>This dyadic exploration provides many insights both for the data scientists, the "market expert person" and compliance officer.</p>
 <p>Instead of finding each region one by one, you can try our auto-clustering method. In the "Regions" tab, click on the blue button "auto-clustering". You can uncheck the "automatic numnber of clusters" if you want to force it.</p>
 <p>Below is an example of what you can get :</p>
-<p><img alt="" src="../../img/ac.png" /></p>
+<p><img alt="" src="../../img/california/ac.png" /></p>
 <p>It's often a good way to start, then refine your regions !</p>
 <p>Hope you enjoyed this tutorial !</p>
 

@@ -2576,7 +2576,10 @@ validated_rules_region, validated_region, validated_sub_model</p>
 <span class="normal">934</span>
 <span class="normal">935</span>
 <span class="normal">936</span>
-<span class="normal">937</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">GUI</span><span class="p">:</span>
+<span class="normal">937</span>
+<span class="normal">938</span>
+<span class="normal">939</span>
+<span class="normal">940</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span> <span class="nc">GUI</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    GUI class.</span>
 
@@ -3434,10 +3437,11 @@ validated_rules_region, validated_region, validated_sub_model</p>
             <span class="n">table</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="n">perfs</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="s2">&quot;records&quot;</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">region</span><span class="o">.</span><span class="n">interpretable_models</span><span class="o">.</span><span class="n">selected_model</span><span class="p">:</span>
                 <span class="c1"># we set to selected model if any</span>
-                <span class="n">table</span><span class="o">.</span><span class="n">selected</span> <span class="o">=</span> <span class="p">[</span>
-                    <span class="p">{</span><span class="s1">&#39;item&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;Sub-model&#39;</span><span class="p">:</span> <span class="n">region</span><span class="o">.</span><span class="n">interpretable_models</span><span class="o">.</span><span class="n">selected_model</span><span class="p">},</span> <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}]</span>
+                <span class="n">table</span><span class="o">.</span><span class="n">selected</span> <span class="o">=</span> <span class="p">[{</span><span class="s1">&#39;Sub-model&#39;</span><span class="p">:</span> <span class="n">region</span><span class="o">.</span><span class="n">interpretable_models</span><span class="o">.</span><span class="n">selected_model</span><span class="p">}]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_explorer</span><span class="o">.</span><span class="n">update_selected_model</span><span class="p">(</span><span class="n">region</span><span class="o">.</span><span class="n">get_selected_model</span><span class="p">(),</span> <span class="n">region</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># clear selection if new region:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_explorer</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
                 <span class="n">table</span><span class="o">.</span><span class="n">selected</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">def</span> <span class="nf">update_substitution_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">:</span> <span class="n">ModelRegion</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
@@ -3458,7 +3462,9 @@ validated_rules_region, validated_region, validated_sub_model</p>
         <span class="n">get_widget</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">widget</span><span class="p">,</span> <span class="s2">&quot;4501000&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">disabled</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">is_selected</span>
         <span class="k">if</span> <span class="n">is_selected</span><span class="p">:</span>
             <span class="n">region</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">region_set</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">selected_regions</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;Region&#39;</span><span class="p">])</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">model_explorer</span><span class="o">.</span><span class="n">update_selected_model</span><span class="p">(</span><span class="n">region</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;item&#39;</span><span class="p">][</span><span class="s1">&#39;Sub-model&#39;</span><span class="p">]))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_explorer</span><span class="o">.</span><span class="n">update_selected_model</span><span class="p">(</span><span class="n">region</span><span class="o">.</span><span class="n">get_model</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;item&#39;</span><span class="p">][</span><span class="s1">&#39;Sub-model&#39;</span><span class="p">]),</span> <span class="n">region</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model_explorer</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 
     <span class="k">def</span> <span class="nf">validate_sub_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
         <span class="c1"># We get the sub-model data from the SubModelTable:</span>
@@ -4591,8 +4597,7 @@ compute its proj</p>
 
           <details class="quote">
             <summary>Source code in <code>src/antakia/gui/gui.py</code></summary>
-            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">903</span>
-<span class="normal">904</span>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">904</span>
 <span class="normal">905</span>
 <span class="normal">906</span>
 <span class="normal">907</span>
@@ -4600,7 +4605,8 @@ compute its proj</p>
 <span class="normal">909</span>
 <span class="normal">910</span>
 <span class="normal">911</span>
-<span class="normal">912</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">update_substitution_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">:</span> <span class="n">ModelRegion</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
+<span class="normal">912</span>
+<span class="normal">913</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span> <span class="nf">update_substitution_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">region</span><span class="p">:</span> <span class="n">ModelRegion</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Called twice to update table</span>
 <span class="sd">    &quot;&quot;&quot;</span>
