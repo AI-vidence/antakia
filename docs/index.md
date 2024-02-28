@@ -36,3 +36,6 @@ Below is what you'll find in this documentation :
 * [About](about.md) AI-vidence, the team behind AntakIA
 * [Credits](credits.md)
 
+### Logs
+
+`antakia` is our open-source project. We plan to learn a lot from it to build our SaaS product, and earn our living. By default, `antakia` sends anonymous usage logs to our server. With this data, we cannot discover who you are, what you do, or what data you work on. It only tells us how people use the software. However, if you don't want us to receive this data, just create a `.env` file at the root of your project folder with the following line `SEND_ANONYMOUS_LOGS=false`

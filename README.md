@@ -39,7 +39,7 @@ python -m ipykernel install --user --name your_venv_name --display-name "My grea
 You can give `antakia` a try online  : https://demo.antakia.ai 
 
 Log as `demo`  with password `antakia`.
-Note it runs on a simple server and may be busy. You may want to log with other accounts : `demo1` to `demo5` are accepted with the same password.
+Note it runs on a simple server and may be busy.
 
 
 ## Run with Docker
@@ -53,3 +53,7 @@ docker run -p 8888:8888 antakia
 ```
 
 In your Terminal, click on the `http://127.0.0.1:8888/lab?token=WHATEVER_YOUR_TOKEN_IS URL` link.
+
+## Logs
+
+`antakia` is our open-source project. We plan to learn a lot from it to build our SaaS product, and earn our living. By default, `antakia` sends anonymous usage logs to our server. With this data, we cannot discover who you are, what you do, or what data you work on. It only tells us how people use the software. However, if you don't want us to receive this data, just create a `.env` file at the root of your project folder with the following line `SEND_ANONYMOUS_LOGS=false`
