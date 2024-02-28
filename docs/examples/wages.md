@@ -11,7 +11,7 @@ The wage (y) is a function of the age, the education level and the gender. We ge
 - young adult (<40) increase their salaries according to their education level, and experience (age)
 - people >40 have the same rules that younger people, but with a difference (Women are penalized...)
 
-![](../img/wages_dataset.png)
+![](../img/Wages_dataset.png)
 
 ### The cheatsheet
 We do have 4 natural regions : 
@@ -19,12 +19,12 @@ We do have 4 natural regions :
 2. people between 25 and 40 with linear dependency on age and education
 3. men over 40, with linear dependency on age and education and discrimination
 4. women over 40, with linear dependency on age and education and discrimination and slight disadvantage versus men
-we know hope that AntakIA will help us identifiy those zones...
+We now hope that AntakIA will help us identifiy those zones...
 
 ### The model
 We trained an XGBoost to predict the wage. We confirm the global monotonicity of the model through the representation of beeswarms with SHAP library.
 
-![](../img/Wages_Shapley_global)
+![](../img/Wages_Shapley_global.png)
 the segments are note obvious...
 
 ## exploring with AntakIA
@@ -87,7 +87,7 @@ AntakIA automatically fits some alternate simpler, and more explainable models, 
 
 ![](../img/wages/Wages_Antakia_11.png)
 
-This is where the Data scientist and the business expert have to ponder together on the subject, and come to a mutual conclusion. And especially, the moment where some DS know how should come into consideration. For example here, there does not seem to have a huge difference in performance, so the bias-variance trade off should advocate for choosing the simplest model. 
+This is where the Data scientist and the business expert have to ponder together over the subject, and come to a mutual conclusion. And especially, the moment where some DS know how should come into consideration. For example here, there does not seem to have a huge difference in performance, so the bias-variance trade off should advocate for choosing the simplest model. 
 - the original model show very little dependence on any predictor in the range of the region == age<25 (looks at the PDP displays on the right, and the Feature Importance)
 - other present very diverse behaviours (even decreasing with the age after age >25, or with the education)
 
@@ -107,15 +107,15 @@ Congrats ! we've just gone through the creation of our first region, and regiona
 You can just follow the above steps again and again, so that all the points of your dataset are tackled, assigned to a region, be it rule defined (whenever possible) or not.
 But we also added a trick...
 
-### auto-defining regions : 'I'm feeling lucky'
+### auto-defining regions : *'I'm feeling lucky'*
 One other way to define other regions is to ask AntakIA to try and identify the regions by itself.
 Starting after the creation of a first region e.g., we can also push the *'auto-clustering'* button.
 Then AntakIA tries to run an automatic dyadic auto-clustering. Here is what we get :
 
 ![](../img/wages/Wages_Antakia_20.png)
 
-AntakIA automatically suggests to tell data from the 'sex' value.
-We could ask him to dive deeper : that's why the *'divide'* stands for
+AntakIA automatically suggests to split the remaining data along the 'sex' value.
+We could ask him to dive deeper : that's why the *'divide'* stands for.
 
 ![](../img/wages/Wages_Antakia_21.png)
 
@@ -125,16 +125,19 @@ Selecting the red cluster, and applying the function gives the following result 
 
 Two conclusions :
 - AntakIA did propose a split at age 40 : cool !
-- some yellow points are clustered in a small area : we see no obvious reason what they should keep separated from the green one
+- some yellow points are clustered in a small area (people close to 25) : we see no obvious reason what they should keep separated from the green one.
 
-So we added a *'merge'* button. Selecting yellow and green regions, and merging them give us the following result :
+So we added a *'merge'* button. Selecting yellow and green regions, and merging them give us the following result : (the rule is slightly modified, with a lower threshold for the age)
 
 ![](../img/wages/Wages_Antakia_23.png)
 
 Finally, doing the same with the remaining blue cluster, we obtain :
 
 ![](../img/wages/Wages_Antakia_24.png)
+ 
+That'a a nice try :) We've managed to uncover the building segmentation ! OK, it's easier when you know where you have to go... nonetheless, 
+- *the thresholds have been automatically identified*
+- *the substitution models proposed were leading naturally to a noisy average, or to linear GAM, which is a correct guess*
+We'll go into more details on that last point on a second tutorial...
 
-That'a a nice try :)
-
-To finish the substitution, just repeat the *'substitute'* then *'validate sub-model'*, and you're done !
+Juste note : to finish the substitution, just repeat the *'substitute'* then *'validate sub-model'*, and you're done !
