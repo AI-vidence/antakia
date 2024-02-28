@@ -51,7 +51,7 @@ import pandas as pd
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
 ```
 
-We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So make this tutorial quicker and more pleaseant, our CSV file includes these pre-computed SHAP values.
+We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So as to make this tutorial quicker and more pleaseant, our CSV file includes these pre-computed SHAP values.
 
 ```
 # Remove outliers:
