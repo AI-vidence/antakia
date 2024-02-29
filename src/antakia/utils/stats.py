@@ -13,7 +13,8 @@ class ActivityLogger:
     log_file = str(files("antakia").joinpath("assets/logs.json"))
     url = 'https://api.antakia.ai/'
     limit = 10
-    send_events = ['launched', 'validate_sub_model', 'auto_cluster', 'compute_explanation']
+    size_limit = 1000
+    send_events = ['launched', 'validate_sub_model', 'auto_cluster', 'compute_explanation', 'validate_rules']
 
     def __init__(self):
         self.logs = []
@@ -85,7 +86,8 @@ class ActivityLogger:
             if response.status_code < 300:
                 self.clear_logs()
         except:
-            pass
+            if len(self.logs) > self.size_limit:
+                self.clear_logs()
 
 
 stats_logger = ActivityLogger()
