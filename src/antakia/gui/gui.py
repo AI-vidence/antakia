@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import numpy as np
 import pandas as pd
 
@@ -30,6 +32,8 @@ import logging
 from antakia.utils.logging import conf_logger
 from antakia_core.utils.utils import boolean_mask, ProblemCategory, format_data
 from antakia_core.utils.variable import DataVariables
+
+from antakia.utils.stats import stats_logger
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -67,16 +71,16 @@ class GUI:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            model,
-            variables: DataVariables,
-            X_test: pd.DataFrame,
-            y_test: pd.Series,
-            X_exp: pd.DataFrame | None = None,
-            score: callable | str = "mse",
-            problem_category: ProblemCategory = ProblemCategory.regression
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        variables: DataVariables,
+        X_test: pd.DataFrame,
+        y_test: pd.Series,
+        X_exp: pd.DataFrame | None = None,
+        score: callable | str = "mse",
+        problem_category: ProblemCategory = ProblemCategory.regression
     ):
         self.tab = 1
         self.X = X
@@ -147,6 +151,7 @@ class GUI:
         """Displays the splash screen and updates it during the first computations."""
 
         # We add both widgets to the current notebook cell and hide them
+        t = time.time()
         IPython.display.display(self.splash_widget, self.widget)
         self.widget.hide()
         self.splash_widget.show()
@@ -201,6 +206,7 @@ class GUI:
         if metadata.counter == 10:
             self.topbar.open()
         metadata.save()
+        stats_logger.log('loaded', {'load_time': time.time() - t})
 
     def init_app(self):
         """
@@ -393,6 +399,7 @@ class GUI:
         self.new_selection = True
         self.disable_hde()
         if new_selection_mask.all():
+            stats_logger.log('deselection')
             # Selection is empty
             # we display y as color
             self.select_tab(0)
@@ -402,6 +409,10 @@ class GUI:
             self.es_rules_wgt.reset_widget()
             self.vs_rules_wgt.reset_widget()
         else:
+            stats_logger.log('selection',
+                             {'new_selection': self.selection_mask.all(), 'exp_method': self.exp_values.current_exp,
+                              'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
+                              'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
             # Selection is not empty anymore or changes
             X_rounded = self.X.loc[new_selection_mask].copy().apply(format_data)
             change_widget(
@@ -440,6 +451,7 @@ class GUI:
         self.refresh_buttons_tab_1()
 
     def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
+        stats_logger.log('rule_changed')
         """
         Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
         The function asks the HDEs to display the rules result
@@ -469,6 +481,7 @@ class GUI:
         We call the HighDimExplorer to update its figure and, enventually,
         compute its proj
         """
+        stats_logger.log('dim_changed')
         self.set_dimension(3 if data else 2)
 
     def change_color(self, widget, event, data):
@@ -479,7 +492,7 @@ class GUI:
 
         # Color : a pd.Series with one color value par row
         color = None
-
+        stats_logger.log('color_changed', {'color': data})
         if data == "y":
             color = self.y
         elif data == "y^":
@@ -495,6 +508,7 @@ class GUI:
 
     def select_tab_front(self, tab):
         def call_fct(*args):
+            stats_logger.log('tab_selected', {'tab': tab})
             self.select_tab(tab, front=True)
 
         return call_fct
@@ -564,6 +578,8 @@ class GUI:
         self.es_rules_wgt.init_rules(es_skr_rules_list, es_skr_score_dict, self.selection_mask)
         self.refresh_buttons_tab_1()
         self.select_tab(1)
+        stats_logger.log('find_rules', skr_score_dict)
+
 
     def undo_rules(self, *args):
         if self.tab != 1:
@@ -576,6 +592,7 @@ class GUI:
         self.refresh_buttons_tab_1()
 
     def validate_rules(self, *args):
+        stats_logger.log('validate_rules')
         if self.tab != 1:
             self.select_tab(1)
 
@@ -664,6 +681,9 @@ class GUI:
             cluster_num = get_widget(self.widget, "4402100").v_model - len(self.region_set)
             if cluster_num <= 2:
                 cluster_num = 2
+        stats_logger.log('auto_cluster', {'cluster_num': cluster_num, 'exp_method': self.exp_values.current_exp,
+                                          'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
+                                          'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
 
         self.compute_auto_cluster(not_rules_indexes_list, cluster_num)
 
@@ -748,6 +768,7 @@ class GUI:
         """
         Called when the user clicks on the 'divide' (region) button
         """
+        stats_logger.log('divide_region')
         if self.tab != 2:
             self.select_tab(2)
         # we recover the region to sudivide
@@ -773,6 +794,7 @@ class GUI:
         """
 
         selected_regions = [self.region_set.get(r['Region']) for r in self.selected_regions]
+        stats_logger.log('merge_region', {'num_regions': len(selected_regions)})
         mask = None
         for region in selected_regions:
             if mask is None:
@@ -800,6 +822,7 @@ class GUI:
         """
         if self.tab != 2:
             self.select_tab(2)
+        stats_logger.log('merge_region', {'num_regions': len(self.selected_regions)})
         for selected_region in self.selected_regions:
             region = self.region_set.get(selected_region['Region'])
             # Then we delete the regions in self.region_set
@@ -812,6 +835,7 @@ class GUI:
     # ==================== TAB 3 ==================== #
 
     def substitute_clicked(self, widget, event, data):
+        stats_logger.log('substitute_region')
         region = self.region_set.get(self.selected_regions[0]['Region'])
         self.selected_sub_model = []
         if region is not None:
@@ -877,6 +901,7 @@ class GUI:
                 return series.apply(lambda x: f"{x:.2f}")
 
             perfs = region.perfs.copy()
+            stats_logger.log('substitute_model', {'best_perf': perfs['delta'].min()})
             for col in perfs.columns:
                 if col != 'delta_color':
                     perfs[col] = series_to_str(perfs[col])
@@ -927,6 +952,8 @@ class GUI:
         # get_widget(self.widget,"45001").items[self.validated_sub_model]
 
         get_widget(self.widget, "4501000").disabled = True
+
+        stats_logger.log('validate_sub_model', {'model': self.selected_sub_model[0]['Sub-model']})
 
         # We udpate the region
         region = self.region_set.get(self.selected_regions[0]['Region'])

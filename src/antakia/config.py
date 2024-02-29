@@ -13,5 +13,7 @@ MAX_RULES_DESCR_LENGTH = int(os.environ.get('MAX_RULES_DESCR_LENGTH', 200))
 
 SHOW_LOG_MODULE_WIDGET = os.environ.get('SHOW_LOG_MODULE_WIDGET', 'False') == 'True'
 
-#Auto cluster
+# Auto cluster
 MIN_POINTS_NUMBER = 100
+
+ATK_SEND_LOG =  not (os.environ.get('ATK_SEND_LOG', 'True') == 'False')

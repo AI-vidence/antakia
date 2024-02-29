@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
@@ -11,6 +13,8 @@ from ipywidgets import widgets
 import ipyvuetify as v
 
 from antakia_core.utils import utils
+
+from antakia.utils.stats import stats_logger
 
 
 class ProjectedValuesSelector:
@@ -301,9 +305,16 @@ class ProjectedValuesSelector:
             dim = self.current_dim
         if progress_callback is None:
             progress_callback = self.progress_bar.update
+        is_present = self.projected_value.is_present(Proj(self.current_proj.reduction_method, dim))
+        t = time.time()
         X = self.projected_value.get_projection(
             Proj(self.current_proj.reduction_method, dim), progress_callback
         )
+        if not is_present:
+            stats_logger.log('compute_projection',
+                             {'projection_method': self.current_proj.reduction_method, 'dimension': dim,
+                              'compute_time': time.time() - t})
+
         return X
 
     def is_computed(self, projection_method=None, dim=None) -> bool:

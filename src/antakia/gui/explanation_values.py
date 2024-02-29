@@ -1,9 +1,12 @@
+import time
+
 import pandas as pd
 import ipyvuetify as v
 
 from antakia import config
 from antakia.explanation.explanations import compute_explanations, ExplanationMethod
 from antakia.gui.progress_bar import ProgressBar
+from antakia.utils.stats import stats_logger
 
 
 class ExplanationValues:
@@ -203,6 +206,7 @@ class ExplanationValues:
 
         Called when the user chooses another dataframe
         """
+        stats_logger.log('exp_method_changed', {'selected': data})
         if not isinstance(data, str):
             raise KeyError('invalid explanation')
         data = data.replace(' ', '').replace('(compute)', '')
@@ -211,6 +215,10 @@ class ExplanationValues:
         if self.explanations[self.current_exp] is None:
             exp_method = ExplanationMethod.explain_method_as_int(self.current_exp)
             progress_bar = self.get_progress_bar()
+            t = time.time()
             self.compute_explanation(exp_method, progress_bar)
+            stats_logger.log('compute_explanation',
+                             {'exp_method': exp_method,
+                              'compute_time': time.time() - t})
 
         self.on_change_callback(self.current_exp_df)

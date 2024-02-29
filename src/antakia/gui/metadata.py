@@ -14,23 +14,24 @@ class MetaData:
     metadata_file = str(files("antakia").joinpath("assets/metadata.json"))
 
     def __init__(self):
+        self.run_id = str(uuid.uuid4())
         try:
             metadata: dict = json.loads(open(self.metadata_file, "r").read()) if path.exists(self.metadata_file) else 0
             if isinstance(metadata, int):
                 self.counter = metadata
                 self.last_checked_version = None
                 self.user_id = uuid.getnode()
-                self.install_id = uuid.uuid4()
+                self.install_id = str(uuid.uuid4())
             else:
                 self.counter = metadata.get('counter')
                 self.last_checked_version = metadata.get('last_checked_version')
                 self.user_id = metadata.get('user_id', uuid.getnode())
-                self.install_id = metadata.get('install_id', uuid.uuid4())
+                self.install_id = metadata.get('install_id', str(uuid.uuid4()))
         except Exception:
             self.counter = 0
             self.last_checked_version = None
             self.user_id = uuid.getnode()
-            self.install_id = uuid.uuid4()
+            self.install_id = str(uuid.uuid4())
         self.counter += 1
         logger.debug(f"GUI has been initialized {self.counter} times")
         self.latest_version = self.get_latest_version()

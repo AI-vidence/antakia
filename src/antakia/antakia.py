@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 
 from antakia_core.utils.utils import ProblemCategory
 
+from antakia.utils.stats import stats_logger
+
 load_dotenv()
 
 from antakia.utils.checks import is_valid_model
@@ -39,16 +41,16 @@ class AntakIA:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            model,
-            variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
-            X_test: pd.DataFrame = None,
-            y_test: pd.Series = None,
-            X_exp: pd.DataFrame | None = None,
-            score: callable | str = 'auto',
-            problem_category: str = 'auto'
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
+        X_test: pd.DataFrame = None,
+        y_test: pd.Series = None,
+        X_exp: pd.DataFrame | None = None,
+        score: callable | str = 'auto',
+        problem_category: str = 'auto'
     ):
         """
         AntakiIA constructor.
@@ -63,14 +65,13 @@ class AntakIA:
             y_test : pd.Series the test target value
             score : reference scoring function
         """
-
+        stats_logger.log('launched', {})
         load_dotenv()
 
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
         X, y, X_exp = self._preprocess_data(X, y, X_exp)
         X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
-
         self.X = X
         if y.ndim > 1:
             y = y.squeeze()
@@ -101,6 +102,8 @@ class AntakIA:
             self.score,
             self.problem_category
         )
+        stats_logger.log('launch_info', {'data_dim': str(self.X.shape), 'category': str(self.problem_category),
+                                         'provided_exp': X_exp is not None, 'test_dataset': X_test is not None})
 
     def set_variables(self, X, variables):
         if variables is not None:
