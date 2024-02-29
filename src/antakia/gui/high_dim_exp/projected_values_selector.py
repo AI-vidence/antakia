@@ -29,8 +29,8 @@ class ProjectedValuesSelector:
 
         self.X = None
         self.current_proj = Proj(
-            DimReducMethod.dimreduc_method_as_int(config.DEFAULT_PROJECTION),
-            config.DEFAULT_DIMENSION
+            DimReducMethod.dimreduc_method_as_int(config.ATK_DEFAULT_PROJECTION),
+            config.ATK_DEFAULT_DIMENSION
         )
 
         self.build_widget()
@@ -170,7 +170,7 @@ class ProjectedValuesSelector:
 
         """
         if self.projection_select.v_model == '!!disabled!!':
-            self.projection_select.v_model = config.DEFAULT_PROJECTION
+            self.projection_select.v_model = config.ATK_DEFAULT_PROJECTION
         return DimReducMethod.dimreduc_method_as_int(
             self.projection_select.v_model
         )

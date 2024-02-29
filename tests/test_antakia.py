@@ -20,8 +20,8 @@ from tests.utils_fct import DummyModel
 class TestAntakia(TestCase):
     @classmethod
     def setUpClass(cls):
-        config.MIN_POINTS_NUMBER = 10
-        config.MAX_DOTS = 100
+        config.ATK_MIN_POINTS_NUMBER = 10
+        config.ATK_MAX_DOTS = 100
 
         X, y = load_dataset('Corner', 1000, random_seed=42)
         cls.X = pd.DataFrame(X, columns=['X1', 'X2'])

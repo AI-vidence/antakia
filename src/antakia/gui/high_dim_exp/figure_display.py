@@ -89,8 +89,8 @@ class FigureDisplay:
         self.widget.class_ = "flex-fill"
 
         # display parameters
-        self.fig_width = config.INIT_FIG_WIDTH / 2
-        self.fig_height = config.INIT_FIG_WIDTH / 4
+        self.fig_width = config.ATK_INIT_FIG_WIDTH / 2
+        self.fig_height = config.ATK_INIT_FIG_WIDTH / 4
 
         # is graph selectable
         self._selection_mode = 'lasso'
@@ -129,7 +129,7 @@ class FigureDisplay:
     @property
     def dim(self):
         if self.X is None:
-            return config.DEFAULT_DIMENSION
+            return config.ATK_DEFAULT_DIMENSION
         return self.X.shape[1]
 
     @property
@@ -437,7 +437,7 @@ class FigureDisplay:
         """
         if self._mask is None:
             self._mask = pd.Series([False] * len(self.X), index=self.X.index)
-            limit = config.MAX_DOTS
+            limit = config.ATK_MAX_DOTS
             if len(self.X) > limit:
                 indices = np.random.choice(self.X.index, size=limit, replace=False)
                 self._mask.loc[indices] = True

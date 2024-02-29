@@ -93,7 +93,7 @@ class ExplanationValues:
         """
         if not self.has_user_exp:
             # compute explanation if not provided
-            self.compute_explanation(config.DEFAULT_EXPLANATION_METHOD, progress_callback)
+            self.compute_explanation(config.ATK_DEFAULT_EXPLANATION_METHOD, progress_callback)
         # ensure progress is at 100%
         progress_callback(100, 0)
         self.initialized = True

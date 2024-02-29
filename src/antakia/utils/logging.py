@@ -36,7 +36,7 @@ class OutputWidgetHandler(Handler):
 
 
 def conf_logger(logger: Logger, height: int = 160) -> Handler:
-    if config.SHOW_LOG_MODULE_WIDGET:
+    if config.ATK_SHOW_LOG_MODULE_WIDGET:
         logger.setLevel(DEBUG)
         handler = OutputWidgetHandler(height)
         handler.setFormatter(Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))

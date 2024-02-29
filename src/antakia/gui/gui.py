@@ -171,13 +171,13 @@ class GUI:
         # We trigger VS proj computation :
         get_widget(
             self.splash_widget, "220"
-        ).v_model = f"{config.DEFAULT_PROJECTION} on {self.X.shape} 1/2"
+        ).v_model = f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2"
 
         self.vs_hde.initialize(progress_callback=dimreduc_progress_bar.get_update(1), X=self.X)
 
         # We trigger ES explain computation if needed :
         if not self.exp_values.has_user_exp:  # No imported explanation values
-            exp_method = ExplanationMethod.explain_method_as_str(config.DEFAULT_EXPLANATION_METHOD)
+            exp_method = ExplanationMethod.explain_method_as_str(config.ATK_DEFAULT_EXPLANATION_METHOD)
             msg = f"Computing {exp_method} on {self.X.shape}"
         else:
             msg = f"Imported explained values {self.X.shape}"
@@ -187,7 +187,7 @@ class GUI:
         # THen we trigger ES proj computation :
         get_widget(
             self.splash_widget, "220"
-        ).v_model = f"{config.DEFAULT_PROJECTION} on {self.X.shape} 2/2"
+        ).v_model = f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2"
         self.es_hde.initialize(
             progress_callback=dimreduc_progress_bar.get_update(2),
             X=self.exp_values.current_exp_df
@@ -220,7 +220,7 @@ class GUI:
 
         # -------------- Dimension Switch --------------
 
-        get_widget(self.widget, "100").v_model = config.DEFAULT_DIMENSION == 3
+        get_widget(self.widget, "100").v_model = config.ATK_DEFAULT_DIMENSION == 3
         get_widget(self.widget, "100").on_event("change", self.switch_dimension)
 
         # -------------- ColorChoiceBtnToggle ------------
@@ -704,7 +704,7 @@ class GUI:
         self.select_tab(2)
 
     def compute_auto_cluster(self, not_rules_indexes_list, cluster_num='auto'):
-        if len(not_rules_indexes_list) > config.MIN_POINTS_NUMBER:
+        if len(not_rules_indexes_list) > config.ATK_MIN_POINTS_NUMBER:
             vs_compute = int(not self.vs_hde.projected_value_selector.is_computed(dim=3))
             es_compute = int(not self.es_hde.projected_value_selector.is_computed(dim=3))
             steps = 1 + vs_compute + es_compute
@@ -746,7 +746,7 @@ class GUI:
         num_selected_regions = len(selected_region_nums)
         if num_selected_regions:
             first_region = self.region_set.get(selected_region_nums[0])
-            enable_div = (num_selected_regions == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
+            enable_div = (num_selected_regions == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
         else:
             enable_div = False
 
@@ -786,7 +786,7 @@ class GUI:
             self.select_tab(2)
         # we recover the region to sudivide
         region = self.region_set.get(self.selected_regions[0]['Region'])
-        if region.num_points() > config.MIN_POINTS_NUMBER:
+        if region.num_points() > config.ATK_MIN_POINTS_NUMBER:
             # Then we delete the region in self.region_set
             self.region_set.remove(region.num)
             # we compute the subregions and add them to the region set
@@ -897,7 +897,7 @@ class GUI:
             title.class_ = "ml-2 grey--text italic "
             title.children = [f"No region selected for substitution"]
             table.items = []
-        elif region.num_points() < config.MIN_POINTS_NUMBER:  # region is too small
+        elif region.num_points() < config.ATK_MIN_POINTS_NUMBER:  # region is too small
             title.class_ = "ml-2 red--text"
             title.children = [" Region too small for substitution !"]
             table.items = []
