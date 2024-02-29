@@ -10,14 +10,15 @@ from antakia.gui.metadata import metadata
 
 
 class ActivityLogger:
-    log_file = str(files("antakia").joinpath("assets/logs.json"))
+    log_file = files("antakia").joinpath("assets/")
     url = 'https://api.antakia.ai/'
     limit = 10
     size_limit = 1000
     send_events = ['execution_error', 'launched', 'validate_sub_model', 'auto_cluster', 'compute_explanation',
                    'validate_rules']
 
-    def __init__(self):
+    def __init__(self, log_file='logs.json'):
+        self.log_file = str(self.log_file.joinpath(log_file))
         self._logs = []
         if os.path.exists(self.log_file):
             with open(self.log_file, 'r') as log_file:
@@ -47,31 +48,31 @@ class ActivityLogger:
         }
         try:
             json.dumps(payload)
-            self.add_to_log_queue(payload)
+            self._add_to_log_queue(payload)
         except:
             pass
 
-    def add_metadata(self, payload):
+    def _add_metadata(self, payload):
         payload['user_id'] = metadata.user_id
         payload['run_id'] = metadata.run_id
         payload['install_id'] = metadata.install_id
         payload['launch_count'] = metadata.counter
         payload['version_number'] = metadata.current_version
 
-    def add_to_log_queue(self, payload):
+    def _add_to_log_queue(self, payload):
         self._logs.append(payload)
-        self.add_to_disk(payload)
+        self._add_to_disk(payload)
         if len(self._logs) > self.limit or payload['event'] in self.send_events:
-            self.send()
+            self._send()
 
-    def add_to_disk(self, payload):
+    def _add_to_disk(self, payload):
         try:
             with open(self.log_file, 'a') as log_file:
                 log_file.write(json.dumps(payload) + '\n')
         except:
             pass
 
-    def clear_logs(self):
+    def _clear_logs(self):
         self._logs = []
         try:
             with open(self.log_file, 'w') as log_file:
@@ -79,16 +80,17 @@ class ActivityLogger:
         except:
             pass
 
-    def send(self):
+    def _send(self):
         try:
             payload = {'items': self._logs}
-            self.add_metadata(payload)
+            self._add_metadata(payload)
             response = requests.post(self.url + 'log/', json=payload)
-            if response.status_code < 300:
-                self.clear_logs()
+            if response.status_code >= 300:
+                raise ConnectionError
+            self._clear_logs()
         except:
             if len(self._logs) > self.size_limit:
-                self.clear_logs()
+                self._clear_logs()
 
 
 stats_logger = ActivityLogger()
