@@ -177,7 +177,7 @@ On the right side we can explore the selected model to understand how the predic
 ## Conclusion
 
 In this Tutorial we were able to explore a classification model on the titanic dataset.
-wWe identified 6 main regions :
+We identified 6 main regions :
 
 1. Fare ≤ 9.662499904632568 and male and Embarked = S
     - 11% survivorship
