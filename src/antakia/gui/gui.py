@@ -334,7 +334,7 @@ class GUI:
         get_widget(self.widget, "4502").children = [self.model_explorer.widget]
 
         # We disable the Substitution table at startup :
-        self.update_substitution_table(None)
+        self.update_tab(None)
 
         self.refresh_buttons_tab_1()
 
@@ -528,7 +528,7 @@ class GUI:
                 self.select_tab(2)
             else:
                 region = self.region_set.get(self.selected_regions[0]['Region'])
-                self.update_substitution_table(region)
+                self.update_tab(region)
                 if region is None:
                     region = ModelRegion(self.X, self.y, self.X_test, self.y_test, self.model, score=self.score)
                 self.vs_hde.figure.display_region(region)
@@ -579,7 +579,6 @@ class GUI:
         self.refresh_buttons_tab_1()
         self.select_tab(1)
         stats_logger.log('find_rules', skr_score_dict)
-
 
     def undo_rules(self, *args):
         if self.tab != 1:
@@ -847,7 +846,7 @@ class GUI:
 
             self.substitution_model_training = False
             # We update the substitution table a second time to show the results
-            self.update_substitution_table(region)
+            self.update_tab(region)
 
     def update_subtitution_prefix(self, region):
         # Region prefix text
@@ -925,13 +924,13 @@ class GUI:
                 self.model_explorer.reset()
                 table.selected = []
 
-    def update_substitution_table(self, region: ModelRegion | None):
+    def update_tab(self, region: ModelRegion | None):
         """
         Called twice to update table
         """
         # set region to called region
         self.substitute_region = region
-
+        self.model_explorer.reset()
         self.update_subtitution_prefix(region)
         self.update_subtitution_progress_bar()
         self.update_substitution_title(region)
