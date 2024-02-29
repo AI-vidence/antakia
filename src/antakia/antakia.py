@@ -71,7 +71,8 @@ class AntakIA:
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
         X, y, X_exp = self._preprocess_data(X, y, X_exp)
-        X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
+        if X_test is not None:
+            X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
         self.X = X
         if y.ndim > 1:
             y = y.squeeze()
