@@ -12,8 +12,8 @@ from antakia.gui.metadata import metadata
 class ActivityLogger:
     log_file = str(files("antakia").joinpath("assets/logs.json"))
     url = 'https://api.antakia.ai/'
-    limit = 1
-    send_events = ['launched']
+    limit = 10
+    send_events = ['launched', 'validate_sub_model', 'auto_cluster', 'compute_explanation']
 
     def __init__(self):
         self.logs = []
@@ -78,16 +78,12 @@ class ActivityLogger:
             pass
 
     def send(self):
-        print('try send')
         try:
             payload = {'items': self.logs}
             self.add_metadata(payload)
-            print(payload)
             response = requests.post(self.url + 'log/', json=payload)
-            print(response)
-            if response.status_code < 300 or random.random() > 0.9:
+            if response.status_code < 300:
                 self.clear_logs()
-                print('log sent')
         except:
             pass
 
