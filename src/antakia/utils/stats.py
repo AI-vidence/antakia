@@ -1,6 +1,6 @@
 import json
 import os
-import random
+from functools import wraps
 from importlib.resources import files
 
 import requests
@@ -14,14 +14,15 @@ class ActivityLogger:
     url = 'https://api.antakia.ai/'
     limit = 10
     size_limit = 1000
-    send_events = ['launched', 'validate_sub_model', 'auto_cluster', 'compute_explanation', 'validate_rules']
+    send_events = ['execution_error', 'launched', 'validate_sub_model', 'auto_cluster', 'compute_explanation',
+                   'validate_rules']
 
     def __init__(self):
-        self.logs = []
+        self._logs = []
         if os.path.exists(self.log_file):
             with open(self.log_file, 'r') as log_file:
                 for log in log_file:
-                    self.logs.append(json.loads(log))
+                    self._logs.append(json.loads(log))
 
     def log(self, event: str, info: dict | None = None):
         """
@@ -58,9 +59,9 @@ class ActivityLogger:
         payload['version_number'] = metadata.current_version
 
     def add_to_log_queue(self, payload):
-        self.logs.append(payload)
+        self._logs.append(payload)
         self.add_to_disk(payload)
-        if len(self.logs) > self.limit or payload['event'] in self.send_events:
+        if len(self._logs) > self.limit or payload['event'] in self.send_events:
             self.send()
 
     def add_to_disk(self, payload):
@@ -71,7 +72,7 @@ class ActivityLogger:
             pass
 
     def clear_logs(self):
-        self.logs = []
+        self._logs = []
         try:
             with open(self.log_file, 'w') as log_file:
                 log_file.write('')
@@ -80,14 +81,27 @@ class ActivityLogger:
 
     def send(self):
         try:
-            payload = {'items': self.logs}
+            payload = {'items': self._logs}
             self.add_metadata(payload)
             response = requests.post(self.url + 'log/', json=payload)
             if response.status_code < 300:
                 self.clear_logs()
         except:
-            if len(self.logs) > self.size_limit:
+            if len(self._logs) > self.size_limit:
                 self.clear_logs()
 
 
 stats_logger = ActivityLogger()
+
+
+def log_errors(method):
+    @wraps(method)
+    def log(*args, **kw):
+        try:
+            res = method(*args, **kw)
+        except Exception as e:
+            stats_logger.log('execution_error', {'method': method.__qualname__})
+            raise e
+        return res
+
+    return log

@@ -33,7 +33,7 @@ from antakia.utils.logging import conf_logger
 from antakia_core.utils.utils import boolean_mask, ProblemCategory, format_data
 from antakia_core.utils.variable import DataVariables
 
-from antakia.utils.stats import stats_logger
+from antakia.utils.stats import stats_logger, log_errors
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -147,6 +147,7 @@ class GUI:
         # We disable the selection datatable at startup (bottom of tab 1)
         get_widget(self.widget, "4320").disabled = True
 
+    @log_errors
     def show_splash_screen(self):
         """Displays the splash screen and updates it during the first computations."""
 
@@ -376,10 +377,12 @@ class GUI:
 
     # ==================== sync callbacks ==================== #
 
+    @log_errors
     def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: callable = None):
         self.es_hde.update_X(current_exp_df, progress_callback)
         self.es_rules_wgt.update_X(current_exp_df)
 
+    @log_errors
     def disable_hde(self, disable='auto'):
         if disable == 'auto':
             disable_proj = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
@@ -391,6 +394,7 @@ class GUI:
         self.exp_values.disable_selection(disable_proj)
         self.es_hde.disable(disable_figure, disable_proj)
 
+    @log_errors
     def selection_changed(self, caller: HighDimExplorer | None, new_selection_mask: pd.Series):
         """Called when the selection of one HighDimExplorer changes"""
 
@@ -450,6 +454,7 @@ class GUI:
         # we refresh button and enable/disable the datatable
         self.refresh_buttons_tab_1()
 
+    @log_errors
     def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
         stats_logger.log('rule_changed')
         """
@@ -475,6 +480,7 @@ class GUI:
         self.vs_hde.set_dim(dim)
         self.es_hde.set_dim(dim)
 
+    @log_errors
     def switch_dimension(self, widget, event, data):
         """
         Called when the switch changes.
@@ -484,6 +490,7 @@ class GUI:
         stats_logger.log('dim_changed')
         self.set_dimension(3 if data else 2)
 
+    @log_errors
     def change_color(self, widget, event, data):
         """
         Called with the user clicks on the colorChoiceBtnToggle
@@ -507,6 +514,7 @@ class GUI:
     # ==================== TAB handling ==================== #
 
     def select_tab_front(self, tab):
+        @log_errors
         def call_fct(*args):
             stats_logger.log('tab_selected', {'tab': tab})
             self.select_tab(tab, front=True)
@@ -553,6 +561,7 @@ class GUI:
         # validate rule
         get_widget(self.widget, "43030").disabled = not (self.vs_rules_wgt.rules_num > 0)
 
+    @log_errors
     def compute_skope_rules(self, *args):
         self.new_selection = False
 
@@ -580,6 +589,7 @@ class GUI:
         self.select_tab(1)
         stats_logger.log('find_rules', skr_score_dict)
 
+    @log_errors
     def undo_rules(self, *args):
         if self.tab != 1:
             self.select_tab(1)
@@ -590,6 +600,7 @@ class GUI:
             self.es_rules_wgt.undo()
         self.refresh_buttons_tab_1()
 
+    @log_errors
     def validate_rules(self, *args):
         stats_logger.log('validate_rules')
         if self.tab != 1:
@@ -642,6 +653,7 @@ class GUI:
         ]
         get_widget(self.widget, "4402000").disabled = False
 
+    @log_errors
     def checkbox_auto_cluster_clicked(self, widget, event, data):
         """
         Called when the user clicks on the 'auto-cluster' checkbox
@@ -657,6 +669,7 @@ class GUI:
         # IF true, we disable the Slider
         get_widget(self.widget, "4402100").disabled = data
 
+    @log_errors
     def auto_cluster_clicked(self, *args):
         """
         Called when the user clicks on the 'auto-cluster' button
@@ -763,6 +776,7 @@ class GUI:
         self.selected_regions = []
         self.disable_buttons(None)
 
+    @log_errors
     def divide_region_clicked(self, *args):
         """
         Called when the user clicks on the 'divide' (region) button
@@ -787,6 +801,7 @@ class GUI:
         # There is no more selected region
         self.clear_selected_regions()
 
+    @log_errors
     def merge_region_clicked(self, *args):
         """
         Called when the user clicks on the 'merge' (regions) button
@@ -815,6 +830,7 @@ class GUI:
         self.selected_regions = [{'Region': r.num}]
         self.select_tab(2)
 
+    @log_errors
     def delete_region_clicked(self, *args):
         """
         Called when the user clicks on the 'delete' (region) button
@@ -833,6 +849,7 @@ class GUI:
 
     # ==================== TAB 3 ==================== #
 
+    @log_errors
     def substitute_clicked(self, widget, event, data):
         stats_logger.log('substitute_region')
         region = self.region_set.get(self.selected_regions[0]['Region'])
@@ -946,6 +963,7 @@ class GUI:
         else:
             self.model_explorer.reset()
 
+    @log_errors
     def validate_sub_model(self, *args):
         # We get the sub-model data from the SubModelTable:
         # get_widget(self.widget,"45001").items[self.validated_sub_model]

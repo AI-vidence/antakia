@@ -13,6 +13,7 @@ import antakia.config as config
 
 import logging as logging
 from antakia.utils.logging import conf_logger
+from antakia.utils.stats import log_errors
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -341,6 +342,7 @@ class FigureDisplay:
         # KNN extrapolation
         return guessed_selection.astype(bool)
 
+    @log_errors
     def _selection_event(self, trace, points, *args):
         """
         callback triggered by selection on graph
@@ -367,6 +369,7 @@ class FigureDisplay:
         else:
             self._deselection_event(rebuild=True)
 
+    @log_errors
     def _deselection_event(self, *args, rebuild=False):
         """
         clear selection -- called by deselection on graph

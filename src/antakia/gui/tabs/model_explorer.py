@@ -6,6 +6,8 @@ from plotly.graph_objects import FigureWidget, Bar
 
 from pdpbox.pdp import PDPIsolate, PDPInteract
 
+from antakia.utils.stats import log_errors
+
 
 class ModelExplorer:
     """
@@ -82,6 +84,7 @@ class ModelExplorer:
             self.pdp_feature_select.v_model = features[0]
         self.display_pdp()
 
+    @log_errors
     def display_pdp(self, *args):
         if self.model is not None:
             selected_feature = self.pdp_feature_select.v_model

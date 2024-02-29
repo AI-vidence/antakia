@@ -6,7 +6,7 @@ import ipyvuetify as v
 from antakia import config
 from antakia.explanation.explanations import compute_explanations, ExplanationMethod
 from antakia.gui.progress_bar import ProgressBar
-from antakia.utils.stats import stats_logger
+from antakia.utils.stats import stats_logger, log_errors
 
 
 class ExplanationValues:
@@ -191,6 +191,7 @@ class ExplanationValues:
         """
         self.get_explanation_select().disabled = is_disabled
 
+    @log_errors
     def explanation_select_changed(self, widget, event, data):
         """
         triggered on selection of new explanation by user

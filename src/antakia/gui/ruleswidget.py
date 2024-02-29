@@ -9,6 +9,8 @@ from antakia.gui.widgets import change_widget, get_widget, app_widget
 from antakia_core.utils.utils import compute_step, get_mask_comparison_color
 from antakia_core.utils.variable import DataVariables
 
+from antakia.utils.stats import log_errors
+
 
 class RuleWidget:
     """
@@ -201,6 +203,7 @@ class RuleWidget:
         else:
             self.select_widget.v_model = [self.rule.min, self.rule.max]
 
+    @log_errors
     def _widget_value_changed(self, widget, event, data):
         """
         callback called when the user edits a value

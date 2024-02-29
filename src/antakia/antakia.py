@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from antakia_core.utils.utils import ProblemCategory
 
-from antakia.utils.stats import stats_logger
+from antakia.utils.stats import stats_logger, log_errors
 
 load_dotenv()
 
@@ -39,7 +39,7 @@ class AntakIA:
     y_test : pd.Series the test target value
     score : reference scoring function
     """
-
+    @log_errors
     def __init__(
         self,
         X: pd.DataFrame,

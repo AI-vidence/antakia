@@ -14,7 +14,7 @@ import ipyvuetify as v
 
 from antakia_core.utils import utils
 
-from antakia.utils.stats import stats_logger
+from antakia.utils.stats import stats_logger, log_errors
 
 
 class ProjectedValuesSelector:
@@ -175,6 +175,7 @@ class ProjectedValuesSelector:
             self.projection_select.v_model
         )
 
+    @log_errors
     def projection_select_changed(self, *args):
         """
         callback called on projection select change
@@ -246,6 +247,7 @@ class ProjectedValuesSelector:
         for dim_reduc in DimReducMethod.dimreduc_methods_as_list():
             self._proj_params_cards[dim_reduc] = self.build_proj_param_widget(dim_reduc)
 
+    @log_errors
     def params_changed(self, widget, event, data):
         """
         called when user changes a parameter value
