@@ -1,8 +1,10 @@
+import os
 from unittest import TestCase
 import mock
 import pandas as pd
 import pytest
 
+from antakia import config
 from antakia.utils import stats
 
 
@@ -104,3 +106,21 @@ class TestStats(TestCase):
         assert len(post.call_args[1]['json']['items']) == 1
         assert len(stats.stats_logger._logs) == 0
         check_log_file()
+
+    def test_no_log(self):
+        assert len(stats.stats_logger._logs) == 0
+
+        config.ATK_SEND_LOG = False
+
+        stats.stats_logger.log('test1')
+        assert len(stats.stats_logger._logs) == 0
+        check_log_file()
+
+
+        config.ATK_SEND_LOG = True
+        os.environ['ATK_SEND_LOG'] = '0'
+
+        stats.stats_logger.log('test1')
+        assert len(stats.stats_logger._logs) == 0
+        check_log_file()
+

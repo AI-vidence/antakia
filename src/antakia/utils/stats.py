@@ -38,7 +38,7 @@ class ActivityLogger:
         -------
 
         """
-        if not os.environ.get('ATK_SEND_LOG', 1) or not config.ATK_SEND_LOG:
+        if os.environ.get('ATK_SEND_LOG', '1') == '0' or not config.ATK_SEND_LOG:
             return
         if info is None:
             info = {}
