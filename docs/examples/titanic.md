@@ -3,7 +3,7 @@
 For this tutorial we explore a well known toy dataset, representing all the passengers of the Titanic.
 The goal is to predict whether they will survive the collision with the iceberg.
 
-This tuturial presents how to use Antakia with a classification problem
+This tutorial presents how to use Antakia with a classification problem
 
 ## Data Overview
 
@@ -53,7 +53,7 @@ The preparation include 3 steps :
 - one hot encode categorical variable
 - remove columns with high cardinality
 
-Then we shuffle it and splut into test and train, and separate features and target :
+Then we shuffle it and split into test and train, and separate features and target :
 
 ```python
 dataset = dataset.sample(len(dataset))
@@ -94,7 +94,7 @@ let's see how it performs :
 
 ## Model exploration with Antakia:
 
-let's explore what the model learned and if we can improve it.
+let's explore what the model has learned and if we can improve it.
 
 to run AntakIA :
 
@@ -140,13 +140,13 @@ We can edit the rule to adapt it if necessary
 
 Once we are done, let's validate it
 
-If we select the big blob, we can see that it correspond to several blobs in the Explanation space,
+If we select the big blob, we can see that it corresponds to several blobs in the Explanation space,
 ![img_4.png](../img/titanic/img_4.png)
 
 Let's select one blob in the explanation space
 
 ![img_5.png](../img/titanic/img_5.png)
-This new segment is more homogenous, event if we did not capare it perfectly.
+This new segment is more homogenous, even if we did not capture it perfectly.
 
 By iterating this process we can divide our space into 7 regions :
 ![img_6.png](../img/titanic/img_6.png)
@@ -163,8 +163,8 @@ We can for example merge the region 2 and 4
 
 Once the main behaviors have been extracted, we can explore the model in each of these regions:
 
-For example the performance of the trained model on the region 5 is as good as the Average baseline model.
-inside this region the model did not learn anything more.
+For example the performance of the 'Original model' on the region 5 is as good as the 'Average Baseline' model.
+Inside this region, the model had not learn anything more.
 
 ![img_8.png](../img/titanic/img_8.png)
 
@@ -177,12 +177,12 @@ On the right side we can explore the selected model to understand how the predic
 ## Conclusion
 
 In this Tutorial we were able to explore a classification model on the titanic dataset.
-We identified 6 main regions :
+We have identified 6 main regions :
 
-1. Fare ≤ 9.662499904632568 and male and Embarked = S
+1. Fare ≤ 9.7 and male and Embarked = S
     - 11% survivorship
     - best model : average baseline
-2. Pclass = 2 or 3 and Fare > 10.335400104522705 and male
+2. Pclass = 2 or 3 and Fare > 10.3 and male
     - 21% survivorship
     - best model : customer model
 3. Pclass = 2 or 3 and female and not Embarked = Q
@@ -191,13 +191,17 @@ We identified 6 main regions :
 4. Pclass = 1 and male
     - 45% survivorship
     - best model : average baseline
-5. 48.29999923706055 < Fare ≤ 188.1020965576172 and female
+5. 48.3 < Fare ≤ 188.1 and female
     - 97% survivorship
     - best model : average baseline
-6. Fare ≤ 59.5625 and Embarked = Q
+6. Fare ≤ 59.6 and Embarked = Q
     - 36%
     - best model : linear regression (male, Parch)
 
-The new model, build with AntakIA, is explanaible and performs better than the original random forest.
-We managed to improve the performance by 3% on the test set and gained kwnoledge about which passenger did survived or
+We can then replace the original model by a new one, which consists in :
+- the collection of surrogate model on each region, 
+- e.g. the original model for the remaining points out of these regions.
+
+The resulting model, built with AntakIA, is explainable and performs better than the original random forest.
+We managed to improve the performance by 3% on the test set and gained knowledge about which passenger did survive or
 not. 
