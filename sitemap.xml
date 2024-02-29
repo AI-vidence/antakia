@@ -2,202 +2,207 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://doc.antakia.ai/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/about/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/credits/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/getting_started/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/regional_explain/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/tutorials/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/examples/california1/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/examples/california2/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://doc.antakia.ai/examples/titanic/</loc>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/examples/wages/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/SUMMARY/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/__init__/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/antakia/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/config/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/explanation/__init__/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/explanation/explanation_method/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/explanation/explanations/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/__init__/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/antakia_logo/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/colorTable/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/data_store/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/explanation_values/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/gui/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/metadata/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/progress_bar/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/ruleswidget/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/widget_utils/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/widgets/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/high_dim_exp/__init__/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/high_dim_exp/figure_display/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/high_dim_exp/highdimexplorer/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/high_dim_exp/projected_value_bank/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/high_dim_exp/projected_values_selector/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/tabs/__init__/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/tabs/model_explorer/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/gui/tabs/tab1/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/utils/__init__/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/utils/checks/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/utils/dummy_datasets/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/utils/examples/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://doc.antakia.ai/reference/antakia/utils/logging/</loc>
-         <lastmod>2024-02-28</lastmod>
+         <lastmod>2024-02-29</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>
