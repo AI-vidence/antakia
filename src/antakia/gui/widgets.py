@@ -69,10 +69,10 @@ def show_tree(parent: Widget, filter: str = "", address: str = ""):
         if filter in child.__class__.__name__:
             print(f"{' ' * 3 * len(address)} {child.__class__.__name__} @{address}{str(i)}")
         if (
-                not isinstance(child, widgets.Image) and not isinstance(child, str) and
-                not isinstance(child, v.Html) and not isinstance(parent.children[i], widgets.HTML) and
-                not isinstance(child, FigureWidget) and not isinstance(child, ColorTable) and
-                not isinstance(child, SubModelTable)
+            not isinstance(child, widgets.Image) and not isinstance(child, str) and
+            not isinstance(child, v.Html) and not isinstance(parent.children[i], widgets.HTML) and
+            not isinstance(child, FigureWidget) and not isinstance(child, ColorTable) and
+            not isinstance(child, SubModelTable)
         ):
             show_tree(child, filter, address=f"{address}{i}")
 
@@ -132,6 +132,7 @@ dummy_regions_df = pd.DataFrame(
         "Region": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
         "Rules": ["Income ≥ 2800", "Segment ∈ ⟦D, E, F⟧", "Age ∈ [39, 45⟧", "Income ≥ 2800", "Segment ∈ ⟦D, E, F⟧",
                   "Age ∈ [39, 45⟧", "Income ≥ 2800", "Segment ∈ ⟦D, E, F⟧", "Age ∈ [39, 45⟧", "Income ≥ 2800"],
+        "Average": [12, 123, 98, 3, 210, 333, 224, 93, 82, 241],
         "Points": [12, 123, 98, 3, 210, 333, 224, 93, 82, 241],
         "% dataset": ["5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%", "21%", "13%", "5.7%"],
         "Sub-model": ["Linear regression", "Random forest", "Gradient boost", "Linear regression", "Random forest",

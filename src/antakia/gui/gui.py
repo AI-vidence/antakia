@@ -24,12 +24,11 @@ from antakia.gui.widgets import splash_widget, app_widget
 from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
 from antakia.gui.ruleswidget import RulesWidget
 
-import copy
 from antakia.gui.metadata import metadata
 
 import logging
 from antakia.utils.logging import conf_logger
-from antakia_core.utils.utils import boolean_mask, ProblemCategory
+from antakia_core.utils.utils import boolean_mask, ProblemCategory, format_data
 from antakia_core.utils.variable import DataVariables
 
 logger = logging.getLogger(__name__)
@@ -404,7 +403,7 @@ class GUI:
             self.vs_rules_wgt.reset_widget()
         else:
             # Selection is not empty anymore or changes
-            X_rounded = copy.copy((self.X.loc[new_selection_mask])).round(3)
+            X_rounded = self.X.loc[new_selection_mask].copy().apply(format_data)
             change_widget(
                 self.widget,
                 "432010",

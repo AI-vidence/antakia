@@ -553,20 +553,6 @@ class RulesWidget:
         # We set the rules
         self._show_rules()
 
-        # We set the rules in the DataTable
-        change_widget(
-            self.root_widget,
-            "011", v.DataTable(
-                v_model=[],
-                show_select=False,
-                headers=[{"text": column, "sortable": False, "value": column} for column in
-                         ['Variable', 'Unit', 'Desc', 'Critical', 'Rule']],
-                items=self.current_rules_list.to_dict(),
-                hide_default_footer=True,
-                disable_sort=True,
-            )
-        )
-
     def _show_score(self):
         """
         show rule score
