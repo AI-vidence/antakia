@@ -27,6 +27,11 @@ class TestStats(TestCase):
         stats.stats_logger = stats.ActivityLogger('test.json')
         stats.stats_logger._clear_logs()
 
+    def tearDown(self):
+        file = stats.stats_logger.log_file
+        if os.path.isfile(file):
+            os.remove(file)
+
     def test_log(self):
         assert len(stats.stats_logger._logs) == 0
         # add log with no info
@@ -116,7 +121,6 @@ class TestStats(TestCase):
         assert len(stats.stats_logger._logs) == 0
         check_log_file()
 
-
         config.ATK_SEND_LOG = True
         os.environ['ATK_SEND_LOG'] = '0'
 
@@ -124,3 +128,4 @@ class TestStats(TestCase):
         assert len(stats.stats_logger._logs) == 0
         check_log_file()
 
+        os.environ['ATK_SEND_LOG'] = '1'
