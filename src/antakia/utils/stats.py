@@ -25,6 +25,8 @@ class ActivityLogger:
             with open(self.log_file, 'r') as log_file:
                 for log in log_file:
                     self._logs.append(json.loads(log))
+        if len(self._logs) > 0:
+            self._send()
 
     def log(self, event: str, info: dict | None = None):
         """

@@ -12,7 +12,7 @@ import antakia_core.utils.utils as utils
 import antakia.config as config
 
 import logging as logging
-from antakia.utils.logging import conf_logger
+from antakia.utils.logging_utils import conf_logger
 from antakia.utils.stats import log_errors
 
 logger = logging.getLogger(__name__)

@@ -207,7 +207,7 @@ class GUI:
 
         if metadata.counter == 10:
             self.topbar.open()
-        stats_logger.log('loaded', {'load_time': time.time() - t})
+        stats_logger.log('gui_init_end', {'load_time': time.time() - t})
 
     def init_app(self):
         """
@@ -516,6 +516,7 @@ class GUI:
     def select_tab_front(self, tab):
         @log_errors
         def call_fct(*args):
+            raise KeyError()
             stats_logger.log('tab_selected', {'tab': tab})
             self.select_tab(tab, front=True)
 
