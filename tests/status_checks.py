@@ -127,7 +127,7 @@ def check_tab_2_btn(gui):
         first_region = gui.region_set.get(gui.selected_regions[0]['Region'])
     else:
         first_region = None
-    enable_sub = (len(gui.selected_regions) == 1) and bool(first_region.num_points() >= config.MIN_POINTS_NUMBER)
+    enable_sub = (len(gui.selected_regions) == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
     assert get_widget(gui.widget, "4401100").disabled == (not enable_sub)
 
     enable_merge = (len(gui.selected_regions) > 1)

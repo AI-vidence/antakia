@@ -1,7 +1,12 @@
 # Apple
 .DS_Store
 
-# VSCode
+# AntakIA
+*metadata.json
+*logs.json
+*test.json
+
+# IDE
 .vscode/
 *.code-workspace
 .idea/
@@ -9,10 +14,11 @@
 # environnement variables
 .env
 
-# Byte-compiled / optimized / DLL files
+# Byte-compiled / build files
 __pycache__/
 *.py[cod]
 *$py.class
+dist/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -21,9 +27,13 @@ __pycache__/
 profile_default/
 ipython_config.py
 
-# Others
-/examples/catboost_info/
-
 # docs
 site/
 
+# test
+.coverage.*
+*.pytest_cache/
+.coverage
+
+# poetry
+poetry.lock

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "antakia"
-version = "0.2.1"
+version = "0.2.9"
 description = "AI made Xplainable"
 readme = "README.md"
 authors = [
@@ -23,36 +23,35 @@ keywords = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.12"
-ipyvuetify = "^1.8.10"
+python = ">=3.11,<3.12"
+ipyvuetify = "<1.9.0" # do not edit please
 ipywidgets = "^8.1.1"
-lime = "^0.2.0.1"
 plotly = "^5.18.0"
+lime = "^0.2.0.1"
 shap = "^0.43.0"
-voila = "^0.5.5"
 python-dotenv = "^1.0.0"
-umap-learn = "^0.5.5"
-antakia-core = {git = "ssh://git@code.ai-vidence.com:29418/ai-vidence/antakia-core.git"}
-#antakia-core = {path = "../antakia_core", develop = true}
-antakia-ac = {git = "ssh://git@code.ai-vidence.com:29418/ai-vidence/antakia-ac.git"}
-#antakia-ac = {path = "../antakia_ac", develop = true}
-pdpbox = "^0.3.0"
-
+antakia-core = "*"
+antakia-ac = ">=0.2.4"
+#antakia-ac = {path = "../antakia-ac", develop = true}
+#antakia-core = {path = "../antakia-core", develop = true}
+requests = "^2.31.0"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.26.0"
 ipython = "^8.17.2"
 pre-commit = "^3.5.0"
-mkdocs = "^1.5.3"
 jupyter = "^1.0.0"
 jupyterlab = "^4.0.8"
 jupyterlab-widgets = "^3.0.9"
 mock = "^5.1.0"
 pytest = "^7.4.3"
 pytest-cov = "^4.1.0"
-pydeps = "^1.12.18"
-graphviz = "^0.20.1"
-
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.5.11"
+mkdocstrings = "^0.24.0"
+mkdocstrings-python = "^1.8.0"
+mkdocs-gen-files = "^0.5.0"
+mkdocs-literate-nav = "^0.6.1"
 
 [tool.poetry.group.demo.dependencies]
 jupyter = "^1.0.0"
@@ -61,9 +60,9 @@ jupyterlab-widgets = "^3.0.9"
 catboost = "^1.2.2"
 
 [project.urls]
-Website = "https://ai-vidence.com/"
+Website = "https://www.antakia.ai"
 Repository = "https://github.com/AI-vidence/antakia"
-Documentation = "https://ai-vidence.github.io/antakia/"
+Documentation = "https://doc.antakia.ai"
 
 [build-system]
 requires = ["poetry-core"]
