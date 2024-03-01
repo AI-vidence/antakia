@@ -2,10 +2,12 @@ from unittest import TestCase
 
 import numpy as np
 import pytest
+import pandas as pd
 
 from antakia.explanation.explanation_method import ExplanationMethod
 from antakia.utils.dummy_datasets import generate_corner_dataset
-from tests.utils_fct import EMPTYExplanation, DummyModel, dummy_callable
+from antakia_core.utils.utils import ProblemCategory
+from tests.utils_fct import DummyModel, dummy_callable
 
 
 class TestExplanationMethod(TestCase):
@@ -15,9 +17,21 @@ class TestExplanationMethod(TestCase):
         self.callable = dummy_callable()
 
     def test_init(self):
-        exp_meth = EMPTYExplanation(self.X, self.y, self.model, self.callable)
+        class DummyExplanation(ExplanationMethod):
+            def compute(self):
+                self.publish_progress(100)
+                return 0
+
+        exp_meth = DummyExplanation(1, self.X, self.y, self.model, ProblemCategory.regression)
         assert exp_meth.explanation_method == 1
         np.testing.assert_array_equal(exp_meth.X, self.X)
+
+        class DummyExplanation1(ExplanationMethod):
+            def compute(self):
+                self.publish_progress(100)
+                return 0
+        with pytest.raises(ValueError):
+            exp_meth = DummyExplanation1(6, self.X, self.model, ProblemCategory.regression)
 
 
 def test_is_valid_explanation_method():

@@ -33,14 +33,6 @@ class DummyModel:
     def score(self, *args):
         return 1
 
-class EMPTYExplanation(ExplanationMethod):
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, on_change_callback: callable):
-        super().__init__(1, X, model, ProblemCategory.regression, on_change_callback)
-
-    def compute(self):
-        self.publish_progress(100)
-        return 0
-
 
 def is_mask_of_X(mask, X):
     return (

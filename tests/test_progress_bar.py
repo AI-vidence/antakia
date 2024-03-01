@@ -1,11 +1,13 @@
 import unittest
+from unittest import TestCase
+
 import pytest
 import ipyvuetify as v
 
 from antakia.gui.progress_bar import ProgressBar, MultiStepProgressBar
 
 
-class TestProgressBar(unittest.TestCase):
+class TestProgressBar(TestCase):
     def setUp(self):
         self.progress_bar = ProgressBar(v.ProgressLinear())
 
@@ -23,7 +25,7 @@ class TestProgressBar(unittest.TestCase):
         assert pb.progress == 0
 
 
-class TestMultiStepProgressBar(unittest.TestCase):
+class TestMultiStepProgressBar(TestCase):
     def setUp(self):
         self.widget = v.Row(children=[v.Col(children=[])])
 
