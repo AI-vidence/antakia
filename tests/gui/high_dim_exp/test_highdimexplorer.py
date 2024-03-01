@@ -1,4 +1,7 @@
+import pandas as pd
 from unittest import TestCase
+
+from mock import mock
 
 from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
@@ -15,7 +18,7 @@ class TestHighDimExplorer(TestCase):
         self.callable = dummy_callable()
 
     def test_init(self):
-        hde = HighDimExplorer(self.pv_bank, dummy_callable() , 'VS')  #REMPLACER DUMMY CALLABLE
+        hde = HighDimExplorer(self.pv_bank, dummy_callable(), 'VS')  # REMPLACER DUMMY CALLABLE
         assert hde.pv_bank == self.pv_bank
         # assert hde.projected_value_selector ==
         # assert hde.
@@ -26,4 +29,11 @@ class TestHighDimExplorer(TestCase):
         if caller is not None:
             assert isinstance(caller, HighDimExplorer)
         self.selection_changed_called += 1
+
+    @mock.patch('antakia_core.data_handler.projected_values.ProjectedValues.get_projection')
+    def test_update_X(self, pv_cpt):
+        pv_cpt.return_value, _ = generate_corner_dataset(10)
+        hde = HighDimExplorer(self.pv_bank, dummy_callable(), 'VS')
+        hde.update_X(pd.DataFrame(self.X))
+
 
