@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from functools import wraps
 from importlib.resources import files
 
@@ -44,7 +45,8 @@ class ActivityLogger:
             info = {}
         payload = {
             'event': event,
-            'log': info
+            'log': info,
+            'timestamp': time.time()
         }
         try:
             json.dumps(payload)
