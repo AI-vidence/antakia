@@ -7,7 +7,7 @@ from importlib.resources import files
 import os
 
 import logging
-from antakia.utils.logging import conf_logger
+from antakia.utils.logging_utils import conf_logger
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)

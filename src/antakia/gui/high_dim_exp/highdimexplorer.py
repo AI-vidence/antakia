@@ -7,7 +7,7 @@ from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSelector
 
 import logging as logging
-from antakia.utils.logging import conf_logger
+from antakia.utils.logging_utils import conf_logger
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)

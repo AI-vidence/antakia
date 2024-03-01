@@ -1,4 +1,3 @@
-import logging as logging
 from logging import Handler, Logger, DEBUG, Formatter, INFO
 
 import ipywidgets as widgets

@@ -14,6 +14,11 @@ class MetaData:
     metadata_file = str(files("antakia").joinpath("assets/metadata.json"))
 
     def __init__(self):
+        self.latest_version = self.get_latest_version()
+        self.current_version = antakia.__version__
+        self.load_file()
+
+    def load_file(self):
         self.run_id = str(uuid.uuid4())
         try:
             metadata: dict = json.loads(open(self.metadata_file, "r").read()) if path.exists(self.metadata_file) else 0
@@ -32,8 +37,9 @@ class MetaData:
             self.last_checked_version = None
             self.user_id = uuid.getnode()
             self.install_id = str(uuid.uuid4())
+
+    def update(self):
         self.counter += 1
-        logger.debug(f"GUI has been initialized {self.counter} times")
         self.latest_version = self.get_latest_version()
         self.current_version = antakia.__version__
 
@@ -63,6 +69,11 @@ class MetaData:
                 }))
         except:
             pass
+
+    def start(self):
+        self.load_file()
+        self.update()
+        self.save()
 
 
 metadata = MetaData()

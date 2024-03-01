@@ -5,22 +5,12 @@ from typing import List, Dict, Any
 import numpy as np
 import pandas as pd
 
-from dotenv import load_dotenv
-
 from antakia_core.utils.utils import ProblemCategory
 
 from antakia.utils.stats import stats_logger, log_errors
-
-load_dotenv()
-
 from antakia.utils.checks import is_valid_model
 from antakia_core.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
-
-import importlib.metadata
-
-__version__ = importlib.metadata.version("antakia")
-__author__ = "AI-vidence"
 
 
 class AntakIA:
@@ -39,6 +29,7 @@ class AntakIA:
     y_test : pd.Series the test target value
     score : reference scoring function
     """
+
     @log_errors
     def __init__(
         self,
@@ -66,7 +57,6 @@ class AntakIA:
             score : reference scoring function
         """
         stats_logger.log('launched', {})
-        load_dotenv()
 
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")

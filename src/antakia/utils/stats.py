@@ -86,7 +86,7 @@ class ActivityLogger:
         try:
             payload = {'items': self._logs}
             self._add_metadata(payload)
-            response = requests.post(self.url + 'log/', json=payload)
+            response = requests.post(self.url + 'log', json=payload, timeout=10)
             if response.status_code >= 300:
                 raise ConnectionError
             self._clear_logs()

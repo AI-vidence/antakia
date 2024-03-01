@@ -29,7 +29,7 @@ from antakia.gui.ruleswidget import RulesWidget
 from antakia.gui.metadata import metadata
 
 import logging
-from antakia.utils.logging import conf_logger
+from antakia.utils.logging_utils import conf_logger
 from antakia_core.utils.utils import boolean_mask, ProblemCategory, format_data
 from antakia_core.utils.variable import DataVariables
 
@@ -82,6 +82,7 @@ class GUI:
         score: callable | str = "mse",
         problem_category: ProblemCategory = ProblemCategory.regression
     ):
+        metadata.start()
         self.tab = 1
         self.X = X
         self.X_test = X_test
@@ -206,7 +207,6 @@ class GUI:
 
         if metadata.counter == 10:
             self.topbar.open()
-        metadata.save()
         stats_logger.log('loaded', {'load_time': time.time() - t})
 
     def init_app(self):
