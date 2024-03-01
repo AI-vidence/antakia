@@ -32,8 +32,6 @@ class TestFigureDisplay(TestCase):
         # assert fd.selection_changed
         # assert fd.widget == v.Container()
         assert fd.widget.class_ == "flex-fill"
-        assert fd.fig_width == config.INIT_FIG_WIDTH / 2
-        assert fd.fig_height == config.INIT_FIG_WIDTH / 4
         assert fd._selection_mode == 'lasso'
         assert fd._current_selection.equals(utils.boolean_mask(fd.X, True))
         assert fd.first_selection

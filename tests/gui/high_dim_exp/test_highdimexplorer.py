@@ -12,6 +12,7 @@ from tests.utils_fct import is_mask_of_X, dummy_callable
 class TestHighDimExplorer(TestCase):
     def setUp(self):
         self.X, self.y = generate_corner_dataset(10)
+        self.X, self.y = pd.DataFrame(self.X), pd.Series(self.y)
         self.pv_bank = ProjectedValueBank(self.y)
         self.pv_bank.get_projected_values(self.X)
         self.selection_changed_called = 0
@@ -35,5 +36,3 @@ class TestHighDimExplorer(TestCase):
         pv_cpt.return_value, _ = generate_corner_dataset(10)
         hde = HighDimExplorer(self.pv_bank, dummy_callable(), 'VS')
         hde.update_X(pd.DataFrame(self.X))
-
-

@@ -88,9 +88,6 @@ class FigureDisplay:
         self.widget = v.Container()
         self.widget.class_ = "flex-fill"
 
-        # display parameters
-        self.fig_width = config.ATK_INIT_FIG_WIDTH / 2
-        self.fig_height = config.ATK_INIT_FIG_WIDTH / 4
 
         # is graph selectable
         self._selection_mode = 'lasso'

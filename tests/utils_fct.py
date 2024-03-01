@@ -28,7 +28,7 @@ class DummyModel:
         return ((X[:, 0] > 0.5) & (X[:, 1] > 0.5)).astype(int)
 
     def fit(self, X, y):
-        pass
+        return self
 
     def score(self, *args):
         return 1

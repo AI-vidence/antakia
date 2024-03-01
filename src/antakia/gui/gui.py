@@ -516,7 +516,6 @@ class GUI:
     def select_tab_front(self, tab):
         @log_errors
         def call_fct(*args):
-            raise KeyError()
             stats_logger.log('tab_selected', {'tab': tab})
             self.select_tab(tab, front=True)
 
