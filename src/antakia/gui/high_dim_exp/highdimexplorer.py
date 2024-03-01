@@ -35,7 +35,7 @@ class HighDimExplorer:
             self,
             pv_bank: ProjectedValueBank,
             selection_changed: callable,
-            space
+            space: str
     ):
         """
 

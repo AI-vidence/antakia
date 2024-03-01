@@ -92,7 +92,8 @@ class LIMExplanation(ExplanationMethod):
         for index, row in self.X.iterrows():
             exp = explainer.explain_instance(row.values, predict_fct)
 
-            values_lime.loc[index] = pd.Series(exp.local_exp[i], index=explainer.feature_names).str[1]
+            values_lime.loc[index] = pd.Series(exp.local_exp[i], index=explainer.feature_names).str[1][
+                values_lime.columns].values
             progress += 100 / len(self.X)
             self.publish_progress(int(progress))
         self.publish_progress(100)
