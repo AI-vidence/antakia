@@ -39,11 +39,19 @@ class TestMultiStepProgressBar(TestCase):
         assert mspb.reset_at_end
 
     def test_get_update_MSPB(self):
-        mspb = MultiStepProgressBar(self.widget, steps=20)
+        mspb = MultiStepProgressBar(self.widget, steps=2)
         with pytest.raises(ValueError):
             mspb.get_update(0)
         with pytest.raises(ValueError):
-            mspb.get_update(30)
+            mspb.get_update(3)
+
+        pr1 = mspb.get_update(1)
+        pr2 = mspb.get_update(2)
+
+        pr1(100)
+        assert mspb.progress == 50
+        pr2(100)
+        assert mspb.progress == 100
 
     def test_set_progress_reset(self):
         mspb = MultiStepProgressBar(self.widget, steps=20)

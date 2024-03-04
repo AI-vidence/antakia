@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import traceback
 from functools import wraps
 from importlib.resources import files
 
@@ -93,21 +94,69 @@ class ActivityLogger:
                 raise ConnectionError
             self._clear_logs()
         except:
+            self._logs.append({
+                'event': 'no connection',
+                'timestamp': time.time()
+            })
             if len(self._logs) > self.size_limit:
                 self._clear_logs()
+                self._logs.append({
+                    'event': 'no connection log erased',
+                    'timestamp': time.time()
+                })
 
 
 stats_logger = ActivityLogger()
 
 
 def log_errors(method):
+    """
+    decorator to log error raised in functions
+    Parameters
+    ----------
+    method
+
+    Returns
+    -------
+
+    """
+
     @wraps(method)
     def log(*args, **kw):
         try:
             res = method(*args, **kw)
         except Exception as e:
-            stats_logger.log('execution_error', {'method': method.__qualname__})
+            stats_logger.log('execution_error', {
+                'method': method.__qualname__,
+                'traceback': analyze_traceback(e.__traceback__)
+            })
             raise e
         return res
 
     return log
+
+
+def analyze_traceback(tb: traceback):
+    stack_summary = traceback.extract_tb(tb)
+    # keep only antakia frames
+    first_antakia_frame = 0
+    for i, frame in enumerate(stack_summary):
+        if '/antakia/' in frame.filename:
+            first_antakia_frame = i
+            break
+    stack_summary = stack_summary[first_antakia_frame:]
+    return [frame_to_dict(f) for f in stack_summary]
+
+
+def frame_to_dict(tb_frame: traceback.FrameSummary):
+    return {
+        'lineno': tb_frame.lineno,
+        'end_lineno': tb_frame.end_lineno,
+        'line': tb_frame.line,
+        'method_name': tb_frame.name,
+        'filename': anonymize_filename(tb_frame.filename)
+    }
+
+
+def anonymize_filename(filename: str):
+    return filename[filename.find('antakia'):]
