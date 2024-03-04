@@ -4,7 +4,6 @@ import ipyvuetify as v
 from plotly.graph_objects import FigureWidget, Histogram
 
 from antakia_core.data_handler.rules import Rule, RuleSet
-from antakia.gui.widgets import change_widget, get_widget, app_widget
 
 from antakia_core.utils.utils import compute_step, get_mask_comparison_color
 from antakia_core.utils.variable import DataVariables
@@ -20,7 +19,8 @@ class RuleWidget:
     Attributes :
     """
 
-    def __init__(self, rule: Rule, X: pd.DataFrame, y, values_space: bool, init_rules_mask: pd.Series,
+    def __init__(self, rule: Rule, X: pd.DataFrame, y, values_space: bool, init_selection_mask: pd.Series,
+                 init_rules_mask: pd.Series,
                  rule_updated: callable):
         '''
 
@@ -30,7 +30,8 @@ class RuleWidget:
         X : training dataset
         y : target variable
         values_space : bool is value space ?
-        init_rules_mask : reference selection mask
+        init_selection_mask : reference selection mask
+        init_rules_mask : reference rules mask
         rule_updated : callable called on update
         '''
         self.rule: Rule = rule
@@ -38,12 +39,14 @@ class RuleWidget:
         self.X_col = X.loc[:, rule.variable.column_name]
         self.values_space: bool = values_space
         self.rule_updated: callable = rule_updated
-        self.display_sliders: bool = self.values_space # enable rule edit
-        self.root_widget = None
-        self.init_mask = init_rules_mask
+        self.display_sliders: bool = self.values_space  # enable rule edit
+        self.widget = None
+        self.init_mask = init_selection_mask
         self.rule_mask = init_rules_mask
+
         self.build_widget()
 
+    # --------------- build widget ------------------- #
     def build_widget(self):
         """
         build the widget
@@ -51,47 +54,35 @@ class RuleWidget:
         -------
 
         """
+        # build slider
+        self.select_widget = self._get_select_widget()
+        # build figure
+        self._build_figure()
+
+        title = self._get_panel_title()
+
         # root_widget is an ExpansionPanel
-        self.root_widget: v.ExpansionPanel = v.ExpansionPanel(
+        self.widget: v.ExpansionPanel = v.ExpansionPanel(
             children=[
                 v.ExpansionPanelHeader(
                     class_="blue lighten-4",
-                    children=[
-                        "Placeholder for variable symbol"  # 1000
-                    ]
+                    children=[title]
                 ),
                 v.ExpansionPanelContent(
                     children=[
                         v.Col(
-                            children=[
-                                v.Spacer(),
-                                v.Slider(  # placeholder for select widget
-                                ),
-                            ],
+                            children=[v.Spacer(), self.select_widget],
                         ),
-                        FigureWidget(  # Placeholder for figure
-                        ),
+                        self.figure,
                     ]
                 ),
             ]
         )
 
         # The variable name bg (ExpansionPanelHeader) is light blue
-        get_widget(self.root_widget, "0").class_ = "blue lighten-4"
-        self._set_panel_title()
-        # We set the select widget (slider, rangeslider ...)
-        if self.display_sliders:
-            self.select_widget = self._build_select_widget()
-            self._set_select_widget_values()
-            self.select_widget.on_event("change", self._widget_value_changed)
-            change_widget(self.root_widget, "101", self.select_widget)
-        else:
-            change_widget(self.root_widget, "101", None)
+        # get_widget(self.root_widget, "0").class_ = "blue lighten-4"
 
-        # Now we build the figure with 3 histograms :
-        self._draw_histograms()
-
-    def _draw_histograms(self):
+    def _build_figure(self):
         """
         draw the histograms
         Returns
@@ -122,10 +113,8 @@ class RuleWidget:
             margin={'l': 0, 'r': 0, 't': 0, 'b': 0},
             height=200,
         )
-        # display
-        change_widget(self.root_widget, "11", self.figure)
 
-    def _set_panel_title(self):
+    def _get_panel_title(self):
         """
         compute and display accordion title
         Returns
@@ -142,52 +131,61 @@ class RuleWidget:
             title = f"{self.rule.variable.display_name} inside the interval:"
         else:
             title = f"{self.rule.variable.display_name} outside the interval:"
-        return change_widget(self.root_widget, "00", title)
+        return title
 
-    def _build_select_widget(self):
+    def _get_select_widget(self):
         """
         builds the widget to edit the rule
         Returns
         -------
 
         """
-        if self.rule.is_categorical_rule:
-            return v.Select(
-                label=self.rule.variable.display_name,
-                items=self.X[self.rule.variable.column_name].unique().tolist(),
-                style_="width: 150px",
-                multiple=True,
-            )
-        min_ = float(self.X[self.rule.variable.column_name].min())
-        max_ = float(self.X[self.rule.variable.column_name].max())
-        min_, max_, step = compute_step(min_, max_)
-        slider_args = {
-            'min': min_,
-            'max': max_,
-            'step': step,
-            'thumb_label': "always",
-            'thumb_size': 30,
-            'thumb_color': 'blue'
-        }
-        if self.rule.rule_type == 1:  # var < max
-            slider = v.Slider
-            slider_args['color'] = 'green'
-            slider_args['track_color'] = 'red'
-        elif self.rule.rule_type == 2:  # var > min
-            slider = v.Slider
-            slider_args['color'] = 'red'
-            slider_args['track_color'] = 'green'
-        elif self.rule.is_inner_interval_rule:
-            slider = v.RangeSlider
-            slider_args['color'] = 'green'
-            slider_args['track_color'] = 'red'
-        else:
-            slider = v.RangeSlider
-            slider_args['color'] = 'red'
-            slider_args['track_color'] = 'green'
-        return slider(**slider_args)
+        if self.display_sliders:
 
-    def _set_select_widget_values(self):
+            if self.rule.is_categorical_rule:
+                return v.Select(
+                    label=self.rule.variable.display_name,
+                    items=self.X[self.rule.variable.column_name].unique().tolist(),
+                    style_="width: 150px",
+                    multiple=True,
+                )
+            min_ = float(self.X[self.rule.variable.column_name].min())
+            max_ = float(self.X[self.rule.variable.column_name].max())
+            min_, max_, step = compute_step(min_, max_)
+            slider_args = {
+                'min': min_,
+                'max': max_,
+                'step': step,
+                'thumb_label': "always",
+                'thumb_size': 30,
+                'thumb_color': 'blue'
+            }
+            if self.rule.rule_type == 1:  # var < max
+                slider_class = v.Slider
+                slider_args['color'] = 'green'
+                slider_args['track_color'] = 'red'
+            elif self.rule.rule_type == 2:  # var > min
+                slider_class = v.Slider
+                slider_args['color'] = 'red'
+                slider_args['track_color'] = 'green'
+            elif self.rule.is_inner_interval_rule:
+                slider_class = v.RangeSlider
+                slider_args['color'] = 'green'
+                slider_args['track_color'] = 'red'
+            else:
+                slider_class = v.RangeSlider
+                slider_args['color'] = 'red'
+                slider_args['track_color'] = 'green'
+
+            slider = slider_class(**slider_args)
+
+            slider.v_model = self._get_select_widget_values()
+            slider.on_event("change", self._widget_value_changed)
+            return slider
+        else:
+            return v.Col()
+
+    def _get_select_widget_values(self):
         """
         sets the selection values
         Returns
@@ -195,20 +193,22 @@ class RuleWidget:
 
         """
         if self.rule.is_categorical_rule:
-            self.select_widget.v_model = self.rule.cat_values
+            return self.rule.cat_values
         elif self.rule.rule_type == 1:  # var < max
-            self.select_widget.v_model = [self.rule.max],
+            return [self.rule.max],
         elif self.rule.rule_type == 2:  # var > min
-            self.select_widget.v_model = [self.rule.min]
+            return [self.rule.min]
         else:
-            self.select_widget.v_model = [self.rule.min, self.rule.max]
+            return [self.rule.min, self.rule.max]
 
+    # --------------- callbacks ------------------- #
     @log_errors
     def _widget_value_changed(self, widget, event, data):
         """
-        callback called when the user edits a value
+        callback called when the user edits a value (called by the widget)
 
         should fire rule updated callback
+
         Parameters
         ----------
         widget
@@ -240,6 +240,7 @@ class RuleWidget:
     def update(self, new_rules_mask: pd.Series = None, rule: Rule = None):
         """ 
             used to update the display (sliders and histogram) to match the new rule
+            (called from outside th object to synchronize it)
         """
 
         if rule is not None:
@@ -248,7 +249,7 @@ class RuleWidget:
             self.rule_mask = new_rules_mask
         # We update the selects
         if self.display_sliders:
-            self._set_select_widget_values()
+            self._get_select_widget_values()
         mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
         with self.figure.batch_update():
             for i, color in enumerate(colors_info.values()):
@@ -276,12 +277,12 @@ class RulesWidget:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            variables: DataVariables,
-            values_space: bool,
-            new_rules_defined: callable = None,
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        variables: DataVariables,
+        values_space: bool,
+        new_rules_defined: callable = None,
     ):
         """
         widget to manage rule edition and display
@@ -296,18 +297,211 @@ class RulesWidget:
         self.X = X
         self.y = y
         self.variables: DataVariables = variables
-        self.init_rules_mask = None
+        self.init_selection_mask = None
         self.is_value_space = values_space
         self.new_rules_defined = new_rules_defined
 
-        # The root widget is a v.Col - we get it from app_widget
-        self.root_widget = get_widget(app_widget.widget, "4310" if values_space else "4311")
-
-        self.rules_db = []
-        self.rule_widget_list = []
+        self.rules_db: list[tuple[RuleSet, dict]] = []
+        self.rule_widget_list: list[RuleWidget] = []
 
         # At startup, we are disabled :
-        self.disable()
+        self.is_disabled = True
+
+        self.build_widget()
+
+    # ---------------- widget management -------------------- #
+
+    def build_widget(self):
+        self.title = "not initialized"
+        self.stats = "not initialized"
+        self.rules = 'N/A'
+        self.region_stat_card = v.Col(  # 43100 / 0
+            children=[
+                v.Row(  # 431000 / 00
+                    children=[
+                        v.Icon(children=["mdi-target"]),  #
+                        v.Html(class_="ml-3", tag="h2",
+                               children=[self.title]),
+                    ]
+                ),
+                v.Html(  # 431001 / 01
+                    class_="ml-7",
+                    tag="li",
+                    children=[
+                        self.stats
+                    ]
+                ),
+                v.Html(  # 431002 / 02
+                    class_="ml-7",
+                    tag="li",
+                    children=[self.rules]
+                ),
+            ]
+        )
+        self.rules_widgets = v.ExpansionPanels(  # Holds VS RuleWidgets  # 43101 / 1
+            style_="max-width: 95%",
+            children=[rw.widget for rw in self.rule_widget_list]
+        )
+        self.widget = v.Col(  # placeholder for the VS RulesWidget (RsW) # 4310
+            children=[self.region_stat_card, self.rules_widgets],
+        )
+        self.refresh_widget()
+
+    def set_title(self, title: str, css: str):
+        self.title = title
+        title_wgt = self.region_stat_card.children[0].children[1]
+        title_wgt.children = [self.title]
+        title_wgt.class_ = css
+
+    def set_stats(self, stats: str, css: str):
+        self.stats = stats
+
+        stats_wgt = self.region_stat_card.children[1]
+        stats_wgt.children = [self.stats]
+        stats_wgt.class_ = css
+
+    def set_rules(self, rules: str, css: str):
+        self.rules = rules
+
+        rules_wgt = self.region_stat_card.children[2]
+        rules_wgt.children = [self.rules]
+        rules_wgt.class_ = css
+
+    def set_rules_widgets(self, rule_widget_list: list[RuleWidget]):
+        self.widget.children[1].children = [rule_widget.widget for rule_widget in rule_widget_list]
+
+    def _create_rule_widgets(self):
+        """
+        creates all rule widgets
+                Called by self.init_rules
+                If init_rules_mask is None, we clear all our RuleWidgets
+
+        Parameters
+        ----------
+        init_mask : reference_mask
+
+        Returns
+        -------
+
+        """
+        init_rule_mask = self.current_rules_list.get_matching_mask(self.X)
+        # We set new RuleWidget list and put it in our ExpansionPanels children
+        if len(self.current_rules_list) == 0:
+            self.rule_widget_list = []
+        else:
+            self.rule_widget_list = [
+                RuleWidget(rule, self.X, self.y, self.is_value_space,
+                           self.init_selection_mask, init_rule_mask,
+                           self.update_rule)
+                for rule in self.current_rules_list.rules
+            ]
+        self.set_rules_widgets(self.rule_widget_list)
+
+    # ------------- widget macro method ------------- #
+    def disable(self, is_disabled: bool = True):
+        """
+        disables (True) or enables (False) the widget
+        Disabled : card in grey with dummy text + no ExpansionPanels
+        Enabled : card in light blue / ready to display RuleWidgets
+        """
+
+        self.is_disabled = is_disabled
+
+        self.refresh_widget()
+
+    def refresh_widget(self):
+        """
+        Sets macro widget info and Datatable: scores and rule details int the DataTable
+        Returns
+        -------
+
+        """
+        # We set the title
+        self._show_title()
+
+        # We set the scores
+        self._show_score()
+
+        # We set the rules
+        self._show_rules()
+
+        self._show_rules_wgt()
+
+    def _show_title(self):
+        if len(self.current_rules_list) == 0 or self.is_disabled:
+            title = f"No rule to display for the {'VS' if self.is_value_space else 'ES'} space"
+            css = "ml-3 grey--text" if self.is_disabled else "ml-3"
+        else:
+            title = f"Rule(s) applied to the {'values' if self.is_value_space else 'explanations'} space"
+            css = "ml-3"
+        self.set_title(title, css)
+
+    def _show_score(self):
+        """
+        show rule score
+        Returns
+        -------
+
+        """
+        if len(self.current_scores_dict) == 0 or self.is_disabled:
+            scores_txt = "Precision = n/a, recall = n/a, f1_score = n/a"
+            css = "ml-7 grey--text"
+        elif self.current_scores_dict['precision'] == -1:
+            scores_txt = "No point of the dataset matches the new rules"
+            css = "ml-7 red--text"
+        else:
+            precision, recall, f1, target_avg = (
+                self.current_scores_dict['precision'], self.current_scores_dict['recall'],
+                self.current_scores_dict['f1'], self.current_scores_dict['target_avg'],
+            )
+            scores_txt = (f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
+                          f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
+            css = "ml-7 black--text"
+        self.set_stats(scores_txt, css)
+
+    def _show_rules(self):
+        """
+        show rules as text
+        Returns
+        -------
+
+        """
+        if (
+            len(self.current_rules_list) == 0
+            or self.is_disabled
+        ):
+            rules_txt = "N/A"
+            css = "ml-7 grey--text"
+        else:
+            rules_txt = repr(self.current_rules_list)
+            css = "ml-7 blue--text"
+        self.set_rules(rules_txt, css)
+
+    def show_msg(self, msg: str, css: str = ""):
+        """
+        print a message for the user
+        Parameters
+        ----------
+        msg : message to be printed
+        css : css class to apply
+
+        Returns
+        -------
+
+        """
+        css = "ml-7 " + css
+        self.set_rules(msg, css)
+
+    def _show_rules_wgt(self):
+        if self.is_disabled:
+            self.set_rules_widgets([])
+        else:
+            self.set_rules_widgets(self.rule_widget_list)
+
+    # ---------------- update logic -------------------------- #
+    @property
+    def space(self):
+        return 'values' if self.is_value_space else 'explanations'
 
     def update_X(self, X):
         """
@@ -325,64 +519,24 @@ class RulesWidget:
         self.X = X
         self.refresh_widget()
 
-    @property
-    def space(self):
-        return 'values' if self.is_value_space else 'explanations'
-
-    def enable(self):
-        """
-        enable widget edition
-        Returns
-        -------
-
-        """
-        return self._set_disable(False)
-
-    def disable(self):
-        """
-        disable widget edition
-
-        Returns
-        -------
-
-        """
-        return self._set_disable(True)
-
-    def _set_disable(self, is_disabled: bool = True):
-        """
-        Disabled : card in grey with dummy text + no ExpansionPanels
-        Enabled : card in light blue / ready to display RuleWidgets
-        """
-
-        self.is_disabled = is_disabled
-
-        header_html = get_widget(self.root_widget, "001")
-        header_html.children = [
-            f"No rule to display for the {self.space} space"
-        ]
-        header_html.class_ = "ml-3 grey--text" if self.is_disabled else "ml-3"
-
-        # We set an empty ExpansionPanels :
-        change_widget(self.root_widget, "1", v.ExpansionPanels())
-
-    def init_rules(self, rules_list: RuleSet, score_dict: dict, rules_mask: pd.Series):
+    def init_rules(self, rules_set: RuleSet, score_dict: dict, selection_mask: pd.Series):
         """
         initialize the widget with the rule list, the score dict (text displayed) and
         the reference_mask (selection_mask)
         """
         # we start wih a fresh widget
         self.reset_widget()
-        self.init_rules_mask = rules_mask
-        if len(rules_list) == 0:
-            self.show_msg("No rules found", "red--text")
-            return
-        self.enable()
-        # We populate the db
-        self._put_in_db(rules_list, score_dict)
 
-        # We create the RuleWidgets
-        init_mask = rules_list.get_matching_mask(self.X)
-        self._create_rule_widgets(init_mask)
+        self.init_selection_mask = selection_mask
+        if len(rules_set) > 0:
+            # self.show_msg("No rules found", "red--text")
+            # return
+            self.disable(False)
+            # We populate the db
+            self._put_in_db(rules_set, score_dict)
+
+            # We create the RuleWidgets
+            self._create_rule_widgets()
         # we display
         self.refresh_widget()
 
@@ -399,7 +553,7 @@ class RulesWidget:
         self.disable()
         self.rules_db = []
         self.rule_widget_list = []
-        self.init_rules_mask = None
+        self.init_selection_mask = None
         self.refresh_widget()
 
     def update_rule(self, new_rule: Rule):
@@ -408,13 +562,13 @@ class RulesWidget:
         called by the edition of a single rule
         """
         # We update the rule in the db
-        new_rules_list = self.current_rules_list.copy()
-        new_rules_list.set(new_rule)
+        new_rules_set = self.current_rules_list.copy()
+        new_rules_set.set(new_rule)
 
-        new_rules_mask = new_rules_list.get_matching_mask(self.X)
-        self.update_from_mask(new_rules_mask, new_rules_list)
+        new_rules_mask = new_rules_set.get_matching_mask(self.X)
+        self.update_from_mask(new_rules_mask, new_rules_set)
 
-    def update_from_mask(self, new_rules_mask: pd.Series, new_rules_list: RuleSet, sync=True):
+    def update_from_mask(self, new_rules_mask: pd.Series, new_rules_set: RuleSet, sync=True):
         """
         updates the widget with the new rule_mask and rule list - the reference_mask is kept for comparison
         Parameters
@@ -427,19 +581,19 @@ class RulesWidget:
         -------
 
         """
-        if len(new_rules_list):
+        if len(new_rules_set):
             # update rules
             try:
-                precision = (new_rules_mask & self.init_rules_mask).sum() / new_rules_mask.sum()
-                recall = (new_rules_mask & self.init_rules_mask).sum() / self.init_rules_mask.sum()
+                precision = (new_rules_mask & self.init_selection_mask).sum() / new_rules_mask.sum()
+                recall = (new_rules_mask & self.init_selection_mask).sum() / self.init_selection_mask.sum()
                 f1 = 2 * (precision * recall) / (precision + recall)
-                target_avg = self.y[new_rules_mask].mean()
             except ZeroDivisionError:
                 precision = recall = f1 = -1
+            target_avg = self.y[new_rules_mask].mean()
 
             new_score_dict = {"precision": precision, "recall": recall, "f1": f1, 'target_avg': target_avg}
 
-            self._put_in_db(new_rules_list, new_score_dict)
+            self._put_in_db(new_rules_set, new_score_dict)
 
         # We refresh the widget macro info
         self.refresh_widget()
@@ -477,19 +631,19 @@ class RulesWidget:
         if self.new_rules_defined is not None:
             self.new_rules_defined(self, rules_mask)
 
-    def _put_in_db(self, rules_list: RuleSet, score_dict: dict):
+    def _put_in_db(self, rule_set: RuleSet, score_dict: dict):
         """
         add the rule list to memory
         Parameters
         ----------
-        rules_list
+        rule_set
         score_dict
 
         Returns
         -------
 
         """
-        self.rules_db.append((rules_list, score_dict))
+        self.rules_db.append((rule_set, score_dict))
 
     def _dump_db(self) -> str:
         """
@@ -507,111 +661,6 @@ class RulesWidget:
             "\n    ".join(rules_list)
             txt += f"\n   scores = {scores_dict}\n"
         return txt
-
-    def _create_rule_widgets(self, init_mask: pd.Series):
-        """
-        creates all rule widgets
-                Called by self.init_rules
-                If init_rules_mask is None, we clear all our RuleWidgets
-
-        Parameters
-        ----------
-        init_mask : reference_mask
-
-        Returns
-        -------
-
-        """
-        if init_mask is None:
-            return
-
-        # We set new RuleWidget list and put it in our ExpansionPanels children
-        if len(self.current_rules_list) == 0:
-            self.rule_widget_list = []
-        else:
-            self.rule_widget_list = [
-                RuleWidget(rule, self.X, self.y, self.is_value_space, init_mask, self.update_rule)
-                for rule in self.current_rules_list.rules
-            ]
-            get_widget(self.root_widget, "1").children = [rule_widget.root_widget for rule_widget in
-                                                          self.rule_widget_list]
-
-    def refresh_widget(self):
-        """
-        Sets macro widget info and Datatable: scores and rule details int the DataTable
-        Returns
-        -------
-
-        """
-        # We set the title
-        if len(self.current_rules_list) == 0:
-            title = f"No rule to display for the {'VS' if self.is_value_space else 'ES'} space"
-        else:
-            title = f"Rule(s) applied to the {'values' if self.is_value_space else 'explanations'} space"
-        change_widget(self.root_widget, "001", v.Html(class_="ml-3", tag="h2", children=[title]))
-
-        # We set the scores
-        self._show_score()
-
-        # We set the rules
-        self._show_rules()
-
-    def _show_score(self):
-        """
-        show rule score
-        Returns
-        -------
-
-        """
-        if len(self.current_scores_dict) == 0 or self.is_disabled:
-            scores_txt = "Precision = n/a, recall = n/a, f1_score = n/a"
-            css = "ml-7 grey--text"
-        elif self.current_scores_dict['precision'] == -1:
-            scores_txt = "No point of the dataset matches the new rules"
-            css = "ml-7 red--text"
-        else:
-            precision, recall, f1, target_avg = (
-                self.current_scores_dict['precision'], self.current_scores_dict['recall'],
-                self.current_scores_dict['f1'], self.current_scores_dict['target_avg'],
-            )
-            scores_txt = (f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
-                          f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
-            css = "ml-7 black--text"
-        change_widget(self.root_widget, "01", v.Html(class_=css, tag="li", children=[scores_txt]))
-
-    def _show_rules(self):
-        """
-        show rules as text
-        Returns
-        -------
-
-        """
-        if (
-                len(self.current_rules_list) == 0
-                or self.is_disabled
-        ):
-            rules_txt = "N/A"
-            css = "ml-7 grey--text"
-        else:
-            rules_txt = repr(self.current_rules_list)
-            css = "ml-7 blue--text"
-
-        change_widget(self.root_widget, "02", v.Html(class_=css, tag="li", children=[rules_txt]))
-
-    def show_msg(self, msg: str, css: str = ""):
-        """
-        print a message for the user
-        Parameters
-        ----------
-        msg : message to be printed
-        css : css class to apply
-
-        Returns
-        -------
-
-        """
-        css = "ml-7 " + css
-        change_widget(self.root_widget, "02", v.Html(class_=css, tag="li", children=[msg]))
 
     @property
     def current_rules_list(self) -> RuleSet:

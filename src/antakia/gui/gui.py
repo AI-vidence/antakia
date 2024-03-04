@@ -131,10 +131,6 @@ class GUI:
         # finally rules
         self.es_rules_wgt = RulesWidget(X_exp, self.y, self.variables, False)
 
-        # We set empty rules for now :
-        self.vs_rules_wgt.disable()
-        self.es_rules_wgt.disable()
-
         # init tabs
         self.model_explorer = ModelExplorer(self.X)
 
@@ -248,8 +244,8 @@ class GUI:
         get_widget(self.widget, "40").on_event("click", self.select_tab_front(1))
 
         # We add our 2 RulesWidgets to the GUI :
-        change_widget(self.widget, "4310", self.vs_rules_wgt.root_widget)
-        change_widget(self.widget, "4311", self.es_rules_wgt.root_widget)
+        change_widget(self.widget, "4310", self.vs_rules_wgt.widget)
+        change_widget(self.widget, "4311", self.es_rules_wgt.widget)
 
         # We wire the click event on the 'Find-rules' button
         get_widget(self.widget, "43010").on_event("click", self.compute_skope_rules)
