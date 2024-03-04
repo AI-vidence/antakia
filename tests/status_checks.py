@@ -108,11 +108,11 @@ def check_tab_1_btn(gui):
     # data table
     assert get_widget(gui.widget, "4320").disabled == bool(gui.selection_mask.all())
     # skope_rule
-    assert get_widget(gui.widget, "43010").disabled == (not gui.new_selection or bool(gui.selection_mask.all()))
+    assert get_widget(gui.widget, "43010").disabled == (gui.tab1.skope_rules_computed or bool(gui.selection_mask.all()))
     # undo
-    assert get_widget(gui.widget, "4302").disabled == (not (gui.vs_rules_wgt.rules_num > 1))
+    assert get_widget(gui.widget, "4302").disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 1))
     # validate rule
-    assert get_widget(gui.widget, "43030").disabled == (not (gui.vs_rules_wgt.rules_num > 0))
+    assert get_widget(gui.widget, "43030").disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 0))
 
 
 def check_tab_2_btn(gui):

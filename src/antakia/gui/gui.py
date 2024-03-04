@@ -21,6 +21,7 @@ import antakia.config as config
 from antakia_core.data_handler.rules import RuleSet
 
 from antakia.gui.tabs.model_explorer import ModelExplorer
+from antakia.gui.tabs.tab1 import Tab1
 from antakia.gui.widget_utils import get_widget, change_widget
 from antakia.gui.widgets import splash_widget, app_widget
 from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
@@ -94,7 +95,6 @@ class GUI:
         self.variables: DataVariables = variables
         self.score = score
         # Init value space widgets
-        self.new_selection = False
         self.selection_mask = boolean_mask(X, True)
 
         self.pv_bank = ProjectedValueBank(y)
@@ -108,8 +108,6 @@ class GUI:
             self.selection_changed,
             'VS'
         )
-        # then rules
-        self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True, self.new_rules_defined)
 
         # init Explanation space
         # first explanation getter/compute
@@ -128,10 +126,10 @@ class GUI:
             self.selection_changed,
             'ES'
         )
-        # finally rules
-        self.es_rules_wgt = RulesWidget(X_exp, self.y, self.variables, False)
 
         # init tabs
+        self.tab1 = Tab1(variables, self.new_rule_selected_callback, self.validate_rules_callback, self.X, X_exp,
+                         self.y)
         self.model_explorer = ModelExplorer(self.X)
 
         self.region_num_for_validated_rules = None  # tab 1 : number of the region created when validating rules
@@ -140,9 +138,6 @@ class GUI:
         self.substitution_model_training = False  # tab 3 : training flag
         self.widget = app_widget.get_app_widget()
         self.splash_widget = splash_widget.get_app_widget()
-        # UI rules :
-        # We disable the selection datatable at startup (bottom of tab 1)
-        get_widget(self.widget, "4320").disabled = True
 
     @log_errors
     def show_splash_screen(self):
@@ -189,7 +184,7 @@ class GUI:
             progress_callback=dimreduc_progress_bar.get_update(2),
             X=self.exp_values.current_exp_df
         )
-        self.es_rules_wgt.update_X(self.exp_values.current_exp_df)
+        self.tab1.update_X_exp(self.exp_values.current_exp_df)
         self.selection_changed(None, boolean_mask(self.X, True))
 
         self.init_app()
@@ -244,21 +239,7 @@ class GUI:
         get_widget(self.widget, "40").on_event("click", self.select_tab_front(1))
 
         # We add our 2 RulesWidgets to the GUI :
-        change_widget(self.widget, "4310", self.vs_rules_wgt.widget)
-        change_widget(self.widget, "4311", self.es_rules_wgt.widget)
-
-        # We wire the click event on the 'Find-rules' button
-        get_widget(self.widget, "43010").on_event("click", self.compute_skope_rules)
-
-        # We wire the ckick event on the 'Undo' button
-        get_widget(self.widget, "4302").on_event("click", self.undo_rules)
-
-        # Its enabled when rules graphs have been updated with rules
-        # We wire the click event on the 'Valildate rules' button
-        get_widget(self.widget, "43030").on_event("click", self.validate_rules)
-
-        # It's enabled when a SKR rules has been found and is disabled when the selection gets empty
-        # or when validated is pressed
+        get_widget(self.widget, "43").children = self.tab1.widget
 
         # ================ Tab 2 : regions ===============
         # We wire the click event on 'Tab 2'
@@ -333,8 +314,6 @@ class GUI:
         # We disable the Substitution table at startup :
         self.update_tab(None)
 
-        self.refresh_buttons_tab_1()
-
     # ==================== properties ==================== #
 
     @property
@@ -376,7 +355,7 @@ class GUI:
     @log_errors
     def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: callable = None):
         self.es_hde.update_X(current_exp_df, progress_callback)
-        self.es_rules_wgt.update_X(current_exp_df)
+        self.tab1.update_X_exp(current_exp_df)
 
     @log_errors
     def disable_hde(self, disable='auto'):
@@ -395,41 +374,22 @@ class GUI:
         """Called when the selection of one HighDimExplorer changes"""
 
         # UI rules :
+        # We store the new selection
+        self.selection_mask = new_selection_mask
+
         # If new selection (empty or not) : if exists, we remove any 'pending rule'
-        self.new_selection = True
         self.disable_hde()
         if new_selection_mask.all():
             stats_logger.log('deselection')
             # Selection is empty
             # we display y as color
             self.select_tab(0)
-            # we reset rules_widgets
-            self.vs_rules_wgt.disable()
-            self.es_rules_wgt.disable()
-            self.es_rules_wgt.reset_widget()
-            self.vs_rules_wgt.reset_widget()
         else:
             stats_logger.log('selection',
                              {'new_selection': self.selection_mask.all(), 'exp_method': self.exp_values.current_exp,
                               'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
                               'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
-            # Selection is not empty anymore or changes
-            X_rounded = self.X.loc[new_selection_mask].copy().apply(format_data)
-            change_widget(
-                self.widget,
-                "432010",
-                v.DataTable(
-                    v_model=[],
-                    show_select=False,
-                    headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=X_rounded.to_dict("records"),
-                    hide_default_footer=False,
-                    disable_sort=False,
-                ),
-            )
 
-        # We store the new selection
-        self.selection_mask = new_selection_mask
         # We synchronize selection between the two HighDimExplorers
         if caller is None:
             self.es_hde.set_selection(self.selection_mask)
@@ -438,36 +398,8 @@ class GUI:
             other_hde = self.es_hde if caller == self.vs_hde.figure else self.vs_hde
             other_hde.set_selection(self.selection_mask)
 
-        # We update the selection status :
-        if not self.selection_mask.all():
-            selection_status_str_1 = f"{self.selection_mask.sum()} point selected"
-            selection_status_str_2 = f"{100 * self.selection_mask.mean():.2f}% of the  dataset"
-        else:
-            selection_status_str_1 = f"0 point selected"
-            selection_status_str_2 = f"0% of the  dataset"
-        change_widget(self.widget, "4300000", selection_status_str_1)
-        change_widget(self.widget, "430010", selection_status_str_2)
         # we refresh button and enable/disable the datatable
-        self.refresh_buttons_tab_1()
-
-    @log_errors
-    def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
-        stats_logger.log('rule_changed')
-        """
-        Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
-        The function asks the HDEs to display the rules result
-        """
-        # We sent to the proper HDE the rules_indexes to render :
-        self.vs_hde.figure.display_rules(selection_mask=self.selection_mask, rules_mask=df_mask)
-        self.es_hde.figure.display_rules(selection_mask=self.selection_mask, rules_mask=df_mask)
-
-        # sync selection between rules_widgets
-        if rules_widget == self.vs_rules_wgt:
-            self.es_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
-        else:
-            self.vs_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
-
-        self.refresh_buttons_tab_1()
+        self.tab1.update_selection(self.selection_mask)
 
     # ==================== top bar ==================== #
 
@@ -546,84 +478,18 @@ class GUI:
 
     # ==================== TAB 1 ==================== #
 
-    def refresh_buttons_tab_1(self):
-        self.disable_hde()
-        # data table
-        get_widget(self.widget, "4320").disabled = bool(self.selection_mask.all())
-        # skope_rule
-        get_widget(self.widget, "43010").disabled = not self.new_selection or bool(self.selection_mask.all())
-        # undo
-        get_widget(self.widget, "4302").disabled = not (self.vs_rules_wgt.rules_num > 1)
-        # validate rule
-        get_widget(self.widget, "43030").disabled = not (self.vs_rules_wgt.rules_num > 0)
-
-    @log_errors
-    def compute_skope_rules(self, *args):
-        self.new_selection = False
-
-        if self.tab != 1:
-            self.select_tab(1)
-        # compute skope rules
-        skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, self.vs_hde.current_X, self.variables)
-        skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-        # init vs rules widget
-        self.vs_rules_wgt.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
-        # update VS and ES HDE
-        self.vs_hde.figure.display_rules(
-            selection_mask=self.selection_mask,
-            rules_mask=skr_rules_list.get_matching_mask(self.X)
-        )
-        self.es_hde.figure.display_rules(
-            selection_mask=self.selection_mask,
-            rules_mask=skr_rules_list.get_matching_mask(self.X)
-        )
-
-        es_skr_rules_list, es_skr_score_dict = skope_rules(self.selection_mask, self.es_hde.current_X, self.variables)
-        es_skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-        self.es_rules_wgt.init_rules(es_skr_rules_list, es_skr_score_dict, self.selection_mask)
-        self.refresh_buttons_tab_1()
-        self.select_tab(1)
-        stats_logger.log('find_rules', skr_score_dict)
-
-    @log_errors
-    def undo_rules(self, *args):
-        if self.tab != 1:
-            self.select_tab(1)
-        if self.vs_rules_wgt.rules_num > 0:
-            self.vs_rules_wgt.undo()
-        else:
-            # TODO : pourquoi on annule d'abord le VS puis l'ES?
-            self.es_rules_wgt.undo()
-        self.refresh_buttons_tab_1()
-
-    @log_errors
-    def validate_rules(self, *args):
-        stats_logger.log('validate_rules')
-        if self.tab != 1:
-            self.select_tab(1)
-
-        rules_list = self.vs_rules_wgt.current_rules_list
-        # UI rules :
-        # We clear selection
+    def validate_rules_callback(self, rules_set: RuleSet):
         self.selection_changed(None, boolean_mask(self.X, True))
-        # We clear the RulesWidget
-        self.es_rules_wgt.reset_widget()
-        self.vs_rules_wgt.reset_widget()
-        if len(rules_list) == 0:
-            self.vs_rules_wgt.show_msg("No rules found on Value space cannot validate region", "red--text")
-            return
 
-        # We add them to our region_set
-        region = self.region_set.add_region(rules=rules_list)
+        region = self.region_set.add_region(rules=rules_set)
         self.region_num_for_validated_rules = region.num
-        # lock rule
         region.validate()
-
-        # And update the rules table (tab 2)
-        # we refresh buttons
-        self.refresh_buttons_tab_1()
-        # We force tab 2
         self.select_tab(2)
+
+    def new_rule_selected_callback(self, selection_mask, rules_mask):
+        self.select_tab(1)
+        self.vs_hde.figure.display_rules(selection_mask, rules_mask)
+        self.es_hde.figure.display_rules(selection_mask, rules_mask)
 
     # ==================== TAB 2 ==================== #
 
@@ -861,14 +727,14 @@ class GUI:
             # We update the substitution table a second time to show the results
             self.update_tab(region)
 
-    def update_subtitution_prefix(self, region):
+    def update_substitution_prefix(self, region):
         # Region prefix text
         get_widget(self.widget, "450000").class_ = "mr-2 black--text" if region else "mr-2 grey--text"
         # v.Chip
         get_widget(self.widget, "450001").color = region.color if region else "grey"
         get_widget(self.widget, "450001").children = [str(region.num)] if region else ["-"]
 
-    def update_subtitution_progress_bar(self):
+    def update_substitution_progress_bar(self):
         prog_circular = get_widget(self.widget, "450110")
         if self.substitution_model_training:
             prog_circular.disabled = False
@@ -944,8 +810,8 @@ class GUI:
         # set region to called region
         self.substitute_region = region
         self.model_explorer.reset()
-        self.update_subtitution_prefix(region)
-        self.update_subtitution_progress_bar()
+        self.update_substitution_prefix(region)
+        self.update_substitution_progress_bar()
         self.update_substitution_title(region)
 
     def sub_model_selected_callback(self, data):

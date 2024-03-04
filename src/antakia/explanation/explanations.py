@@ -57,7 +57,6 @@ class LIMExplanation(ExplanationMethod):
 
     @property
     def mode(self):
-        print(self.task_type)
         if self.task_type == ProblemCategory.regression:
             return 'regression'
         else:

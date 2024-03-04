@@ -518,6 +518,7 @@ class RulesWidget:
         if id(X) == id(self.X):
             return
         self.X = X
+        self._create_rule_widgets()
         self.refresh_widget()
 
     def init_rules(self, rules_set: RuleSet, score_dict: dict, selection_mask: pd.Series):

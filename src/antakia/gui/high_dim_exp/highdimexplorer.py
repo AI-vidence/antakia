@@ -32,10 +32,10 @@ class HighDimExplorer:
     """
 
     def __init__(
-            self,
-            pv_bank: ProjectedValueBank,
-            selection_changed: callable,
-            space: str
+        self,
+        pv_bank: ProjectedValueBank,
+        selection_changed: callable,
+        space: str
     ):
         """
 
