@@ -152,6 +152,7 @@ class RuleWidget:
             min_ = float(self.X[self.rule.variable.column_name].min())
             max_ = float(self.X[self.rule.variable.column_name].max())
             min_, max_, step = compute_step(min_, max_)
+            min_ = min_ - step
             slider_args = {
                 'min': min_,
                 'max': max_,
