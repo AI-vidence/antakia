@@ -7,6 +7,7 @@ from unittest import TestCase
 from antakia.utils.dummy_datasets import generate_corner_dataset
 from antakia_core.utils.utils import ProblemCategory
 from antakia.gui.explanation_values import ExplanationValues
+from tests.test_antakia import dummy_exp
 from tests.utils_fct import test_progress_bar, dummy_callable, DummyModel
 
 
@@ -86,11 +87,11 @@ class TestExplanationValues(TestCase):
                                                           {'disabled': False, "text": 'SHAP (compute)'},
                                                           {'disabled': False, "text": 'LIME (compute)'}]
 
-    @mock.patch('antakia.gui.explanation_values.compute_explanations')
-    def test_compute_explanation(self, cpt_exp):
+    @mock.patch('antakia.gui.explanation_values.compute_explanations', wraps=dummy_exp)
+    def test_compute_explanation(self, _):
         exp_val = ExplanationValues(pd.DataFrame(self.X), self.y, self.model, ProblemCategory.regression,
                                     self.on_change_callback, self.callable)
-        cpt_exp.return_value = pd.DataFrame(self.X)
+        # cpt_exp.return_value = pd.DataFrame(self.X)
         assert exp_val.current_exp == exp_val.available_exp[1]
 
         assert exp_val.explanations['Imported'] is None
@@ -99,7 +100,7 @@ class TestExplanationValues(TestCase):
 
         exp_val.compute_explanation(1, test_progress_bar.update)
 
-        assert test_progress_bar.progress == 0
+        assert test_progress_bar.progress == 100
         assert exp_val.get_explanation_select().items == [{"text": 'Imported', 'disabled': True},
                                                           {"text": 'SHAP', 'disabled': False},
                                                           {"text": 'LIME (compute)', 'disabled': False}]

@@ -25,7 +25,7 @@ class ProgressBar:
         self.progress = 0
         self.reset_at_end = reset_at_end
 
-    def update(self, progress: float, time_elapsed = None):
+    def update(self, progress: float, time_elapsed=None):
         """
 
         Parameters
@@ -126,6 +126,14 @@ class MultiStepProgressBar:
         self.widget.v_model = progress
         if progress >= 100 and self.reset_at_end:
             self.reset_progress_bar()
+
+    @property
+    def progress(self):
+        return self.widget.v_model
+
+    @progress.setter
+    def progress(self, value):
+        self.set_progress(value)
 
     def reset_progress_bar(self):
         self.progress = 0

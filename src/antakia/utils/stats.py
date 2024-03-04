@@ -27,7 +27,7 @@ class ActivityLogger:
                 for log in log_file:
                     self._logs.append(json.loads(log))
         if len(self._logs) > 0:
-            self._send()
+            self._send(force_send=True)
 
     def log(self, event: str, info: dict | None = None):
         """
@@ -54,6 +54,7 @@ class ActivityLogger:
         try:
             json.dumps(payload)
             self._add_to_log_queue(payload)
+            self._send(force_send=payload['event'] in self.send_events)
         except:
             pass
 
@@ -67,8 +68,6 @@ class ActivityLogger:
     def _add_to_log_queue(self, payload):
         self._logs.append(payload)
         self._add_to_disk(payload)
-        if len(self._logs) > self.limit or payload['event'] in self.send_events:
-            self._send()
 
     def _add_to_disk(self, payload):
         try:
@@ -85,25 +84,28 @@ class ActivityLogger:
         except:
             pass
 
-    def _send(self):
-        try:
-            payload = {'items': self._logs}
-            self._add_metadata(payload)
-            response = requests.post(self.url + 'log', json=payload, timeout=10)
-            if response.status_code >= 300:
-                raise ConnectionError
-            self._clear_logs()
-        except:
-            self._logs.append({
-                'event': 'no connection',
-                'timestamp': time.time()
-            })
-            if len(self._logs) > self.size_limit:
+    def _send(self, force_send=False):
+        if len(self._logs) > self.limit or force_send:
+            try:
+                payload = {'items': self._logs}
+                self._add_metadata(payload)
+                response = requests.post(self.url + 'log', json=payload, timeout=10)
+                if response.status_code >= 300:
+                    raise ConnectionError
                 self._clear_logs()
-                self._logs.append({
-                    'event': 'no connection log erased',
+            except:
+                payload = {
+                    'event': 'no connection',
                     'timestamp': time.time()
-                })
+                }
+                self._add_to_log_queue(payload)
+                if len(self._logs) > self.size_limit:
+                    self._clear_logs()
+                    payload = {
+                        'event': 'no connection log erased',
+                        'timestamp': time.time()
+                    }
+                    self._add_to_log_queue(payload)
 
 
 stats_logger = ActivityLogger()
