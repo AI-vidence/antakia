@@ -1,3 +1,4 @@
+#!/bin/sh
 cd ../antakia-core
 poetry shell
 poetry install
