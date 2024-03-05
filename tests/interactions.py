@@ -11,7 +11,7 @@ class InteractionError(Exception):
 
 @check
 def select_dim(gui, dim):
-    gui.set_dimension(dim)
+    gui.set_dimension(2 + dim)
 
 
 @check
@@ -24,7 +24,7 @@ def set_color(gui, color):
 @check
 def set_exp_method(gui, method):
     widget = gui.exp_values.get_explanation_select()
-    methods = list(map(lambda x:x['text'], widget.items))
+    methods = list(map(lambda x: x['text'], widget.items))
     exp = methods[method]
     if widget.disabled:
         raise InteractionError('exp menu disabled')

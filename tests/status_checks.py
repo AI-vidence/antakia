@@ -73,7 +73,7 @@ def check_exp_menu(gui):
     assert gui.es_hde.current_X is gui.exp_values.current_exp_df
 
     # assert value enabled if computed
-    select_options = gui.exp_values.get_explanation_select().items
+    # select_options = gui.exp_values.get_explanation_select().items
     # assert select_options[1]['disabled'] == (gui.exp_values.explanations['SHAP'] is None)
     # assert select_options[2]['disabled'] == (gui.exp_values.explanations['LIME'] is None)
 

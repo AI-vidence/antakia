@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+from antakia_core.data_handler.projected_values import ProjectedValues
 
 from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
@@ -115,7 +116,7 @@ class HighDimExplorer:
         self.refresh(progress_callback)
 
     @property
-    def current_pv(self):
+    def current_pv(self) -> ProjectedValues:
         return self.projected_value_selector.projected_value
 
     @property

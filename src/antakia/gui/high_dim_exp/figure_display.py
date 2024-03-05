@@ -315,7 +315,7 @@ class FigureDisplay:
         self.X = X
         self.redraw()
 
-    def selection_to_mask(self, row_numbers):
+    def selection_to_mask(self, row_numbers: list[int]):
         """
 
         extrapolate selected row_numbers to full dataframe and return the selection mask on all the dataframe
@@ -431,7 +431,7 @@ class FigureDisplay:
             fig.selectedpoints = utils.mask_to_rows(self.current_selection[self.mask])
 
     @property
-    def mask(self):
+    def mask(self) -> pd.Series:
         """
         mask should be applied on each display (x,y,z,color, selection)
         """

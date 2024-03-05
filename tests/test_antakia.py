@@ -195,6 +195,7 @@ def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
 
 
 actions = {
+    'select_dim': (select_dim, range(2)),
     'set_color': (set_color, range(3)),
     'set_exp_method': (set_exp_method, range(3)),
     'set_proj_method': (set_proj_method, range(2), range(3)),

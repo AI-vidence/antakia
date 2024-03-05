@@ -4,7 +4,7 @@ import pandas as pd
 
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia_core.data_handler.projected_values import Proj
+from antakia_core.data_handler.projected_values import Proj, ProjectedValues
 
 from antakia import config
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
@@ -21,7 +21,7 @@ class ProjectedValuesSelector:
     def __init__(self, pv_bank: ProjectedValueBank, update_callback: callable, space):
         self.widget = None
         self.progress_bar = None
-        self.projected_value = None
+        self.projected_value: ProjectedValues | None = None
         self._proj_params_cards = {}
         self.update_callback = update_callback
         self.pv_bank = pv_bank
