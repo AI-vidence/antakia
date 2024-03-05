@@ -3,7 +3,7 @@ from functools import wraps
 from antakia import config
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia.gui.widgets import get_widget, app_widget
+from antakia.gui.widget_utils import get_widget
 
 
 def check_widget(gui):

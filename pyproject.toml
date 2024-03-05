@@ -30,10 +30,10 @@ plotly = "^5.18.0"
 lime = "^0.2.0.1"
 shap = "^0.43.0"
 python-dotenv = "^1.0.0"
-antakia-core = "*"
-antakia-ac = ">=0.2.4"
-#antakia-ac = {path = "../antakia-ac", develop = true}
-#antakia-core = {path = "../antakia-core", develop = true}
+#antakia-core = "*"
+#antakia-ac = ">=0.2.4"
+antakia-ac = {path = "../antakia-ac", develop = true}
+antakia-core = {path = "../antakia-core", develop = true}
 requests = "^2.31.0"
 
 [tool.poetry.group.dev.dependencies]

@@ -4,7 +4,7 @@ import ipyvuetify as v
 from antakia_core.data_handler.rules import RuleSet
 from antakia_core.utils.utils import format_data
 
-from antakia.gui.ruleswidget import RulesWidget
+from antakia.gui.tabs.ruleswidget import RulesWidget
 from antakia.gui.widget_utils import get_widget, change_widget
 from antakia.utils.stats import log_errors, stats_logger
 
@@ -26,9 +26,9 @@ class Tab1:
         self.vs_rules_wgt.disable()
         self.es_rules_wgt.disable()
 
-        self.build_widget()
+        self._build_widget()
 
-    def build_widget(self):
+    def _build_widget(self):
         self.widget = [
             v.Row(  # buttons row # 430
                 class_="d-flex flex-row align-top mt-2",

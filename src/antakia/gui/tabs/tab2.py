@@ -7,9 +7,9 @@ from antakia_core.compute.skope_rule.skope_rule import skope_rules
 from antakia_core.data_handler.region import RegionSet
 
 from antakia import config
-from antakia.gui.colorTable import ColorTable
+from antakia.gui.graphical_elements.color_table import ColorTable
 from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSelector
-from antakia.gui.progress_bar import MultiStepProgressBar
+from antakia.gui.helpers.progress_bar import MultiStepProgressBar
 from antakia.utils.stats import stats_logger, log_errors
 
 
@@ -42,9 +42,9 @@ class Tab2:
         self.substitute_callback = substitute_callback
         self.auto_cluster_running = False
 
-        self.build_widget()
+        self._build_widget()
 
-    def build_widget(self):
+    def _build_widget(self):
         self.region_table_wgt = ColorTable(  # 44001
             headers=self.region_headers,
             items=[],
@@ -283,7 +283,10 @@ class Tab2:
             ),  # End v.Sheet
         ]
 
-        # wiring
+        self.wire()
+        self.update_region_table()
+
+    def wire(self):
         self.region_table_wgt.set_callback(self.region_selected)
         self.substitute_btn.on_event("click", self.substitute_clicked)
         self.divide_btn.on_event("click", self.divide_region_clicked)
@@ -293,8 +296,6 @@ class Tab2:
         self.auto_cluster_checkbox.v_model = True
         self.auto_cluster_checkbox.on_event("change", self.checkbox_auto_cluster_clicked)
         self.cluster_num_wgt.on_event("change", self.num_cluster_changed)
-
-        self.update_region_table()
 
     @property
     def selected_regions(self):
@@ -520,10 +521,8 @@ class Tab2:
         self.update_region_table()
         self.update_callback()
 
-    # TODO update figure
     @log_errors
     def substitute_clicked(self, widget, event, data):
         stats_logger.log('substitute_region')
         region = self.region_set.get(self.selected_regions[0]['Region'])
         self.substitute_callback(region)
-

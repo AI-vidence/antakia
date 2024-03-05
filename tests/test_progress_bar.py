@@ -1,10 +1,9 @@
-import unittest
 from unittest import TestCase
 
 import pytest
 import ipyvuetify as v
 
-from antakia.gui.progress_bar import ProgressBar, MultiStepProgressBar
+from antakia.gui.helpers.progress_bar import ProgressBar, MultiStepProgressBar
 
 
 class TestProgressBar(TestCase):

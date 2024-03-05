@@ -5,7 +5,7 @@ import ipyvuetify as v
 
 from antakia import config
 from antakia.explanation.explanations import compute_explanations, ExplanationMethod
-from antakia.gui.progress_bar import ProgressBar
+from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.utils.stats import stats_logger, log_errors
 
 
@@ -51,9 +51,9 @@ class ExplanationValues:
         else:
             self.current_exp = self.available_exp[1]
         stats_logger.log('exp_method_init', {'exp_method': self.current_exp})
-        self.build_widget()
+        self._build_widget()
 
-    def build_widget(self):
+    def _build_widget(self):
         self.widget = v.Row(children=[
             v.Select(  # Select of explanation method
                 label="Explanation method",

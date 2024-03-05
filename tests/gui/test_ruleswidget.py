@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from antakia_core.data_handler.rules import Rule, RuleSet
-from antakia.gui.ruleswidget import RuleWidget
+from antakia.gui.tabs.ruleswidget import RuleWidget
 from antakia_core.utils.variable import Variable
 
 

@@ -8,7 +8,7 @@ from importlib.resources import files
 import requests
 
 from antakia import config
-from antakia.gui.metadata import metadata
+from antakia.gui.helpers.metadata import metadata
 
 
 class ActivityLogger:

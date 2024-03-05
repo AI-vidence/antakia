@@ -10,13 +10,13 @@ import IPython.display
 
 from antakia_core.data_handler.region import ModelRegionSet, ModelRegion
 
-from antakia.gui.antakia_logo import TopBar
-from antakia.gui.explanation_values import ExplanationValues
+from antakia.gui.app_bar.color_switch import ColorSwitch
+from antakia.gui.app_bar.dimension_switch import DimSwitch
+from antakia.gui.splash_screen import SplashScreen
+from antakia.gui.app_bar.top_bar import TopBar
+from antakia.gui.app_bar.explanation_values import ExplanationValues
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
-from antakia.gui.progress_bar import ProgressBar, MultiStepProgressBar
 from antakia.explanation.explanation_method import ExplanationMethod
-from antakia_ac.auto_cluster import AutoCluster
-from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import antakia.config as config
 from antakia_core.data_handler.rules import RuleSet
 
@@ -24,16 +24,13 @@ from antakia.gui.tabs.model_explorer import ModelExplorer
 from antakia.gui.tabs.tab1 import Tab1
 from antakia.gui.tabs.tab2 import Tab2
 from antakia.gui.tabs.tab3 import Tab3
-from antakia.gui.widget_utils import get_widget, change_widget
-from antakia.gui.widgets import splash_widget, app_widget
 from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
-from antakia.gui.ruleswidget import RulesWidget
 
-from antakia.gui.metadata import metadata
+from antakia.gui.helpers.metadata import metadata
 
 import logging
 from antakia.utils.logging_utils import conf_logger
-from antakia_core.utils.utils import boolean_mask, ProblemCategory, format_data
+from antakia_core.utils.utils import boolean_mask, ProblemCategory
 from antakia_core.utils.variable import DataVariables
 
 from antakia.utils.stats import stats_logger, log_errors
@@ -105,6 +102,9 @@ class GUI:
         # star dialog
         self.topbar = TopBar()
 
+        self.dimension_switch = DimSwitch(self.dimension_update_callback)
+        self.color_switch = ColorSwitch(self.y, self.y_pred, self.color_update_callback)
+
         # first hde
         self.vs_hde = HighDimExplorer(
             self.pv_bank,
@@ -140,36 +140,104 @@ class GUI:
         self.tab3 = Tab3(X, problem_category, self.model_validation_callback)
         self.model_explorer = ModelExplorer(self.X)
 
-        self.widget = app_widget.get_app_widget()
-        self.splash_widget = splash_widget.get_app_widget()
+        self._build_widget()
+        self.splash = SplashScreen(X)
 
-    @log_errors
-    def show_splash_screen(self):
-        """Displays the splash screen and updates it during the first computations."""
+    def _build_widget(self):
+        self.widget = v.Col(
+            children=[
+                self.topbar.widget,
+                v.Row(  # Top buttons bar # 1
+                    class_="mt-3 align-center",
+                    children=[
+                        v.Tooltip(  # 10
+                            bottom=True,
+                            v_slots=[
+                                {
+                                    'name': 'activator',
+                                    'variable': 'tooltip',
+                                    'children': self.dimension_switch.widget
+                                }  # End v_slots dict
+                            ],  # End v_slots list
+                            children=['Change dimensions']
+                        ),  # End v.Tooltip
+                        self.color_switch.widget,
+                        v.Col(  # 12
+                            class_="ml-4 mr-4",
+                            children=[self.exp_values.widget]
+                        ),
+                        v.Col(  # 13 VS proj Select
+                            class_="ml-6 mr-6",
+                            children=[self.vs_hde.projected_value_selector.widget]
+                        ),
+                        v.Col(  # 14 ES proj Select
+                            class_="ml-6 mr-6",
+                            children=[self.es_hde.projected_value_selector.widget]
+                        ),
 
-        # We add both widgets to the current notebook cell and hide them
-        t = time.time()
-        IPython.display.display(self.splash_widget, self.widget)
-        self.widget.hide()
-        self.splash_widget.show()
+                    ]
+                ),
+                v.Row(  # The two HighDimExplorer # 2
+                    class_="d-flex",
+                    children=[
+                        v.Col(  # VS HDE # 20
+                            style_="width: 50%",
+                            class_="d-flex flex-column justify-center",
+                            children=[
+                                v.Html(  # 200
+                                    tag="h3",
+                                    style_="align-self: center",
+                                    class_="mb-3",
+                                    children=["Values space"]
+                                ),
+                                self.vs_hde.figure.widget,
+                            ],
+                        ),
+                        v.Col(  # ES HDE placeholder # 21
+                            style_="width: 50%",
+                            class_="d-flex flex-column justify-center",
+                            children=[
+                                v.Html(  # 210
+                                    tag="h3",
+                                    style_="align-self: center",
+                                    class_="mb-3",
+                                    children=["Explanations space"]
+                                ),
+                                self.es_hde.figure.widget
+                            ],
+                        ),
+                    ],
+                ),
+                v.Divider(),  # 3
+                v.Tabs(  # 4
+                    v_model=0,  # default active tab
+                    children=[
+                                 v.Tab(children=["Selection"]),  # 40
+                                 v.Tab(children=["Regions"]),  # 41
+                                 v.Tab(children=["Substitution"]),  # 42
+                             ]
+                             +
+                             [
+                                 v.TabItem(  # Tab 1)
+                                     class_="mt-2",
+                                     children=self.tab1.widget
+                                 ),
+                                 v.TabItem(  # Tab 2) Regions #44
+                                     children=self.tab2.widget
+                                 ),  # End of v.TabItem #2
+                                 v.TabItem(  # TabItem #3 Substitution #45
+                                     children=self.tab3.widget
+                                 )
+                             ]
+                )  # End of v.Tabs
+            ]  # End v.Col children
+        )  # End of v.Col
 
-        exp_progress_bar = ProgressBar(
-            get_widget(self.splash_widget, "110"),
-            unactive_color="light blue",
-            reset_at_end=False
-        )
-        dimreduc_progress_bar = MultiStepProgressBar(
-            get_widget(self.splash_widget, "210"),
-            steps=2,
-            unactive_color="light blue",
-            reset_at_end=False
-        )
+    def compute_base_values(self):
         # We trigger VS proj computation :
-        get_widget(
-            self.splash_widget, "220"
-        ).v_model = f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2"
+        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
 
-        self.vs_hde.initialize(progress_callback=dimreduc_progress_bar.get_update(1), X=self.X)
+        self.vs_hde.initialize(progress_callback=self.splash.proj_progressbar.get_update(1), X=self.X)
 
         # We trigger ES explain computation if needed :
         if not self.exp_values.has_user_exp:  # No imported explanation values
@@ -177,85 +245,57 @@ class GUI:
             msg = f"Computing {exp_method} on {self.X.shape}"
         else:
             msg = f"Imported explained values {self.X.shape}"
-        self.exp_values.initialize(exp_progress_bar.update)
-        get_widget(self.splash_widget, "120").v_model = msg
+        self.splash.set_proj_msg(msg)
+        self.exp_values.initialize(self.splash.exp_progressbar)
 
         # THen we trigger ES proj computation :
-        get_widget(
-            self.splash_widget, "220"
-        ).v_model = f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2"
+        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
         self.es_hde.initialize(
-            progress_callback=dimreduc_progress_bar.get_update(2),
+            progress_callback=self.splash.proj_progressbar.get_update(2),
             X=self.exp_values.current_exp_df
         )
         self.tab1.update_X_exp(self.exp_values.current_exp_df)
         self.selection_changed(None, boolean_mask(self.X, True))
 
-        self.init_app()
-
-        self.splash_widget.hide()
-        self.widget.show()
-        self.vs_hde.figure.create_figure()
-        self.es_hde.figure.create_figure()
         self.select_tab(0)
         self.disable_hde()
 
         if metadata.counter == 10:
             self.topbar.open()
+
+    @log_errors
+    def initialize(self):
+        """Displays the splash screen and updates it during the first computations."""
+
+        # We add both widgets to the current notebook cell and hide them
+        t = time.time()
+        self.widget.hide()
+        self.splash.widget.show()
+        IPython.display.display(self.splash.widget, self.widget)
+
+        self.compute_base_values()
+
+        self.wire()
+
+        self.splash.widget.hide()
+        self.widget.show()
+        # redraw figures once app is displayed to be able to autosize it
+        self.vs_hde.figure.create_figure()
+        self.es_hde.figure.create_figure()
         stats_logger.log('gui_init_end', {'load_time': time.time() - t})
 
-    def init_app(self):
+    def wire(self):
         """
-        Inits and wires the app_widget, and implements UI logic
+        wires the app_widget, and implements UI logic
         """
 
-        # -------------- Dimension Switch --------------
+        # ================ Tab Selection ================
 
-        change_widget(self.widget, '0', self.topbar.widget)
-
-        # -------------- Dimension Switch --------------
-
-        get_widget(self.widget, "100").v_model = config.ATK_DEFAULT_DIMENSION == 3
-        get_widget(self.widget, "100").on_event("change", self.switch_dimension)
-
-        # -------------- ColorChoiceBtnToggle ------------
-
-        # Set "change" event on the Button Toggle used to chose color
-        get_widget(self.widget, "11").on_event("change", self.change_color)
-
-        # -------------- ExplanationSelect ------------
-
-        get_widget(self.widget, '12').children = [self.exp_values.widget]
-
-        # -------------- set up VS High Dim Explorer  ------------
-
-        get_widget(self.widget, '13').children = [self.vs_hde.projected_value_selector.widget]
-        change_widget(self.widget, "201", self.vs_hde.figure.widget),
-
-        # -------------- set up ES High Dim Explorer ------------
-
-        get_widget(self.widget, '14').children = [self.es_hde.projected_value_selector.widget]
-        change_widget(self.widget, "211", self.es_hde.figure.widget),
-
-        # ================ Tab 1 Selection ================
-
-        # We wire the click event on 'Tab 1'
-        get_widget(self.widget, "40").on_event("click", self.select_tab_front(1))
-
-        # We add the tab1 widget to the GUI :
-        get_widget(self.widget, "43").children = self.tab1.widget
-
-        # ================ Tab 2 : regions ===============
-        # We wire the click event on 'Tab 2'
-        get_widget(self.widget, "41").on_event("click", self.select_tab_front(2))
-        # We add the Tab2 widget to the GUI :
-        get_widget(self.widget, "44").children = self.tab2.widget
-
-        # ============== Tab 3 : substitution ==================
-
-        # We wire the click event on 'Tab 3'
-        get_widget(self.widget, "42").on_event("click", self.select_tab_front(3))
-        get_widget(self.widget, "45").children = self.tab3.widget
+        # We wire the click event on 'Tabs'
+        tabs = self.widget.children[4].children
+        tabs[0].on_event("click", self.select_tab_front(1))
+        tabs[1].on_event("click", self.select_tab_front(2))
+        tabs[2].on_event("click", self.select_tab_front(3))
 
     # ==================== properties ==================== #
 
@@ -347,38 +387,16 @@ class GUI:
 
     # ==================== top bar ==================== #
 
-    def set_dimension(self, dim):
-        get_widget(self.widget, "100").v_model = dim == 3
+    def dimension_update_callback(self, caller, dim):
         self.vs_hde.set_dim(dim)
         self.es_hde.set_dim(dim)
 
     @log_errors
-    def switch_dimension(self, widget, event, data):
-        """
-        Called when the switch changes.
-        We call the HighDimExplorer to update its figure and, enventually,
-        compute its proj
-        """
-        stats_logger.log('dim_changed')
-        self.set_dimension(3 if data else 2)
-
-    @log_errors
-    def change_color(self, widget, event, data):
+    def color_update_callback(self, caller, color):
         """
         Called with the user clicks on the colorChoiceBtnToggle
         Allows change the color of the dots
         """
-
-        # Color : a pd.Series with one color value par row
-        color = None
-        stats_logger.log('color_changed', {'color': data})
-        if data == "y":
-            color = self.y
-        elif data == "y^":
-            color = self.y_pred
-        elif data == "residual":
-            color = self.y - self.y_pred
-
         self.vs_hde.figure.set_color(color, 0)
         self.es_hde.figure.set_color(color, 0)
         self.select_tab(0)
@@ -413,7 +431,7 @@ class GUI:
                 self.vs_hde.figure.display_region(region)
                 self.es_hde.figure.display_region(region)
         if not front:
-            get_widget(self.widget, "4").v_model = max(tab - 1, 0)
+            self.widget.children[4].v_model = max(tab - 1, 0)
         self.vs_hde.set_tab(tab)
         self.es_hde.set_tab(tab)
         self.tab = tab

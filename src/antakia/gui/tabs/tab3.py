@@ -1,12 +1,12 @@
 import ipyvuetify as v
 import pandas as pd
-from antakia_core.data_handler.region import Region, ModelRegion
+from antakia_core.data_handler.region import ModelRegion
 from antakia_core.utils.utils import ProblemCategory
 
 from antakia import config
-from antakia.gui.progress_bar import ProgressBar
+from antakia.gui.graphical_elements.sub_model_table import SubModelTable
+from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.gui.tabs.model_explorer import ModelExplorer
-from antakia.gui.widgets import SubModelTable
 from antakia.utils.stats import log_errors, stats_logger
 
 
@@ -33,6 +33,7 @@ class Tab3:
         self.progress_bar = ProgressBar(
             self.progress_wgt, indeterminate=True, reset_at_end=True
         )
+        self.progress_bar(100)
 
     def _build_widget(self):
         """

@@ -44,10 +44,10 @@ class RuleWidget:
         self.init_mask = init_selection_mask
         self.rule_mask = init_rules_mask
 
-        self.build_widget()
+        self._build_widget()
 
     # --------------- build widget ------------------- #
-    def build_widget(self):
+    def _build_widget(self):
         """
         build the widget
         Returns
@@ -308,11 +308,11 @@ class RulesWidget:
         # At startup, we are disabled :
         self.is_disabled = True
 
-        self.build_widget()
+        self._build_widget()
 
     # ---------------- widget management -------------------- #
 
-    def build_widget(self):
+    def _build_widget(self):
         self.title = "not initialized"
         self.stats = "not initialized"
         self.rules = 'N/A'

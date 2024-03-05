@@ -153,7 +153,8 @@ class FigureDisplay:
         """
         if X is not None:
             self.X = X
-        self.create_figure()
+            # compute X if needed
+            self.get_X(masked=True)
         self.initialized = True
 
     # ---- display Methods ------
@@ -504,8 +505,8 @@ class FigureDisplay:
             # selection only on trace 0
             self.figure.data[0].on_selection(self._selection_event)
             self.figure.data[0].on_deselect(self._deselection_event)
-
         self.widget.children = [self.figure]
+
 
     def redraw(self):
         """
