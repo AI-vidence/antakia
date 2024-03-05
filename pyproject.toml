@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "antakia"
-version = "0.2.9"
+version = "0.2.10"
 description = "AI made Xplainable"
 readme = "README.md"
 authors = [
