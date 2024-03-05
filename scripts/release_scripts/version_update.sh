@@ -1,7 +1,7 @@
 #!/bin/sh
-echo $1
+echo $0
 
-if [ "$1" == "" ]
+if [ "$0" == "" ]
 then
    echo 'Please provide version update type (patch/minor/major)'
    exit 1
@@ -38,7 +38,7 @@ git checkout -f dev
 git pull
 new_v=$(poetry version $1)
 new_v=$(echo $new_v | awk '{print $6}')
-poetry run python scripts/version_sync
+poetry run python scripts/release_scripts/version_sync.py
 git add pyproject.toml
 git commit -m 'version increased'
 git stash pop
