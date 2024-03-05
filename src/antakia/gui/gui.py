@@ -22,6 +22,8 @@ from antakia_core.data_handler.rules import RuleSet
 
 from antakia.gui.tabs.model_explorer import ModelExplorer
 from antakia.gui.tabs.tab1 import Tab1
+from antakia.gui.tabs.tab2 import Tab2
+from antakia.gui.tabs.tab3 import Tab3
 from antakia.gui.widget_utils import get_widget, change_widget
 from antakia.gui.widgets import splash_widget, app_widget
 from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
@@ -98,6 +100,7 @@ class GUI:
         self.selection_mask = boolean_mask(X, True)
 
         self.pv_bank = ProjectedValueBank(y)
+        self.region_set = ModelRegionSet(self.X, self.y, self.X_test, self.y_test, self.model, self.score)
 
         # star dialog
         self.topbar = TopBar()
@@ -130,12 +133,13 @@ class GUI:
         # init tabs
         self.tab1 = Tab1(variables, self.new_rule_selected_callback, self.validate_rules_callback, self.X, X_exp,
                          self.y)
+
+        self.tab2 = Tab2(variables, X, self.vs_hde.projected_value_selector, self.es_hde.projected_value_selector,
+                         self.region_set, self.update_region_callback, self.substitute_model_callback)
+
+        self.tab3 = Tab3(X, problem_category, self.model_validation_callback)
         self.model_explorer = ModelExplorer(self.X)
 
-        self.region_num_for_validated_rules = None  # tab 1 : number of the region created when validating rules
-        self.region_set = ModelRegionSet(self.X, self.y, self.X_test, self.y_test, self.model, self.score)
-        self.substitute_region = None
-        self.substitution_model_training = False  # tab 3 : training flag
         self.widget = app_widget.get_app_widget()
         self.splash_widget = splash_widget.get_app_widget()
 
@@ -238,100 +242,22 @@ class GUI:
         # We wire the click event on 'Tab 1'
         get_widget(self.widget, "40").on_event("click", self.select_tab_front(1))
 
-        # We add our 2 RulesWidgets to the GUI :
+        # We add the tab1 widget to the GUI :
         get_widget(self.widget, "43").children = self.tab1.widget
 
         # ================ Tab 2 : regions ===============
         # We wire the click event on 'Tab 2'
         get_widget(self.widget, "41").on_event("click", self.select_tab_front(2))
-
-        get_widget(self.widget, "44001").set_callback(self.region_selected)
-
-        # We wire events on the 'substitute' button:
-        get_widget(self.widget, "4401000").on_event("click", self.substitute_clicked)
-        # button is disabled by default
-        get_widget(self.widget, "4401000").disabled = True
-
-        # We wire events on the 'divide' button:
-        get_widget(self.widget, "4401100").on_event("click", self.divide_region_clicked)
-        # button is disabled by default
-        get_widget(self.widget, "4401100").disabled = True
-
-        # We wire events on the 'merge' button:
-        get_widget(self.widget, "4401200").on_event("click", self.merge_region_clicked)
-        # button is disabled by default
-        get_widget(self.widget, "4401200").disabled = True
-
-        # We wire events on the 'delete' button:
-        get_widget(self.widget, "4401300").on_event("click", self.delete_region_clicked)
-        # The 'delete' button is disabled at startup
-        get_widget(self.widget, "4401300").disabled = True
-
-        # We wire events on the 'auto-cluster' button :
-        get_widget(self.widget, "4402000").on_event("click", self.auto_cluster_clicked)
-
-        # UI rules :
-        # The 'auto-cluster' button is disabled at startup
-        get_widget(self.widget, "4402000").disabled = True
-        # Checkbox automatic number of cluster is set to True at startup
-        get_widget(self.widget, "440211").v_model = True
-
-        # We wire select events on this checkbox :
-        get_widget(self.widget, "440211").on_event("change", self.checkbox_auto_cluster_clicked)
-
-        def num_cluster_changed(*args):
-            """
-            Called when the user changes the number of clusters
-            """
-            # We enable the 'auto-cluster' button
-            get_widget(self.widget, "4402000").disabled = False
-
-        # We wire events on the num cluster Slider
-        get_widget(self.widget, "4402100").on_event("change", num_cluster_changed)
-
-        # UI rules : at startup, the slider is disabled and the checkbox is checked
-        get_widget(self.widget, "4402100").disabled = True
-
-        self.update_region_table()
-        # At startup, REGIONSET_TRACE is not visible
+        # We add the Tab2 widget to the GUI :
+        get_widget(self.widget, "44").children = self.tab2.widget
 
         # ============== Tab 3 : substitution ==================
 
         # We wire the click event on 'Tab 3'
         get_widget(self.widget, "42").on_event("click", self.select_tab_front(3))
-
-        # UI rules :
-        # At startup validate sub-model btn is disabled :
-        get_widget(self.widget, "4501000").disabled = True
-
-        # We wire a select event on the 'substitution table' :
-        get_widget(self.widget, "45001").set_callback(self.sub_model_selected_callback)
-
-        # We wire a ckick event on the "validate sub-model" button :
-        get_widget(self.widget, "4501000").on_event("click", self.validate_sub_model)
-        get_widget(self.widget, "4502").children = [self.model_explorer.widget]
-
-        # We disable the Substitution table at startup :
-        self.update_tab(None)
+        get_widget(self.widget, "45").children = self.tab3.widget
 
     # ==================== properties ==================== #
-
-    @property
-    def selected_regions(self):
-        return get_widget(self.widget, "44001").selected
-
-    @selected_regions.setter
-    def selected_regions(self, value):
-        get_widget(self.widget, "44001").selected = value
-        self.disable_buttons(None)
-
-    @property
-    def selected_sub_model(self):
-        return get_widget(self.widget, "45001").selected
-
-    @selected_sub_model.setter
-    def selected_sub_model(self, value):
-        get_widget(self.widget, "45001").selected = value
 
     @property
     def y_pred(self):
@@ -354,6 +280,17 @@ class GUI:
 
     @log_errors
     def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: callable = None):
+        """
+        on explanation change, synchronizes es_hde and tab1
+        Parameters
+        ----------
+        current_exp_df
+        progress_callback
+
+        Returns
+        -------
+
+        """
         self.es_hde.update_X(current_exp_df, progress_callback)
         self.tab1.update_X_exp(current_exp_df)
 
@@ -371,22 +308,29 @@ class GUI:
 
     @log_errors
     def selection_changed(self, caller: HighDimExplorer | None, new_selection_mask: pd.Series):
+        """
+        callback to synchronize both hdes and tab1
+        Parameters
+        ----------
+        caller
+        new_selection_mask
+
+        Returns
+        -------
+
+        """
         """Called when the selection of one HighDimExplorer changes"""
 
-        # UI rules :
-        # We store the new selection
         self.selection_mask = new_selection_mask
 
         # If new selection (empty or not) : if exists, we remove any 'pending rule'
         self.disable_hde()
         if new_selection_mask.all():
-            stats_logger.log('deselection')
             # Selection is empty
-            # we display y as color
             self.select_tab(0)
         else:
-            stats_logger.log('selection',
-                             {'new_selection': self.selection_mask.all(), 'exp_method': self.exp_values.current_exp,
+            stats_logger.log('selection_gui',
+                             {'exp_method': self.exp_values.current_exp,
                               'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
                               'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
 
@@ -398,7 +342,7 @@ class GUI:
             other_hde = self.es_hde if caller == self.vs_hde.figure else self.vs_hde
             other_hde.set_selection(self.selection_mask)
 
-        # we refresh button and enable/disable the datatable
+        # update tab1
         self.tab1.update_selection(self.selection_mask)
 
     # ==================== top bar ==================== #
@@ -456,15 +400,14 @@ class GUI:
             self.vs_hde.figure.display_selection()
             self.es_hde.figure.display_selection()
         elif tab == 2:
-            self.update_region_table()
-            self.vs_hde.figure.display_regionset(self.region_set)
-            self.es_hde.figure.display_regionset(self.region_set)
+            self.tab2.update_region_table()
+            self.update_region_callback(self, self.region_set)
         elif tab == 3:
-            if len(self.selected_regions) == 0:
+            if len(self.tab2.selected_regions) == 0:
                 self.select_tab(2)
             else:
-                region = self.region_set.get(self.selected_regions[0]['Region'])
-                self.update_tab(region)
+                region = self.region_set.get(self.tab2.selected_regions[0]['Region'])
+                self.tab3.update_region(region, False)
                 if region is None:
                     region = ModelRegion(self.X, self.y, self.X_test, self.y_test, self.model, score=self.score)
                 self.vs_hde.figure.display_region(region)
@@ -482,7 +425,6 @@ class GUI:
         self.selection_changed(None, boolean_mask(self.X, True))
 
         region = self.region_set.add_region(rules=rules_set)
-        self.region_num_for_validated_rules = region.num
         region.validate()
         self.select_tab(2)
 
@@ -493,353 +435,17 @@ class GUI:
 
     # ==================== TAB 2 ==================== #
 
-    def update_region_table(self):
-        """
-        Called to empty / fill the RegionDataTable and refresh plots
-        """
-        self.region_set.sort(by='size', ascending=False)
-        temp_items = self.region_set.to_dict()
+    def update_region_callback(self, caller, region_set):
+        self.vs_hde.figure.display_regionset(region_set)
+        self.es_hde.figure.display_regionset(region_set)
 
-        # We populate the ColorTable :
-        get_widget(self.widget, "44001").items = temp_items
-
-        region_stats = self.region_set.stats()
-        str_stats = [
-            f"{region_stats['regions']} {'regions' if region_stats['regions'] > 1 else 'region'}",
-            f"{region_stats['points']} points",
-            f"{region_stats['coverage']}% of the dataset",
-            f"{region_stats['delta_score']:.2f} subst score"
-        ]
-        get_widget(self.widget, "44002").children = [
-            ', '.join(str_stats)
-        ]
-        get_widget(self.widget, "4402000").disabled = False
-
-    @log_errors
-    def checkbox_auto_cluster_clicked(self, widget, event, data):
-        """
-        Called when the user clicks on the 'auto-cluster' checkbox
-        """
-        if self.tab != 2:
-            self.select_tab(2)
-        # In any case, we enable the auto-cluster button
-        get_widget(self.widget, "4402000").disabled = False
-
-        # We reveive either True or {} (bool({})==False))
-        data = bool(data)
-
-        # IF true, we disable the Slider
-        get_widget(self.widget, "4402100").disabled = data
-
-    @log_errors
-    def auto_cluster_clicked(self, *args):
-        """
-        Called when the user clicks on the 'auto-cluster' button
-        """
-        # We disable the AC button. Il will be re-enabled when the AC progress is 100%
-        get_widget(self.widget, "4402000").disabled = True
-        if self.tab != 2:
-            self.select_tab(2)
-        if self.region_set.stats()["coverage"] > 80:
-            # UI rules :
-            # region_set coverage is > 80% : we need to clear it to do another auto-cluster
-            self.region_set.clear_unvalidated()
-
-        # We assemble indices ot all existing regions :
-        region_set_mask = self.region_set.mask
-        not_rules_indexes_list = ~region_set_mask
-        # We call the auto_cluster with remaining X and explained(X) :
-        if get_widget(self.widget, "440211").v_model:
-            cluster_num = "auto"
-        else:
-            cluster_num = get_widget(self.widget, "4402100").v_model - len(self.region_set)
-            if cluster_num <= 2:
-                cluster_num = 2
-        stats_logger.log('auto_cluster', {'cluster_num': cluster_num, 'exp_method': self.exp_values.current_exp,
-                                          'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
-                                          'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
-
-        self.compute_auto_cluster(not_rules_indexes_list, cluster_num)
-
-        # We re-enable the button
-        get_widget(self.widget, "4402000").disabled = False
-        self.select_tab(2)
-
-    def compute_auto_cluster(self, not_rules_indexes_list, cluster_num='auto'):
-        if len(not_rules_indexes_list) > config.ATK_MIN_POINTS_NUMBER:
-            vs_compute = int(not self.vs_hde.projected_value_selector.is_computed(dim=3))
-            es_compute = int(not self.es_hde.projected_value_selector.is_computed(dim=3))
-            steps = 1 + vs_compute + es_compute
-
-            progress_bar = MultiStepProgressBar(get_widget(self.widget, "440212"), steps=steps)
-            step = 1
-            vs_proj_3d_df = self.vs_hde.get_current_X_proj(
-                3,
-                progress_callback=progress_bar.get_update(step)
-            )
-
-            step += vs_compute
-            es_proj_3d_df = self.es_hde.get_current_X_proj(
-                3,
-                progress_callback=progress_bar.get_update(step)
-            )
-
-            step += es_compute
-            ac = AutoCluster(self.X, progress_bar.get_update(step))
-
-            found_regions = ac.compute(
-                vs_proj_3d_df.loc[not_rules_indexes_list],
-                es_proj_3d_df.loc[not_rules_indexes_list],
-                # We send 'auto' or we read the number of clusters from the Slider
-                cluster_num,
-            )  # type: ignore
-            self.region_set.extend(found_regions)
-            progress_bar.set_progress(100)
-        else:
-            print('not enough points to cluster')
-
-    def disable_buttons(self, current_operation):
-        selected_region_nums = [x['Region'] for x in self.selected_regions]
-        if current_operation:
-            if current_operation['type'] == 'select':
-                selected_region_nums.append(current_operation['region_num'])
-            elif current_operation['type'] == 'unselect':
-                selected_region_nums.remove(current_operation['region_num'])
-        num_selected_regions = len(selected_region_nums)
-        if num_selected_regions:
-            first_region = self.region_set.get(selected_region_nums[0])
-            enable_div = (num_selected_regions == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
-        else:
-            enable_div = False
-
-        # substitute
-        get_widget(self.widget, "4401000").disabled = num_selected_regions != 1
-
-        # divide
-        get_widget(self.widget, "4401100").disabled = not enable_div
-
-        # merge
-        enable_merge = (num_selected_regions > 1)
-        get_widget(self.widget, "4401200").disabled = not enable_merge
-
-        # delete
-        get_widget(self.widget, "4401300").disabled = num_selected_regions == 0
-
-    def region_selected(self, data):
-        if self.tab != 2:
-            self.select_tab(2)
-        operation = {
-            'type': 'select' if data['value'] else 'unselect',
-            'region_num': data['item']['Region']
-        }
-        self.disable_buttons(operation)
-
-    def clear_selected_regions(self):
-        self.selected_regions = []
-        self.disable_buttons(None)
-
-    @log_errors
-    def divide_region_clicked(self, *args):
-        """
-        Called when the user clicks on the 'divide' (region) button
-        """
-        stats_logger.log('divide_region')
-        if self.tab != 2:
-            self.select_tab(2)
-        # we recover the region to sudivide
-        region = self.region_set.get(self.selected_regions[0]['Region'])
-        if region.num_points() > config.ATK_MIN_POINTS_NUMBER:
-            # Then we delete the region in self.region_set
-            self.region_set.remove(region.num)
-            # we compute the subregions and add them to the region set
-            if get_widget(self.widget, "440211").v_model:
-                cluster_num = "auto"
-            else:
-                cluster_num = get_widget(self.widget, "4402100").v_model - len(self.region_set)
-                if cluster_num <= 2:
-                    cluster_num = 2
-            self.compute_auto_cluster(region.mask, cluster_num)
-        self.select_tab(2)
-        # There is no more selected region
-        self.clear_selected_regions()
-
-    @log_errors
-    def merge_region_clicked(self, *args):
-        """
-        Called when the user clicks on the 'merge' (regions) button
-        """
-
-        selected_regions = [self.region_set.get(r['Region']) for r in self.selected_regions]
-        stats_logger.log('merge_region', {'num_regions': len(selected_regions)})
-        mask = None
-        for region in selected_regions:
-            if mask is None:
-                mask = region.mask
-            else:
-                mask |= region.mask
-
-        # compute skope rules
-        skr_rules_list, _ = skope_rules(mask, self.vs_hde.current_X, self.variables)
-
-        # delete regions
-        for region in selected_regions:
-            self.region_set.remove(region.num)
-        # add new region
-        if len(skr_rules_list) > 0:
-            r = self.region_set.add_region(rules=skr_rules_list)
-        else:
-            r = self.region_set.add_region(mask=mask)
-        self.selected_regions = [{'Region': r.num}]
-        self.select_tab(2)
-
-    @log_errors
-    def delete_region_clicked(self, *args):
-        """
-        Called when the user clicks on the 'delete' (region) button
-        """
-        if self.tab != 2:
-            self.select_tab(2)
-        stats_logger.log('merge_region', {'num_regions': len(self.selected_regions)})
-        for selected_region in self.selected_regions:
-            region = self.region_set.get(selected_region['Region'])
-            # Then we delete the regions in self.region_set
-            self.region_set.remove(region.num)
-
-        self.select_tab(2)
-        # There is no more selected region
-        self.clear_selected_regions()
+    def substitute_model_callback(self, region):
+        self.select_tab(3)
+        self.tab3.update_region(region)
 
     # ==================== TAB 3 ==================== #
 
     @log_errors
-    def substitute_clicked(self, widget, event, data):
-        stats_logger.log('substitute_region')
-        region = self.region_set.get(self.selected_regions[0]['Region'])
-        self.selected_sub_model = []
-        if region is not None:
-            # We update the substitution table once to show the name of the region
-            self.substitution_model_training = True
-            # show tab 3 (and update)
-            self.select_tab(3)
-            region.train_substitution_models(task_type=self.problem_category)
-
-            self.substitution_model_training = False
-            # We update the substitution table a second time to show the results
-            self.update_tab(region)
-
-    def update_substitution_prefix(self, region):
-        # Region prefix text
-        get_widget(self.widget, "450000").class_ = "mr-2 black--text" if region else "mr-2 grey--text"
-        # v.Chip
-        get_widget(self.widget, "450001").color = region.color if region else "grey"
-        get_widget(self.widget, "450001").children = [str(region.num)] if region else ["-"]
-
-    def update_substitution_progress_bar(self):
-        prog_circular = get_widget(self.widget, "450110")
-        if self.substitution_model_training:
-            prog_circular.disabled = False
-            prog_circular.color = "blue"
-            prog_circular.indeterminate = True
-        else:
-            prog_circular.disabled = True
-            prog_circular.color = "grey"
-            prog_circular.indeterminate = False
-
-    def update_substitution_title(self, region: ModelRegion):
-        title = get_widget(self.widget, "450002")
-        title.tag = "h3"
-        table = get_widget(self.widget, "45001")  # subModel table
-        if self.substitution_model_training:
-            # We tell to wait ...
-            title.class_ = "ml-2 grey--text italic "
-            title.children = [f"Sub-models are being evaluated ..."]
-            # We clear items int the SubModelTable
-            table.items = []
-        elif not region:  # no region provided
-            title.class_ = "ml-2 grey--text italic "
-            title.children = [f"No region selected for substitution"]
-            table.items = []
-        elif region.num_points() < config.ATK_MIN_POINTS_NUMBER:  # region is too small
-            title.class_ = "ml-2 red--text"
-            title.children = [" Region too small for substitution !"]
-            table.items = []
-        elif len(region.perfs) == 0:  # model not trained
-            title.class_ = "ml-2 red--text"
-            title.children = [" click on substitute button to train substitution models"]
-            table.items = []
-        else:
-            # We have results
-            title.class_ = "ml-2 black--text"
-            title.children = [
-                f"{region.name}, "
-                f"{region.num_points()} points, {100 * region.dataset_cov():.1f}% of the dataset"
-            ]
-
-            def series_to_str(series: pd.Series) -> str:
-                return series.apply(lambda x: f"{x:.2f}")
-
-            perfs = region.perfs.copy()
-            stats_logger.log('substitute_model', {'best_perf': perfs['delta'].min()})
-            for col in perfs.columns:
-                if col != 'delta_color':
-                    perfs[col] = series_to_str(perfs[col])
-            perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
-            headers = [
-                {
-                    "text": column,
-                    "sortable": False,
-                    "value": column,
-                }
-                for column in perfs.drop('delta_color', axis=1).columns
-            ]
-            table.headers = headers
-            table.items = perfs.to_dict("records")
-            if region.interpretable_models.selected_model:
-                # we set to selected model if any
-                table.selected = [{'Sub-model': region.interpretable_models.selected_model}]
-                self.model_explorer.update_selected_model(region.get_selected_model(), region)
-            else:
-                # clear selection if new region:
-                self.model_explorer.reset()
-                table.selected = []
-
-    def update_tab(self, region: ModelRegion | None):
-        """
-        Called twice to update table
-        """
-        # set region to called region
-        self.substitute_region = region
-        self.model_explorer.reset()
-        self.update_substitution_prefix(region)
-        self.update_substitution_progress_bar()
-        self.update_substitution_title(region)
-
-    def sub_model_selected_callback(self, data):
-        is_selected = bool(data["value"])
-        # We use this GUI attribute to store the selected sub-model
-        self.selected_sub_model = [data['item']]
-        get_widget(self.widget, "4501000").disabled = not is_selected
-        if is_selected:
-            region = self.region_set.get(self.selected_regions[0]['Region'])
-            self.model_explorer.update_selected_model(region.get_model(data['item']['Sub-model']), region)
-        else:
-            self.model_explorer.reset()
-
-    @log_errors
-    def validate_sub_model(self, *args):
-        # We get the sub-model data from the SubModelTable:
-        # get_widget(self.widget,"45001").items[self.validated_sub_model]
-
-        get_widget(self.widget, "4501000").disabled = True
-
-        stats_logger.log('validate_sub_model', {'model': self.selected_sub_model[0]['Sub-model']})
-
-        # We udpate the region
-        region = self.region_set.get(self.selected_regions[0]['Region'])
-        region.select_model(self.selected_sub_model[0]['Sub-model'])
-        region.validate()
-        # empty selected region
-        self.selected_regions = []
-        self.selected_sub_model = []
-        # Show tab 2
+    def model_validation_callback(self, *args):
         self.select_tab(2)
+        self.tab2.selected_regions = []

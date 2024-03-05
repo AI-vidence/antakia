@@ -50,7 +50,7 @@ class ExplanationValues:
             self.current_exp = self.available_exp[0]
         else:
             self.current_exp = self.available_exp[1]
-
+        stats_logger.log('exp_method_init', {'exp_method': self.current_exp})
         self.build_widget()
 
     def build_widget(self):
@@ -166,17 +166,20 @@ class ExplanationValues:
         -------
 
         """
+        t = time.time()
         self.disable_gui(True)
-        self.current_exp = self.available_exp[explanation_method]
         # We compute proj for this new PV :
         x_exp = compute_explanations(self.X, self.model, explanation_method, self.task_type, progress_bar)
         pd.testing.assert_index_equal(x_exp.columns, self.X.columns)
 
         # update explanation
-        self.explanations[self.current_exp] = x_exp
+        self.explanations[self.available_exp[explanation_method]] = x_exp
         # refresh front
         self.update_explanation_select()
         self.disable_gui(False)
+        stats_logger.log('compute_explanation',
+                         {'exp_method': explanation_method,
+                          'compute_time': time.time() - t})
 
     def disable_selection(self, is_disabled: bool):
         """
@@ -216,10 +219,6 @@ class ExplanationValues:
         if self.explanations[self.current_exp] is None:
             exp_method = ExplanationMethod.explain_method_as_int(self.current_exp)
             progress_bar = self.get_progress_bar()
-            t = time.time()
             self.compute_explanation(exp_method, progress_bar)
-            stats_logger.log('compute_explanation',
-                             {'exp_method': exp_method,
-                              'compute_time': time.time() - t})
 
         self.on_change_callback(self.current_exp_df)

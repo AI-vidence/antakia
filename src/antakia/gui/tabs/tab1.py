@@ -208,7 +208,6 @@ class Tab1:
         self.es_rules_wgt.update_X(X_exp)
 
     def refresh_buttons(self):
-        # TODO self.disable_hde()
         # data table
         get_widget(self.widget[2], "0").disabled = bool(self.selection_mask.all())
         # skope_rule

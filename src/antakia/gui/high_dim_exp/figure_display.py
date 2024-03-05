@@ -13,7 +13,7 @@ import antakia.config as config
 
 import logging as logging
 from antakia.utils.logging_utils import conf_logger
-from antakia.utils.stats import log_errors
+from antakia.utils.stats import log_errors, stats_logger
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -61,10 +61,11 @@ class FigureDisplay:
             return "unknown trace"
 
     def __init__(
-            self,
-            X: pd.DataFrame | None,
-            y: pd.Series,
-            selection_changed: callable,
+        self,
+        X: pd.DataFrame | None,
+        y: pd.Series,
+        selection_changed: callable,
+        space: str
     ):
         """
 
@@ -74,20 +75,20 @@ class FigureDisplay:
         y: target value (default color)
         selection_changed : callable called when a selection changed
         """
-        # current active tab
-        self.active_tab = 0
+        # current active trace
+        self.active_trace = 0
         # mask of value to display to limit points on graph
         self._mask = None
         # callback to notify gui that the selection has changed
         self.selection_changed = selection_changed
-        # projected values handler & widget
         self.X = X
         self.y = y
+
+        self.space = space
 
         # Now we can init figure
         self.widget = v.Container()
         self.widget.class_ = "flex-fill"
-
 
         # is graph selectable
         self._selection_mode = 'lasso'
@@ -299,7 +300,6 @@ class FigureDisplay:
             with self.figure.batch_update():
                 self.figure.data[trace_id].marker.color = colors
 
-
     def update_X(self, X: pd.DataFrame):
         """
         changes the underlying data - update the data used in display and dimension is necessary
@@ -358,6 +358,7 @@ class FigureDisplay:
 
         """
         self.first_selection |= self.current_selection.all()
+        stats_logger.log('hde_selection', {'first_selection': self.first_selection, 'space': self.space})
         self.current_selection &= self.selection_to_mask(points.point_inds)
         self.display_rules(self.current_selection)
         if self.current_selection.any():
@@ -381,6 +382,7 @@ class FigureDisplay:
         -------
 
         """
+        stats_logger.log('hde_deselection', {'first_selection': self.first_selection, 'space': self.space})
         # We tell the GUI
         self.first_selection = False
         self.current_selection = utils.boolean_mask(self.X, True)
@@ -562,4 +564,4 @@ class FigureDisplay:
         self._show_trace(self.REGIONSET_TRACE, tab == 2)
         self._show_trace(self.REGION_TRACE, tab == 3)
         # and it's the only place where selection is allowed
-        self.active_tab = tab
+        self.active_trace = tab

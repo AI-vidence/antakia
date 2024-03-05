@@ -33,12 +33,12 @@ def check_hde_color(gui):
         if gui.vs_hde.figure._colors[gui.tab] is not None:
             assert (gui.vs_hde.figure._colors[gui.tab] == c).all()
             assert (gui.es_hde.figure._colors[gui.tab] == c).all()
-        assert gui.vs_hde.figure.active_tab == 0
-        assert gui.es_hde.figure.active_tab == 0
+        assert gui.vs_hde.figure.active_trace == 0
+        assert gui.es_hde.figure.active_trace == 0
         assert gui.vs_hde.figure._visible == [1, 0, 0, 0]
     elif gui.tab == 1:
-        assert gui.vs_hde.figure.active_tab == 1
-        assert gui.es_hde.figure.active_tab == 1
+        assert gui.vs_hde.figure.active_trace == 1
+        assert gui.es_hde.figure.active_trace == 1
         assert gui.vs_hde.figure._visible == [0, 1, 0, 0]
         selection = gui.selection_mask
         assert selection.mean() not in (0, 1)
@@ -49,15 +49,15 @@ def check_hde_color(gui):
             assert len(color.unique()) <= 4
             assert (gui.vs_hde.figure._colors[gui.tab] == gui.es_hde.figure._colors[gui.tab]).all()
     elif gui.tab == 2:
-        assert gui.vs_hde.figure.active_tab == 2
-        assert gui.es_hde.figure.active_tab == 2
+        assert gui.vs_hde.figure.active_trace == 2
+        assert gui.es_hde.figure.active_trace == 2
         assert gui.vs_hde.figure._visible == [0, 0, 1, 0]
 
         assert (gui.region_set.get_color_serie() == gui.vs_hde.figure._colors[2]).all()
         assert (gui.vs_hde.figure._colors[gui.tab] == gui.es_hde.figure._colors[gui.tab]).all()
     elif gui.tab == 3:
-        assert gui.vs_hde.figure.active_tab == 3
-        assert gui.es_hde.figure.active_tab == 3
+        assert gui.vs_hde.figure.active_trace == 3
+        assert gui.es_hde.figure.active_trace == 3
         assert gui.vs_hde.figure._visible == [0, 0, 0, 1]
 
         color = gui.vs_hde.figure._colors[gui.tab]
@@ -121,25 +121,25 @@ def check_tab_2_btn(gui):
     # auto number == num slider disabled
     assert get_widget(gui.widget, "4402100").disabled == get_widget(gui.widget, "440211").v_model
     # substitute
-    assert get_widget(gui.widget, "4401000").disabled == (len(gui.selected_regions) != 1)
+    assert get_widget(gui.widget, "4401000").disabled == (len(gui.tab2.selected_regions) != 1)
     # subdivide
-    if gui.selected_regions:
-        first_region = gui.region_set.get(gui.selected_regions[0]['Region'])
+    if gui.tab2.selected_regions:
+        first_region = gui.region_set.get(gui.tab2.selected_regions[0]['Region'])
     else:
         first_region = None
-    enable_sub = (len(gui.selected_regions) == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
+    enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
     assert get_widget(gui.widget, "4401100").disabled == (not enable_sub)
 
-    enable_merge = (len(gui.selected_regions) > 1)
+    enable_merge = (len(gui.tab2.selected_regions) > 1)
     get_widget(gui.widget, "4401200").disabled = not enable_merge
     # delete
-    assert get_widget(gui.widget, "4401300").disabled == (len(gui.selected_regions) == 0)
+    assert get_widget(gui.widget, "4401300").disabled == (len(gui.tab2.selected_regions) == 0)
 
 
 def check_tab_3_btn(gui):
     assert get_widget(gui.widget, "4501000").disabled == (
-            (gui.substitute_region is None) or
-            len(gui.selected_sub_model) == 0
+            (gui.tab3.region is None) or
+            len(gui.tab3.selected_sub_model) == 0
     )
 
 

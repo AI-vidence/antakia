@@ -56,7 +56,8 @@ class HighDimExplorer:
         self.figure = FigureDisplay(
             None,
             pv_bank.y,
-            selection_changed
+            selection_changed,
+            space
         )
 
         self.initialized = False
