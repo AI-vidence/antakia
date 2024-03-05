@@ -161,3 +161,6 @@ class AntakIA:
         if problem_category == ProblemCategory.regression:
             return 'mse'
         return 'accuracy'
+
+    def predict(self, X):
+        return self.gui.region_set.predict(X)

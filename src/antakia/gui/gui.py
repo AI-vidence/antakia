@@ -16,7 +16,7 @@ from antakia.gui.splash_screen import SplashScreen
 from antakia.gui.app_bar.top_bar import TopBar
 from antakia.gui.app_bar.explanation_values import ExplanationValues
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
-from antakia.explanation.explanation_method import ExplanationMethod
+from antakia_core.explanation.explanation_method import ExplanationMethod
 import antakia.config as config
 from antakia_core.data_handler.rules import RuleSet
 
