@@ -1,4 +1,3 @@
-#!/bin/sh
 echo $0
 
 if [ "$0" == "" ]
@@ -26,19 +25,22 @@ cd ../antakia-core
 git stash
 git checkout -f dev
 git pull
-new_v=$(poetry version $1)
+new_v=$(poetry version $0)
 new_v=$(echo $new_v | awk '{print $6}')
 git add pyproject.toml
 git commit -m 'version increased'
 git stash pop
+echo increased antakia-core version
 
 cd ../antakia
 git stash
 git checkout -f dev
 git pull
-new_v=$(poetry version $1)
+new_v=$(poetry version $0)
 new_v=$(echo $new_v | awk '{print $6}')
 poetry run python scripts/release_scripts/version_sync.py
 git add pyproject.toml
 git commit -m 'version increased'
 git stash pop
+echo increased antakia version
+

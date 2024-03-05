@@ -1,4 +1,3 @@
-#!/bin/sh
 if [ "$1" == "" ]
 then
    release=patch

@@ -1,12 +1,11 @@
-#!/bin/sh
 cd ../antakia-core
-poetry shell
 poetry install
+poetry lock
 poetry build
 poetry publish
 
-cd ../antakia-ac
-poetry shell
+cd ../antakia
 poetry install
+poetry lock
 poetry build
 poetry publish
