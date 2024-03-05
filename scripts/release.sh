@@ -1,4 +1,4 @@
-if [ "$1" == "" ]
+if [ $# -eq 0 ]
 then
    release=patch
 else

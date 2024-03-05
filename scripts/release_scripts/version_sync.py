@@ -22,5 +22,6 @@ with open(file_name, 'r') as pyproject:
                 new_file.append(line)
         else:
             new_file.append(line)
+print('version set to ', version)
 with open(file_name, 'w') as pyproject:
     pyproject.write(''.join(new_file))
