@@ -2,10 +2,7 @@ import pandas as pd
 import ipyvuetify as v
 from pandas.api.types import is_bool_dtype
 
-from antakia_core.utils.utils import ProblemCategory
-from antakia.explanation.explanation_method import ExplanationMethod
-
-from antakia.gui.progress_bar import ProgressBar
+from antakia.gui.helpers.progress_bar import ProgressBar
 
 
 def compare_indexes(df1, df2) -> bool:

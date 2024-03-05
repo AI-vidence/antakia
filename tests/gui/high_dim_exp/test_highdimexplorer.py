@@ -16,10 +16,10 @@ class TestHighDimExplorer(TestCase):
         self.pv_bank = ProjectedValueBank(self.y)
         self.pv_bank.get_projected_values(self.X)
         self.selection_changed_called = 0
-        self.callable = dummy_callable()
+        self.callable = dummy_callable
 
     def test_init(self):
-        hde = HighDimExplorer(self.pv_bank, dummy_callable(), 'VS')  # REMPLACER DUMMY CALLABLE
+        hde = HighDimExplorer(self.pv_bank, dummy_callable, 'VS')  # REMPLACER DUMMY CALLABLE
         assert hde.pv_bank == self.pv_bank
         # assert hde.projected_value_selector ==
         # assert hde.
@@ -34,5 +34,5 @@ class TestHighDimExplorer(TestCase):
     @mock.patch('antakia_core.data_handler.projected_values.ProjectedValues.get_projection')
     def test_update_X(self, pv_cpt):
         pv_cpt.return_value, _ = generate_corner_dataset(10)
-        hde = HighDimExplorer(self.pv_bank, dummy_callable(), 'VS')
+        hde = HighDimExplorer(self.pv_bank, dummy_callable, 'VS')
         hde.update_X(pd.DataFrame(self.X))

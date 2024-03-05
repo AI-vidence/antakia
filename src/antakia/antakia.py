@@ -110,7 +110,7 @@ class AntakIA:
             self.variables = Variable.guess_variables(X)
 
     def start_gui(self) -> GUI:
-        return self.gui.show_splash_screen()
+        return self.gui.initialize()
 
     def export_regions(self):
         return self.gui.region_set
@@ -161,3 +161,6 @@ class AntakIA:
         if problem_category == ProblemCategory.regression:
             return 'mse'
         return 'accuracy'
+
+    def predict(self, X):
+        return self.gui.region_set.predict(X)

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from antakia_core.data_handler.rules import Rule, RuleSet
-from antakia.gui.ruleswidget import RuleWidget
+from antakia.gui.tabs.ruleswidget import RuleWidget
 from antakia_core.utils.variable import Variable
 
 
@@ -20,7 +20,7 @@ def test_rule_widget():
     rules2 = RuleSet([rule2, rule4])
     mask2 = rules2.get_matching_mask(data)
 
-    rw = RuleWidget(rule1, data.iloc[:, :2], data.iloc[:, 2], True, mask1, lambda x: None)
+    rw = RuleWidget(rule1, data.iloc[:, :2], data.iloc[:, 2], True, mask1, mask1, lambda x: None)
 
     # add tests
 

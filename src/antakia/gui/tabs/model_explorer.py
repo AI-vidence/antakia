@@ -15,13 +15,13 @@ class ModelExplorer:
     """
 
     def __init__(self, X: pd.DataFrame):
-        self.build_widget()
+        self._build_widget()
         self.model: MLModel | None = None
         self.region: ModelRegion | None = None
         self.X = X
         pass
 
-    def build_widget(self):
+    def _build_widget(self):
         self.feature_importance_tab = v.TabItem(  # Tab 1) feature importances # 43
             class_="mt-2",
             children=[]

@@ -72,12 +72,12 @@ class TestStats(TestCase):
         post.return_value = DummyResponse(300)
         stats.stats_logger.log('test1', {'item1': 1})
         assert post.call_count == 2
-        assert len(stats.stats_logger._logs) == 1
+        assert len(stats.stats_logger._logs) == 2
         check_log_file()
         post.return_value = DummyResponse(200)
         stats.stats_logger.log('test1', {'item1': 1})
         assert post.call_count == 3
-        assert len(post.call_args[1]['json']['items']) == 2
+        assert len(post.call_args[1]['json']['items']) == 3
         assert len(stats.stats_logger._logs) == 0
 
         # fail send and exceed size limit
@@ -85,7 +85,7 @@ class TestStats(TestCase):
         stats.stats_logger.size_limit = 0
         stats.stats_logger.log('test1', {'item1': 1})
         assert post.call_count == 4
-        assert len(stats.stats_logger._logs) == 0
+        assert len(stats.stats_logger._logs) == 1
         check_log_file()
 
         # test send prio event

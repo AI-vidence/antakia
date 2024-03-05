@@ -6,7 +6,8 @@ from unittest import TestCase
 
 from antakia.utils.dummy_datasets import generate_corner_dataset
 from antakia_core.utils.utils import ProblemCategory
-from antakia.gui.explanation_values import ExplanationValues
+from antakia.gui.app_bar.explanation_values import ExplanationValues
+from tests.test_antakia import dummy_exp
 from tests.utils_fct import test_progress_bar, dummy_callable, DummyModel
 
 
@@ -45,7 +46,7 @@ class TestExplanationValues(TestCase):
         # get_widget(exp_val.widget, "13000203").click()
         # get_widget(exp_val.widget, "13000303").click()
 
-    @mock.patch('antakia.gui.explanation_values.compute_explanations')
+    @mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations')
     def test_initialize(self, cpt_exp):
         X_exp = pd.DataFrame(generate_corner_dataset(10)[0])
         cpt_exp.return_value = X_exp
@@ -76,7 +77,7 @@ class TestExplanationValues(TestCase):
                                     self.on_change_callback, self.callable)
         assert not exp_val.has_user_exp
 
-    @mock.patch('antakia.gui.explanation_values.compute_explanations')
+    @mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations')
     def test_update_explanation_select(self, cpt_exp):
         exp_val = ExplanationValues(pd.DataFrame(self.X), self.y, self.model, ProblemCategory.regression,
                                     self.on_change_callback, self.callable)
@@ -86,11 +87,11 @@ class TestExplanationValues(TestCase):
                                                           {'disabled': False, "text": 'SHAP (compute)'},
                                                           {'disabled': False, "text": 'LIME (compute)'}]
 
-    @mock.patch('antakia.gui.explanation_values.compute_explanations')
-    def test_compute_explanation(self, cpt_exp):
+    @mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations', wraps=dummy_exp)
+    def test_compute_explanation(self, _):
         exp_val = ExplanationValues(pd.DataFrame(self.X), self.y, self.model, ProblemCategory.regression,
                                     self.on_change_callback, self.callable)
-        cpt_exp.return_value = pd.DataFrame(self.X)
+        # cpt_exp.return_value = pd.DataFrame(self.X)
         assert exp_val.current_exp == exp_val.available_exp[1]
 
         assert exp_val.explanations['Imported'] is None
@@ -99,7 +100,7 @@ class TestExplanationValues(TestCase):
 
         exp_val.compute_explanation(1, test_progress_bar.update)
 
-        assert test_progress_bar.progress == 0
+        assert test_progress_bar.progress == 100
         assert exp_val.get_explanation_select().items == [{"text": 'Imported', 'disabled': True},
                                                           {"text": 'SHAP', 'disabled': False},
                                                           {"text": 'LIME (compute)', 'disabled': False}]
@@ -122,7 +123,7 @@ class TestExplanationValues(TestCase):
         exp2.disable_selection(False)
         assert not exp2.get_explanation_select().disabled
 
-    @mock.patch('antakia.gui.explanation_values.compute_explanations')
+    @mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations')
     def test_explanation_select_changed(self, cpt_exp):
         data = 'SHAP'
         cpt_exp.return_value = pd.DataFrame(self.X)

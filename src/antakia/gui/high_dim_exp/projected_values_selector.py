@@ -8,7 +8,7 @@ from antakia_core.data_handler.projected_values import Proj
 
 from antakia import config
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
-from antakia.gui.progress_bar import ProgressBar
+from antakia.gui.helpers.progress_bar import ProgressBar
 from ipywidgets import widgets
 import ipyvuetify as v
 
@@ -33,13 +33,13 @@ class ProjectedValuesSelector:
             config.ATK_DEFAULT_DIMENSION
         )
 
-        self.build_widget()
+        self._build_widget()
 
     @property
     def current_dim(self):
         return self.current_proj.dimension
 
-    def build_widget(self):
+    def _build_widget(self):
         self.widget = v.Row(children=[
             v.Select(  # Selection of proj method
                 label=f"Projection in the {self.space} :",

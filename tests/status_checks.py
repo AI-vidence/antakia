@@ -3,7 +3,7 @@ from functools import wraps
 from antakia import config
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia.gui.widgets import get_widget, app_widget
+from antakia.gui.widget_utils import get_widget
 
 
 def check_widget(gui):
@@ -33,12 +33,12 @@ def check_hde_color(gui):
         if gui.vs_hde.figure._colors[gui.tab] is not None:
             assert (gui.vs_hde.figure._colors[gui.tab] == c).all()
             assert (gui.es_hde.figure._colors[gui.tab] == c).all()
-        assert gui.vs_hde.figure.active_tab == 0
-        assert gui.es_hde.figure.active_tab == 0
+        assert gui.vs_hde.figure.active_trace == 0
+        assert gui.es_hde.figure.active_trace == 0
         assert gui.vs_hde.figure._visible == [1, 0, 0, 0]
     elif gui.tab == 1:
-        assert gui.vs_hde.figure.active_tab == 1
-        assert gui.es_hde.figure.active_tab == 1
+        assert gui.vs_hde.figure.active_trace == 1
+        assert gui.es_hde.figure.active_trace == 1
         assert gui.vs_hde.figure._visible == [0, 1, 0, 0]
         selection = gui.selection_mask
         assert selection.mean() not in (0, 1)
@@ -49,15 +49,15 @@ def check_hde_color(gui):
             assert len(color.unique()) <= 4
             assert (gui.vs_hde.figure._colors[gui.tab] == gui.es_hde.figure._colors[gui.tab]).all()
     elif gui.tab == 2:
-        assert gui.vs_hde.figure.active_tab == 2
-        assert gui.es_hde.figure.active_tab == 2
+        assert gui.vs_hde.figure.active_trace == 2
+        assert gui.es_hde.figure.active_trace == 2
         assert gui.vs_hde.figure._visible == [0, 0, 1, 0]
 
         assert (gui.region_set.get_color_serie() == gui.vs_hde.figure._colors[2]).all()
         assert (gui.vs_hde.figure._colors[gui.tab] == gui.es_hde.figure._colors[gui.tab]).all()
     elif gui.tab == 3:
-        assert gui.vs_hde.figure.active_tab == 3
-        assert gui.es_hde.figure.active_tab == 3
+        assert gui.vs_hde.figure.active_trace == 3
+        assert gui.es_hde.figure.active_trace == 3
         assert gui.vs_hde.figure._visible == [0, 0, 0, 1]
 
         color = gui.vs_hde.figure._colors[gui.tab]
@@ -108,11 +108,11 @@ def check_tab_1_btn(gui):
     # data table
     assert get_widget(gui.widget, "4320").disabled == bool(gui.selection_mask.all())
     # skope_rule
-    assert get_widget(gui.widget, "43010").disabled == (not gui.new_selection or bool(gui.selection_mask.all()))
+    assert get_widget(gui.widget, "43010").disabled == (gui.tab1.skope_rules_computed or bool(gui.selection_mask.all()))
     # undo
-    assert get_widget(gui.widget, "4302").disabled == (not (gui.vs_rules_wgt.rules_num > 1))
+    assert get_widget(gui.widget, "4302").disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 1))
     # validate rule
-    assert get_widget(gui.widget, "43030").disabled == (not (gui.vs_rules_wgt.rules_num > 0))
+    assert get_widget(gui.widget, "43030").disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 0))
 
 
 def check_tab_2_btn(gui):
@@ -121,25 +121,25 @@ def check_tab_2_btn(gui):
     # auto number == num slider disabled
     assert get_widget(gui.widget, "4402100").disabled == get_widget(gui.widget, "440211").v_model
     # substitute
-    assert get_widget(gui.widget, "4401000").disabled == (len(gui.selected_regions) != 1)
+    assert get_widget(gui.widget, "4401000").disabled == (len(gui.tab2.selected_regions) != 1)
     # subdivide
-    if gui.selected_regions:
-        first_region = gui.region_set.get(gui.selected_regions[0]['Region'])
+    if gui.tab2.selected_regions:
+        first_region = gui.region_set.get(gui.tab2.selected_regions[0]['Region'])
     else:
         first_region = None
-    enable_sub = (len(gui.selected_regions) == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
+    enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
     assert get_widget(gui.widget, "4401100").disabled == (not enable_sub)
 
-    enable_merge = (len(gui.selected_regions) > 1)
+    enable_merge = (len(gui.tab2.selected_regions) > 1)
     get_widget(gui.widget, "4401200").disabled = not enable_merge
     # delete
-    assert get_widget(gui.widget, "4401300").disabled == (len(gui.selected_regions) == 0)
+    assert get_widget(gui.widget, "4401300").disabled == (len(gui.tab2.selected_regions) == 0)
 
 
 def check_tab_3_btn(gui):
     assert get_widget(gui.widget, "4501000").disabled == (
-            (gui.substitute_region is None) or
-            len(gui.selected_sub_model) == 0
+            (gui.tab3.region is None) or
+            len(gui.tab3.selected_sub_model) == 0
     )
 
 

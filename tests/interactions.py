@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-from antakia.gui.widgets import get_widget, app_widget
+from antakia.gui.widget_utils import get_widget
 from antakia_core.utils.utils import mask_to_rows
 from tests.status_checks import check
 
@@ -151,7 +151,7 @@ def auto_cluster(gui):
 def clear_region_selection(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    for region in gui.selected_regions.copy():
+    for region in gui.tab2.selected_regions.copy():
         toggle_select_region(gui, region['Region'], check=False)
 
 
@@ -161,16 +161,16 @@ def toggle_select_region(gui, region_num):
         raise InteractionError('wrong tab')
     if gui.region_set.get(region_num) is None:
         raise InteractionError('unknown region')
-    value = len(list(filter(lambda r: r['Region'] == region_num, gui.selected_regions))) == 0
+    value = len(list(filter(lambda r: r['Region'] == region_num, gui.tab2.selected_regions))) == 0
     data = {
         'value': value,
         'item': {'Region': region_num}
     }
-    gui.region_selected(data)
+    gui.tab2.region_selected(data)
     if value:
-        gui.selected_regions += [data['item']]
+        gui.tab2.selected_regions += [data['item']]
     else:
-        gui.selected_regions = list(filter(lambda x: x['Region'] != region_num, gui.selected_regions))
+        gui.tab2.selected_regions = list(filter(lambda x: x['Region'] != region_num, gui.tab2.selected_regions))
 
 
 @check
@@ -217,9 +217,9 @@ def delete(gui):
 def select_model(gui, model):
     if gui.tab != 3:
         raise InteractionError('wrong tab')
-    if len(gui.selected_regions) == 0:
+    if len(gui.tab2.selected_regions) == 0:
         raise InteractionError('no region selected')
-    region = gui.region_set.get(gui.selected_regions[0]['Region'])
+    region = gui.region_set.get(gui.tab2.selected_regions[0]['Region'])
     if model >= len(region.perfs):
         raise InteractionError('unknown model')
     model = region.perfs.index[model]
@@ -227,7 +227,7 @@ def select_model(gui, model):
         'value': True,
         'item': {'Sub-model': model}
     }
-    gui.sub_model_selected_callback(data)
+    gui.tab3._sub_model_selected_callback(data)
 
 
 @check

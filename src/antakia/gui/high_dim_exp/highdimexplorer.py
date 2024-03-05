@@ -32,10 +32,10 @@ class HighDimExplorer:
     """
 
     def __init__(
-            self,
-            pv_bank: ProjectedValueBank,
-            selection_changed: callable,
-            space: str
+        self,
+        pv_bank: ProjectedValueBank,
+        selection_changed: callable,
+        space: str
     ):
         """
 
@@ -56,7 +56,8 @@ class HighDimExplorer:
         self.figure = FigureDisplay(
             None,
             pv_bank.y,
-            selection_changed
+            selection_changed,
+            space
         )
 
         self.initialized = False

@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 from antakia.antakia import AntakIA
-from antakia.gui.widgets import splash_widget, app_widget
 from antakia.utils.dummy_datasets import load_dataset
 from tests.interactions import *
 from tests.status_checks import check_all
@@ -39,10 +38,6 @@ class TestAntakia(TestCase):
         cls.classifier_DT = DecisionTreeClassifier().fit(cls.X, cls.y)
         cls.x_exp = pd.concat(
             [(cls.X.iloc[:, 0] > 0.5) * 0.5, (cls.X.iloc[:, 1] > 0.5) * 0.5, (cls.X.iloc[:, 2] > 2) * 1], axis=1)
-
-    def setUp(self):
-        splash_widget.reset()
-        app_widget.reset()
 
     def test_vanilla_run(self):
         # vanilla run
@@ -112,8 +107,6 @@ class TestAntakia(TestCase):
 
     def test_random(self):
         for _ in range(10):
-            splash_widget.reset()
-            app_widget.reset()
             atk = AntakIA(self.X, self.y, self.regression_DT)
             random_walk(atk, 20)
 
@@ -142,15 +135,15 @@ def dummy_exp(_X, model, method, task_type, callback, *args, **kwargs):
     return pd.DataFrame(_X.values, index=_X.index, columns=_X.columns)
 
 
-@mock.patch('antakia.gui.explanation_values.compute_explanations', wraps=dummy_exp)
+@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations', wraps=dummy_exp)
 @mock.patch('antakia_core.data_handler.projected_values.compute_projection', wraps=dummy_projection)
 def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     atk.start_gui()
     # assert both progress bar are full after start up
 
     gui = atk.gui
-    assert get_widget(gui.splash_widget, '110').v_model == 100
-    assert get_widget(gui.splash_widget, '210').v_model == 100
+    assert get_widget(gui.splash.widget, '110').v_model == 100
+    assert get_widget(gui.splash.widget, '210').v_model == 100
     if check:
         check_all(gui)
     # change colors

@@ -1,20 +1,18 @@
-import json
-
 import ipyvuetify as v
 import requests
 from ipywidgets import widgets
 import webbrowser
 from importlib.resources import files
-from antakia.gui.metadata import metadata
+from antakia.gui.helpers.metadata import metadata
 
 
 class TopBar:
     def __init__(self):
         # We count the number of times this GUI has been initialized
 
-        self.build_widget()
+        self._build_widget()
 
-    def build_widget(self):
+    def _build_widget(self):
         star_btn = v.Btn(color='primary', children=['Star Antakia'])
         star_btn.on_event('click', self.open_web)
 
