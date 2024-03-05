@@ -28,7 +28,7 @@ ipyvuetify = "<1.9.0" # do not edit please
 ipywidgets = "^8.1.1"
 plotly = "^5.18.0"
 python-dotenv = "^1.0.0"
-antakia-core = "*"
+antakia-core = "0.2.10"
 antakia-ac = ">=0.2.4"
 #antakia-ac = {path = "../antakia-ac", develop = true}
 #antakia-core = {path = "../antakia-core", develop = true}
