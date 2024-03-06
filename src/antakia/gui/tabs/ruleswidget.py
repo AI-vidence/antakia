@@ -347,6 +347,7 @@ class RulesWidget:
             children=[self.region_stat_card, self.rules_widgets],
         )
         self.refresh_widget()
+        self.disable()
 
     def set_title(self, title: str, css: str):
         self.title = title

@@ -23,12 +23,48 @@ class Tab1:
         self.variables = variables
         self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True, self.new_rules_defined)
         self.es_rules_wgt = RulesWidget(self.X_exp, self.y, self.variables, False)
-        self.vs_rules_wgt.disable()
-        self.es_rules_wgt.disable()
 
         self._build_widget()
 
     def _build_widget(self):
+        self.find_rules_btn = v.Btn(  # 43010 Skope button
+            v_on='tooltip.on',
+            class_="ma-1 primary white--text",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=[
+                        "mdi-axis-arrow"
+                    ],
+                ),
+                "Find rules",
+            ],
+        )
+        self.undo_btn = v.Btn(  # 4302
+            class_="ma-1",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=[
+                        "mdi-undo"
+                    ],
+                ),
+                "Undo",
+            ],
+        )
+        self.validate_btn = v.Btn(  # 43030 validate
+            v_on='tooltip.on',
+            class_="ma-1 green white--text",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=[
+                        "mdi-check"
+                    ],
+                ),
+                "Validate rules",
+            ],
+        )
         self.widget = [
             v.Row(  # buttons row # 430
                 class_="d-flex flex-row align-top mt-2",
@@ -62,35 +98,12 @@ class Tab1:
                                 'name': 'activator',
                                 'variable': 'tooltip',
                                 'children':
-                                    v.Btn(  # 43010 Skope button
-                                        v_on='tooltip.on',
-                                        class_="ma-1 primary white--text",
-                                        children=[
-                                            v.Icon(
-                                                class_="mr-2",
-                                                children=[
-                                                    "mdi-axis-arrow"
-                                                ],
-                                            ),
-                                            "Find rules",
-                                        ],
-                                    ),
+                                    self.find_rules_btn
                             }
                         ],
                         children=['Find a rule to match the selection']
                     ),
-                    v.Btn(  # 4302
-                        class_="ma-1",
-                        children=[
-                            v.Icon(
-                                class_="mr-2",
-                                children=[
-                                    "mdi-undo"
-                                ],
-                            ),
-                            "Undo",
-                        ],
-                    ),
+                    self.undo_btn,
                     v.Tooltip(  # 4303
                         bottom=True,
                         v_slots=[
@@ -98,19 +111,7 @@ class Tab1:
                                 'name': 'activator',
                                 'variable': 'tooltip',
                                 'children':
-                                    v.Btn(  # 43030 validate
-                                        v_on='tooltip.on',
-                                        class_="ma-1 green white--text",
-                                        children=[
-                                            v.Icon(
-                                                class_="mr-2",
-                                                children=[
-                                                    "mdi-check"
-                                                ],
-                                            ),
-                                            "Validate rules",
-                                        ],
-                                    ),
+                                    self.validate_btn
                             }
                         ],
                         children=['Promote current rules as a region']
@@ -126,6 +127,7 @@ class Tab1:
             ),
             v.ExpansionPanels(  # tab 1 / row #3 : datatable with selected rows # 432
                 class_="d-flex flex-row",
+                disabled=True,
                 children=[
                     v.ExpansionPanel(  # 4320 # is enabled or disabled when no selection
                         children=[
@@ -158,16 +160,11 @@ class Tab1:
                 ],
             ),
         ]
-        get_widget(self.widget[2], "0").disabled = True  # disable datatable
-        # We wire the click event on the 'Find-rules' button
-        get_widget(self.widget[0], "10").on_event("click", self.compute_skope_rules)
-
-        # We wire the ckick event on the 'Undo' button
-        get_widget(self.widget[0], "2").on_event("click", self.undo_rules)
-
-        # Its enabled when rules graphs have been updated with rules
-        # We wire the click event on the 'Valildate rules' button
-        get_widget(self.widget[0], "30").on_event("click", self.validate_rules)
+        # get_widget(self.widget[2], "0").disabled = True  # disable datatable
+        # We wire the click events
+        self.find_rules_btn.on_event("click", self.compute_skope_rules)
+        self.undo_btn.on_event("click", self.undo_rules)
+        self.validate_btn.on_event("click", self.validate_rules)
 
     def update_selection(self, selection_mask):
         self.skope_rules_computed = False
