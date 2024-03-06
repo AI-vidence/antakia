@@ -1,20 +1,22 @@
 import pandas as pd
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import ipyvuetify as v
+from antakia_core.data_handler.region import Region
 from antakia_core.data_handler.rules import RuleSet
 from antakia_core.utils.utils import format_data
 
 from antakia.gui.tabs.ruleswidget import RulesWidget
-from antakia.gui.widget_utils import get_widget, change_widget
+from antakia.gui.widget_utils import change_widget
 from antakia.utils.stats import log_errors, stats_logger
 
 
 class Tab1:
     def __init__(self, variables, update_callback, validate_rules_callback, X, X_exp, y):
-        self.selection_mask = None
+        self.selection_changed = False
+        self.region = Region(X)
+        self.selection_mask = self.region.mask
         self.update_callback = update_callback
         self.validate_rules_callback = validate_rules_callback
-        self.skope_rules_computed = False
 
         self.X = X
         self.X_exp = X_exp
@@ -166,12 +168,30 @@ class Tab1:
         self.undo_btn.on_event("click", self.undo_rules)
         self.validate_btn.on_event("click", self.validate_rules)
 
+    @property
+    def valid_selection(self):
+        return self.selection_mask.any() and not (self.selection_mask.all())
+
+    def reset(self):
+        self.selection_changed = False
+        self.region = Region(self.X)
+        self.selection_mask = self.region.mask
+
+        self.vs_rules_wgt.reset_widget()
+        self.es_rules_wgt.reset_widget()
+
+    def update_region(self, region: Region):
+        # TODO : compute score
+        self.region = region
+        self.vs_rules_wgt.init_rules(region.rules, {}, region.mask)
+        self.update_selection(region.mask)
+        self.new_rules_defined(None, region.mask)
+
     def update_selection(self, selection_mask):
-        self.skope_rules_computed = False
         self.selection_mask = selection_mask
-        if selection_mask.all():
-            self.es_rules_wgt.reset_widget()
-            self.vs_rules_wgt.reset_widget()
+        self.selection_changed = self.valid_selection
+        if not self.valid_selection:
+            self.reset()
         else:
             # Selection is not empty anymore or changes
             X_rounded = self.X.loc[selection_mask].copy().apply(format_data)
@@ -191,7 +211,7 @@ class Tab1:
         self.refresh_buttons()
 
     def update_selection_status(self):
-        if not self.selection_mask.all():
+        if self.valid_selection:
             selection_status_str_1 = f"{self.selection_mask.sum()} point selected"
             selection_status_str_2 = f"{100 * self.selection_mask.mean():.2f}% of the  dataset"
         else:
@@ -206,18 +226,17 @@ class Tab1:
 
     def refresh_buttons(self):
         # data table
-        get_widget(self.widget[2], "0").disabled = bool(self.selection_mask.all())
+        self.widget[2].children[0].disabled = not self.valid_selection
         # skope_rule
-        get_widget(self.widget[0], "10").disabled = self.skope_rules_computed or bool(self.selection_mask.all())
+        self.find_rules_btn.disabled = not self.valid_selection or not self.selection_changed
         # undo
-        get_widget(self.widget[0], "2").disabled = not (self.vs_rules_wgt.rules_num > 1)
+        self.undo_btn.disabled = not (self.vs_rules_wgt.rules_num > 1)
         # validate rule
-        get_widget(self.widget[0], "30").disabled = not (self.vs_rules_wgt.rules_num > 0)
+        self.validate_btn.disabled = not (self.vs_rules_wgt.rules_num > 0)
 
     @log_errors
     def compute_skope_rules(self, *args):
-        self.skope_rules_computed = True
-
+        self.selection_changed = False
         # compute skope rules
         skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, self.X, self.variables)
         skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
@@ -237,12 +256,11 @@ class Tab1:
         if self.vs_rules_wgt.rules_num > 0:
             self.vs_rules_wgt.undo()
         else:
-            # TODO : pourquoi on annule d'abord le VS puis l'ES?
             self.es_rules_wgt.undo()
         self.refresh_buttons()
 
     @log_errors
-    def new_rules_defined(self, rules_widget: RulesWidget, df_mask: pd.Series):
+    def new_rules_defined(self, rules_widget: RulesWidget | None, df_mask: pd.Series):
         stats_logger.log('rule_changed')
         """
         Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
@@ -252,32 +270,26 @@ class Tab1:
         self.update_callback(selection_mask=self.selection_mask, rules_mask=df_mask)
 
         # sync selection between rules_widgets
-        if rules_widget == self.vs_rules_wgt:
-            self.es_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
-        else:
+        if rules_widget != self.vs_rules_wgt:
             self.vs_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
+        if rules_widget != self.es_rules_wgt:
+            self.es_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
 
         self.refresh_buttons()
 
     @log_errors
     def validate_rules(self, *args):
         stats_logger.log('validate_rules')
-
+        # get rule set and check validity
         rules_set = self.vs_rules_wgt.current_rules_list
-        # UI rules :
-        # We clear selection
-        # We clear the RulesWidget
-        self.es_rules_wgt.reset_widget()
-        self.vs_rules_wgt.reset_widget()
         if len(rules_set) == 0:
             stats_logger.log('validate_rules', info={'error': 'invalid rules'})
             self.vs_rules_wgt.show_msg("No rules found on Value space cannot validate region", "red--text")
             return
 
-        # We add them to our region_set
-        # lock rule
-
-        # And update the rules table (tab 2)
-        # we refresh buttons
-        self.refresh_buttons()
-        self.validate_rules_callback(rules_set)
+        # we persist the rule set in the region
+        self.region.update_rule_set(rules_set)
+        # we ship the region to GUI to synchronize other tab
+        self.validate_rules_callback(self.region)
+        # we reset the tab
+        self.reset()
