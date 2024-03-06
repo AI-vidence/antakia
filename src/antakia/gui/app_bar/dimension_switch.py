@@ -22,8 +22,7 @@ class DimSwitch:
         self.widget.on_event("change", self.switch_dimension)
 
     @log_errors
-    def switch_dimension(self, widget, event, data):
+    def switch_dimension(self, widget=None, event=None, data=None):
         dim = 3 if data else 2
         stats_logger.log('dim_changed', {'dim':dim})
-        self.widget.v_model = data
         self.update_callback(dim)

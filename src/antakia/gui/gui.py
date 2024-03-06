@@ -398,6 +398,7 @@ class GUI:
     def dimension_update_callback(self, caller, dim):
         self.vs_hde.set_dim(dim)
         self.es_hde.set_dim(dim)
+        self.disable_hde()
 
     @log_errors
     def color_update_callback(self, caller, color):
