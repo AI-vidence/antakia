@@ -8,6 +8,7 @@ from antakia_core.data_handler.rules import Rule, RuleSet
 from antakia_core.utils.utils import compute_step, get_mask_comparison_color
 from antakia_core.utils.variable import DataVariables
 
+from antakia.gui.graphical_elements.rule_slider import RuleSlider
 from antakia.utils.stats import log_errors
 
 
@@ -149,44 +150,26 @@ class RuleWidget:
                     style_="width: 150px",
                     multiple=True,
                 )
-            min_ = float(self.X[self.rule.variable.column_name].min())
-            max_ = float(self.X[self.rule.variable.column_name].max())
-            min_, max_, step = compute_step(min_, max_)
-            min_ = min_ - step
-            slider_args = {
-                'min': min_,
-                'max': max_,
-                'step': step,
-                'thumb_label': "always",
-                'thumb_size': 30,
-                'thumb_color': 'blue'
-            }
-            if self.rule.rule_type == 1:  # var < max
-                slider_class = v.Slider
-                slider_args['color'] = 'green'
-                slider_args['track_color'] = 'red'
-            elif self.rule.rule_type == 2:  # var > min
-                slider_class = v.Slider
-                slider_args['color'] = 'red'
-                slider_args['track_color'] = 'green'
-            elif self.rule.is_inner_interval_rule:
-                slider_class = v.RangeSlider
-                slider_args['color'] = 'green'
-                slider_args['track_color'] = 'red'
-            else:
-                slider_class = v.RangeSlider
-                slider_args['color'] = 'red'
-                slider_args['track_color'] = 'green'
+            range_min = float(self.X[self.rule.variable.column_name].min())
+            range_max = float(self.X[self.rule.variable.column_name].max())
+            range_min, range_max, step = compute_step(range_min, range_max)
+            range_min = range_min - step
+            current_min, current_max = self._get_select_widget_values()
 
-            slider = slider_class(**slider_args)
+            slider = RuleSlider(
+                range_min,
+                range_max,
+                step,
+                value_min=current_min,
+                value_max=current_max,
+                change_callback=self._widget_value_changed
+            )
 
-            slider.v_model = self._get_select_widget_values()
-            slider.on_event("change", self._widget_value_changed)
-            return slider
+            return slider.widget
         else:
             return v.Col()
 
-    def _get_select_widget_values(self):
+    def _get_select_widget_values(self) -> tuple[float | None, float | None] | list[str]:
         """
         sets the selection values
         Returns
@@ -196,11 +179,11 @@ class RuleWidget:
         if self.rule.is_categorical_rule:
             return self.rule.cat_values
         elif self.rule.rule_type == 1:  # var < max
-            return [self.rule.max],
+            return None, self.rule.max
         elif self.rule.rule_type == 2:  # var > min
-            return [self.rule.min]
+            return self.rule.min, None
         else:
-            return [self.rule.min, self.rule.max]
+            return self.rule.min, self.rule.max
 
     # --------------- callbacks ------------------- #
     @log_errors
@@ -220,21 +203,21 @@ class RuleWidget:
         -------
 
         """
+        print(data)
         cat_values = None
         if self.rule.is_categorical_rule:
             cat_values = data
             min_ = max_ = None
         else:
-            if isinstance(data, list):  # Interval rule
-                min_ = data[0]
-                max_ = data[1]
-            elif self.rule.rule_type == 1:  # var < max
-                min_ = None
-                max_ = data
-            else:
-                min_ = data
-                max_ = None
-        new_rule = Rule(min_, self.rule.operator_min, self.rule.variable, self.rule.operator_max, max_, cat_values)
+            min_, max_ = data
+        new_rule = Rule(
+            min_,
+            self.rule.operator_min if self.rule.operator_min != 2 else '<=',
+            self.rule.variable,
+            self.rule.operator_max if self.rule.operator_max != 2 else '<=',
+            max_,
+            cat_values
+        )
         self.rule = new_rule
         self.rule_updated(new_rule)
 
