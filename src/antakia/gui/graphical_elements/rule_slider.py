@@ -1,13 +1,18 @@
 from functools import partial
 
 import ipyvuetify as v
+import numpy as np
 
 
 class RuleSlider:
     def __init__(self, range_min: float, range_max: float, step: float, value_min: float | None = None,
                  value_max: float | None = None, change_callback=None):
         self.range = range_min, range_max
-        self.value = [max(range_min, value_min), min(value_max, range_max)]
+        if value_max is None or value_max >= range_max:
+            value_max = None
+        if value_min is None or value_min <= range_min:
+            value_min = None
+        self.value = [value_min, value_max]
         self.step = step
         if change_callback is None:
             change_callback = lambda *args: None
@@ -113,7 +118,7 @@ class RuleSlider:
         self.value[0] = min_val
         # update max
         max_val = self.max_input.v_model
-        if not min_val:
+        if not max_val:
             max_val = None
         else:
             try:
@@ -156,6 +161,11 @@ class RuleSlider:
         -------
 
         """
+        if min_val == -np.inf:
+            min_val = None
+        if max_val == np.inf:
+            max_val = None
+
         self.max_input.v_model = max_val
         self.min_input.v_model = min_val
         self._update_slider_and_txt(callback=False)

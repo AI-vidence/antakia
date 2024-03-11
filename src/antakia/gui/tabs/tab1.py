@@ -1,3 +1,5 @@
+from functools import partial
+
 import pandas as pd
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import ipyvuetify as v
@@ -14,9 +16,9 @@ class Tab1:
     def __init__(self, variables, update_callback, validate_rules_callback, X, X_exp, y):
         self.selection_changed = False
         self.region = Region(X)
-        self.selection_mask = self.region.mask
-        self.update_callback = update_callback
-        self.validate_rules_callback = validate_rules_callback
+        self.reference_mask = self.region.mask
+        self.update_callback = partial(update_callback, self, 'rule_updated')
+        self.validate_rules_callback = partial(validate_rules_callback, self, 'rule_validated')
 
         self.X = X
         self.X_exp = X_exp
@@ -66,6 +68,21 @@ class Tab1:
                 ),
                 "Validate rules",
             ],
+        )
+        self.data_table = v.DataTable(  # 432010
+            v_model=[],
+            show_select=False,
+            headers=[
+                {
+                    "text": column,
+                    "sortable": True,
+                    "value": column,
+                }
+                for column in self.X.columns
+            ],
+            items=[],
+            hide_default_footer=False,
+            disable_sort=False,
         )
         self.widget = [
             v.Row(  # buttons row # 430
@@ -139,21 +156,7 @@ class Tab1:
                             ),
                             v.ExpansionPanelContent(  # 43201
                                 children=[
-                                    v.DataTable(  # 432010
-                                        v_model=[],
-                                        show_select=False,
-                                        headers=[
-                                            {
-                                                "text": column,
-                                                "sortable": True,
-                                                "value": column,
-                                            }
-                                            for column in self.X.columns
-                                        ],
-                                        items=[],
-                                        hide_default_footer=False,
-                                        disable_sort=False,
-                                    )
+                                    self.data_table
                                 ],
 
                             ),
@@ -170,12 +173,22 @@ class Tab1:
 
     @property
     def valid_selection(self):
-        return self.selection_mask.any() and not (self.selection_mask.all())
+        return self.reference_mask.any() and not (self.reference_mask.all())
+
+    def refresh_selection_status(self):
+        if self.valid_selection:
+            selection_status_str_1 = f"{self.reference_mask.sum()} point selected"
+            selection_status_str_2 = f"{100 * self.reference_mask.mean():.2f}% of the  dataset"
+        else:
+            selection_status_str_1 = f"0 point selected"
+            selection_status_str_2 = f"0% of the  dataset"
+        change_widget(self.widget[0], "0000", selection_status_str_1)
+        change_widget(self.widget[0], "010", selection_status_str_2)
 
     def reset(self):
         self.selection_changed = False
         self.region = Region(self.X)
-        self.selection_mask = self.region.mask
+        self.reference_mask = self.region.mask
 
         self.vs_rules_wgt.reset_widget()
         self.es_rules_wgt.reset_widget()
@@ -183,46 +196,26 @@ class Tab1:
     def update_region(self, region: Region):
         # TODO : compute score
         self.region = region
-        self.vs_rules_wgt.init_rules(region.rules, {}, region.mask)
-        self.update_selection(region.mask)
-        self.new_rules_defined(None, region.mask)
+        self.vs_rules_wgt.init_rules(region.rules, region.mask)
+        self.es_rules_wgt.init_rules(RuleSet(), region.mask)
 
-    def update_selection(self, selection_mask):
-        self.selection_mask = selection_mask
+    def update_reference_mask(self, reference_mask):
+        self.reference_mask = reference_mask
         self.selection_changed = self.valid_selection
         if not self.valid_selection:
             self.reset()
         else:
             # Selection is not empty anymore or changes
-            X_rounded = self.X.loc[selection_mask].copy().apply(format_data)
-            change_widget(
-                self.widget[2],
-                "010",
-                v.DataTable(
-                    v_model=[],
-                    show_select=False,
-                    headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=X_rounded.to_dict("records"),
-                    hide_default_footer=False,
-                    disable_sort=False,
-                ),
-            )
-        self.update_selection_status()
+            X_rounded = self.X.loc[reference_mask].copy().apply(format_data)
+            self.data_table.items = X_rounded.to_dict("records")
+        self.refresh_selection_status()
+        self.vs_rules_wgt.update_reference_mask(self.reference_mask)
+        self.es_rules_wgt.update_reference_mask(self.reference_mask)
         self.refresh_buttons()
-
-    def update_selection_status(self):
-        if self.valid_selection:
-            selection_status_str_1 = f"{self.selection_mask.sum()} point selected"
-            selection_status_str_2 = f"{100 * self.selection_mask.mean():.2f}% of the  dataset"
-        else:
-            selection_status_str_1 = f"0 point selected"
-            selection_status_str_2 = f"0% of the  dataset"
-        change_widget(self.widget[0], "0000", selection_status_str_1)
-        change_widget(self.widget[0], "010", selection_status_str_2)
 
     def update_X_exp(self, X_exp: pd.DataFrame):
         self.X_exp = X_exp
-        self.es_rules_wgt.update_X(X_exp)
+        self.es_rules_wgt.change_underlying_dataframe(X_exp)
 
     def refresh_buttons(self):
         # data table
@@ -237,17 +230,17 @@ class Tab1:
     @log_errors
     def compute_skope_rules(self, *args):
         self.selection_changed = False
-        # compute skope rules
-        skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, self.X, self.variables)
-        skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-        # init vs rules widget
-        self.vs_rules_wgt.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
-        # update VS and ES HDE
-        self.update_callback(selection_mask=self.selection_mask, rules_mask=skr_rules_list.get_matching_mask(self.X))
+        # compute es rules for info only
+        es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp, self.variables)
+        self.es_rules_wgt.init_rules(es_skr_rules_set, self.reference_mask)
+        # compute rules on vs space
 
-        es_skr_rules_list, es_skr_score_dict = skope_rules(self.selection_mask, self.X_exp, self.variables)
-        es_skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-        self.es_rules_wgt.init_rules(es_skr_rules_list, es_skr_score_dict, self.selection_mask)
+        skr_rules_set, skr_score_dict = skope_rules(self.reference_mask, self.X, self.variables)
+        skr_score_dict['target_avg'] = self.y[self.reference_mask].mean()
+        # init vs rules widget
+        self.vs_rules_wgt.init_rules(skr_rules_set, self.reference_mask)
+        # update widgets and hdes
+        self.new_rules_defined(self, 'skope_rule', df_mask=skr_rules_set.get_matching_mask(self.X))
         self.refresh_buttons()
         stats_logger.log('find_rules', skr_score_dict)
 
@@ -260,20 +253,23 @@ class Tab1:
         self.refresh_buttons()
 
     @log_errors
-    def new_rules_defined(self, rules_widget: RulesWidget | None, df_mask: pd.Series):
-        stats_logger.log('rule_changed')
+    def new_rules_defined(self, caller, event: str, df_mask: pd.Series):
         """
         Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
         The function asks the HDEs to display the rules result
         """
+        print(df_mask.mean())
+        stats_logger.log('rule_changed')
         # We sent to the proper HDE the rules_indexes to render :
-        self.update_callback(selection_mask=self.selection_mask, rules_mask=df_mask)
+        self.update_callback(selection_mask=self.reference_mask, rules_mask=df_mask)
 
         # sync selection between rules_widgets
-        if rules_widget != self.vs_rules_wgt:
-            self.vs_rules_wgt.update_from_mask(df_mask, sync=False)
-        if rules_widget != self.es_rules_wgt:
-            self.es_rules_wgt.update_from_mask(df_mask, sync=False)
+        if caller != self.vs_rules_wgt:
+            print('update vs')
+            self.vs_rules_wgt.update_rule_mask(df_mask, sync=False)
+        if caller != self.es_rules_wgt:
+            print('update es')
+            self.es_rules_wgt.update_rule_mask(df_mask, sync=False)
 
         self.refresh_buttons()
 
@@ -284,7 +280,7 @@ class Tab1:
         rules_set = self.vs_rules_wgt.current_rules_set
         if len(rules_set) == 0:
             stats_logger.log('validate_rules', info={'error': 'invalid rules'})
-            self.vs_rules_wgt.show_msg("No rules found on Value space cannot validate region", "red--text")
+            self.vs_rules_wgt._show_msg("No rules found on Value space cannot validate region", "red--text")
             return
 
         # we persist the rule set in the region

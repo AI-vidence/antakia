@@ -388,13 +388,13 @@ class FigureDisplay:
         self.first_selection = False
         self.current_selection = utils.boolean_mask(self.X, True)
         self.selection_changed(self, self.current_selection)
-        self.display_rules(~self.current_selection, ~self.current_selection)
+        self.display_rules(~self.current_selection)
         if rebuild:
             self.create_figure()
         else:
             self.display_selection()
 
-    def set_selection(self, new_selection_mask: pd.Series):
+    def sync_selection(self, new_selection_mask: pd.Series):
         """
         update selection from mask
         no update_callback
@@ -414,7 +414,7 @@ class FigureDisplay:
 
         # selection event
         self.current_selection = new_selection_mask
-        self.display_rules(self.current_selection, self.current_selection)
+        self.display_rules(self.current_selection)
         self.display_selection()
         return
 
@@ -559,6 +559,7 @@ class FigureDisplay:
         -------
 
         """
+        print('displaying tab', tab)
         self.disable_selection(tab > 1)
         self._show_trace(self.VALUES_TRACE, tab == 0)
         self._show_trace(self.RULES_TRACE, tab == 1)

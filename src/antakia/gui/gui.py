@@ -71,16 +71,16 @@ class GUI:
     """
 
     def __init__(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        model,
-        variables: DataVariables,
-        X_test: pd.DataFrame,
-        y_test: pd.Series,
-        X_exp: pd.DataFrame | None = None,
-        score: callable | str = "mse",
-        problem_category: ProblemCategory = ProblemCategory.regression
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            model,
+            variables: DataVariables,
+            X_test: pd.DataFrame,
+            y_test: pd.Series,
+            X_exp: pd.DataFrame | None = None,
+            score: callable | str = "mse",
+            problem_category: ProblemCategory = ProblemCategory.regression
     ):
         metadata.start()
         self.tab = 1
@@ -263,7 +263,7 @@ class GUI:
             X=self.exp_values.current_exp_df
         )
         self.tab1.update_X_exp(self.exp_values.current_exp_df)
-        self.selection_changed(None, boolean_mask(self.X, True))
+        self.selection_changed(self, boolean_mask(self.X, True))
 
         self.select_tab(0)
         self.disable_hde()
@@ -355,7 +355,7 @@ class GUI:
         self.es_hde.disable(disable_figure, disable_proj)
 
     @log_errors
-    def selection_changed(self, caller: HighDimExplorer | None, new_selection_mask: pd.Series):
+    def selection_changed(self, caller, new_selection_mask: pd.Series):
         """
         callback to synchronize both hdes and tab1
         Parameters
@@ -370,9 +370,9 @@ class GUI:
         """Called when the selection of one HighDimExplorer changes"""
 
         self.selection_mask = new_selection_mask
+        self.disable_hde()
 
         # If new selection (empty or not) : if exists, we remove any 'pending rule'
-        self.disable_hde()
         if new_selection_mask.all():
             # Selection is empty
             self.select_tab(0)
@@ -382,16 +382,12 @@ class GUI:
                               'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
                               'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
 
-        # We synchronize selection between the two HighDimExplorers
-        if caller is None:
+        if caller != self.es_hde.figure:
             self.es_hde.set_selection(self.selection_mask)
+        if caller != self.vs_hde.figure:
             self.vs_hde.set_selection(self.selection_mask)
-        else:
-            other_hde = self.es_hde if caller == self.vs_hde.figure else self.vs_hde
-            other_hde.set_selection(self.selection_mask)
-
-        # update tab1
-        self.tab1.update_selection(self.selection_mask)
+        if caller != self.tab1:
+            self.tab1.update_reference_mask(self.selection_mask)
 
     # ==================== top bar ==================== #
 
@@ -448,13 +444,13 @@ class GUI:
 
     # ==================== TAB 1 ==================== #
 
-    def new_rule_selected_callback(self, selection_mask, rules_mask):
+    def new_rule_selected_callback(self, caller, event: str, selection_mask, rules_mask):
         self.select_tab(1)
         self.vs_hde.figure.display_rules(selection_mask, rules_mask)
         self.es_hde.figure.display_rules(selection_mask, rules_mask)
 
-    def validate_rules_callback(self, region: Region):
-        self.selection_changed(None, boolean_mask(self.X, True))
+    def validate_rules_callback(self, caller, event: str, region: Region):
+        self.selection_changed(caller, boolean_mask(self.X, True))
         region.validate()
         self.region_set.add(region)
         self.select_tab(2)
@@ -462,8 +458,11 @@ class GUI:
     # ==================== TAB 2 ==================== #
 
     def edit_region_callback(self, caller, region):
-        self.tab1.update_region(region)
         self.select_tab(1)
+        self.tab1.update_region(region)
+        self.vs_hde.figure.display_rules(region.mask)
+        self.es_hde.figure.display_rules(region.mask)
+        self.selection_changed(caller, region.mask)
 
     def update_region_callback(self, caller, region_set):
         self.vs_hde.figure.display_regionset(region_set)
