@@ -11,14 +11,16 @@ class InteractionError(Exception):
 
 @check
 def select_dim(gui, dim):
-    gui.dimension_switch.switch_dimension('', '', data=dim)
+    gui.dimension_switch.widget.v_model = dim
+    gui.dimension_switch.widget.fire_event('change', dim)
 
 
 @check
 def set_color(gui, color):
     colors = ['y', 'y^', 'residual']
-    get_widget(gui.widget, '11').v_model = colors[color]
-    get_widget(gui.widget, '11').fire_event('change', get_widget(gui.widget, '11').v_model)
+    wgt = gui.color_switch.widget
+    wgt.v_model = colors[color]
+    wgt.fire_event('change', wgt.v_model)
 
 
 @check
@@ -111,7 +113,7 @@ def unselect(gui, is_value_space):
 def find_rules(gui):
     if gui.tab > 1:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "43010")
+    btn = gui.tab1.find_rules_btn
     if btn.disabled:
         raise InteractionError('skr button disabled')
     btn.click()
@@ -121,7 +123,7 @@ def find_rules(gui):
 def undo(gui):
     if gui.tab > 1:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4302")
+    btn = gui.tab1.undo_btn
     if btn.disabled:
         raise InteractionError('undo button disabled')
     btn.click()
@@ -187,7 +189,7 @@ def substitute(gui):
 def subdivide(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401100")
+    btn = gui.tab2.divide_btn
     if btn.disabled:
         raise InteractionError('subdivide button disabled')
     btn.click()
@@ -197,7 +199,7 @@ def subdivide(gui):
 def merge(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401200")
+    btn = get_widget(gui.widget, "4401300")
     if btn.disabled:
         raise InteractionError('merge button disabled')
     btn.click()
@@ -207,7 +209,7 @@ def merge(gui):
 def delete(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401300")
+    btn = get_widget(gui.widget, "4401400")
     if btn.disabled:
         raise InteractionError('delete button disabled')
     btn.click()

@@ -108,7 +108,7 @@ def check_tab_1_btn(gui):
     # data table
     assert get_widget(gui.widget, "4320").disabled == bool(gui.selection_mask.all())
     # skope_rule
-    assert get_widget(gui.widget, "43010").disabled == (gui.tab1.skope_rules_computed or bool(gui.selection_mask.all()))
+    assert get_widget(gui.widget, "43010").disabled == (not gui.tab1.selection_changed or bool(gui.selection_mask.all()))
     # undo
     assert get_widget(gui.widget, "4302").disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 1))
     # validate rule
@@ -122,6 +122,7 @@ def check_tab_2_btn(gui):
     assert get_widget(gui.widget, "4402100").disabled == get_widget(gui.widget, "440211").v_model
     # substitute
     assert get_widget(gui.widget, "4401000").disabled == (len(gui.tab2.selected_regions) != 1)
+    assert get_widget(gui.widget, "4401200").disabled == (len(gui.tab2.selected_regions) != 1)
     # subdivide
     if gui.tab2.selected_regions:
         first_region = gui.region_set.get(gui.tab2.selected_regions[0]['Region'])
@@ -131,9 +132,9 @@ def check_tab_2_btn(gui):
     assert get_widget(gui.widget, "4401100").disabled == (not enable_sub)
 
     enable_merge = (len(gui.tab2.selected_regions) > 1)
-    get_widget(gui.widget, "4401200").disabled = not enable_merge
+    get_widget(gui.widget, "4401300").disabled = not enable_merge
     # delete
-    assert get_widget(gui.widget, "4401300").disabled == (len(gui.tab2.selected_regions) == 0)
+    assert get_widget(gui.widget, "4401400").disabled == (len(gui.tab2.selected_regions) == 0)
 
 
 def check_tab_3_btn(gui):

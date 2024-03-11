@@ -124,10 +124,10 @@ class RuleWidget:
         if self.rule.is_categorical_rule:
             title = f"{self.rule.variable.display_name} possible values :"
         elif self.rule.rule_type == 1:  # var < max
-            title = f"{self.rule.variable.display_name} lesser than {'or equal to ' if self.rule.include_equals else ''}:"
+            title = f"{self.rule.variable.display_name} lesser than {'or equal to ' if self.rule.includes_max else ''}:"
         elif self.rule.rule_type == 2:  # var > min
-            title = f"{self.rule.variable.display_name} greater than {'or equal to ' if self.rule.include_equals else ''}:"
-        elif self.rule.is_inner_interval_rule:
+            title = f"{self.rule.variable.display_name} greater than {'or equal to ' if self.rule.includes_min else ''}:"
+        elif self.rule.rule_type == 3:
             title = f"{self.rule.variable.display_name} inside the interval:"
         else:
             title = f"{self.rule.variable.display_name} outside the interval:"
@@ -234,7 +234,14 @@ class RuleWidget:
             else:
                 min_ = data
                 max_ = None
-        new_rule = Rule(min_, self.rule.operator_min, self.rule.variable, self.rule.operator_max, max_, cat_values)
+        new_rule = Rule(
+            self.rule.variable,
+            min_,
+            self.rule.includes_min,
+            max_,
+            self.rule.includes_max,
+            cat_values
+        )
         self.rule = new_rule
         self.rule_updated(new_rule)
 
@@ -395,7 +402,7 @@ class RulesWidget:
                 RuleWidget(rule, self.X, self.y, self.is_value_space,
                            self.init_selection_mask, init_rule_mask,
                            self.update_rule)
-                for rule in self.current_rules_list.rules
+                for rule in self.current_rules_list.rules.values()
             ]
         self.set_rules_widgets(self.rule_widget_list)
 
@@ -566,7 +573,7 @@ class RulesWidget:
         """
         # We update the rule in the db
         new_rules_set = self.current_rules_list.copy()
-        new_rules_set.set(new_rule)
+        new_rules_set.add(new_rule)
 
         new_rules_mask = new_rules_set.get_matching_mask(self.X)
         self.update_from_mask(new_rules_mask, new_rules_set)
