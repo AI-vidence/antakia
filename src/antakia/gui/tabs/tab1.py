@@ -271,9 +271,9 @@ class Tab1:
 
         # sync selection between rules_widgets
         if rules_widget != self.vs_rules_wgt:
-            self.vs_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
+            self.vs_rules_wgt.update_from_mask(df_mask, sync=False)
         if rules_widget != self.es_rules_wgt:
-            self.es_rules_wgt.update_from_mask(df_mask, RuleSet(), sync=False)
+            self.es_rules_wgt.update_from_mask(df_mask, sync=False)
 
         self.refresh_buttons()
 
@@ -281,7 +281,7 @@ class Tab1:
     def validate_rules(self, *args):
         stats_logger.log('validate_rules')
         # get rule set and check validity
-        rules_set = self.vs_rules_wgt.current_rules_list
+        rules_set = self.vs_rules_wgt.current_rules_set
         if len(rules_set) == 0:
             stats_logger.log('validate_rules', info={'error': 'invalid rules'})
             self.vs_rules_wgt.show_msg("No rules found on Value space cannot validate region", "red--text")

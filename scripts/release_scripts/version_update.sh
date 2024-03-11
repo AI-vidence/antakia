@@ -49,3 +49,14 @@ git checkout $atk_branch
 git stash pop
 echo increased antakia version
 
+cd ../antakia-core
+poetry shell
+poetry install
+poetry build
+poetry publish
+
+cd ../antakia
+poetry shell
+poetry install
+poetry build
+poetry publish

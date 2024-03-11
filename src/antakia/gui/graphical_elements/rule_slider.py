@@ -7,7 +7,7 @@ class RuleSlider:
     def __init__(self, range_min: float, range_max: float, step: float, value_min: float | None = None,
                  value_max: float | None = None, change_callback=None):
         self.range = range_min, range_max
-        self.value = [value_min, value_max]
+        self.value = [max(range_min, value_min), min(value_max, range_max)]
         self.step = step
         if change_callback is None:
             change_callback = lambda *args: None
@@ -16,7 +16,7 @@ class RuleSlider:
 
     def build_widget(self):
         self.min_input = v.TextField(
-            class_='ml-2 pa-2',
+            class_='ml-2 px-2',
             style_="max-width:100px",
             v_model=self.value[0],
             placeholder='',
@@ -25,7 +25,7 @@ class RuleSlider:
             type_="number"
         )
         self.max_input = v.TextField(
-            class_='pa-2',
+            class_='px-2',
             style_="max-width:100px",
             v_model=self.value[1],
             placeholder='',
@@ -33,7 +33,7 @@ class RuleSlider:
             disabled=False
         )
         self.range_slider = v.RangeSlider(
-            class_='pa-2',
+            class_='px-2',
             thumb_label=True,
             # style_="max-width:500px",
             height=90,
@@ -103,21 +103,23 @@ class RuleSlider:
         # update self.value
         # update min
         min_val = self.min_input.v_model
-        try:
-            min_val = float(min_val)
-        except ValueError:
-            min_val = self.value[0]
-        except TypeError:
+        if not min_val:
             min_val = None
+        else:
+            try:
+                min_val = float(min_val)
+            except ValueError:
+                min_val = self.value[0]
         self.value[0] = min_val
         # update max
         max_val = self.max_input.v_model
-        try:
-            max_val = float(max_val)
-        except ValueError:
-            max_val = self.value[1]
-        except TypeError:
+        if not min_val:
             max_val = None
+        else:
+            try:
+                max_val = float(max_val)
+            except ValueError:
+                max_val = self.value[1]
         self.value[1] = max_val
         # compute range
         range_ = self.value.copy()
