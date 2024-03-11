@@ -11,7 +11,7 @@ class InteractionError(Exception):
 
 @check
 def select_dim(gui, dim):
-    gui.set_dimension(2 + dim)
+    gui.dimension_switch.switch_dimension('', '', data=dim)
 
 
 @check
