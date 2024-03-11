@@ -8,7 +8,7 @@ import pandas as pd
 import ipyvuetify as v
 import IPython.display
 
-from antakia_core.data_handler.region import ModelRegionSet, ModelRegion
+from antakia_core.data_handler.region import ModelRegionSet, ModelRegion, Region
 
 from antakia.gui.app_bar.color_switch import ColorSwitch
 from antakia.gui.app_bar.dimension_switch import DimSwitch
@@ -134,8 +134,16 @@ class GUI:
         self.tab1 = Tab1(variables, self.new_rule_selected_callback, self.validate_rules_callback, self.X, X_exp,
                          self.y)
 
-        self.tab2 = Tab2(variables, X, self.vs_hde.projected_value_selector, self.es_hde.projected_value_selector,
-                         self.region_set, self.update_region_callback, self.substitute_model_callback)
+        self.tab2 = Tab2(
+            variables,
+            X,
+            self.vs_hde.projected_value_selector,
+            self.es_hde.projected_value_selector,
+            self.region_set,
+            self.edit_region_callback,
+            self.update_region_callback,
+            self.substitute_model_callback
+        )
 
         self.tab3 = Tab3(X, problem_category, self.model_validation_callback)
         self.model_explorer = ModelExplorer(self.X)
@@ -439,25 +447,28 @@ class GUI:
 
     # ==================== TAB 1 ==================== #
 
-    def validate_rules_callback(self, rules_set: RuleSet):
-        self.selection_changed(None, boolean_mask(self.X, True))
-
-        region = self.region_set.add_region(rules=rules_set)
-        region.validate()
-        self.select_tab(2)
-
     def new_rule_selected_callback(self, selection_mask, rules_mask):
         self.select_tab(1)
         self.vs_hde.figure.display_rules(selection_mask, rules_mask)
         self.es_hde.figure.display_rules(selection_mask, rules_mask)
 
+    def validate_rules_callback(self, region: Region):
+        self.selection_changed(None, boolean_mask(self.X, True))
+        region.validate()
+        self.region_set.add(region)
+        self.select_tab(2)
+
     # ==================== TAB 2 ==================== #
+
+    def edit_region_callback(self, caller, region):
+        self.tab1.update_region(region)
+        self.select_tab(1)
 
     def update_region_callback(self, caller, region_set):
         self.vs_hde.figure.display_regionset(region_set)
         self.es_hde.figure.display_regionset(region_set)
 
-    def substitute_model_callback(self, region):
+    def substitute_model_callback(self, caller, region):
         self.select_tab(3)
         self.tab3.update_region(region)
 

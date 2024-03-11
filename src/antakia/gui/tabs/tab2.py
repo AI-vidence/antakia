@@ -30,6 +30,7 @@ class Tab2:
         vs_pvs: ProjectedValuesSelector,
         es_pvs: ProjectedValuesSelector,
         region_set: RegionSet,
+        edit_callback: callable,
         update_callback: callable,
         substitute_callback: callable
     ):
@@ -38,8 +39,9 @@ class Tab2:
         self.es_pvs = es_pvs
         self.variables = variables
         self.region_set = region_set
+        self.edit_callback = partial(edit_callback, self)
         self.update_callback = partial(update_callback, self, self.region_set)
-        self.substitute_callback = substitute_callback
+        self.substitute_callback = partial(substitute_callback, self)
         self.auto_cluster_running = False
 
         self._build_widget()
@@ -78,6 +80,19 @@ class Tab2:
                     ],
                 ),
                 "Divide",
+            ],
+        )
+        self.edit_btn = v.Btn(  # 4401100
+            v_on='tooltip.on',
+            class_="ml-3 mt-3",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=[
+                        "mdi-pencil"
+                    ],
+                ),
+                "Edit",
             ],
         )
         self.merge_btn = v.Btn(  # 4401200
@@ -198,6 +213,24 @@ class Tab2:
                                     )
                                 ]
                             ),
+                            v.Row(  # 44011
+                                class_="flex-column",
+                                children=[
+                                    v.Tooltip(  # 440110
+                                        bottom=True,
+                                        v_slots=[
+                                            {
+                                                'name': 'activator',
+                                                'variable': 'tooltip',
+                                                'children':
+                                                    self.edit_btn
+                                            }
+                                        ],
+                                        children=[
+                                            'Edit region\'s rules']
+                                    )
+                                ]
+                            ),
                             v.Row(  # 44012
                                 class_="flex-column",
                                 children=[
@@ -289,6 +322,7 @@ class Tab2:
     def wire(self):
         self.region_table_wgt.set_callback(self.region_selected)
         self.substitute_btn.on_event("click", self.substitute_clicked)
+        self.edit_btn.on_event("click", self.edit_region_clicked)
         self.divide_btn.on_event("click", self.divide_region_clicked)
         self.merge_btn.on_event("click", self.merge_region_clicked)
         self.delete_btn.on_event("click", self.delete_region_clicked)
@@ -431,6 +465,9 @@ class Tab2:
         # substitute
         self.substitute_btn.disabled = num_selected_regions != 1
 
+        # edit
+        self.edit_btn.disabled = num_selected_regions != 1
+
         # divide
         self.divide_btn.disabled = not enable_div
 
@@ -455,6 +492,16 @@ class Tab2:
     def clear_selected_regions(self):
         self.selected_regions = []
         self.update_btns(None)
+
+    @log_errors
+    def edit_region_clicked(self, *args):
+        """
+        Called when the user clicks on the 'divide' (region) button
+        """
+        stats_logger.log('edit_region')
+        # we recover the region to sudivide
+        region = self.region_set.get(self.selected_regions[0]['Region'])
+        self.edit_callback(region)
 
     @log_errors
     def divide_region_clicked(self, *args):
