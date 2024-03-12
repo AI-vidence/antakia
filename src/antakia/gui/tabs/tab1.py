@@ -42,6 +42,18 @@ class Tab1:
                 "Find rules",
             ],
         )
+        self.cancel_btn = v.Btn(  # 4302
+            class_="ma-1",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=[
+                        "mdi-close-circle-outline"
+                    ],
+                ),
+                "Cancel",
+            ],
+        )
         self.undo_btn = v.Btn(  # 4302
             class_="ma-1",
             children=[
@@ -67,7 +79,38 @@ class Tab1:
                 "Validate rules",
             ],
         )
+        self.title_wgt = v.Row(children=[v.Html(  # 44000
+            tag="h3",
+            class_="ml-2",
+            children=["Creating new region :"],
+        )])
+        self.selection_status_str_1 = v.Html(  # 430000
+            tag="strong",
+            children=["0 points"]
+            # 4300000 # selection_status_str_1
+        )
+        self.selection_status_str_2 = v.Html(  # 43001
+            tag="li",
+            children=["0% of the dataset"]
+            # 430010 # selection_status_str_2
+        )
+        self.data_table = v.DataTable(  # 432010
+            v_model=[],
+            show_select=False,
+            headers=[
+                {
+                    "text": column,
+                    "sortable": True,
+                    "value": column,
+                }
+                for column in self.X.columns
+            ],
+            items=[],
+            hide_default_footer=False,
+            disable_sort=False,
+        )
         self.widget = [
+            self.title_wgt,
             v.Row(  # buttons row # 430
                 class_="d-flex flex-row align-top mt-2",
                 children=[
@@ -79,18 +122,10 @@ class Tab1:
                             v.Html(  # 43000
                                 tag="li",
                                 children=[
-                                    v.Html(  # 430000
-                                        tag="strong",
-                                        children=["0 points"]
-                                        # 4300000 # selection_status_str_1
-                                    )
+                                    self.selection_status_str_1
                                 ]
                             ),
-                            v.Html(  # 43001
-                                tag="li",
-                                children=["0% of the dataset"]
-                                # 430010 # selection_status_str_2
-                            )
+                            self.selection_status_str_2
                         ],
                     ),
                     v.Tooltip(  # 4301
@@ -105,6 +140,7 @@ class Tab1:
                         ],
                         children=['Find a rule to match the selection']
                     ),
+                    self.cancel_btn,
                     self.undo_btn,
                     v.Tooltip(  # 4303
                         bottom=True,
@@ -138,21 +174,7 @@ class Tab1:
                             ),
                             v.ExpansionPanelContent(  # 43201
                                 children=[
-                                    v.DataTable(  # 432010
-                                        v_model=[],
-                                        show_select=False,
-                                        headers=[
-                                            {
-                                                "text": column,
-                                                "sortable": True,
-                                                "value": column,
-                                            }
-                                            for column in self.X.columns
-                                        ],
-                                        items=[],
-                                        hide_default_footer=False,
-                                        disable_sort=False,
-                                    )
+                                    self.data_table
                                 ],
 
                             ),
@@ -165,47 +187,58 @@ class Tab1:
         # We wire the click events
         self.find_rules_btn.on_event("click", self.compute_skope_rules)
         self.undo_btn.on_event("click", self.undo_rules)
+        self.cancel_btn.on_event("click", self.cancel_edit)
         self.validate_btn.on_event("click", self.validate_rules)
+        self.refresh_buttons()
 
     @property
     def valid_selection(self):
         return self.selection_mask.any() and not (self.selection_mask.all())
 
+    @property
+    def edit_type(self):
+        return 'creation' if self.region.num == -1 else 'edition'
+
+    def _update_title_txt(self):
+        if self.edit_type == 'creation':
+            self.title_wgt.children = [v.Html(  # 44000
+                tag="h3",
+                class_="ml-2",
+                children=["Creating new region :"],
+            )]
+        else:
+            region_prefix_wgt = v.Html(class_="mr-2", tag="h3", children=["Editing Region"])  # 450000
+            region_chip_wgt = v.Chip(color=self.region.color, children=[str(self.region.num)], )
+            self.title_wgt.children = [v.Sheet(  # 45000
+                class_="ma-1 d-flex flex-row align-center",
+                children=[
+                    region_prefix_wgt,
+                    region_chip_wgt
+                ]
+            )]
+
     def reset(self):
         self.selection_changed = False
-        self.region = Region(self.X)
-        self.selection_mask = self.region.mask
-
-        self.vs_rules_wgt.reset_widget()
-        self.es_rules_wgt.reset_widget()
+        region = Region(self.X)
+        self.update_region(region)
+        # self.vs_rules_wgt.reset_widget()
+        # self.es_rules_wgt.reset_widget()
 
     def update_region(self, region: Region):
         # TODO : compute score
         self.region = region
+        self._update_title_txt()
         self.vs_rules_wgt.init_rules(region.rules, {}, region.mask)
+        self.es_rules_wgt.init_rules(RuleSet(), {}, region.mask)
         self.update_selection(region.mask)
-        self.new_rules_defined(None, region.mask)
+        if self.valid_selection:
+            self.new_rules_defined(None, region.mask)
 
     def update_selection(self, selection_mask):
         self.selection_mask = selection_mask
         self.selection_changed = self.valid_selection
-        if not self.valid_selection:
-            self.reset()
-        else:
-            # Selection is not empty anymore or changes
-            X_rounded = self.X.loc[selection_mask].copy().apply(format_data)
-            change_widget(
-                self.widget[2],
-                "010",
-                v.DataTable(
-                    v_model=[],
-                    show_select=False,
-                    headers=[{"text": column, "sortable": True, "value": column} for column in self.X.columns],
-                    items=X_rounded.to_dict("records"),
-                    hide_default_footer=False,
-                    disable_sort=False,
-                ),
-            )
+        X_rounded = self.X.loc[selection_mask].copy().apply(format_data)
+        self.data_table.items = X_rounded.to_dict("records")
         self.update_selection_status()
         self.refresh_buttons()
 
@@ -216,8 +249,8 @@ class Tab1:
         else:
             selection_status_str_1 = f"0 point selected"
             selection_status_str_2 = f"0% of the  dataset"
-        change_widget(self.widget[0], "0000", selection_status_str_1)
-        change_widget(self.widget[0], "010", selection_status_str_2)
+        self.selection_status_str_1 = selection_status_str_1
+        self.selection_status_str_2 = selection_status_str_2
 
     def update_X_exp(self, X_exp: pd.DataFrame):
         self.X_exp = X_exp
@@ -228,6 +261,8 @@ class Tab1:
         self.widget[2].children[0].disabled = not self.valid_selection
         # skope_rule
         self.find_rules_btn.disabled = not self.valid_selection or not self.selection_changed
+        # cancel
+        self.cancel_btn.disabled = (self.vs_rules_wgt.rules_num == 0) and (self.region.num >= -1)
         # undo
         self.undo_btn.disabled = not (self.vs_rules_wgt.rules_num > 1)
         # validate rule
@@ -256,6 +291,11 @@ class Tab1:
             self.vs_rules_wgt.undo()
         else:
             self.es_rules_wgt.undo()
+        self.refresh_buttons()
+
+    @log_errors
+    def cancel_edit(self, *args):
+        self.update_region(Region(self.X))
         self.refresh_buttons()
 
     @log_errors

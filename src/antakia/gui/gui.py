@@ -71,16 +71,16 @@ class GUI:
     """
 
     def __init__(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        model,
-        variables: DataVariables,
-        X_test: pd.DataFrame,
-        y_test: pd.Series,
-        X_exp: pd.DataFrame | None = None,
-        score: callable | str = "mse",
-        problem_category: ProblemCategory = ProblemCategory.regression
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            model,
+            variables: DataVariables,
+            X_test: pd.DataFrame,
+            y_test: pd.Series,
+            X_exp: pd.DataFrame | None = None,
+            score: callable | str = "mse",
+            problem_category: ProblemCategory = ProblemCategory.regression
     ):
         metadata.start()
         self.tab = 1
@@ -242,19 +242,18 @@ class GUI:
         )  # End of v.Col
 
     def compute_base_values(self):
-        # We trigger VS proj computation :
-        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
-
-        self.vs_hde.initialize(progress_callback=self.splash.proj_progressbar.get_update(1), X=self.X)
-
         # We trigger ES explain computation if needed :
         if not self.exp_values.has_user_exp:  # No imported explanation values
             exp_method = ExplanationMethod.explain_method_as_str(config.ATK_DEFAULT_EXPLANATION_METHOD)
             msg = f"Computing {exp_method} on {self.X.shape}"
         else:
             msg = f"Imported explained values {self.X.shape}"
-        self.splash.set_proj_msg(msg)
+        self.splash.set_exp_msg(msg)
         self.exp_values.initialize(self.splash.exp_progressbar)
+
+        # We trigger VS proj computation :
+        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
+        self.vs_hde.initialize(progress_callback=self.splash.proj_progressbar.get_update(1), X=self.X)
 
         # THen we trigger ES proj computation :
         self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
@@ -421,6 +420,7 @@ class GUI:
         return call_fct
 
     def select_tab(self, tab, front=False):
+        print('select tab', tab, front)
         if tab == 1 and (not self.selection_mask.any() or self.selection_mask.all()):
             return self.select_tab(0)
         if tab == 1:
@@ -463,6 +463,7 @@ class GUI:
 
     def edit_region_callback(self, caller, region):
         self.tab1.update_region(region)
+        self.selection_mask = region.mask
         self.select_tab(1)
 
     def update_region_callback(self, caller, region_set):
