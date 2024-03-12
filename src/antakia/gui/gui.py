@@ -242,19 +242,18 @@ class GUI:
         )  # End of v.Col
 
     def compute_base_values(self):
-        # We trigger VS proj computation :
-        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
-
-        self.vs_hde.initialize(progress_callback=self.splash.proj_progressbar.get_update(1), X=self.X)
-
         # We trigger ES explain computation if needed :
         if not self.exp_values.has_user_exp:  # No imported explanation values
             exp_method = ExplanationMethod.explain_method_as_str(config.ATK_DEFAULT_EXPLANATION_METHOD)
             msg = f"Computing {exp_method} on {self.X.shape}"
         else:
             msg = f"Imported explained values {self.X.shape}"
-        self.splash.set_proj_msg(msg)
+        self.splash.set_exp_msg(msg)
         self.exp_values.initialize(self.splash.exp_progressbar)
+
+        # We trigger VS proj computation :
+        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
+        self.vs_hde.initialize(progress_callback=self.splash.proj_progressbar.get_update(1), X=self.X)
 
         # THen we trigger ES proj computation :
         self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
@@ -460,6 +459,8 @@ class GUI:
     def edit_region_callback(self, caller, region):
         self.select_tab(1)
         self.tab1.update_region(region)
+        self.selection_mask = region.mask
+        # TODO : needed ?
         self.vs_hde.figure.display_rules(region.mask)
         self.es_hde.figure.display_rules(region.mask)
         self.selection_changed(caller, region.mask)

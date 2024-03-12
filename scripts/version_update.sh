@@ -35,6 +35,10 @@ new_v=$(poetry version $1)
 new_v=$(echo $new_v | awk '{print $6}')
 git add pyproject.toml
 git commit -m 'version increased'
+git push
+poetry install
+poetry build
+poetry publish
 git checkout $atkc_branch
 git stash pop
 echo increased antakia-core version
@@ -45,16 +49,11 @@ new_v=$(echo $new_v | awk '{print $6}')
 poetry run python scripts/version_sync.py
 git add pyproject.toml
 git commit -m 'version increased'
+git push
+poetry install
+poetry build
+poetry publish
 git checkout $atk_branch
 git stash pop
 echo increased antakia version
 
-cd ../antakia-core
-poetry install
-poetry build
-poetry publish
-
-cd ../antakia
-poetry install
-poetry build
-poetry publish
