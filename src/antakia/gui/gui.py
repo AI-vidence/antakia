@@ -420,7 +420,6 @@ class GUI:
         return call_fct
 
     def select_tab(self, tab, front=False):
-        print('select tab', tab, front)
         if tab == 1 and (not self.selection_mask.any() or self.selection_mask.all()):
             return self.select_tab(0)
         if tab == 1:
