@@ -249,8 +249,8 @@ class Tab1:
         else:
             selection_status_str_1 = f"0 point selected"
             selection_status_str_2 = f"0% of the  dataset"
-        self.selection_status_str_1 = selection_status_str_1
-        self.selection_status_str_2 = selection_status_str_2
+        self.selection_status_str_1.children = [selection_status_str_1]
+        self.selection_status_str_2.children = [selection_status_str_2]
 
     def update_X_exp(self, X_exp: pd.DataFrame):
         self.X_exp = X_exp
