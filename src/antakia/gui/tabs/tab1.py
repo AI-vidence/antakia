@@ -129,7 +129,6 @@ class Tab1:
             ),
             v.ExpansionPanels(  # tab 1 / row #3 : datatable with selected rows # 432
                 class_="d-flex flex-row",
-                disabled=True,
                 children=[
                     v.ExpansionPanel(  # 4320 # is enabled or disabled when no selection
                         children=[
