@@ -559,7 +559,6 @@ class FigureDisplay:
         -------
 
         """
-        print('displaying tab', tab)
         self.disable_selection(tab > 1)
         self._show_trace(self.VALUES_TRACE, tab == 0)
         self._show_trace(self.RULES_TRACE, tab == 1)

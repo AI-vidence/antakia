@@ -71,16 +71,16 @@ class GUI:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            model,
-            variables: DataVariables,
-            X_test: pd.DataFrame,
-            y_test: pd.Series,
-            X_exp: pd.DataFrame | None = None,
-            score: callable | str = "mse",
-            problem_category: ProblemCategory = ProblemCategory.regression
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        variables: DataVariables,
+        X_test: pd.DataFrame,
+        y_test: pd.Series,
+        X_exp: pd.DataFrame | None = None,
+        score: callable | str = "mse",
+        problem_category: ProblemCategory = ProblemCategory.regression
     ):
         metadata.start()
         self.tab = 1
@@ -367,7 +367,8 @@ class GUI:
 
         """
         """Called when the selection of one HighDimExplorer changes"""
-
+        if not new_selection_mask.any():
+            new_selection_mask = ~new_selection_mask
         self.selection_mask = new_selection_mask
         self.disable_hde()
 
@@ -381,12 +382,17 @@ class GUI:
                               'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
                               'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
 
+        self.display_selection(caller, self.selection_mask)
+
+    def display_selection(self, caller, selection_mask: pd.Series):
+        if not selection_mask.any():
+            selection_mask = ~selection_mask
         if caller != self.es_hde.figure:
-            self.es_hde.set_selection(self.selection_mask)
+            self.es_hde.set_selection(selection_mask)
         if caller != self.vs_hde.figure:
-            self.vs_hde.set_selection(self.selection_mask)
+            self.vs_hde.set_selection(selection_mask)
         if caller != self.tab1:
-            self.tab1.update_reference_mask(self.selection_mask)
+            self.tab1.update_reference_mask(selection_mask)
 
     # ==================== top bar ==================== #
 
@@ -444,7 +450,13 @@ class GUI:
     # ==================== TAB 1 ==================== #
 
     def new_rule_selected_callback(self, caller, event: str, selection_mask, rules_mask):
-        self.select_tab(1)
+        self.selection_mask = selection_mask
+        if selection_mask.all() or not selection_mask.any():
+            selection_mask = rules_mask
+            self.select_tab(0)
+        else:
+            self.select_tab(1)
+        self.display_selection(caller, selection_mask)
         self.vs_hde.figure.display_rules(selection_mask, rules_mask)
         self.es_hde.figure.display_rules(selection_mask, rules_mask)
 
@@ -457,13 +469,11 @@ class GUI:
     # ==================== TAB 2 ==================== #
 
     def edit_region_callback(self, caller, region):
-        self.select_tab(1)
         self.tab1.update_region(region)
         self.selection_mask = region.mask
         # TODO : needed ?
-        self.vs_hde.figure.display_rules(region.mask)
-        self.es_hde.figure.display_rules(region.mask)
         self.selection_changed(caller, region.mask)
+        self.select_tab(1)
 
     def update_region_callback(self, caller, region_set):
         self.vs_hde.figure.display_regionset(region_set)

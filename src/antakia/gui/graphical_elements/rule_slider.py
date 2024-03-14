@@ -39,7 +39,9 @@ class RuleSlider:
         )
         self.range_slider = v.RangeSlider(
             class_='px-2',
-            thumb_label=True,
+            thumb_label='always',
+            thumb_size=30,
+            thumb_color='blue',
             # style_="max-width:500px",
             height=90,
             v_model=[

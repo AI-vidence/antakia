@@ -44,12 +44,12 @@ class RulesWidget:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            variables: DataVariables,
-            values_space: bool,
-            update_callback: callable = None,
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        variables: DataVariables,
+        values_space: bool,
+        update_callback: callable = None,
     ):
         """
         widget to manage rule edition and display
@@ -82,7 +82,7 @@ class RulesWidget:
 
         self._build_widget()
         self._create_rule_widgets()
-        self._refresh()
+        self.refresh()
 
     # ------------------- widget init -------------#
     def _build_widget(self):
@@ -129,13 +129,6 @@ class RulesWidget:
                 Called by self.init_rules
                 If init_rules_mask is None, we clear all our RuleWidgets
 
-        Parameters
-        ----------
-        init_mask : reference_mask
-
-        Returns
-        -------
-
         """
         # We set new RuleWidget list and put it in our ExpansionPanels children
         if self.X is not None:
@@ -146,7 +139,7 @@ class RulesWidget:
         else:
             self._rules_widgets.children = []
 
-    def reorder_rule_widgets(self, all: bool = False):
+    def _reorder_rule_widgets(self, all: bool = False):
         rule_widgets = list(self.rule_widget_collection.values())
         if all:
             rule_widgets.sort(key=lambda x: x.rule.get_matching_mask(self.X).mean())
@@ -166,28 +159,17 @@ class RulesWidget:
 
     # ------------------ widget update --------------------#
 
-    def _set_title(self, title: str, css: str):
-        self._title_wgt.children = [title]
-        self._title_wgt.class_ = css
-
-    def _set_stats(self, stats: str, css: str):
-        self._stats_wgt.children = [stats]
-        self._stats_wgt.class_ = css
-
-    def _set_rules(self, rules: str, css: str):
-        self._rules_txt_wgt.children = [rules]
-        self._rules_txt_wgt.class_ = css
-
-    def _show_title(self):
+    def _refresh_title(self):
         if len(self.current_rules_set) == 0 or self.is_disabled:
             title = f"No rule to display for the {'VS' if self.is_value_space else 'ES'} space"
             css = "ml-3 grey--text" if self.is_disabled else "ml-3"
         else:
             title = f"Rule(s) applied to the {'values' if self.is_value_space else 'explanations'} space"
             css = "ml-3"
-        self._set_title(title, css)
+        self._title_wgt.children = [title]
+        self._title_wgt.class_ = css
 
-    def _show_score(self):
+    def _refresh_score(self):
         """
         show rule score
         Returns
@@ -209,9 +191,10 @@ class RulesWidget:
             scores_txt = (f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
                           f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
             css = "ml-7 black--text"
-        self._set_stats(scores_txt, css)
+        self._stats_wgt.children = [scores_txt]
+        self._stats_wgt.class_ = css
 
-    def _show_rules(self):
+    def _refresh_rule_txt(self):
         """
         show rules as text
         Returns
@@ -219,42 +202,16 @@ class RulesWidget:
 
         """
         if (
-                len(self.current_rules_set) == 0
-                or self.is_disabled
+            len(self.current_rules_set) == 0
+            or self.is_disabled
         ):
             rules_txt = "N/A"
             css = "ml-7 grey--text"
         else:
             rules_txt = repr(self.current_rules_set)
             css = "ml-7 blue--text"
-        self._set_rules(rules_txt, css)
-
-    def _show_msg(self, msg: str, css: str = ""):
-        """
-        print a message for the user
-        Parameters
-        ----------
-        msg : message to be printed
-        css : css class to apply
-
-        Returns
-        -------
-
-        """
-        css = "ml-7 " + css
-        self._set_rules(msg, css)
-
-    # ------------- widget macro method (disable/refresh) ------------- #
-    def disable(self, is_disabled: bool = True):
-        """
-        disables (True) or enables (False) the widget
-        Disabled : card in grey with dummy text + no ExpansionPanels
-        Enabled : card in light blue / ready to display RuleWidgets
-        """
-
-        self.is_disabled = is_disabled
-
-        self._refresh()
+        self._rules_txt_wgt.children = [rules_txt]
+        self._rules_txt_wgt.class_ = css
 
     def _refresh_macro_info(self):
         """
@@ -264,13 +221,13 @@ class RulesWidget:
 
         """
         # We set the title
-        self._show_title()
+        self._refresh_title()
 
         # We set the scores
-        self._show_score()
+        self._refresh_score()
 
         # We set the rules
-        self._show_rules()
+        self._refresh_rule_txt()
 
     def _refresh_rule_widgets(self):
         """
@@ -283,19 +240,43 @@ class RulesWidget:
                 selectable_masks.get(var, self.rule_mask),
                 self.current_rules_set.get_rule(var)
             )
-        self.reorder_rule_widgets()
+        self._reorder_rule_widgets()
 
-    def _refresh(self):
+    def refresh(self):
         if self.X is not None:
             self._refresh_macro_info()
             self._refresh_rule_widgets()
 
-    # ---------------- update logic -------------------------- #
-    @property
-    def space(self):
-        return 'values' if self.is_value_space else 'explanations'
+    # ------------- widget macro method (disable/refresh) ------------- #
+    def disable(self, is_disabled: bool = True):
+        """
+        disables (True) or enables (False) the widget
+        Disabled : card in grey with dummy text + no ExpansionPanels
+        Enabled : card in light blue / ready to display RuleWidgets
+        """
 
-    def change_underlying_dataframe(self, X:pd.DataFrame):
+        self.is_disabled = is_disabled
+
+        self.refresh()
+
+    def show_msg(self, msg: str, css: str = ""):
+        """
+        print a message for the user
+        Parameters
+        ----------
+        msg : message to be printed
+        css : css class to apply
+
+        Returns
+        -------
+
+        """
+        css = "ml-7 " + css
+        self._rules_txt_wgt.children = [msg]
+        self._rules_txt_wgt.class_ = css
+
+    # ---------------- update logic -------------------------- #
+    def change_underlying_dataframe(self, X: pd.DataFrame):
         """
         change the reference dataset
         Parameters
@@ -312,19 +293,21 @@ class RulesWidget:
         self.update_reference_mask(boolean_mask(X, True))
         self.update_rule_mask(boolean_mask(X, True), False)
         self._create_rule_widgets()
-        self._refresh()
+        self.refresh()
 
-    def init_rules(self, rules_set: RuleSet, reference_mask: pd.Series):
+    def change_rules(self, rules_set: RuleSet, reference_mask: pd.Series = None, reset: bool = False):
         """
         initialize the widget with the rule list and
         the reference_mask (selection_mask)
 
         """
         # we start wih a fresh widget
-        self.reset_widget()
+        if reset:
+            self._reset_widget()
         self._put_in_db(rules_set)
         self.disable(False)
-        self.update_reference_mask(reference_mask)
+        if reference_mask is not None:
+            self.update_reference_mask(reference_mask)
         self.update_rule_mask(rules_set.get_matching_mask(self.X), False)
 
     def _get_selectable_masks(self) -> dict[Variable, pd.Series]:
@@ -342,7 +325,7 @@ class RulesWidget:
             res[rule.variable] = mask
         return res
 
-    def reset_widget(self):
+    def _reset_widget(self):
         """
         a reseted widget is
         - disabled
@@ -357,7 +340,7 @@ class RulesWidget:
         for var, rule_wgt in self.rule_widget_collection.items():
             rule_wgt.reinit_rule(Rule(var), boolean_mask(self.X, True))
         self.reference_mask = None
-        self._refresh()
+        self.refresh()
 
     @log_errors
     def sync_rule_widgets(self, caller, event, new_rule: Rule):
@@ -372,18 +355,17 @@ class RulesWidget:
         new_rules_set.replace(new_rule)
         new_rules_mask = new_rules_set.get_matching_mask(self.X)
         self._put_in_db(new_rules_set)
-        self.update_rule_mask(new_rules_mask=new_rules_mask)
+        self.update_rule_mask(new_rules_mask=new_rules_mask, sync=True)
 
     def update_reference_mask(self, reference_mask: pd.Series):
         self.reference_mask = reference_mask
-        print(reference_mask.mean())
         for var, rule_wgt in self.rule_widget_collection.items():
             rule = self.current_rules_set.get_rule(var)
             if rule is not None:
                 rule_wgt.reinit_rule(rule, self.reference_mask)
             else:
                 rule_wgt.reinit_rule(Rule(var), self.reference_mask)
-        self._refresh()
+        self.refresh()
 
     def update_rule_mask(self, new_rules_mask: pd.Series, sync=True):
         """
@@ -403,7 +385,7 @@ class RulesWidget:
 
         self.rule_mask = new_rules_mask
         # We refresh the widget
-        self._refresh()
+        self.refresh()
         # We notify the GUI and tell there are new rules to draw
         if self.update_callback is not None and sync:
             self.update_callback(new_rules_mask)
@@ -420,7 +402,7 @@ class RulesWidget:
         # We compute again the rules mask
 
         # we refresh the widget macro info
-        self._refresh()
+        self.refresh()
 
         # We notify the GUI and tell there are new rules to draw if necessary
         if self.update_callback is not None:
@@ -438,21 +420,6 @@ class RulesWidget:
 
         """
         self.rules_history.append(rule_set)
-
-    def _dump_db(self) -> str:
-        """
-        print db - for debugging purposes
-        Returns
-        -------
-
-        """
-        txt = ""
-        for i in range(len(self.rules_history)):
-            rules_list = self.rules_history[i]
-
-            txt += f"({i}) : {len(rules_list)} rules:"
-            "\n    ".join(rules_list)
-        return txt
 
     @property
     def current_rules_set(self) -> RuleSet:
@@ -490,7 +457,7 @@ class RulesWidget:
         }
 
     @property
-    def rules_num(self) -> int:
+    def history_size(self) -> int:
         """
         get the size of the db
         Returns

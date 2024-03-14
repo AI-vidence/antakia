@@ -99,7 +99,7 @@ class RuleWidget:
         -------
 
         """
-        mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
+        mask_color, colors_info = self._get_colors()
         if self.type == 'histogram':
             base_args = {
                 'bingroup': 1,
@@ -179,6 +179,10 @@ class RuleWidget:
         return repr(self.rule)
 
     def _update_panel_title(self):
+        if self.rule.rule_type == -1:
+            self.title.class_ = "grey lighten-4"
+        else:
+            self.title.class_ = "blue lighten-4"
         self.title.children = [self._get_panel_title()]
 
     def _get_select_widget(self):
@@ -276,7 +280,9 @@ class RuleWidget:
         -------
 
         """
-        assert rule.variable == self.rule.variable
+        if rule.rule_type < 0:
+            self.idx = None
+
         self.rule = rule
         self.init_mask = init_mask
 
@@ -298,8 +304,15 @@ class RuleWidget:
         if self.display_sliders:
             min_val, max_val = self._get_select_widget_values()
             self.slider.set_value(min_val, max_val)
-        mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
+        mask_color, colors_info = self._get_colors()
         with self.figure.batch_update():
             for i, color in enumerate(colors_info.values()):
                 self.figure.data[i].x = self.X_col[mask_color == color]
                 self.figure.data[i].y = self.selectable_mask[mask_color == color]
+
+    def _get_colors(self):
+        if self.init_mask.all() or not self.init_mask.any():
+            mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.rule_mask)
+        else:
+            mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
+        return mask_color, colors_info

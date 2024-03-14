@@ -107,13 +107,23 @@ def check_proj_menu(gui):
 def check_tab_1_btn(gui):
     # data table
     tab1 = gui.tab1
-    assert tab1.widget[2].children[0].disabled == bool(gui.selection_mask.all())
-    # skope_rule
-    assert tab1.find_rules_btn.disabled == (not gui.tab1.selection_changed or bool(gui.selection_mask.all()))
-    # undo
-    assert tab1.undo_btn.disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 1))
-    # validate rule
-    assert tab1.validate_btn.disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 0))
+
+    empty_rule_set = len(tab1.vs_rules_wgt.current_rules_set) == 0
+    empty_history = tab1.vs_rules_wgt.history_size <= 1
+
+    # data table
+    assert tab1.data_table.disabled == (not tab1.valid_selection)
+    # self.widget[2].children[0].disabled = not self.valid_selection
+    assert tab1.find_rules_btn.disabled == (not tab1.valid_selection) or (not tab1.selection_changed)
+    assert tab1.undo_btn.disabled == empty_history
+    assert tab1.cancel_btn.disabled == empty_rule_set and empty_history
+
+    has_modif = (
+                    tab1.vs_rules_wgt.history_size > 1
+                ) or (
+                    tab1.es_rules_wgt.history_size == 1 and tab1.region.num < 0  # do not validate a empty modif
+                )
+    assert tab1.validate_btn.disabled == (not has_modif) or empty_rule_set
 
 
 def check_tab_2_btn(gui):
