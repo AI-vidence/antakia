@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from typing import Callable
 import pandas as pd
 
 import ipyvuetify as v
@@ -5,9 +8,10 @@ from plotly.graph_objects import FigureWidget, Histogram
 
 from antakia_core.data_handler.rules import Rule, RuleSet
 
-from antakia_core.utils.utils import compute_step, get_mask_comparison_color
+from antakia_core.utils.utils import compute_step, get_mask_comparison_color, boolean_mask
 from antakia_core.utils.variable import DataVariables
 
+from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors
 
 
@@ -21,7 +25,7 @@ class RuleWidget:
 
     def __init__(self, rule: Rule, X: pd.DataFrame, y, values_space: bool, init_selection_mask: pd.Series,
                  init_rules_mask: pd.Series,
-                 rule_updated: callable):
+                 rule_updated: Callable):
         '''
 
         Parameters
@@ -38,7 +42,7 @@ class RuleWidget:
         self.X: pd.DataFrame = X
         self.X_col = X.loc[:, rule.variable.column_name]
         self.values_space: bool = values_space
-        self.rule_updated: callable = rule_updated
+        self.rule_updated: Callable = rule_updated
         self.display_sliders: bool = self.values_space  # enable rule edit
         self.widget = None
         self.init_mask = init_selection_mask
@@ -62,7 +66,7 @@ class RuleWidget:
         title = self._get_panel_title()
 
         # root_widget is an ExpansionPanel
-        self.widget: v.ExpansionPanel = v.ExpansionPanel(
+        self.widget = v.ExpansionPanel(
             children=[
                 v.ExpansionPanelHeader(
                     class_="blue lighten-4",
@@ -245,7 +249,7 @@ class RuleWidget:
         self.rule = new_rule
         self.rule_updated(new_rule)
 
-    def update(self, new_rules_mask: pd.Series = None, rule: Rule = None):
+    def update(self, new_rules_mask: pd.Series | None = None, rule: Rule | None = None):
         """ 
             used to update the display (sliders and histogram) to match the new rule
             (called from outside th object to synchronize it)
@@ -286,11 +290,11 @@ class RulesWidget:
 
     def __init__(
         self,
-        X: pd.DataFrame,
+        X: pd.DataFrame | None,
         y: pd.Series,
         variables: DataVariables,
         values_space: bool,
-        new_rules_defined: callable = None,
+        new_rules_defined: Callable | None = None,
     ):
         """
         widget to manage rule edition and display
@@ -305,7 +309,7 @@ class RulesWidget:
         self.X = X
         self.y = y
         self.variables: DataVariables = variables
-        self.init_selection_mask = None
+        self.init_selection_mask: pd.Series | None = None
         self.is_value_space = values_space
         self.new_rules_defined = new_rules_defined
 
@@ -591,6 +595,8 @@ class RulesWidget:
         -------
 
         """
+        if self.init_selection_mask is None:
+            raise NotInitialized()
         if len(new_rules_set):
             # update rules
             try:

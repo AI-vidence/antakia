@@ -4,7 +4,7 @@ from antakia_core.data_handler.projected_values import ProjectedValues
 
 class ProjectedValueBank:
     def __init__(self, y: pd.Series):
-        self.projected_values = {}
+        self.projected_values: dict[int,ProjectedValues] = {}
         self.y = y
 
     def get_projected_values(self, X: pd.DataFrame) -> ProjectedValues:

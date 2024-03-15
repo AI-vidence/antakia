@@ -3,6 +3,7 @@ from os import path
 import json
 import urllib
 import logging
+from typing import Any
 
 import antakia
 from importlib.resources import files
@@ -21,7 +22,8 @@ class MetaData:
     def load_file(self):
         self.run_id = str(uuid.uuid4())
         try:
-            metadata: dict = json.loads(open(self.metadata_file, "r").read()) if path.exists(self.metadata_file) else 0
+            metadata = json.loads(open(self.metadata_file, "r").read()) if path.exists(
+                self.metadata_file) else 0
             if isinstance(metadata, int):
                 self.counter = metadata
                 self.last_checked_version = None

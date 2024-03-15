@@ -11,7 +11,7 @@ from scipy.stats import multivariate_normal
 
 def generate_corner_dataset(
         num_samples: int, corner_position: str = "top_right", random_seed: int | None = None
-) -> (np.ndarray, np.ndarray):
+) -> tuple[np.ndarray, np.ndarray]:
     """Generate a toy dataset with a corner of the feature space.
 
     Parameters
@@ -115,7 +115,7 @@ def xor_proba(X, var):
     return proba[:, 1] / (proba.sum(axis=1))
 
 
-DATASETS = {
+DATASETS: dict[str, Callable] = {
     "Breast Cancer": breast_cancer_dataset,
     "Corner": generate_corner_dataset,
     "Blobs": blobs_dataset,
@@ -126,7 +126,7 @@ DATASETS = {
 
 def load_dataset(
         dataset_name: str | None, num_samples: int = 100, **kwargs
-) -> (pd.DataFrame, pd.Series):
+) -> tuple[pd.DataFrame, pd.Series]:
     if dataset_name in DATASETS:
         return DATASETS[dataset_name](num_samples, **kwargs)
     else:

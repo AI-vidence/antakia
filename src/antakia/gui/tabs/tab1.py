@@ -1,17 +1,26 @@
+from typing import Callable
+
 import pandas as pd
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import ipyvuetify as v
 from antakia_core.data_handler.region import Region
 from antakia_core.data_handler.rules import RuleSet
 from antakia_core.utils.utils import format_data
+from antakia_core.utils.variable import DataVariables
 
 from antakia.gui.tabs.ruleswidget import RulesWidget
-from antakia.gui.widget_utils import change_widget
 from antakia.utils.stats import log_errors, stats_logger
 
 
 class Tab1:
-    def __init__(self, variables, update_callback, validate_rules_callback, X, X_exp, y):
+    def __init__(self,
+                 variables: DataVariables,
+                 update_callback: Callable,
+                 validate_rules_callback: Callable,
+                 X: pd.DataFrame,
+                 X_exp: pd.DataFrame | None,
+                 y: pd.Series
+                 ):
         self.selection_changed = False
         self.region = Region(X)
         self.selection_mask = self.region.mask

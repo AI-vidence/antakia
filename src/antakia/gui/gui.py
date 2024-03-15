@@ -1,6 +1,8 @@
 from __future__ import annotations
+from __future__ import annotations
 
 import time
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -71,16 +73,16 @@ class GUI:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            model,
-            variables: DataVariables,
-            X_test: pd.DataFrame,
-            y_test: pd.Series,
-            X_exp: pd.DataFrame | None = None,
-            score: callable | str = "mse",
-            problem_category: ProblemCategory = ProblemCategory.regression
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        variables: DataVariables,
+        X_test: pd.DataFrame | None,
+        y_test: pd.Series | None,
+        X_exp: pd.DataFrame | None = None,
+        score: Callable | str = "mse",
+        problem_category: ProblemCategory = ProblemCategory.regression
     ):
         metadata.start()
         self.tab = 1
@@ -326,7 +328,7 @@ class GUI:
     # ==================== sync callbacks ==================== #
 
     @log_errors
-    def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: callable = None):
+    def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: Callable | None = None):
         """
         on explanation change, synchronizes es_hde and tab1
         Parameters

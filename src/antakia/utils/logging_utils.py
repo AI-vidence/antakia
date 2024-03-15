@@ -34,7 +34,7 @@ class OutputWidgetHandler(Handler):
         self.out.clear_output()
 
 
-def conf_logger(logger: Logger, height: int = 160) -> Handler:
+def conf_logger(logger: Logger, height: int = 160):
     if config.ATK_SHOW_LOG_MODULE_WIDGET:
         logger.setLevel(DEBUG)
         handler = OutputWidgetHandler(height)
@@ -44,13 +44,3 @@ def conf_logger(logger: Logger, height: int = 160) -> Handler:
         handler.show_logs()
     else:
         logger.setLevel(INFO)
-
-
-def wrap_repr(widget: Widget, size: int = 200) -> str:
-    text = widget.__repr__()
-    if widget.layout is None:
-        text += " Layout is None !"
-    else:
-        text += " Visibility : " + widget.layout.visibility
-    s_wrap_list = textwrap.wrap(text, size)
-    return '\n'.join(s_wrap_list)

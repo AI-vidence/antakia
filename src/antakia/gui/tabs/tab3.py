@@ -1,3 +1,5 @@
+from typing import Callable
+
 import ipyvuetify as v
 import pandas as pd
 from antakia_core.data_handler.region import ModelRegion
@@ -21,7 +23,7 @@ class Tab3:
         for column in ['Sub-model', 'MSE', 'MAE', 'R2', 'delta']
     ]
 
-    def __init__(self, X: pd.DataFrame, problem_category: ProblemCategory, validate_callback: callable):
+    def __init__(self, X: pd.DataFrame, problem_category: ProblemCategory, validate_callback: Callable):
         self.X = X
         self.problem_category = problem_category
         self.validate_callback = validate_callback
@@ -189,7 +191,7 @@ class Tab3:
         ):
             self.model_table.items = []
         else:
-            def series_to_str(series: pd.Series) -> str:
+            def series_to_str(series: pd.Series) -> pd.Series:
                 return series.apply(lambda x: f"{x:.2f}")
 
             perfs = self.region.perfs.copy()

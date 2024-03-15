@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Callable
 
 import ipyvuetify as v
 import pandas as pd
@@ -30,9 +31,9 @@ class Tab2:
         vs_pvs: ProjectedValuesSelector,
         es_pvs: ProjectedValuesSelector,
         region_set: RegionSet,
-        edit_callback: callable,
-        update_callback: callable,
-        substitute_callback: callable
+        edit_callback: Callable,
+        update_callback: Callable,
+        substitute_callback: Callable
     ):
         self.X = X
         self.vs_pvs = vs_pvs

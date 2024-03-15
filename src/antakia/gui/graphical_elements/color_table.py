@@ -1,17 +1,18 @@
-from traitlets import traitlets
+from traitlets.traitlets import List, Unicode
 import ipyvuetify as v
 from antakia_core.utils.utils import colors
+from typing import Callable
 
 
 class ColorTable(v.VuetifyTemplate):
     """
     table to display regions
     """
-    headers = traitlets.List([]).tag(sync=True, allow_null=True)
-    items = traitlets.List([]).tag(sync=True, allow_null=True)
-    selected = traitlets.List([]).tag(sync=True, allow_null=True)
-    colors = traitlets.List(colors).tag(sync=True)
-    template = traitlets.Unicode('''
+    headers: List = List([]).tag(sync=True, allow_null=True)
+    items: List = List([]).tag(sync=True, allow_null=True)
+    selected: List = List([]).tag(sync=True, allow_null=True)
+    colors: List = List(colors).tag(sync=True)
+    template: Unicode = Unicode('''
         <template>
             <v-data-table
                 v-model="selected"
@@ -45,7 +46,7 @@ class ColorTable(v.VuetifyTemplate):
     # def vue_tableclick(self, data):
     #     raise ValueError(f"click event data = {data}")
 
-    def set_callback(self, callback: callable):  # type: ignore
+    def set_callback(self, callback: Callable):  # type: ignore
         self.callback = callback
 
     def vue_tableselect(self, data):

@@ -1,4 +1,5 @@
 import time
+from typing import Callable
 
 import pandas as pd
 
@@ -14,15 +15,15 @@ import ipyvuetify as v
 
 from antakia_core.utils import utils
 
+from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import stats_logger, log_errors
 
 
 class ProjectedValuesSelector:
-    def __init__(self, pv_bank: ProjectedValueBank, update_callback: callable, space):
+    def __init__(self, pv_bank: ProjectedValueBank, update_callback: Callable, space):
         self.widget = None
-        self.progress_bar = None
         self.projected_value: ProjectedValues | None = None
-        self._proj_params_cards = {}
+        self._proj_params_cards: dict[int, list[v.Slider]] = {}
         self.update_callback = update_callback
         self.pv_bank = pv_bank
         self.space = space
@@ -303,6 +304,8 @@ class ProjectedValuesSelector:
         -------
 
         """
+        if self.projected_value is None:
+            raise NotInitialized()
         if dim is None:
             dim = self.current_dim
         if progress_callback is None:
@@ -320,6 +323,8 @@ class ProjectedValuesSelector:
         return X
 
     def is_computed(self, projection_method=None, dim=None) -> bool:
+        if self.projected_value is None:
+            raise NotInitialized()
         if projection_method is None:
             projection_method = self.projection_method
         if dim is None:

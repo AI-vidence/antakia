@@ -138,7 +138,7 @@ def log_errors(method):
     return log
 
 
-def analyze_traceback(tb: traceback):
+def analyze_traceback(tb):
     stack_summary = traceback.extract_tb(tb)
     # keep only antakia frames
     first_antakia_frame = 0
@@ -146,7 +146,7 @@ def analyze_traceback(tb: traceback):
         if '/antakia/' in frame.filename:
             first_antakia_frame = i
             break
-    stack_summary = stack_summary[first_antakia_frame:]
+    stack_summary = list(stack_summary)[first_antakia_frame:]
     return [frame_to_dict(f) for f in stack_summary]
 
 

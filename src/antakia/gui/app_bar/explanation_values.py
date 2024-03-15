@@ -1,4 +1,5 @@
 import time
+from typing import Callable
 
 import pandas as pd
 import ipyvuetify as v
@@ -16,8 +17,8 @@ class ExplanationValues:
     """
     available_exp = ['Imported', 'SHAP', 'LIME']
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, task_type, on_change_callback: callable,
-                 disable_gui: callable, X_exp=None):
+    def __init__(self, X: pd.DataFrame, y: pd.Series, model, task_type, on_change_callback: Callable,
+                 disable_gui: Callable, X_exp: pd.DataFrame | None = None):
         """
 
         Parameters
@@ -99,7 +100,7 @@ class ExplanationValues:
         self.initialized = True
 
     @property
-    def current_exp_df(self) -> pd.DataFrame:
+    def current_exp_df(self) -> pd.DataFrame | None:
         """
         currently selected explanation projected values instance
         Returns
@@ -154,7 +155,7 @@ class ExplanationValues:
         """
         return self.widget.children[0]
 
-    def compute_explanation(self, explanation_method: int, progress_bar: callable):
+    def compute_explanation(self, explanation_method: int, progress_bar: Callable):
         """
         compute explanation and refresh widgets (select the new explanation method)
         Parameters

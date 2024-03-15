@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable
+
 import pandas as pd
 from antakia_core.data_handler.projected_values import ProjectedValues
 
@@ -9,6 +11,7 @@ from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSe
 
 import logging as logging
 from antakia.utils.logging_utils import conf_logger
+from antakia.utils.other_utils import NotInitialized
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -35,7 +38,7 @@ class HighDimExplorer:
     def __init__(
         self,
         pv_bank: ProjectedValueBank,
-        selection_changed: callable,
+        selection_changed: Callable,
         space: str
     ):
         """
@@ -130,6 +133,8 @@ class HighDimExplorer:
         """
         if self.projected_value_selector is None:
             return None  # When we're an ES HDE and no explanation have been imported nor computed yet
+        if self.projected_value_selector.projected_value is None:
+            raise NotInitialized()
         return self.projected_value_selector.projected_value.X
 
     def set_tab(self, *args, **kwargs):

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable
+
 import pandas as pd
 import numpy as np
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
@@ -13,6 +15,7 @@ import antakia.config as config
 
 import logging as logging
 from antakia.utils.logging_utils import conf_logger
+from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors, stats_logger
 
 logger = logging.getLogger(__name__)
@@ -64,7 +67,7 @@ class FigureDisplay:
         self,
         X: pd.DataFrame | None,
         y: pd.Series,
-        selection_changed: callable,
+        selection_changed: Callable,
         space: str
     ):
         """
@@ -78,7 +81,7 @@ class FigureDisplay:
         # current active trace
         self.active_trace = 0
         # mask of value to display to limit points on graph
-        self._mask = None
+        self._mask: pd.Series | None = None
         # callback to notify gui that the selection has changed
         self.selection_changed = selection_changed
         self.X = X
@@ -140,7 +143,7 @@ class FigureDisplay:
     def current_selection(self, value):
         self._current_selection = value
 
-    def initialize(self, X: pd.DataFrame = None):
+    def initialize(self, X: pd.DataFrame | None):
         """
         inital computation called at startup, after init to compute required values
         Parameters
@@ -171,7 +174,7 @@ class FigureDisplay:
 
         """
 
-        self._selection_mode = False if is_disabled else "lasso"
+        self._selection_mode = False if is_disabled else "lasso"  # type: ignore
         if self.dim == 2 and self.figure is not None:
             self.figure.update_layout(
                 dragmode=self._selection_mode
@@ -192,7 +195,7 @@ class FigureDisplay:
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
-    def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series = None):
+    def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series | None = None):
         """
         display a rule vs a selection
         Parameters
@@ -328,6 +331,8 @@ class FigureDisplay:
         -------
 
         """
+        if self.X is None:
+            raise NotInitialized()
         selection = utils.rows_to_mask(self.X[self.mask], row_numbers)
         if not selection.any() or selection.all():
             return utils.boolean_mask(self.get_X(masked=False), selection.mean())
@@ -435,14 +440,16 @@ class FigureDisplay:
         """
         mask should be applied on each display (x,y,z,color, selection)
         """
+        if self.X is None:
+            raise NotInitialized()
         if self._mask is None:
-            self._mask = pd.Series([False] * len(self.X), index=self.X.index)
             limit = config.ATK_MAX_DOTS
             if len(self.X) > limit:
+                self._mask = pd.Series([False] * len(self.X), index=self.X.index)
                 indices = np.random.choice(self.X.index, size=limit, replace=False)
                 self._mask.loc[indices] = True
             else:
-                self._mask.loc[:] = True
+                self._mask = pd.Series([True] * len(self.X), index=self.X.index)
         return self._mask
 
     def create_figure(self):
@@ -507,7 +514,6 @@ class FigureDisplay:
             self.figure.data[0].on_deselect(self._deselection_event)
         self.widget.children = [self.figure]
 
-
     def redraw(self):
         """
         redraw all traces, without recreating figure
@@ -530,7 +536,7 @@ class FigureDisplay:
                 self.refresh_trace(trace_id)
         self.widget.children = [self.figure]
 
-    def get_X(self, masked: bool) -> pd.DataFrame | None:
+    def get_X(self, masked: bool) -> pd.DataFrame:
         """
 
         return current projection value
@@ -544,7 +550,9 @@ class FigureDisplay:
         -------
 
         """
-        if masked and self.X is not None:
+        if self.X is None:
+            raise NotInitialized()
+        if masked:
             return self.X.loc[self.mask]
         return self.X
 

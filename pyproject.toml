@@ -51,6 +51,7 @@ mkdocstrings = "^0.24.0"
 mkdocstrings-python = "^1.8.0"
 mkdocs-gen-files = "^0.5.0"
 mkdocs-literate-nav = "^0.6.1"
+mypy = "^1.9.0"
 
 [tool.poetry.group.demo.dependencies]
 jupyter = "^1.0.0"

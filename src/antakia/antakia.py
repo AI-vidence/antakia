@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -37,10 +37,10 @@ class AntakIA:
         y: pd.Series,
         model,
         variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
-        X_test: pd.DataFrame = None,
-        y_test: pd.Series = None,
+        X_test: pd.DataFrame | None = None,
+        y_test: pd.Series | None = None,
         X_exp: pd.DataFrame | None = None,
-        score: callable | str = 'auto',
+        score: Callable | str = 'auto',
         problem_category: str = 'auto'
     ):
         """
@@ -65,12 +65,12 @@ class AntakIA:
             X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
         self.X = X
         if y.ndim > 1:
-            y = y.squeeze()
+            y = y.squeeze()  # type:ignore
         self.y = y.astype(float)
 
         self.X_test = X_test
         if y_test is not None and y_test.ndim > 1:
-            y_test = y_test.squeeze()
+            y_test = y_test.squeeze()  # type:ignore
         self.y_test = y_test
 
         self.model = model
@@ -99,7 +99,7 @@ class AntakIA:
     def set_variables(self, X, variables):
         if variables is not None:
             if isinstance(variables, list):
-                self.variables: DataVariables = Variable.import_variable_list(variables)
+                self.variables = Variable.import_variable_list(variables)
                 if len(self.variables) != len(X.columns):
                     raise ValueError("Provided variable list must be the same length of the dataframe")
             elif isinstance(variables, pd.DataFrame):
@@ -123,15 +123,15 @@ class AntakIA:
         if isinstance(y, np.ndarray):
             y = pd.Series(y)
 
-        X.columns = [str(col) for col in X.columns]
+        X.columns = [str(col) for col in X.columns]  # type:ignore
         if X_exp is not None:
             X_exp.columns = X.columns
 
         if X_exp is not None:
-            pd.testing.assert_index_equal(X.index, X_exp.index, check_names=False)
+            pd.testing.assert_index_equal(X.index, X_exp.index, check_names=False)  # type:ignore
             if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
                 raise IndexError('X and X_exp must share the same index')
-        pd.testing.assert_index_equal(X.index, y.index, check_names=False)
+        pd.testing.assert_index_equal(X.index, y.index, check_names=False)  # type:ignore
         return X, y, X_exp
 
     def _preprocess_problem_category(self, problem_category: str, model, X: pd.DataFrame) -> ProblemCategory:
