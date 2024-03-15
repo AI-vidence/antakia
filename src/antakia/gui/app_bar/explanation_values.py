@@ -4,7 +4,7 @@ import pandas as pd
 import ipyvuetify as v
 
 from antakia import config
-from antakia_core.explanation.explanations import compute_explanations, ExplanationMethod
+from antakia_core.explanation import compute_explanations, ExplanationMethod
 from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.utils.stats import stats_logger, log_errors
 

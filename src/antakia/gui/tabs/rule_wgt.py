@@ -2,8 +2,8 @@ from functools import partial
 
 import pandas as pd
 import ipyvuetify as v
-from antakia_core.data_handler.rule import Rule
-from antakia_core.utils.utils import boolean_mask, get_mask_comparison_color, compute_step
+from antakia_core.data_handler import Rule
+from antakia_core.utils import boolean_mask, get_mask_comparison_color, compute_step
 from plotly.graph_objs import Histogram, FigureWidget, Box
 
 from antakia.gui.graphical_elements.rule_slider import RuleSlider

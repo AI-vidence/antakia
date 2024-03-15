@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
-from antakia_core.data_handler.projected_values import ProjectedValues
+from antakia_core.data_handler import ProjectedValues
 
 from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank

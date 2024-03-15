@@ -5,11 +5,10 @@ from typing import List, Dict, Any
 import numpy as np
 import pandas as pd
 
-from antakia_core.utils.utils import ProblemCategory
+from antakia_core.utils import ProblemCategory, DataVariables
 
 from antakia.utils.stats import stats_logger, log_errors
 from antakia.utils.checks import is_valid_model
-from antakia_core.utils.variable import Variable, DataVariables
 from antakia.gui.gui import GUI
 
 
@@ -99,15 +98,15 @@ class AntakIA:
     def set_variables(self, X, variables):
         if variables is not None:
             if isinstance(variables, list):
-                self.variables: DataVariables = Variable.import_variable_list(variables)
+                self.variables: DataVariables = DataVariables.import_variable_list(variables)
                 if len(self.variables) != len(X.columns):
                     raise ValueError("Provided variable list must be the same length of the dataframe")
             elif isinstance(variables, pd.DataFrame):
-                self.variables = Variable.import_variable_df(variables)
+                self.variables = DataVariables.import_variable_df(variables)
             else:
                 raise ValueError("Provided variable list must be a list or a pandas DataFrame")
         else:
-            self.variables = Variable.guess_variables(X)
+            self.variables = DataVariables.guess_variables(X)
 
     def start_gui(self) -> GUI:
         return self.gui.initialize()

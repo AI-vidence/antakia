@@ -3,9 +3,9 @@ from functools import partial
 import pandas as pd
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import ipyvuetify as v
-from antakia_core.data_handler.region import Region
-from antakia_core.data_handler.rules import RuleSet
-from antakia_core.utils.utils import format_data
+from antakia_core.data_handler import Region
+from antakia_core.data_handler import RuleSet
+from antakia_core.utils import format_data
 
 from antakia.gui.tabs.ruleswidget import RulesWidget
 from antakia.utils.stats import log_errors, stats_logger

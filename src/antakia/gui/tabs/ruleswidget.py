@@ -3,10 +3,10 @@ from functools import partial
 import pandas as pd
 import ipyvuetify as v
 
-from antakia_core.data_handler.rules import Rule, RuleSet
+from antakia_core.data_handler import Rule, RuleSet
 
-from antakia_core.utils.utils import boolean_mask
-from antakia_core.utils.variable import DataVariables, Variable
+from antakia_core.utils import boolean_mask
+from antakia_core.utils import DataVariables, Variable
 
 from antakia.gui.tabs.rule_wgt import RuleWidget
 from antakia.utils.stats import log_errors

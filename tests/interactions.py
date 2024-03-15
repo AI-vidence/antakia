@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 from antakia.gui.widget_utils import get_widget
-from antakia_core.utils.utils import mask_to_rows
+from antakia_core.utils import mask_to_rows
 from tests.status_checks import check
 
 

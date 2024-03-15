@@ -31,7 +31,8 @@ python-dotenv = "^1.0.0"
 #antakia-core = "0.2.22"
 antakia-ac = "^0.2.14"
 #antakia-ac = {path = "../antakia-ac/dist/antakia_ac-0.2.12-cp311-cp311-macosx_13_0_arm64.whl"}
-antakia-core = { path = "../antakia-core", develop = true }
+#antakia-core = { path = "../antakia-core", develop = true }
+antakia-core = { git = "git@github.com:AI-vidence/antakia-core.git", branch="feat/left_out_region" }
 requests = "^2.31.0"
 pdpbox = "^0.3.0"
 jupyterlab = ">=3"

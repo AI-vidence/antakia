@@ -6,9 +6,9 @@ from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier
 
-from antakia_core.data_handler.region import Region, RegionSet
+from antakia_core.data_handler import Region, RegionSet
 
-import antakia_core.utils.utils as utils
+import antakia_core.utils as utils
 import antakia.config as config
 
 import logging as logging
@@ -238,9 +238,7 @@ class FigureDisplay:
         -------
 
         """
-        rs = RegionSet(self.X)
-        rs.add(region)
-        self._colors[self.REGION_TRACE] = rs.get_color_serie()
+        self._colors[self.REGION_TRACE] = region.get_color_serie()
         self._display_zones(self.REGION_TRACE)
 
     def _display_zones(self, trace=None):
@@ -506,7 +504,6 @@ class FigureDisplay:
             self.figure.data[0].on_selection(self._selection_event)
             self.figure.data[0].on_deselect(self._deselection_event)
         self.widget.children = [self.figure]
-
 
     def redraw(self):
         """

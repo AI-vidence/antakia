@@ -8,7 +8,7 @@ import pandas as pd
 import ipyvuetify as v
 import IPython.display
 
-from antakia_core.data_handler.region import ModelRegionSet, ModelRegion, Region
+from antakia_core.data_handler import ModelRegion, Region, ModelRegionSet
 
 from antakia.gui.app_bar.color_switch import ColorSwitch
 from antakia.gui.app_bar.dimension_switch import DimSwitch
@@ -16,9 +16,8 @@ from antakia.gui.splash_screen import SplashScreen
 from antakia.gui.app_bar.top_bar import TopBar
 from antakia.gui.app_bar.explanation_values import ExplanationValues
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
-from antakia_core.explanation.explanation_method import ExplanationMethod
+from antakia_core.explanation import ExplanationMethod
 import antakia.config as config
-from antakia_core.data_handler.rules import RuleSet
 
 from antakia.gui.tabs.model_explorer import ModelExplorer
 from antakia.gui.tabs.tab1 import Tab1
@@ -30,8 +29,7 @@ from antakia.gui.helpers.metadata import metadata
 
 import logging
 from antakia.utils.logging_utils import conf_logger
-from antakia_core.utils.utils import boolean_mask, ProblemCategory
-from antakia_core.utils.variable import DataVariables
+from antakia_core.utils import boolean_mask, ProblemCategory, DataVariables
 
 from antakia.utils.stats import stats_logger, log_errors
 

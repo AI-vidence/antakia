@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from antakia_core.data_handler.rules import Rule, RuleSet
+from antakia_core.data_handler import Rule, RuleSet
 from antakia.gui.tabs.ruleswidget import RuleWidget
-from antakia_core.utils.variable import Variable
+from antakia_core.utils import Variable
 
 
 def test_rule_widget():
