@@ -3,9 +3,8 @@ from os import path
 import json
 import urllib
 import logging
-from typing import Any
 
-import antakia
+import importlib.metadata
 from importlib.resources import files
 
 logger = logging.getLogger(__name__)
@@ -16,7 +15,7 @@ class MetaData:
 
     def __init__(self):
         self.latest_version = self.get_latest_version()
-        self.current_version = antakia.__version__
+        self.current_version = importlib.metadata.version("antakia")
         self.load_file()
 
     def load_file(self):
@@ -24,7 +23,7 @@ class MetaData:
         try:
             metadata = json.loads(open(self.metadata_file,
                                        "r").read()) if path.exists(
-                                           self.metadata_file) else 0
+                self.metadata_file) else 0
             if isinstance(metadata, int):
                 self.counter = metadata
                 self.last_checked_version = None
@@ -45,7 +44,7 @@ class MetaData:
     def update(self):
         self.counter += 1
         self.latest_version = self.get_latest_version()
-        self.current_version = antakia.__version__
+        self.current_version = importlib.metadata.version("antakia")
 
     def get_latest_version(self):
         # Check pypi for the latest version number

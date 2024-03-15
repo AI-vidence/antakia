@@ -4,7 +4,7 @@ import ipywidgets as widgets
 from IPython.core.display_functions import display
 from ipywidgets import Widget
 
-from antakia import config as config
+import antakia.config as config
 
 
 class OutputWidgetHandler(Handler):
