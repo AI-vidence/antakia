@@ -631,7 +631,7 @@ class RulesWidget:
 
         def find_rule(rule_widget: RuleWidget) -> Rule:
             var = rule_widget.rule.variable
-            return self.current_rules_list.find_rule(var)
+            return self.current_rules_list.get_rule(var)
 
         # We update each of our RuleWidgets
         for rw in self.rule_widget_list:
