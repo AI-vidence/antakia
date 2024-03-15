@@ -79,9 +79,7 @@ def _get_lfs_pointer(url: str) -> tuple[str, str, int]:
     
     """
     path, _ = urllib.request.urlretrieve(url)
-    f = open(
-        path, 'r'
-    )
+    f = open(path, 'r')
     meta = f.read().strip().split('\n')
     f.close()
     server_url = meta[0].split(' ')[1]

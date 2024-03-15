@@ -9,6 +9,7 @@ from antakia.utils import stats
 
 
 class DummyResponse:
+
     def __init__(self, status_code=None):
         if status_code is None:
             self.status_code = 200
@@ -23,6 +24,7 @@ def check_log_file():
 
 
 class TestStats(TestCase):
+
     def setUp(self):
         stats.stats_logger = stats.ActivityLogger('test.json')
         stats.stats_logger._clear_logs()
@@ -62,7 +64,10 @@ class TestStats(TestCase):
         assert len(stats.stats_logger._logs) == 0
         check_log_file()
         payload = post.call_args[1]['json']
-        for k in ['items', 'user_id', 'run_id', 'install_id', 'launch_count', 'version_number']:
+        for k in [
+                'items', 'user_id', 'run_id', 'install_id', 'launch_count',
+                'version_number'
+        ]:
             assert k in payload
         assert len(payload['items']) == 1
         assert 'item1' in payload['items'][0]['log']
@@ -99,6 +104,7 @@ class TestStats(TestCase):
 
     @mock.patch('antakia.utils.stats.requests.post')
     def test_log_error(self, post):
+
         @stats.log_errors
         def test_fct():
             raise KeyError

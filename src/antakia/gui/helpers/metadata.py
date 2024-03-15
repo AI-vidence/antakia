@@ -23,7 +23,7 @@ class MetaData:
         try:
             metadata = json.loads(open(self.metadata_file,
                                        "r").read()) if path.exists(
-                self.metadata_file) else 0
+                                           self.metadata_file) else 0
             if isinstance(metadata, int):
                 self.counter = metadata
                 self.last_checked_version = None

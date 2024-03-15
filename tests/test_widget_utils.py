@@ -6,6 +6,7 @@ import ipyvuetify as v
 
 
 class TestWidgetUtils(TestCase):
+
     def setUp(self):
         self.widget = v.Row(children=[
             v.Col(children=[]),
@@ -13,14 +14,10 @@ class TestWidgetUtils(TestCase):
             v.Col(children=[]),
             v.Col(children=[]),
             v.Col(children=[  # 4
-                v.Col(children=[
-                ]),
-                v.Col(children=[
-                ]),
-                v.Col(children=[
-                ]),
-                v.Col(children=[
-                ]),
+                v.Col(children=[]),
+                v.Col(children=[]),
+                v.Col(children=[]),
+                v.Col(children=[]),
                 v.Col(children=[  # 44
                     v.Col(children=[  # 440
                         v.Col(children=[  # 4400
@@ -34,7 +31,9 @@ class TestWidgetUtils(TestCase):
         widget = self.widget
         a1 = get_widget(widget, '4400')
         a2 = get_widget(widget, '440')
-        assert get_widget(widget, '4400') is (get_widget(get_widget(widget, '44'), '00'))
+        assert get_widget(widget,
+                          '4400') is (get_widget(get_widget(widget, '44'),
+                                                 '00'))
         with pytest.raises(ValueError):
             get_widget(widget, 'a')
         with pytest.raises(IndexError):

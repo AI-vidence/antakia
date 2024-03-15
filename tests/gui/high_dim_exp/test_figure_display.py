@@ -13,6 +13,7 @@ trace_name = FigureDisplay.trace_name
 
 
 class TestFigureDisplay(TestCase):
+
     def setUp(self):
         self.X, self.y = generate_corner_dataset(10)
         self.X = pd.DataFrame(self.X)

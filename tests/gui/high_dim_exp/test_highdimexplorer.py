@@ -10,6 +10,7 @@ from tests.utils_fct import is_mask_of_X, dummy_callable
 
 
 class TestHighDimExplorer(TestCase):
+
     def setUp(self):
         self.X, self.y = generate_corner_dataset(10)
         self.X, self.y = pd.DataFrame(self.X), pd.Series(self.y)
@@ -19,7 +20,8 @@ class TestHighDimExplorer(TestCase):
         self.callable = dummy_callable
 
     def test_init(self):
-        hde = HighDimExplorer(self.pv_bank, dummy_callable, 'VS')  # REMPLACER DUMMY CALLABLE
+        hde = HighDimExplorer(self.pv_bank, dummy_callable,
+                              'VS')  # REMPLACER DUMMY CALLABLE
         assert hde.pv_bank == self.pv_bank
         # assert hde.projected_value_selector ==
         # assert hde.
@@ -31,8 +33,12 @@ class TestHighDimExplorer(TestCase):
             assert isinstance(caller, HighDimExplorer)
         self.selection_changed_called += 1
 
-    @mock.patch('antakia_core.data_handler.projected_values.ProjectedValues.get_projection')
+    @mock.patch(
+        'antakia_core.data_handler.projected_values.ProjectedValues.get_projection'
+    )
     def test_update_X(self, pv_cpt):
         pv_cpt.return_value, _ = generate_corner_dataset(10)
         hde = HighDimExplorer(self.pv_bank, dummy_callable, 'VS')
+
+
 #        hde.update_X(pd.DataFrame(self.X))
