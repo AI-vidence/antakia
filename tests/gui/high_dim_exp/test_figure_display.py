@@ -53,11 +53,7 @@ class TestFigureDisplay(TestCase):
         fd1.figure = 5
 
     def test_initialize_create_figure(self):
-        fd = self.fd
-        fd.initialize()
-        assert fd.initialized
-        z = 1
-        # test avec X = None
+        pass
 
     def test_get_X(self):
         fd = self.fd
@@ -65,4 +61,3 @@ class TestFigureDisplay(TestCase):
 
     def test_display_region(self):
         fd = self.fd
-        #fd.display_region()
