@@ -16,8 +16,10 @@ class ActivityLogger:
     url = 'https://api.antakia.ai/'
     limit = 10
     size_limit = 1000
-    send_events = ['execution_error', 'launched', 'validate_sub_model', 'auto_cluster', 'compute_explanation',
-                   'validate_rules']
+    send_events = [
+        'execution_error', 'launched', 'validate_sub_model', 'auto_cluster',
+        'compute_explanation', 'validate_rules'
+    ]
 
     def __init__(self, log_file='logs.json'):
         self.log_file = str(self.log_file.joinpath(log_file))
@@ -42,15 +44,12 @@ class ActivityLogger:
         -------
 
         """
-        if os.environ.get('ATK_SEND_LOG', '1') == '0' or not config.ATK_SEND_LOG:
+        if os.environ.get('ATK_SEND_LOG',
+                          '1') == '0' or not config.ATK_SEND_LOG:
             return
         if info is None:
             info = {}
-        payload = {
-            'event': event,
-            'log': info,
-            'timestamp': time.time()
-        }
+        payload = {'event': event, 'log': info, 'timestamp': time.time()}
         try:
             json.dumps(payload)
             self._add_to_log_queue(payload)
@@ -89,15 +88,14 @@ class ActivityLogger:
             try:
                 payload = {'items': self._logs}
                 self._add_metadata(payload)
-                response = requests.post(self.url + 'log', json=payload, timeout=10)
+                response = requests.post(self.url + 'log',
+                                         json=payload,
+                                         timeout=10)
                 if response.status_code >= 300:
                     raise ConnectionError
                 self._clear_logs()
             except:
-                payload = {
-                    'event': 'no connection',
-                    'timestamp': time.time()
-                }
+                payload = {'event': 'no connection', 'timestamp': time.time()}
                 self._add_to_log_queue(payload)
                 if len(self._logs) > self.size_limit:
                     self._clear_logs()
@@ -128,10 +126,11 @@ def log_errors(method):
         try:
             res = method(*args, **kw)
         except Exception as e:
-            stats_logger.log('execution_error', {
-                'method': method.__qualname__,
-                'traceback': analyze_traceback(e.__traceback__)
-            })
+            stats_logger.log(
+                'execution_error', {
+                    'method': method.__qualname__,
+                    'traceback': analyze_traceback(e.__traceback__)
+                })
             raise e
         return res
 

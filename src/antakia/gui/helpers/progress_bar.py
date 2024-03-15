@@ -5,7 +5,12 @@ import pandas as pd
 
 
 class ProgressBar:
-    def __init__(self, widget, indeterminate: bool = False, active_color='blue', unactive_color='grey',
+
+    def __init__(self,
+                 widget,
+                 indeterminate: bool = False,
+                 active_color='blue',
+                 unactive_color='grey',
                  reset_at_end=True):
         """
         generic progress bar update
@@ -69,7 +74,13 @@ class ProgressBar:
 
 
 class MultiStepProgressBar:
-    def __init__(self, widget, steps=1, active_color='blue', unactive_color='grey', reset_at_end=True):
+
+    def __init__(self,
+                 widget,
+                 steps=1,
+                 active_color='blue',
+                 unactive_color='grey',
+                 reset_at_end=True):
         """
         generic progress bar update
 

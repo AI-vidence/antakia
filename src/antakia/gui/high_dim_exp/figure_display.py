@@ -63,13 +63,8 @@ class FigureDisplay:
         else:
             return "unknown trace"
 
-    def __init__(
-        self,
-        X: pd.DataFrame | None,
-        y: pd.Series,
-        selection_changed: Callable,
-        space: str
-    ):
+    def __init__(self, X: pd.DataFrame | None, y: pd.Series,
+                 selection_changed: Callable, space: str):
         """
 
         Parameters
@@ -176,9 +171,7 @@ class FigureDisplay:
 
         self._selection_mode = False if is_disabled else "lasso"  # type: ignore
         if self.dim == 2 and self.figure is not None:
-            self.figure.update_layout(
-                dragmode=self._selection_mode
-            )
+            self.figure.update_layout(dragmode=self._selection_mode)
 
     def _show_trace(self, trace_id: int, show: bool):
         """
@@ -195,7 +188,9 @@ class FigureDisplay:
         self._visible[trace_id] = show
         self.figure.data[trace_id].visible = show
 
-    def display_rules(self, selection_mask: pd.Series, rules_mask: pd.Series | None = None):
+    def display_rules(self,
+                      selection_mask: pd.Series,
+                      rules_mask: pd.Series | None = None):
         """
         display a rule vs a selection
         Parameters
@@ -335,13 +330,15 @@ class FigureDisplay:
             raise NotInitialized()
         selection = utils.rows_to_mask(self.X[self.mask], row_numbers)
         if not selection.any() or selection.all():
-            return utils.boolean_mask(self.get_X(masked=False), selection.mean())
+            return utils.boolean_mask(self.get_X(masked=False),
+                                      selection.mean())
         if self.mask.all():
             return selection
         X_train = self.get_X(masked=True)
         knn = KNeighborsClassifier().fit(X_train, selection)
         X_predict = self.get_X(masked=False)
-        guessed_selection = pd.Series(knn.predict(X_predict), index=X_predict.index)
+        guessed_selection = pd.Series(knn.predict(X_predict),
+                                      index=X_predict.index)
         # KNN extrapolation
         return guessed_selection.astype(bool)
 
@@ -364,7 +361,10 @@ class FigureDisplay:
 
         """
         self.first_selection |= self.current_selection.all()
-        stats_logger.log('hde_selection', {'first_selection': self.first_selection, 'space': self.space})
+        stats_logger.log('hde_selection', {
+            'first_selection': self.first_selection,
+            'space': self.space
+        })
         self.current_selection &= self.selection_to_mask(points.point_inds)
         self.display_rules(self.current_selection)
         if self.current_selection.any():
@@ -388,7 +388,10 @@ class FigureDisplay:
         -------
 
         """
-        stats_logger.log('hde_deselection', {'first_selection': self.first_selection, 'space': self.space})
+        stats_logger.log('hde_deselection', {
+            'first_selection': self.first_selection,
+            'space': self.space
+        })
         # We tell the GUI
         self.first_selection = False
         self.current_selection = utils.boolean_mask(self.X, True)
@@ -432,8 +435,10 @@ class FigureDisplay:
         """
         if self.dim == 2:
             fig = self.figure.data[0]
-            fig.update(selectedpoints=utils.mask_to_rows(self.current_selection[self.mask]))
-            fig.selectedpoints = utils.mask_to_rows(self.current_selection[self.mask])
+            fig.update(selectedpoints=utils.mask_to_rows(
+                self.current_selection[self.mask]))
+            fig.selectedpoints = utils.mask_to_rows(
+                self.current_selection[self.mask])
 
     @property
     def mask(self) -> pd.Series:
@@ -445,11 +450,15 @@ class FigureDisplay:
         if self._mask is None:
             limit = config.ATK_MAX_DOTS
             if len(self.X) > limit:
-                self._mask = pd.Series([False] * len(self.X), index=self.X.index)
-                indices = np.random.choice(self.X.index, size=limit, replace=False)
+                self._mask = pd.Series([False] * len(self.X),
+                                       index=self.X.index)
+                indices = np.random.choice(self.X.index,
+                                           size=limit,
+                                           replace=False)
                 self._mask.loc[indices] = True
             else:
-                self._mask = pd.Series([True] * len(self.X), index=self.X.index)
+                self._mask = pd.Series([True] * len(self.X),
+                                       index=self.X.index)
         return self._mask
 
     def create_figure(self):
@@ -479,17 +488,21 @@ class FigureDisplay:
         else:
             fig_builder = Scattergl
 
-        self.figure = FigureWidget(data=[fig_builder(**fig_args)])  # Trace 0 for dots
+        self.figure = FigureWidget(data=[fig_builder(**fig_args)
+                                         ])  # Trace 0 for dots
         self.figure.add_trace(fig_builder(**fig_args))  # Trace 1 for rules
-        self.figure.add_trace(fig_builder(**fig_args))  # Trace 2 for region set
+        self.figure.add_trace(
+            fig_builder(**fig_args))  # Trace 2 for region set
         self.figure.add_trace(fig_builder(**fig_args))  # Trace 3 for region
 
         self.figure.update_layout(dragmode=self._selection_mode)
-        self.figure.update_traces(
-            selected={"marker": {"opacity": 1.0}},
-            unselected={"marker": {"opacity": 0.1}},
-            selector={'type': "scatter"}
-        )
+        self.figure.update_traces(selected={"marker": {
+            "opacity": 1.0
+        }},
+                                  unselected={"marker": {
+                                      "opacity": 0.1
+                                  }},
+                                  selector={'type': "scatter"})
         self.figure.update_layout(
             autosize=True,
             margin={

@@ -35,12 +35,8 @@ class HighDimExplorer:
 
     """
 
-    def __init__(
-        self,
-        pv_bank: ProjectedValueBank,
-        selection_changed: Callable,
-        space: str
-    ):
+    def __init__(self, pv_bank: ProjectedValueBank,
+                 selection_changed: Callable, space: str):
         """
 
         Parameters
@@ -52,22 +48,17 @@ class HighDimExplorer:
 
         # projected values handler & widget
         self.projected_value_selector = ProjectedValuesSelector(
-            pv_bank,
-            self.refresh,
-            space
-        )
+            pv_bank, self.refresh, space)
 
-        self.figure = FigureDisplay(
-            None,
-            pv_bank.y,
-            selection_changed,
-            space
-        )
+        self.figure = FigureDisplay(None, pv_bank.y, selection_changed, space)
 
         self.initialized = False
 
-    def get_current_X_proj(self, dim=None, progress_callback=None) -> pd.DataFrame | None:
-        return self.projected_value_selector.get_current_X_proj(dim, progress_callback)
+    def get_current_X_proj(self,
+                           dim=None,
+                           progress_callback=None) -> pd.DataFrame | None:
+        return self.projected_value_selector.get_current_X_proj(
+            dim, progress_callback)
 
     def initialize(self, progress_callback, X: pd.DataFrame):
         """
@@ -100,7 +91,8 @@ class HighDimExplorer:
 
     def refresh(self, progress_callback=None):
         self.disable(True, True)
-        self.figure.update_X(self.get_current_X_proj(progress_callback=progress_callback))
+        self.figure.update_X(
+            self.get_current_X_proj(progress_callback=progress_callback))
         self.disable(False, False)
 
     def update_X(self, X: pd.DataFrame, progress_callback=None):

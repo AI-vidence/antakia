@@ -7,6 +7,7 @@ from antakia.gui.helpers.metadata import metadata
 
 
 class TopBar:
+
     def __init__(self):
         # We count the number of times this GUI has been initialized
 
@@ -21,32 +22,30 @@ class TopBar:
             v_model=False,
             children=[
                 v.Card(children=[
-                    v.CardTitle(class_='headline gray lighten-2', primary_title=True, children=[
-                        "Do you like AntakIA 😀 ?"
-                    ]),
+                    v.CardTitle(class_='headline gray lighten-2',
+                                primary_title=True,
+                                children=["Do you like AntakIA 😀 ?"]),
                     v.CardText(children=[
                         v.Html(
                             tag="p",
-                            children=["Please star us on Github if you like our work!"],
-                        ),
-                        star_btn
+                            children=[
+                                "Please star us on Github if you like our work!"
+                            ],
+                        ), star_btn
                     ])
                 ])
-            ]
-        )
+            ])
 
-        self.star_dialog.on_event('keydown.stop', lambda *args: None)  # close dialog on escape
+        self.star_dialog.on_event('keydown.stop',
+                                  lambda *args: None)  # close dialog on escape
 
-        self.logo = v.Sheet(
-            children=[
-                widgets.Image(
-                    value=self.get_logo(),
-                    height=str(864 / 20) + "px",
-                    width=str(3839 / 20) + "px",
-                ),
-                self.star_dialog
-            ],
-        )
+        self.logo = v.Sheet(children=[
+            widgets.Image(
+                value=self.get_logo(),
+                height=str(864 / 20) + "px",
+                width=str(3839 / 20) + "px",
+            ), self.star_dialog
+        ], )
 
         self.widget = v.AppBar(  # Top bar # 0
             class_="white",
@@ -54,34 +53,36 @@ class TopBar:
                 self.logo,
                 v.Sheet(children=self.get_version_text()),
                 v.Sheet(class_='flex-fill align-stretch'),  # 02
-                v.Sheet(children=[v.Menu(  # 03 # Menu for the figure width
-                    v_slots=[
-                        {
-                            "name": "activator",
-                            "variable": "props",
+                v.Sheet(children=[
+                    v.Menu(  # 03 # Menu for the figure width
+                        v_slots=[{
+                            "name":
+                            "activator",
+                            "variable":
+                            "props",
                             "children":
-                                v.Btn(
-                                    v_on="props.on",
-                                    icon=True,
-                                    size="x-large",
-                                    children=[v.Icon(children=["mdi-tune"])],
-                                    class_="ma-2 pa-3",
-                                    elevation="0",
-                                ),
-                        }
-                    ],
-                    children=[
-                        v.Card(  # 030 parameters menu
-                            class_="pa-4",
-                            rounded=True,
-                            children=[],
-                            min_width="500",
-                        )
-                    ],
-                    v_model=False,
-                    close_on_content_click=False,
-                    offset_y=True,
-                )]),  # End V.Menu
+                            v.Btn(
+                                v_on="props.on",
+                                icon=True,
+                                size="x-large",
+                                children=[v.Icon(children=["mdi-tune"])],
+                                class_="ma-2 pa-3",
+                                elevation="0",
+                            ),
+                        }],
+                        children=[
+                            v.Card(  # 030 parameters menu
+                                class_="pa-4",
+                                rounded=True,
+                                children=[],
+                                min_width="500",
+                            )
+                        ],
+                        v_model=False,
+                        close_on_content_click=False,
+                        offset_y=True,
+                    )
+                ]),  # End V.Menu
             ],  # End AppBar children
         )  # End AppBar
 
@@ -101,7 +102,8 @@ class TopBar:
                 return response.content
         except:
             pass
-        file = files("antakia").joinpath("assets/logo_antakia_horizontal.png")  # type: ignore
+        file = files("antakia").joinpath(
+            "assets/logo_antakia_horizontal.png")  # type: ignore
         return open(file, 'rb').read()
 
     def get_version_text(self):

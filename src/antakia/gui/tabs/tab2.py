@@ -20,21 +20,15 @@ class Tab2:
             "text": column,
             "sortable": False,
             "value": column,
-        }
-        for column in ['Region', 'Rules', 'Average', 'Points', '% dataset', 'Sub-model']
+        } for column in
+        ['Region', 'Rules', 'Average', 'Points', '% dataset', 'Sub-model']
     ]
 
-    def __init__(
-        self,
-        variables,
-        X: pd.DataFrame,
-        vs_pvs: ProjectedValuesSelector,
-        es_pvs: ProjectedValuesSelector,
-        region_set: RegionSet,
-        edit_callback: Callable,
-        update_callback: Callable,
-        substitute_callback: Callable
-    ):
+    def __init__(self, variables, X: pd.DataFrame,
+                 vs_pvs: ProjectedValuesSelector,
+                 es_pvs: ProjectedValuesSelector, region_set: RegionSet,
+                 edit_callback: Callable, update_callback: Callable,
+                 substitute_callback: Callable):
         self.X = X
         self.vs_pvs = vs_pvs
         self.es_pvs = es_pvs
@@ -63,9 +57,7 @@ class Tab2:
             children=[
                 v.Icon(
                     class_="mr-2",
-                    children=[
-                        "mdi-swap-horizontal-circle-outline"
-                    ],
+                    children=["mdi-swap-horizontal-circle-outline"],
                 ),
                 "Substitute",
             ],
@@ -76,9 +68,7 @@ class Tab2:
             children=[
                 v.Icon(
                     class_="mr-2",
-                    children=[
-                        "mdi-content-cut"
-                    ],
+                    children=["mdi-content-cut"],
                 ),
                 "Divide",
             ],
@@ -89,9 +79,7 @@ class Tab2:
             children=[
                 v.Icon(
                     class_="mr-2",
-                    children=[
-                        "mdi-pencil"
-                    ],
+                    children=["mdi-pencil"],
                 ),
                 "Edit",
             ],
@@ -102,9 +90,7 @@ class Tab2:
             children=[
                 v.Icon(
                     class_="mr-2",
-                    children=[
-                        "mdi-table-merge-cells"
-                    ],
+                    children=["mdi-table-merge-cells"],
                 ),
                 "Merge",
             ],
@@ -115,9 +101,7 @@ class Tab2:
             children=[
                 v.Icon(
                     class_="mr-2",
-                    children=[
-                        "mdi-delete"
-                    ],
+                    children=["mdi-delete"],
                 ),
                 "Delete",
             ],
@@ -128,9 +112,7 @@ class Tab2:
             children=[
                 v.Icon(  # 44020000
                     class_="mr-2",
-                    children=[
-                        "mdi-auto-fix"
-                    ],
+                    children=["mdi-auto-fix"],
                 ),
                 "Auto-clustering",
             ],
@@ -143,13 +125,11 @@ class Tab2:
             max=12,
             thumb_color='blue',  # marker color
             step=1,
-            thumb_label="always"
-        )
+            thumb_label="always")
         self.auto_cluster_checkbox = v.Checkbox(  # 440211
             class_="px-3",
             v_model=True,
-            label="Automatic number of clusters"
-        )
+            label="Automatic number of clusters")
         self.auto_cluster_progress = v.ProgressLinear(  # 440212
             style_="width: 100%",
             class_="px-3",
@@ -172,8 +152,7 @@ class Tab2:
                             ),
                             self.region_table_wgt,
                             self.stats_wgt,
-                        ]
-                    ),  # End Col 1
+                        ]),  # End Col 1
                     v.Col(  # v.Sheet Col 2 = buttons #4401
                         class_="col-2",
                         style_="size: 50%",
@@ -183,91 +162,68 @@ class Tab2:
                                 children=[
                                     v.Tooltip(  # 440100
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.substitute_btn
-                                            }
-                                        ],
+                                        v_slots=[{
+                                            'name':
+                                            'activator',
+                                            'variable':
+                                            'tooltip',
+                                            'children':
+                                            self.substitute_btn
+                                        }],
                                         children=[
-                                            'Find an explicable surrogate model on this region']
-                                    )
-                                ]
-                            ),
+                                            'Find an explicable surrogate model on this region'
+                                        ])
+                                ]),
                             v.Row(  # 44011
                                 class_="flex-column",
                                 children=[
                                     v.Tooltip(  # 440110
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.divide_btn
-                                            }
-                                        ],
+                                        v_slots=[{
+                                            'name': 'activator',
+                                            'variable': 'tooltip',
+                                            'children': self.divide_btn
+                                        }],
                                         children=[
-                                            'Divide a region into sub-regions']
-                                    )
-                                ]
-                            ),
+                                            'Divide a region into sub-regions'
+                                        ])
+                                ]),
                             v.Row(  # 44011
                                 class_="flex-column",
                                 children=[
                                     v.Tooltip(  # 440110
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.edit_btn
-                                            }
-                                        ],
-                                        children=[
-                                            'Edit region\'s rules']
-                                    )
-                                ]
-                            ),
+                                        v_slots=[{
+                                            'name': 'activator',
+                                            'variable': 'tooltip',
+                                            'children': self.edit_btn
+                                        }],
+                                        children=['Edit region\'s rules'])
+                                ]),
                             v.Row(  # 44012
                                 class_="flex-column",
                                 children=[
                                     v.Tooltip(  # 440120
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.merge_btn
-                                            }
-                                        ],
-                                        children=[
-                                            'Merge regions']
-                                    )
-                                ]
-                            ),
+                                        v_slots=[{
+                                            'name': 'activator',
+                                            'variable': 'tooltip',
+                                            'children': self.merge_btn
+                                        }],
+                                        children=['Merge regions'])
+                                ]),
                             v.Row(  # 44013
                                 class_="flex-column",
                                 children=[
                                     v.Tooltip(  # 440130
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.delete_btn
-                                            }
-                                        ],
-                                        children=[
-                                            'Delete region']
-                                    )
-                                ]
-                            ),
+                                        v_slots=[{
+                                            'name': 'activator',
+                                            'variable': 'tooltip',
+                                            'children': self.delete_btn
+                                        }],
+                                        children=['Delete region'])
+                                ]),
                         ]  # End v.Sheet Col 2 children
                     ),  # End v.Sheet Col 2 = buttons
                     v.Col(  # v.Sheet Col 3 # 4402
@@ -279,38 +235,37 @@ class Tab2:
                                 children=[
                                     v.Tooltip(  # 440200
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.auto_cluster_btn
-                                            }
-                                        ],
+                                        v_slots=[{
+                                            'name':
+                                            'activator',
+                                            'variable':
+                                            'tooltip',
+                                            'children':
+                                            self.auto_cluster_btn
+                                        }],
                                         children=[
-                                            'Find homogeneous regions in both spaces']
-                                    )
-                                ]
-                            ),
+                                            'Find homogeneous regions in both spaces'
+                                        ])
+                                ]),
                             v.Row(  # 44021
                                 class_="flex-column",
                                 children=[
                                     v.Tooltip(  # 440210
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.cluster_num_wgt,
-                                            }
-                                        ],
-                                        children=['Number of clusters you expect to find']
-                                    ),
+                                        v_slots=[{
+                                            'name':
+                                            'activator',
+                                            'variable':
+                                            'tooltip',
+                                            'children':
+                                            self.cluster_num_wgt,
+                                        }],
+                                        children=[
+                                            'Number of clusters you expect to find'
+                                        ]),
                                     self.auto_cluster_checkbox,
                                     self.auto_cluster_progress
-                                ]
-                            ),
+                                ]),
                         ]  # End v.Sheet Col 3 children
                     )  # End v.Sheet Col 3
                 ]  # End v.Sheet children
@@ -329,7 +284,8 @@ class Tab2:
         self.delete_btn.on_event("click", self.delete_region_clicked)
         self.auto_cluster_btn.on_event("click", self.auto_cluster_clicked)
         self.auto_cluster_checkbox.v_model = True
-        self.auto_cluster_checkbox.on_event("change", self.checkbox_auto_cluster_clicked)
+        self.auto_cluster_checkbox.on_event("change",
+                                            self.checkbox_auto_cluster_clicked)
         self.cluster_num_wgt.on_event("change", self.num_cluster_changed)
 
     @property
@@ -388,11 +344,12 @@ class Tab2:
         not_rules_indexes_list = ~region_set_mask
         # We call the auto_cluster with remaining X and explained(X) :
         cluster_num = self._get_cluster_num()
-        stats_logger.log('auto_cluster', {
-            'cluster_num': cluster_num,
-            'vs_proj': str(self.vs_pvs.current_proj),
-            'es_proj': str(self.es_pvs.current_proj)
-        })
+        stats_logger.log(
+            'auto_cluster', {
+                'cluster_num': cluster_num,
+                'vs_proj': str(self.vs_pvs.current_proj),
+                'es_proj': str(self.es_pvs.current_proj)
+            })
 
         self._compute_auto_cluster(not_rules_indexes_list, cluster_num)
         self.update_region_table()
@@ -416,24 +373,23 @@ class Tab2:
                 cluster_num = 2
         return cluster_num
 
-    def _compute_auto_cluster(self, not_rules_indexes_list, cluster_num='auto'):
+    def _compute_auto_cluster(self,
+                              not_rules_indexes_list,
+                              cluster_num='auto'):
         if len(not_rules_indexes_list) > config.ATK_MIN_POINTS_NUMBER:
             vs_compute = int(not self.vs_pvs.is_computed(dim=3))
             es_compute = int(not self.es_pvs.is_computed(dim=3))
             steps = 1 + vs_compute + es_compute
 
-            progress_bar = MultiStepProgressBar(self.auto_cluster_progress, steps=steps)
+            progress_bar = MultiStepProgressBar(self.auto_cluster_progress,
+                                                steps=steps)
             step = 1
             vs_proj_3d_df = self.vs_pvs.get_current_X_proj(
-                3,
-                progress_callback=progress_bar.get_update(step)
-            )
+                3, progress_callback=progress_bar.get_update(step))
 
             step += vs_compute
             es_proj_3d_df = self.es_pvs.get_current_X_proj(
-                3,
-                progress_callback=progress_bar.get_update(step)
-            )
+                3, progress_callback=progress_bar.get_update(step))
 
             step += es_compute
             ac = AutoCluster(self.X, progress_bar.get_update(step))
@@ -459,7 +415,8 @@ class Tab2:
         num_selected_regions = len(selected_region_nums)
         if num_selected_regions:
             first_region = self.region_set.get(selected_region_nums[0])
-            enable_div = (num_selected_regions == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
+            enable_div = (num_selected_regions == 1) and bool(
+                first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
         else:
             enable_div = False
 
@@ -481,7 +438,8 @@ class Tab2:
 
         # auto_cluster
         self.auto_cluster_btn.disabled = self.auto_cluster_running
-        self.cluster_num_wgt.disabled = bool(self.auto_cluster_checkbox.v_model)
+        self.cluster_num_wgt.disabled = bool(
+            self.auto_cluster_checkbox.v_model)
 
     def region_selected(self, data):
         operation = {
@@ -529,8 +487,11 @@ class Tab2:
         Called when the user clicks on the 'merge' (regions) button
         """
 
-        selected_regions = [self.region_set.get(r['Region']) for r in self.selected_regions]
-        stats_logger.log('merge_region', {'num_regions': len(selected_regions)})
+        selected_regions = [
+            self.region_set.get(r['Region']) for r in self.selected_regions
+        ]
+        stats_logger.log('merge_region',
+                         {'num_regions': len(selected_regions)})
         mask = None
         for region in selected_regions:
             if mask is None:
@@ -558,7 +519,8 @@ class Tab2:
         """
         Called when the user clicks on the 'delete' (region) button
         """
-        stats_logger.log('merge_region', {'num_regions': len(self.selected_regions)})
+        stats_logger.log('merge_region',
+                         {'num_regions': len(self.selected_regions)})
         for selected_region in self.selected_regions:
             region = self.region_set.get(selected_region['Region'])
             # Then we delete the regions in self.region_set

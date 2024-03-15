@@ -10,8 +10,9 @@ from scipy.stats import multivariate_normal
 
 
 def generate_corner_dataset(
-        num_samples: int, corner_position: str = "top_right", random_seed: int | None = None
-) -> tuple[np.ndarray, np.ndarray]:
+        num_samples: int,
+        corner_position: str = "top_right",
+        random_seed: int | None = None) -> tuple[np.ndarray, np.ndarray]:
     """Generate a toy dataset with a corner of the feature space.
 
     Parameters
@@ -52,9 +53,9 @@ def generate_corner_dataset(
     return X, y
 
 
-def get_data_from_mixture_distribution(
-        num_samples, positive_component_rvs: Callable, negative_component_rvs: Callable
-):
+def get_data_from_mixture_distribution(num_samples,
+                                       positive_component_rvs: Callable,
+                                       negative_component_rvs: Callable):
     d = positive_component_rvs(size=1).shape[0]
     Y = np.random.binomial(1, 0.5, num_samples)
     X = np.zeros((num_samples, d))
@@ -66,12 +67,18 @@ def get_data_from_mixture_distribution(
     return X, Y
 
 
-def mixture_dataset(num_samples, positive_mean=[0, 0], negative_mean=[0, 1], positive_cov=[0.5, 0.5],
-                    negative_cov=[0.5, 0.5], **kwargs):
+def mixture_dataset(num_samples,
+                    positive_mean=[0, 0],
+                    negative_mean=[0, 1],
+                    positive_cov=[0.5, 0.5],
+                    negative_cov=[0.5, 0.5],
+                    **kwargs):
     X, y = get_data_from_mixture_distribution(
         num_samples=num_samples,
-        positive_component_rvs=partial(multivariate_normal.rvs, positive_mean, positive_cov),
-        negative_component_rvs=partial(multivariate_normal.rvs, negative_mean, negative_cov),
+        positive_component_rvs=partial(multivariate_normal.rvs, positive_mean,
+                                       positive_cov),
+        negative_component_rvs=partial(multivariate_normal.rvs, negative_mean,
+                                       negative_cov),
     )
     return X, y
 
@@ -103,10 +110,11 @@ def xor_dataset(num_samples, var=1, **kwargs):
 
 
 def xor_proba(X, var):
+
     def proba_point(p_x, p_y, X, var):
         d_x = (X[:, 0] - p_x)
         d_y = (X[:, 1] - p_y)
-        d_2 = (d_x ** 2 + d_y ** 2) / (var ** 2)
+        d_2 = (d_x**2 + d_y**2) / (var**2)
         return np.exp(-d_2 / 2) / (var * 2 * np.pi)
 
     proba = np.zeros((len(X), 2))
@@ -124,9 +132,9 @@ DATASETS: dict[str, Callable] = {
 }
 
 
-def load_dataset(
-        dataset_name: str | None, num_samples: int = 100, **kwargs
-) -> tuple[pd.DataFrame, pd.Series]:
+def load_dataset(dataset_name: str | None,
+                 num_samples: int = 100,
+                 **kwargs) -> tuple[pd.DataFrame, pd.Series]:
     if dataset_name in DATASETS:
         return DATASETS[dataset_name](num_samples, **kwargs)
     else:

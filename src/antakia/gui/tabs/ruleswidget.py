@@ -23,8 +23,8 @@ class RuleWidget:
     Attributes :
     """
 
-    def __init__(self, rule: Rule, X: pd.DataFrame, y, values_space: bool, init_selection_mask: pd.Series,
-                 init_rules_mask: pd.Series,
+    def __init__(self, rule: Rule, X: pd.DataFrame, y, values_space: bool,
+                 init_selection_mask: pd.Series, init_rules_mask: pd.Series,
                  rule_updated: Callable):
         '''
 
@@ -66,22 +66,13 @@ class RuleWidget:
         title = self._get_panel_title()
 
         # root_widget is an ExpansionPanel
-        self.widget = v.ExpansionPanel(
-            children=[
-                v.ExpansionPanelHeader(
-                    class_="blue lighten-4",
-                    children=[title]
-                ),
-                v.ExpansionPanelContent(
-                    children=[
-                        v.Col(
-                            children=[v.Spacer(), self.select_widget],
-                        ),
-                        self.figure,
-                    ]
-                ),
-            ]
-        )
+        self.widget = v.ExpansionPanel(children=[
+            v.ExpansionPanelHeader(class_="blue lighten-4", children=[title]),
+            v.ExpansionPanelContent(children=[
+                v.Col(children=[v.Spacer(), self.select_widget], ),
+                self.figure,
+            ]),
+        ])
 
         # The variable name bg (ExpansionPanelHeader) is light blue
         # get_widget(self.root_widget, "0").class_ = "blue lighten-4"
@@ -97,24 +88,27 @@ class RuleWidget:
             'bingroup': 1,
             'nbinsx': 50,
         }
-        mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
+        mask_color, colors_info = get_mask_comparison_color(
+            self.rule_mask, self.init_mask)
         h = []
         for name, color in colors_info.items():
-            h.append(Histogram(
-                name=name,
-                x=self.X_col[mask_color == color],
-                marker_color=color,
-                **base_args
-            ))
-        self.figure = FigureWidget(
-            data=h
-        )
+            h.append(
+                Histogram(name=name,
+                          x=self.X_col[mask_color == color],
+                          marker_color=color,
+                          **base_args))
+        self.figure = FigureWidget(data=h)
         self.figure.update_layout(
             barmode="stack",
             bargap=0.1,
             # width=600,
             showlegend=False,
-            margin={'l': 0, 'r': 0, 't': 0, 'b': 0},
+            margin={
+                'l': 0,
+                'r': 0,
+                't': 0,
+                'b': 0
+            },
             height=200,
         )
 
@@ -149,7 +143,8 @@ class RuleWidget:
             if self.rule.is_categorical_rule:
                 return v.Select(
                     label=self.rule.variable.display_name,
-                    items=self.X[self.rule.variable.column_name].unique().tolist(),
+                    items=self.X[
+                        self.rule.variable.column_name].unique().tolist(),
                     style_="width: 150px",
                     multiple=True,
                 )
@@ -238,18 +233,14 @@ class RuleWidget:
             else:
                 min_ = data
                 max_ = None
-        new_rule = Rule(
-            self.rule.variable,
-            min_,
-            self.rule.includes_min,
-            max_,
-            self.rule.includes_max,
-            cat_values
-        )
+        new_rule = Rule(self.rule.variable, min_, self.rule.includes_min, max_,
+                        self.rule.includes_max, cat_values)
         self.rule = new_rule
         self.rule_updated(new_rule)
 
-    def update(self, new_rules_mask: pd.Series | None = None, rule: Rule | None = None):
+    def update(self,
+               new_rules_mask: pd.Series | None = None,
+               rule: Rule | None = None):
         """ 
             used to update the display (sliders and histogram) to match the new rule
             (called from outside th object to synchronize it)
@@ -262,7 +253,8 @@ class RuleWidget:
         # We update the selects
         if self.display_sliders:
             self._get_select_widget_values()
-        mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
+        mask_color, colors_info = get_mask_comparison_color(
+            self.rule_mask, self.init_mask)
         with self.figure.batch_update():
             for i, color in enumerate(colors_info.values()):
                 self.figure.data[i].x = self.X_col[mask_color == color]
@@ -332,31 +324,22 @@ class RulesWidget:
                 v.Row(  # 431000 / 00
                     children=[
                         v.Icon(children=["mdi-target"]),  #
-                        v.Html(class_="ml-3", tag="h2",
-                               children=[self.title]),
-                    ]
-                ),
+                        v.Html(class_="ml-3", tag="h2", children=[self.title]),
+                    ]),
                 v.Html(  # 431001 / 01
                     class_="ml-7",
                     tag="li",
-                    children=[
-                        self.stats
-                    ]
-                ),
+                    children=[self.stats]),
                 v.Html(  # 431002 / 02
                     class_="ml-7",
                     tag="li",
-                    children=[self.rules]
-                ),
-            ]
-        )
+                    children=[self.rules]),
+            ])
         self.rules_widgets = v.ExpansionPanels(  # Holds VS RuleWidgets  # 43101 / 1
             style_="max-width: 95%",
-            children=[rw.widget for rw in self.rule_widget_list]
-        )
+            children=[rw.widget for rw in self.rule_widget_list])
         self.widget = v.Col(  # placeholder for the VS RulesWidget (RsW) # 4310
-            children=[self.region_stat_card, self.rules_widgets],
-        )
+            children=[self.region_stat_card, self.rules_widgets], )
         self.refresh_widget()
         self.disable()
 
@@ -381,7 +364,9 @@ class RulesWidget:
         rules_wgt.class_ = css
 
     def set_rules_widgets(self, rule_widget_list: list[RuleWidget]):
-        self.widget.children[1].children = [rule_widget.widget for rule_widget in rule_widget_list]
+        self.widget.children[1].children = [
+            rule_widget.widget for rule_widget in rule_widget_list
+        ]
 
     def _create_rule_widgets(self):
         """
@@ -464,11 +449,14 @@ class RulesWidget:
             css = "ml-7 red--text"
         else:
             precision, recall, f1, target_avg = (
-                self.current_scores_dict['precision'], self.current_scores_dict['recall'],
-                self.current_scores_dict['f1'], self.current_scores_dict['target_avg'],
+                self.current_scores_dict['precision'],
+                self.current_scores_dict['recall'],
+                self.current_scores_dict['f1'],
+                self.current_scores_dict['target_avg'],
             )
-            scores_txt = (f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
-                          f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
+            scores_txt = (
+                f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
+                f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
             css = "ml-7 black--text"
         self.set_stats(scores_txt, css)
 
@@ -479,10 +467,7 @@ class RulesWidget:
         -------
 
         """
-        if (
-            len(self.current_rules_list) == 0
-            or self.is_disabled
-        ):
+        if (len(self.current_rules_list) == 0 or self.is_disabled):
             rules_txt = "N/A"
             css = "ml-7 grey--text"
         else:
@@ -533,7 +518,8 @@ class RulesWidget:
         self._create_rule_widgets()
         self.refresh_widget()
 
-    def init_rules(self, rules_set: RuleSet, score_dict: dict, selection_mask: pd.Series):
+    def init_rules(self, rules_set: RuleSet, score_dict: dict,
+                   selection_mask: pd.Series):
         """
         initialize the widget with the rule list, the score dict (text displayed) and
         the reference_mask (selection_mask)
@@ -582,7 +568,10 @@ class RulesWidget:
         new_rules_mask = new_rules_set.get_matching_mask(self.X)
         self.update_from_mask(new_rules_mask, new_rules_set)
 
-    def update_from_mask(self, new_rules_mask: pd.Series, new_rules_set: RuleSet, sync=True):
+    def update_from_mask(self,
+                         new_rules_mask: pd.Series,
+                         new_rules_set: RuleSet,
+                         sync=True):
         """
         updates the widget with the new rule_mask and rule list - the reference_mask is kept for comparison
         Parameters
@@ -600,14 +589,21 @@ class RulesWidget:
         if len(new_rules_set):
             # update rules
             try:
-                precision = (new_rules_mask & self.init_selection_mask).sum() / new_rules_mask.sum()
-                recall = (new_rules_mask & self.init_selection_mask).sum() / self.init_selection_mask.sum()
+                precision = (new_rules_mask & self.init_selection_mask
+                             ).sum() / new_rules_mask.sum()
+                recall = (new_rules_mask & self.init_selection_mask
+                          ).sum() / self.init_selection_mask.sum()
                 f1 = 2 * (precision * recall) / (precision + recall)
             except ZeroDivisionError:
                 precision = recall = f1 = -1
             target_avg = self.y[new_rules_mask].mean()
 
-            new_score_dict = {"precision": precision, "recall": recall, "f1": f1, 'target_avg': target_avg}
+            new_score_dict = {
+                "precision": precision,
+                "recall": recall,
+                "f1": f1,
+                'target_avg': target_avg
+            }
 
             self._put_in_db(new_rules_set, new_score_dict)
 

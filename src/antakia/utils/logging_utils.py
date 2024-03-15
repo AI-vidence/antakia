@@ -12,7 +12,12 @@ class OutputWidgetHandler(Handler):
 
     def __init__(self, height: int, *args, **kwargs):
         super(OutputWidgetHandler, self).__init__(*args, **kwargs)
-        layout = {"width": "100%", "height": str(height) + "px", "border": "1px solid black", "overflow_y": "auto"}
+        layout = {
+            "width": "100%",
+            "height": str(height) + "px",
+            "border": "1px solid black",
+            "overflow_y": "auto"
+        }
         self.out = widgets.Output(layout=layout)
 
     def emit(self, record):
@@ -23,7 +28,7 @@ class OutputWidgetHandler(Handler):
             "output_type": "stream",
             "text": formatted_record + "\n",
         }
-        self.out.outputs = (new_output,) + self.out.outputs
+        self.out.outputs = (new_output, ) + self.out.outputs
 
     def show_logs(self):
         """Show the logs"""
@@ -38,7 +43,10 @@ def conf_logger(logger: Logger, height: int = 160):
     if config.ATK_SHOW_LOG_MODULE_WIDGET:
         logger.setLevel(DEBUG)
         handler = OutputWidgetHandler(height)
-        handler.setFormatter(Formatter('%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'))
+        handler.setFormatter(
+            Formatter(
+                '%(asctime)s-%(levelname)s:%(module)s|%(lineno)s:: %(message)s'
+            ))
         logger.addHandler(handler)
         handler.clear_logs()
         handler.show_logs()

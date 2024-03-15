@@ -19,7 +19,9 @@ def get_widget(root_widget: Widget, address: str | list[int]) -> Widget:
     try:
         return recursive_get_widget(root_widget, address)
     except:
-        raise IndexError(f"Nothing found @{address} in this {root_widget.__class__.__name__}")
+        raise IndexError(
+            f"Nothing found @{address} in this {root_widget.__class__.__name__}"
+        )
 
 
 def recursive_get_widget(root_widget: Widget, address: list[int]):
