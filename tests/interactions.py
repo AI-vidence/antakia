@@ -133,7 +133,7 @@ def undo(gui):
 def validate_rules(gui):
     if gui.tab > 1:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "43030")
+    btn = gui.tab1.validate_btn
     if btn.disabled:
         raise InteractionError('validate_rules button disabled')
     btn.click()
@@ -143,7 +143,7 @@ def validate_rules(gui):
 def auto_cluster(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4402000")
+    btn = gui.tab2.auto_cluster_btn
     if btn.disabled:
         raise InteractionError('auto_cluster button disabled')
     btn.click()

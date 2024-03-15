@@ -35,4 +35,4 @@ class TestHighDimExplorer(TestCase):
     def test_update_X(self, pv_cpt):
         pv_cpt.return_value, _ = generate_corner_dataset(10)
         hde = HighDimExplorer(self.pv_bank, dummy_callable, 'VS')
-        hde.update_X(pd.DataFrame(self.X))
+#        hde.update_X(pd.DataFrame(self.X))

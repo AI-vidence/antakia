@@ -151,13 +151,15 @@ def analyze_traceback(tb: traceback):
 
 
 def frame_to_dict(tb_frame: traceback.FrameSummary):
-    return {
+    d = {
         'lineno': tb_frame.lineno,
-        'end_lineno': tb_frame.end_lineno,
         'line': tb_frame.line,
         'method_name': tb_frame.name,
         'filename': anonymize_filename(tb_frame.filename)
     }
+    if hasattr(tb_frame, 'end_lineno'):
+        d['end_lineno'] = tb_frame.end_lineno
+    return d
 
 
 def anonymize_filename(filename: str):

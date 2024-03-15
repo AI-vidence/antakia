@@ -7,11 +7,12 @@ from antakia.gui.widget_utils import get_widget
 
 
 def check_widget(gui):
-    assert get_widget(gui.widget,'120') == gui.exp_values.widget
-    assert get_widget(gui.widget,'130') == gui.vs_hde.projected_value_selector.widget
-    assert get_widget(gui.widget,'201') == gui.vs_hde.figure.widget
-    assert get_widget(gui.widget,'140') == gui.es_hde.projected_value_selector.widget
-    assert get_widget(gui.widget,'211') == gui.es_hde.figure.widget
+    assert get_widget(gui.widget, '120') == gui.exp_values.widget
+    assert get_widget(gui.widget, '130') == gui.vs_hde.projected_value_selector.widget
+    assert get_widget(gui.widget, '201') == gui.vs_hde.figure.widget
+    assert get_widget(gui.widget, '140') == gui.es_hde.projected_value_selector.widget
+    assert get_widget(gui.widget, '211') == gui.es_hde.figure.widget
+
 
 def check_dim(gui):
     dim = 3 if get_widget(gui.widget, '100').v_model else 2
@@ -90,7 +91,7 @@ def check_proj_menu(gui):
     vs_pvs = gui.vs_hde.projected_value_selector
     vs_widget = vs_pvs.widget
     assert vs_pvs.proj_param_widget.disabled == (
-            (vs_pvs.projection_select.v_model == 'PCA') or (not gui.selection_mask.all() and gui.tab == 0)
+        (vs_pvs.projection_select.v_model == 'PCA') or (not gui.selection_mask.all() and gui.tab == 0)
     )
     assert len(get_widget(vs_widget, '100').children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(vs_pvs.projection_select.v_model)].parameters())
@@ -98,7 +99,7 @@ def check_proj_menu(gui):
     es_pvs = gui.es_hde.projected_value_selector
     es_widget = es_pvs.widget
     assert es_pvs.proj_param_widget.disabled == (
-            (es_pvs.projection_select.v_model == 'PCA') or (not gui.selection_mask.all() and gui.tab == 0)
+        (es_pvs.projection_select.v_model == 'PCA') or (not gui.selection_mask.all() and gui.tab == 0)
     )
     assert len(get_widget(es_widget, '100').children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(es_pvs.projection_select.v_model)].parameters())
@@ -108,11 +109,11 @@ def check_tab_1_btn(gui):
     # data table
     assert get_widget(gui.widget, "4320").disabled == bool(gui.selection_mask.all())
     # skope_rule
-    assert get_widget(gui.widget, "43010").disabled == (not gui.tab1.selection_changed or bool(gui.selection_mask.all()))
+    assert gui.tab1.find_rules_btn.disabled == (not gui.tab1.selection_changed or bool(gui.selection_mask.all()))
     # undo
-    assert get_widget(gui.widget, "4302").disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 1))
+    assert gui.tab1.undo_btn.disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 1))
     # validate rule
-    assert get_widget(gui.widget, "43030").disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 0))
+    assert gui.tab1.validate_btn.disabled == (not (gui.tab1.vs_rules_wgt.rules_num > 0))
 
 
 def check_tab_2_btn(gui):
@@ -128,7 +129,8 @@ def check_tab_2_btn(gui):
         first_region = gui.region_set.get(gui.tab2.selected_regions[0]['Region'])
     else:
         first_region = None
-    enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
+    enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(
+        first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
     assert get_widget(gui.widget, "4401100").disabled == (not enable_sub)
 
     enable_merge = (len(gui.tab2.selected_regions) > 1)
@@ -139,8 +141,8 @@ def check_tab_2_btn(gui):
 
 def check_tab_3_btn(gui):
     assert get_widget(gui.widget, "4501000").disabled == (
-            (gui.tab3.region is None) or
-            len(gui.tab3.selected_sub_model) == 0
+        (gui.tab3.region is None) or
+        len(gui.tab3.selected_sub_model) == 0
     )
 
 
@@ -164,4 +166,3 @@ def check(method):
             return result
 
     return check
-
