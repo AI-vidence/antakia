@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Callable
 
 import numpy as np
 import pandas as pd
+from antakia_core.utils import DataVariables
 
 from antakia_core.utils.utils import ProblemCategory
 
