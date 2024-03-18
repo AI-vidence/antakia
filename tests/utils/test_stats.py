@@ -128,10 +128,10 @@ class TestStats(TestCase):
         check_log_file()
 
         config.ATK_SEND_LOG = True
-        os.environ['ATK_SEND_LOG'] = '0'
+        os.environ['SEND_ANONYMOUS_LOGS'] = '0'
 
         stats.stats_logger.log('test1')
         assert len(stats.stats_logger._logs) == 0
         check_log_file()
 
-        os.environ['ATK_SEND_LOG'] = '1'
+        os.environ['SEND_ANONYMOUS_LOGS'] = '1'
