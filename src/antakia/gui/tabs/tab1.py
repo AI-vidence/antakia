@@ -248,7 +248,7 @@ class Tab1:
         self.find_rules_btn.disabled = not self.valid_selection or not self.selection_changed
         # cancel
         self.cancel_btn.disabled = (self.vs_rules_wgt.rules_num
-                                    == 0) and not (self.region.num == Region.LEFT_OUT_NUM or self.region.num >= 0)
+                                    == 0) and (self.region.num >= -1)
         # undo
         self.undo_btn.disabled = not (self.vs_rules_wgt.rules_num > 1)
         # validate rule
