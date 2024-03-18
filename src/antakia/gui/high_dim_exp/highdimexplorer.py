@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable
+
 import pandas as pd
 from antakia_core.data_handler import ProjectedValues
 
@@ -9,6 +11,7 @@ from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSe
 
 import logging as logging
 from antakia.utils.logging_utils import conf_logger
+from antakia.utils.other_utils import NotInitialized
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -32,12 +35,8 @@ class HighDimExplorer:
 
     """
 
-    def __init__(
-        self,
-        pv_bank: ProjectedValueBank,
-        selection_changed: callable,
-        space: str
-    ):
+    def __init__(self, pv_bank: ProjectedValueBank,
+                 selection_changed: Callable, space: str):
         """
 
         Parameters
@@ -49,22 +48,17 @@ class HighDimExplorer:
 
         # projected values handler & widget
         self.projected_value_selector = ProjectedValuesSelector(
-            pv_bank,
-            self.refresh,
-            space
-        )
+            pv_bank, self.refresh, space)
 
-        self.figure = FigureDisplay(
-            None,
-            pv_bank.y,
-            selection_changed,
-            space
-        )
+        self.figure = FigureDisplay(None, pv_bank.y, selection_changed, space)
 
         self.initialized = False
 
-    def get_current_X_proj(self, dim=None, progress_callback=None) -> pd.DataFrame | None:
-        return self.projected_value_selector.get_current_X_proj(dim, progress_callback)
+    def get_current_X_proj(self,
+                           dim=None,
+                           progress_callback=None) -> pd.DataFrame | None:
+        return self.projected_value_selector.get_current_X_proj(
+            dim, progress_callback)
 
     def initialize(self, progress_callback, X: pd.DataFrame):
         """
@@ -97,7 +91,8 @@ class HighDimExplorer:
 
     def refresh(self, progress_callback=None):
         self.disable(True, True)
-        self.figure.update_X(self.get_current_X_proj(progress_callback=progress_callback))
+        self.figure.update_X(
+            self.get_current_X_proj(progress_callback=progress_callback))
         self.disable(False, False)
 
     def update_X(self, X: pd.DataFrame, progress_callback=None):
@@ -130,6 +125,8 @@ class HighDimExplorer:
         """
         if self.projected_value_selector is None:
             return None  # When we're an ES HDE and no explanation have been imported nor computed yet
+        if self.projected_value_selector.projected_value is None:
+            raise NotInitialized()
         return self.projected_value_selector.projected_value.X
 
     def set_tab(self, *args, **kwargs):

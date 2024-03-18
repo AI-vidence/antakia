@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -74,10 +75,10 @@ class GUI:
         y: pd.Series,
         model,
         variables: DataVariables,
-        X_test: pd.DataFrame,
-        y_test: pd.Series,
+        X_test: pd.DataFrame | None,
+        y_test: pd.Series | None,
         X_exp: pd.DataFrame | None = None,
-        score: callable | str = "mse",
+        score: Callable | str = "mse",
         problem_category: ProblemCategory = ProblemCategory.regression
     ):
         metadata.start()
@@ -95,53 +96,39 @@ class GUI:
         self.selection_mask = boolean_mask(X, True)
 
         self.pv_bank = ProjectedValueBank(y)
-        self.region_set = ModelRegionSet(self.X, self.y, self.X_test, self.y_test, self.model, self.score)
+        self.region_set = ModelRegionSet(self.X, self.y, self.X_test,
+                                         self.y_test, self.model, self.score)
 
         # star dialog
         self.topbar = TopBar()
 
         self.dimension_switch = DimSwitch(self.dimension_update_callback)
-        self.color_switch = ColorSwitch(self.y, self.y_pred, self.color_update_callback)
+        self.color_switch = ColorSwitch(self.y, self.y_pred,
+                                        self.color_update_callback)
 
         # first hde
-        self.vs_hde = HighDimExplorer(
-            self.pv_bank,
-            self.selection_changed,
-            'VS'
-        )
+        self.vs_hde = HighDimExplorer(self.pv_bank, self.selection_changed,
+                                      'VS')
 
         # init Explanation space
         # first explanation getter/compute
-        self.exp_values = ExplanationValues(
-            self.X,
-            self.y,
-            self.model,
-            problem_category,
-            self.explanation_changed_callback,
-            self.disable_hde,
-            X_exp
-        )
+        self.exp_values = ExplanationValues(self.X, self.y, self.model,
+                                            problem_category,
+                                            self.explanation_changed_callback,
+                                            self.disable_hde, X_exp)
         # then hde
-        self.es_hde = HighDimExplorer(
-            self.pv_bank,
-            self.selection_changed,
-            'ES'
-        )
+        self.es_hde = HighDimExplorer(self.pv_bank, self.selection_changed,
+                                      'ES')
 
         # init tabs
-        self.tab1 = Tab1(variables, self.new_rule_selected_callback, self.validate_rules_callback, self.X, X_exp,
-                         self.y)
+        self.tab1 = Tab1(variables, self.new_rule_selected_callback,
+                         self.validate_rules_callback, self.X, X_exp, self.y)
 
-        self.tab2 = Tab2(
-            variables,
-            X,
-            self.vs_hde.projected_value_selector,
-            self.es_hde.projected_value_selector,
-            self.region_set,
-            self.edit_region_callback,
-            self.update_region_callback,
-            self.substitute_model_callback
-        )
+        self.tab2 = Tab2(variables, X, self.vs_hde.projected_value_selector,
+                         self.es_hde.projected_value_selector, self.region_set,
+                         self.edit_region_callback,
+                         self.update_region_callback,
+                         self.substitute_model_callback)
 
         self.tab3 = Tab3(X, problem_category, self.model_validation_callback)
         self.model_explorer = ModelExplorer(self.X)
@@ -150,99 +137,85 @@ class GUI:
         self.splash = SplashScreen(X)
 
     def _build_widget(self):
-        self.widget = v.Col(
-            children=[
-                self.topbar.widget,
-                v.Row(  # Top buttons bar # 1
-                    class_="mt-3 align-center",
-                    children=[
-                        v.Tooltip(  # 10
-                            bottom=True,
-                            v_slots=[
-                                {
-                                    'name': 'activator',
-                                    'variable': 'tooltip',
-                                    'children': self.dimension_switch.widget
-                                }  # End v_slots dict
-                            ],  # End v_slots list
-                            children=['Change dimensions']
-                        ),  # End v.Tooltip
-                        self.color_switch.widget,
-                        v.Col(  # 12
-                            class_="ml-4 mr-4",
-                            children=[self.exp_values.widget]
-                        ),
-                        v.Col(  # 13 VS proj Select
-                            class_="ml-6 mr-6",
-                            children=[self.vs_hde.projected_value_selector.widget]
-                        ),
-                        v.Col(  # 14 ES proj Select
-                            class_="ml-6 mr-6",
-                            children=[self.es_hde.projected_value_selector.widget]
-                        ),
-
-                    ]
-                ),
-                v.Row(  # The two HighDimExplorer # 2
-                    class_="d-flex",
-                    children=[
-                        v.Col(  # VS HDE # 20
-                            style_="width: 50%",
-                            class_="d-flex flex-column justify-center",
-                            children=[
-                                v.Html(  # 200
-                                    tag="h3",
-                                    style_="align-self: center",
-                                    class_="mb-3",
-                                    children=["Values space"]
-                                ),
-                                self.vs_hde.figure.widget,
-                            ],
-                        ),
-                        v.Col(  # ES HDE placeholder # 21
-                            style_="width: 50%",
-                            class_="d-flex flex-column justify-center",
-                            children=[
-                                v.Html(  # 210
-                                    tag="h3",
-                                    style_="align-self: center",
-                                    class_="mb-3",
-                                    children=["Explanations space"]
-                                ),
-                                self.es_hde.figure.widget
-                            ],
-                        ),
-                    ],
-                ),
-                v.Divider(),  # 3
-                v.Tabs(  # 4
-                    v_model=0,  # default active tab
-                    children=[
-                                 v.Tab(children=["Selection"]),  # 40
-                                 v.Tab(children=["Regions"]),  # 41
-                                 v.Tab(children=["Substitution"]),  # 42
-                             ]
-                             +
-                             [
-                                 v.TabItem(  # Tab 1)
-                                     class_="mt-2",
-                                     children=self.tab1.widget
-                                 ),
-                                 v.TabItem(  # Tab 2) Regions #44
-                                     children=self.tab2.widget
-                                 ),  # End of v.TabItem #2
-                                 v.TabItem(  # TabItem #3 Substitution #45
-                                     children=self.tab3.widget
-                                 )
-                             ]
-                )  # End of v.Tabs
-            ]  # End v.Col children
-        )  # End of v.Col
+        self.widget = v.Col(children=[
+            self.topbar.widget,
+            v.Row(  # Top buttons bar # 1
+                class_="mt-3 align-center",
+                children=[
+                    v.Tooltip(  # 10
+                        bottom=True,
+                        v_slots=[{
+                            'name': 'activator',
+                            'variable': 'tooltip',
+                            'children': self.dimension_switch.widget
+                        }  # End v_slots dict
+                                 ],  # End v_slots list
+                        children=['Change dimensions']),  # End v.Tooltip
+                    self.color_switch.widget,
+                    v.Col(  # 12
+                        class_="ml-4 mr-4",
+                        children=[self.exp_values.widget]),
+                    v.Col(  # 13 VS proj Select
+                        class_="ml-6 mr-6",
+                        children=[self.vs_hde.projected_value_selector.widget
+                                  ]),
+                    v.Col(  # 14 ES proj Select
+                        class_="ml-6 mr-6",
+                        children=[self.es_hde.projected_value_selector.widget
+                                  ]),
+                ]),
+            v.Row(  # The two HighDimExplorer # 2
+                class_="d-flex",
+                children=[
+                    v.Col(  # VS HDE # 20
+                        style_="width: 50%",
+                        class_="d-flex flex-column justify-center",
+                        children=[
+                            v.Html(  # 200
+                                tag="h3",
+                                style_="align-self: center",
+                                class_="mb-3",
+                                children=["Values space"]),
+                            self.vs_hde.figure.widget,
+                        ],
+                    ),
+                    v.Col(  # ES HDE placeholder # 21
+                        style_="width: 50%",
+                        class_="d-flex flex-column justify-center",
+                        children=[
+                            v.Html(  # 210
+                                tag="h3",
+                                style_="align-self: center",
+                                class_="mb-3",
+                                children=["Explanations space"]),
+                            self.es_hde.figure.widget
+                        ],
+                    ),
+                ],
+            ),
+            v.Divider(),  # 3
+            v.Tabs(  # 4
+                v_model=0,  # default active tab
+                children=[
+                    v.Tab(children=["Selection"]),  # 40
+                    v.Tab(children=["Regions"]),  # 41
+                    v.Tab(children=["Substitution"]),  # 42
+                ] + [
+                    v.TabItem(  # Tab 1)
+                        class_="mt-2", children=self.tab1.widget),
+                    v.TabItem(  # Tab 2) Regions #44
+                        children=self.tab2.widget),  # End of v.TabItem #2
+                    v.TabItem(  # TabItem #3 Substitution #45
+                        children=self.tab3.widget)
+                ])  # End of v.Tabs
+        ]  # End v.Col children
+                            )  # End of v.Col
 
     def compute_base_values(self):
         # We trigger ES explain computation if needed :
         if not self.exp_values.has_user_exp:  # No imported explanation values
-            exp_method = ExplanationMethod.explain_method_as_str(config.ATK_DEFAULT_EXPLANATION_METHOD)
+            exp_method = ExplanationMethod.explain_method_as_str(
+                config.ATK_DEFAULT_EXPLANATION_METHOD)
             msg = f"Computing {exp_method} on {self.X.shape}"
         else:
             msg = f"Imported explained values {self.X.shape}"
@@ -250,15 +223,18 @@ class GUI:
         self.exp_values.initialize(self.splash.exp_progressbar)
 
         # We trigger VS proj computation :
-        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
-        self.vs_hde.initialize(progress_callback=self.splash.proj_progressbar.get_update(1), X=self.X)
+        self.splash.set_proj_msg(
+            f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
+        self.vs_hde.initialize(
+            progress_callback=self.splash.proj_progressbar.get_update(1),
+            X=self.X)
 
         # THen we trigger ES proj computation :
-        self.splash.set_proj_msg(f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
+        self.splash.set_proj_msg(
+            f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
         self.es_hde.initialize(
             progress_callback=self.splash.proj_progressbar.get_update(2),
-            X=self.exp_values.current_exp_df
-        )
+            X=self.exp_values.current_exp_df)
         self.tab1.update_X_exp(self.exp_values.current_exp_df)
         self.selection_changed(self, boolean_mask(self.X, True))
 
@@ -308,7 +284,9 @@ class GUI:
     def y_pred(self):
         if self._y_pred is None:
             pred = self.model.predict(self.X)
-            if self.problem_category in [ProblemCategory.classification_with_proba]:
+            if self.problem_category in [
+                    ProblemCategory.classification_with_proba
+            ]:
                 pred = self.model.predict_proba(self.X)
 
             if len(pred.shape) > 1:
@@ -324,7 +302,10 @@ class GUI:
     # ==================== sync callbacks ==================== #
 
     @log_errors
-    def explanation_changed_callback(self, current_exp_df: pd.DataFrame, progress_callback: callable = None):
+    def explanation_changed_callback(self,
+                                     current_exp_df: pd.DataFrame,
+                                     progress_callback: Callable
+                                     | None = None):
         """
         on explanation change, synchronizes es_hde and tab1
         Parameters
@@ -342,7 +323,8 @@ class GUI:
     @log_errors
     def disable_hde(self, disable='auto'):
         if disable == 'auto':
-            disable_proj = bool((self.tab == 0) and self.selection_mask.any() and not self.selection_mask.all())
+            disable_proj = bool((self.tab == 0) and self.selection_mask.any()
+                                and not self.selection_mask.all())
             disable_figure = bool(self.tab > 1)
         else:
             disable_proj = disable
@@ -375,10 +357,15 @@ class GUI:
             # Selection is empty
             self.select_tab(0)
         else:
-            stats_logger.log('selection_gui',
-                             {'exp_method': self.exp_values.current_exp,
-                              'vs_proj': str(self.vs_hde.projected_value_selector.current_proj),
-                              'es_proj': str(self.es_hde.projected_value_selector.current_proj)})
+            stats_logger.log(
+                'selection_gui', {
+                    'exp_method':
+                    self.exp_values.current_exp,
+                    'vs_proj':
+                    str(self.vs_hde.projected_value_selector.current_proj),
+                    'es_proj':
+                    str(self.es_hde.projected_value_selector.current_proj)
+                })
 
         self.display_selection(caller, self.selection_mask)
 
@@ -412,6 +399,7 @@ class GUI:
     # ==================== TAB handling ==================== #
 
     def select_tab_front(self, tab):
+
         @log_errors
         def call_fct(*args):
             stats_logger.log('tab_selected', {'tab': tab})
@@ -420,7 +408,8 @@ class GUI:
         return call_fct
 
     def select_tab(self, tab, front=False):
-        if tab == 1 and (not self.selection_mask.any() or self.selection_mask.all()):
+        if tab == 1 and (not self.selection_mask.any()
+                         or self.selection_mask.all()):
             return self.select_tab(0)
         if tab == 1:
             self.vs_hde.figure.display_selection()
@@ -432,10 +421,16 @@ class GUI:
             if len(self.tab2.selected_regions) == 0:
                 self.select_tab(2)
             else:
-                region = self.region_set.get(self.tab2.selected_regions[0]['Region'])
+                region = self.region_set.get(
+                    self.tab2.selected_regions[0]['Region'])
                 self.tab3.update_region(region, False)
                 if region is None:
-                    region = ModelRegion(self.X, self.y, self.X_test, self.y_test, self.model, score=self.score)
+                    region = ModelRegion(self.X,
+                                         self.y,
+                                         self.X_test,
+                                         self.y_test,
+                                         self.model,
+                                         score=self.score)
                 self.vs_hde.figure.display_region(region)
                 self.es_hde.figure.display_region(region)
         if not front:

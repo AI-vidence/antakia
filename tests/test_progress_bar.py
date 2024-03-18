@@ -7,6 +7,7 @@ from antakia.gui.helpers.progress_bar import ProgressBar, MultiStepProgressBar
 
 
 class TestProgressBar(TestCase):
+
     def setUp(self):
         self.progress_bar = ProgressBar(v.ProgressLinear())
 
@@ -25,6 +26,7 @@ class TestProgressBar(TestCase):
 
 
 class TestMultiStepProgressBar(TestCase):
+
     def setUp(self):
         self.widget = v.Row(children=[v.Col(children=[])])
 
@@ -47,9 +49,9 @@ class TestMultiStepProgressBar(TestCase):
         pr1 = mspb.get_update(1)
         pr2 = mspb.get_update(2)
 
-        pr1(100,0)
+        pr1(100, 0)
         assert mspb.progress == 50
-        pr2(100,0)
+        pr2(100, 0)
         assert mspb.progress == 100
 
     def test_set_progress_reset(self):

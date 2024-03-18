@@ -1,4 +1,5 @@
 import time
+from typing import Callable
 
 import pandas as pd
 import ipyvuetify as v
@@ -16,8 +17,14 @@ class ExplanationValues:
     """
     available_exp = ['Imported', 'SHAP', 'LIME']
 
-    def __init__(self, X: pd.DataFrame, y: pd.Series, model, task_type, on_change_callback: callable,
-                 disable_gui: callable, X_exp=None):
+    def __init__(self,
+                 X: pd.DataFrame,
+                 y: pd.Series,
+                 model,
+                 task_type,
+                 on_change_callback: Callable,
+                 disable_gui: Callable,
+                 X_exp: pd.DataFrame | None = None):
         """
 
         Parameters
@@ -39,7 +46,8 @@ class ExplanationValues:
 
         # init dict of explanations
         self.explanations: dict[str, pd.DataFrame | None] = {
-            exp: None for exp in self.available_exp
+            exp: None
+            for exp in self.available_exp
         }
 
         if X_exp is not None:
@@ -58,9 +66,18 @@ class ExplanationValues:
             v.Select(  # Select of explanation method
                 label="Explanation method",
                 items=[
-                    {"text": "Imported", "disabled": True},
-                    {"text": "SHAP", "disabled": True},
-                    {"text": "LIME", "disabled": True},
+                    {
+                        "text": "Imported",
+                        "disabled": True
+                    },
+                    {
+                        "text": "SHAP",
+                        "disabled": True
+                    },
+                    {
+                        "text": "LIME",
+                        "disabled": True
+                    },
                 ],
                 class_="ml-2 mr-2",
                 style_="width: 15%",
@@ -76,7 +93,8 @@ class ExplanationValues:
         ])
         # refresh select menu
         self.update_explanation_select()
-        self.get_explanation_select().on_event("change", self.explanation_select_changed)
+        self.get_explanation_select().on_event("change",
+                                               self.explanation_select_changed)
         # set up callback
         self.get_progress_bar().reset_progress_bar()
 
@@ -93,13 +111,14 @@ class ExplanationValues:
         """
         if not self.has_user_exp:
             # compute explanation if not provided
-            self.compute_explanation(config.ATK_DEFAULT_EXPLANATION_METHOD, progress_callback)
+            self.compute_explanation(config.ATK_DEFAULT_EXPLANATION_METHOD,
+                                     progress_callback)
         # ensure progress is at 100%
         progress_callback(100, 0)
         self.initialized = True
 
     @property
-    def current_exp_df(self) -> pd.DataFrame:
+    def current_exp_df(self) -> pd.DataFrame | None:
         """
         currently selected explanation projected values instance
         Returns
@@ -134,8 +153,11 @@ class ExplanationValues:
                 })
             else:
                 exp_values.append({
-                    "text": exp + (' (compute)' if self.explanations[exp] is None else ''),
-                    'disabled': False
+                    "text":
+                    exp +
+                    (' (compute)' if self.explanations[exp] is None else ''),
+                    'disabled':
+                    False
                 })
         self.get_explanation_select().items = exp_values
         self.get_explanation_select().v_model = self.current_exp
@@ -154,7 +176,8 @@ class ExplanationValues:
         """
         return self.widget.children[0]
 
-    def compute_explanation(self, explanation_method: int, progress_bar: callable):
+    def compute_explanation(self, explanation_method: int,
+                            progress_bar: Callable):
         """
         compute explanation and refresh widgets (select the new explanation method)
         Parameters
@@ -169,7 +192,8 @@ class ExplanationValues:
         t = time.time()
         self.disable_gui(True)
         # We compute proj for this new PV :
-        x_exp = compute_explanations(self.X, self.model, explanation_method, self.task_type, progress_bar)
+        x_exp = compute_explanations(self.X, self.model, explanation_method,
+                                     self.task_type, progress_bar)
         pd.testing.assert_index_equal(x_exp.columns, self.X.columns)
 
         # update explanation
@@ -177,9 +201,10 @@ class ExplanationValues:
         # refresh front
         self.update_explanation_select()
         self.disable_gui(False)
-        stats_logger.log('compute_explanation',
-                         {'exp_method': explanation_method,
-                          'compute_time': time.time() - t})
+        stats_logger.log('compute_explanation', {
+            'exp_method': explanation_method,
+            'compute_time': time.time() - t
+        })
 
     def disable_selection(self, is_disabled: bool):
         """
@@ -217,7 +242,8 @@ class ExplanationValues:
         self.current_exp = data
 
         if self.explanations[self.current_exp] is None:
-            exp_method = ExplanationMethod.explain_method_as_int(self.current_exp)
+            exp_method = ExplanationMethod.explain_method_as_int(
+                self.current_exp)
             progress_bar = self.get_progress_bar()
             self.compute_explanation(exp_method, progress_bar)
 

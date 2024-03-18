@@ -1,10 +1,10 @@
-from io import StringIO
-import pandas as pd
-import urllib.request
-import requests
-import json
-from importlib.resources import files
 import os
+from io import StringIO
+import urllib.request
+from importlib.resources import files
+import json
+import requests
+import pandas as pd
 
 import logging
 from antakia.utils.logging_utils import conf_logger
@@ -12,24 +12,25 @@ from antakia.utils.logging_utils import conf_logger
 logger = logging.getLogger(__name__)
 conf_logger(logger)
 
-AVAILABLE_EXAMPLES = {
+AVAILABLE_EXAMPLES: dict[str, list[str]] = {
     "california_housing": [],
     "climate_change_survey": ["X_train", "X_test", "y_train", "y_test"],
     "wages": [],
     "titanic": ["train", "test"]
 }
 
-BRANCH = "dev"  # TODO change to "main" when merging
+BRANCH = "main"
 
 
-def _get_github_url(example: str, dataset_name: str = None) -> str:
+def _get_github_url(example: str, dataset_name: str | None = None) -> str:
     """
     Returns the Github url of the dataset from our examples/data folder
 
     Parameters
     ----------
     example : str
-        The name of the example. Must be one of the following: "california_housing", "climate_change_survey", "wages"
+        The name of the example. Must be one of the following:
+            "california_housing", "climate_change_survey", "wages", "titanic"
     dataset_name : str (optional)
         The name of the dataset if needed. For example: "X_train", "X_test", "y_train", "y_test"
     
@@ -43,14 +44,21 @@ def _get_github_url(example: str, dataset_name: str = None) -> str:
 
     if example not in AVAILABLE_EXAMPLES:
         raise ValueError(
-            f"Example {example} not found, dataset should be one of {list(AVAILABLE_EXAMPLES.keys())}")
-    if AVAILABLE_EXAMPLES[example] and dataset_name not in AVAILABLE_EXAMPLES[example]:
-        raise ValueError(f"Dataset must be one of the following : {', '.join(AVAILABLE_EXAMPLES[example])}")
+            f"Example {example} not found, dataset should be one of {list(AVAILABLE_EXAMPLES.keys())}"
+        )
+    if AVAILABLE_EXAMPLES[example] and dataset_name not in AVAILABLE_EXAMPLES[
+            example]:
+        raise ValueError(
+            f"Dataset must be one of the following : {', '.join(AVAILABLE_EXAMPLES[example])}"
+        )
     if AVAILABLE_EXAMPLES[example]:
-        url = base_url + example + "/" + dataset_name.lower() + ".csv"
+        if dataset_name is None:
+            raise ValueError(
+                f"you must provide a dataset name for the example {example}")
+        url = f'{base_url}{example}/{dataset_name.lower()}.csv'
         logger.debug(f"Dataset {example}/{dataset_name} download URL : {url}")
     else:
-        url = base_url + example + ".csv"
+        url = f'{base_url}{example}.csv'
         logger.debug(f"Dataset {example} download URL : {url}")
     return url
 
@@ -71,7 +79,7 @@ def _get_lfs_pointer(url: str) -> tuple[str, str, int]:
     
     """
     path, _ = urllib.request.urlretrieve(url)
-    f = open(path, 'r')  # TODO would be better not to use a file -> we should use requests.get(url).text
+    f = open(path, 'r')
     meta = f.read().strip().split('\n')
     f.close()
     server_url = meta[0].split(' ')[1]
@@ -102,14 +110,15 @@ def _get_download_url(oid: str, file_size: int) -> str:
     payload = {
         'operation': 'download',
         'transfer': ['basic'],
-        'objects': [
-            {
-                'oid': oid,
-                'size': file_size
-            }
-        ]
+        'objects': [{
+            'oid': oid,
+            'size': file_size
+        }]
     }
-    headers = {'content-type': 'application/json', 'Accept': 'application/vnd.git-lfs+json'}
+    headers = {
+        'content-type': 'application/json',
+        'Accept': 'application/vnd.git-lfs+json'
+    }
 
     # Note the json.dumps(payload) that serializes the dict to a string, otherwise requests doesn't understand nested dicts !
     r = requests.post(url, data=json.dumps(payload), headers=headers)
@@ -119,7 +128,8 @@ def _get_download_url(oid: str, file_size: int) -> str:
     return dwl_url
 
 
-def _get_remote_dataset(example: str, dataset_name: str = None) -> pd.DataFrame:
+def _get_remote_dataset(example: str,
+                        dataset_name: str | None = None) -> pd.DataFrame:
     """
     Fetchs the dataset from github repository examples/data folder. Called by our examples notebooks.
 
@@ -135,14 +145,18 @@ def _get_remote_dataset(example: str, dataset_name: str = None) -> pd.DataFrame:
     pd.DataFrame
         A DataFrame corresponding to the dataset requested of the specified example.
     """
-    _, oid, file_size = _get_lfs_pointer(_get_github_url(example, dataset_name))
+    _, oid, file_size = _get_lfs_pointer(_get_github_url(
+        example, dataset_name))
     url = _get_download_url(oid, file_size)
     r = requests.get(url)
     logger.debug(f"Fetched dataset file: {r.text}")
     return pd.read_csv(StringIO(r.text))
 
 
-def fetch_dataset(example: str, dataset_name: str = None) -> pd.DataFrame | dict[str:pd.DataFrame]:
+def fetch_dataset(
+        example: str,
+        dataset_name: str | None = None
+) -> pd.DataFrame | dict[str, pd.DataFrame]:
     """
     Fetchs the dataset from our examples/data folder. Called by our examples notebooks.
 
@@ -164,7 +178,7 @@ def fetch_dataset(example: str, dataset_name: str = None) -> pd.DataFrame | dict
         datasets = {}
         for name in AVAILABLE_EXAMPLES[example]:
             datasets[name] = fetch_dataset(example, name)
-        return datasets
+        return datasets  # type:ignore
     else:
         file_name = f'{example}.csv'
     example_folder = files("antakia").joinpath("assets/examples/")
@@ -173,11 +187,11 @@ def fetch_dataset(example: str, dataset_name: str = None) -> pd.DataFrame | dict
         dataset = pd.read_csv(location)
         if 'Unnamed: 0' == dataset.columns[0]:
             dataset = dataset.set_index(dataset.columns[0])
-            dataset.index.name=None
+            dataset.index.name = None
         return dataset
     else:
-        if not os.path.exists(example_folder):
-            os.mkdir(example_folder)
+        if not os.path.exists(str(example_folder)):
+            os.mkdir(str(example_folder))
         dataset = _get_remote_dataset(example, dataset_name)
         dataset.to_csv(location, index=False)
         if 'Unnamed: 0' == dataset.columns[0]:

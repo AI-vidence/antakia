@@ -26,8 +26,9 @@ regression_DT = DecisionTreeRegressor().fit(X, y)
 regression_DT_np = DecisionTreeRegressor().fit(X.values, y.values)
 regression_any = DummyModel()
 classifier_DT = DecisionTreeClassifier().fit(X, y)
-x_exp = pd.concat(
-    [(X.iloc[:, 0] > 0.5) * 0.5, (X.iloc[:, 1] > 0.5) * 0.5, (X.iloc[:, 2] > 2) * 1], axis=1)
+x_exp = pd.concat([(X.iloc[:, 0] > 0.5) * 0.5, (X.iloc[:, 1] > 0.5) * 0.5,
+                   (X.iloc[:, 2] > 2) * 1],
+                  axis=1)
 
 atk = AntakIA(X, y, regression_DT)
 run_antakia(atk, True)

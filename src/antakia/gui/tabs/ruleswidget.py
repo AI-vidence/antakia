@@ -1,4 +1,6 @@
+from __future__ import annotations
 from functools import partial
+from typing import Callable
 
 import pandas as pd
 import ipyvuetify as v
@@ -16,7 +18,7 @@ class RulesWidget:
     """
     A RulesWidget is a piece of GUI that allows the user to refine a set of rules.
     it is composed by a title section that recaps the rule info and a set of RuleWidgets
-    
+
     The user can use the slider to change the rules.
     There are 2 RW : VS and ES slides
 
@@ -31,25 +33,25 @@ class RulesWidget:
     rules_history : a list of RuleSet maintaining all versions of the ruleset
     init_selection_mask : reference selection mask to compare the rule against - initialized in reinit function
     rule_widget_collection : the collection of RuleWidget objects
-    
-    graphical elements : 
+
+    graphical elements :
     rule_card :
-    _region_stat_card: widget with region info 
+    _region_stat_card: widget with region info
         _title_wgt : the title
         _stats_wgt : the rule stats
         _rules_txt_wgt : the rule in plain text
-    
+
     _rules_widgets : the expansion panel with all RuleWidgets
     widget: the complete widget
     """
 
     def __init__(
         self,
-        X: pd.DataFrame,
+        X: pd.DataFrame | None,
         y: pd.Series,
         variables: DataVariables,
         values_space: bool,
-        update_callback: callable = None,
+        update_callback: Callable | None = None,
     ):
         """
         widget to manage rule edition and display
@@ -64,7 +66,7 @@ class RulesWidget:
         self.X = X
         self.y = y
         self.variables: DataVariables = variables
-        self.reference_mask = None
+        self.reference_mask: pd.Series | None = None
         if self.X is not None:
             self.rule_mask = boolean_mask(X, True)
         self.is_value_space = values_space
@@ -188,8 +190,9 @@ class RulesWidget:
                 current_scores_dict['precision'], current_scores_dict['recall'],
                 current_scores_dict['f1'], current_scores_dict['target_avg'],
             )
-            scores_txt = (f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
-                          f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
+            scores_txt = (
+                f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
+                f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
             css = "ml-7 black--text"
         self._stats_wgt.children = [scores_txt]
         self._stats_wgt.class_ = css
@@ -295,7 +298,7 @@ class RulesWidget:
         self._create_rule_widgets()
         self.refresh()
 
-    def change_rules(self, rules_set: RuleSet, reference_mask: pd.Series = None, reset: bool = False):
+    def change_rules(self, rules_set: RuleSet, reference_mask: pd.Series|None = None, reset: bool = False):
         """
         initialize the widget with the rule list and
         the reference_mask (selection_mask)

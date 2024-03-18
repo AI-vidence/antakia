@@ -12,6 +12,7 @@ from tests.utils_fct import dummy_callable
 
 
 class TestProjectedValuesSelector(TestCase):
+
     def setUp(self):
         self.X, self.y = generate_corner_dataset(10)
         self.pv_bank = ProjectedValueBank(self.y)
@@ -35,10 +36,11 @@ class TestProjectedValuesSelector(TestCase):
         assert isinstance(pvs.current_proj, Proj)
         assert pvs.progress_bar.progress == 100
 
-    @mock.patch('antakia_core.data_handler.projected_values.ProjectedValues.get_projection')
+    @mock.patch(
+        'antakia_core.data_handler.projected_values.ProjectedValues.get_projection'
+    )
     def test_update_dim(self, pv_cpt):
         pv_cpt.return_value, _ = generate_corner_dataset(10)
         pvs = ProjectedValuesSelector(self.pv_bank, self.callable, self.space)
         pvs.initialize(self.callable, self.X)
         pvs.update_dim(2)
-

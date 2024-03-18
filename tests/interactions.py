@@ -163,16 +163,18 @@ def toggle_select_region(gui, region_num):
         raise InteractionError('wrong tab')
     if gui.region_set.get(region_num) is None:
         raise InteractionError('unknown region')
-    value = len(list(filter(lambda r: r['Region'] == region_num, gui.tab2.selected_regions))) == 0
-    data = {
-        'value': value,
-        'item': {'Region': region_num}
-    }
+    value = len(
+        list(
+            filter(lambda r: r['Region'] == region_num,
+                   gui.tab2.selected_regions))) == 0
+    data = {'value': value, 'item': {'Region': region_num}}
     gui.tab2.region_selected(data)
     if value:
         gui.tab2.selected_regions += [data['item']]
     else:
-        gui.tab2.selected_regions = list(filter(lambda x: x['Region'] != region_num, gui.tab2.selected_regions))
+        gui.tab2.selected_regions = list(
+            filter(lambda x: x['Region'] != region_num,
+                   gui.tab2.selected_regions))
 
 
 @check
@@ -235,10 +237,7 @@ def select_model(gui, model):
     if model >= len(region.perfs):
         raise InteractionError('unknown model')
     model = region.perfs.index[model]
-    data = {
-        'value': True,
-        'item': {'Sub-model': model}
-    }
+    data = {'value': True, 'item': {'Sub-model': model}}
     gui.tab3._sub_model_selected_callback(data)
 
 

@@ -17,6 +17,7 @@ from tests.utils_fct import DummyModel
 
 
 class TestAntakia(TestCase):
+
     @classmethod
     def setUpClass(cls):
         config.ATK_MIN_POINTS_NUMBER = 10
@@ -33,11 +34,14 @@ class TestAntakia(TestCase):
         cls.y_test = pd.Series(y_test)
 
         cls.regression_DT = DecisionTreeRegressor().fit(cls.X, cls.y)
-        cls.regression_DT_np = DecisionTreeRegressor().fit(cls.X.values, cls.y.values)
+        cls.regression_DT_np = DecisionTreeRegressor().fit(
+            cls.X.values, cls.y.values)
         cls.regression_any = DummyModel()
         cls.classifier_DT = DecisionTreeClassifier().fit(cls.X, cls.y)
-        cls.x_exp = pd.concat(
-            [(cls.X.iloc[:, 0] > 0.5) * 0.5, (cls.X.iloc[:, 1] > 0.5) * 0.5, (cls.X.iloc[:, 2] > 2) * 1], axis=1)
+        cls.x_exp = pd.concat([(cls.X.iloc[:, 0] > 0.5) * 0.5,
+                               (cls.X.iloc[:, 1] > 0.5) * 0.5,
+                               (cls.X.iloc[:, 2] > 2) * 1],
+                              axis=1)
 
     def test_vanilla_run(self):
         # vanilla run
@@ -46,14 +50,20 @@ class TestAntakia(TestCase):
 
     def test_vanilla_run_test(self):
         # vanilla run
-        atk = AntakIA(self.X, self.y, self.regression_DT,
-                      X_test=self.X_test, y_test=self.y_test)
+        atk = AntakIA(self.X,
+                      self.y,
+                      self.regression_DT,
+                      X_test=self.X_test,
+                      y_test=self.y_test)
         run_antakia(atk, True)
 
     def test_shape_issue(self):
         # shape issue
         with pytest.raises(AssertionError):
-            atk = AntakIA(self.X, self.y.iloc[:10], self.regression_DT, X_exp=self.x_exp)
+            atk = AntakIA(self.X,
+                          self.y.iloc[:10],
+                          self.regression_DT,
+                          X_exp=self.x_exp)
             run_antakia(atk, False)
 
     def test_vanilla_with_exp(self):
@@ -88,7 +98,10 @@ class TestAntakia(TestCase):
 
     def test_with_np_arrays_exp(self):
         # run with np array and x_exp
-        atk = AntakIA(self.X.values, self.y.values, self.regression_DT_np, X_exp=self.x_exp.values)
+        atk = AntakIA(self.X.values,
+                      self.y.values,
+                      self.regression_DT_np,
+                      X_exp=self.x_exp.values)
         run_antakia(atk, False)
 
     def test_y_as_df(self):
@@ -133,8 +146,10 @@ def dummy_exp(_X, model, method, task_type, callback, *args, **kwargs):
     return pd.DataFrame(_X.values, index=_X.index, columns=_X.columns)
 
 
-@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations', wraps=dummy_exp)
-@mock.patch('antakia_core.data_handler.projected_values.compute_projection', wraps=dummy_projection)
+@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations',
+            wraps=dummy_exp)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection',
+            wraps=dummy_projection)
 def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     atk.start_gui()
     # assert both progress bar are full after start up
@@ -201,9 +216,9 @@ actions = {
     'change_tab': (change_tab, range(3)),
     'select_points': (select_points, range(2)),
     'unselect': (unselect, range(2)),
-    'find_rules': (find_rules,),
-    'validate_rules': (validate_rules,),
-    'auto_cluster': (auto_cluster,),
+    'find_rules': (find_rules, ),
+    'validate_rules': (validate_rules, ),
+    'auto_cluster': (auto_cluster, ),
     'toggle_select_region': (toggle_select_region, range(4)),
     'subdivide': (subdivide,),
     'merge': (merge,),
@@ -211,7 +226,7 @@ actions = {
     'clear_selection': (clear_region_selection,),
     'substitute': (substitute,),
     'select_model': (select_model, range(10)),
-    'validate_model': (validate_model,)
+    'validate_model': (validate_model, )
 }
 
 

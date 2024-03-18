@@ -1,4 +1,5 @@
 import time
+from typing import Callable
 
 import pandas as pd
 
@@ -14,24 +15,25 @@ import ipyvuetify as v
 
 from antakia_core.utils import utils
 
+from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import stats_logger, log_errors
 
 
 class ProjectedValuesSelector:
-    def __init__(self, pv_bank: ProjectedValueBank, update_callback: callable, space):
+
+    def __init__(self, pv_bank: ProjectedValueBank, update_callback: Callable,
+                 space):
         self.widget = None
-        self.progress_bar = None
         self.projected_value: ProjectedValues | None = None
-        self._proj_params_cards = {}
+        self._proj_params_cards: dict[int, list[v.Slider]] = {}
         self.update_callback = update_callback
         self.pv_bank = pv_bank
         self.space = space
 
         self.X = None
         self.current_proj = Proj(
-            DimReducMethod.dimreduc_method_as_int(config.ATK_DEFAULT_PROJECTION),
-            config.ATK_DEFAULT_DIMENSION
-        )
+            DimReducMethod.dimreduc_method_as_int(
+                config.ATK_DEFAULT_PROJECTION), config.ATK_DEFAULT_DIMENSION)
 
         self._build_widget()
 
@@ -49,25 +51,26 @@ class ProjectedValuesSelector:
             ),
             v.Menu(  # proj settings
                 class_="ml-2 mr-2",
-                v_slots=[
-                    {
-                        "name": "activator",
-                        "variable": "props",
-                        "children": v.Btn(
-                            v_on="props.on",
-                            icon=True,
-                            size="x-large",
-                            children=[
-                                v.Icon(
-                                    children=["mdi-cogs"],
-                                    size="large",
-                                )
-                            ],
-                            class_="ma-2 pa-3",
-                            elevation="3",
-                        ),
-                    }
-                ],
+                v_slots=[{
+                    "name":
+                    "activator",
+                    "variable":
+                    "props",
+                    "children":
+                    v.Btn(
+                        v_on="props.on",
+                        icon=True,
+                        size="x-large",
+                        children=[
+                            v.Icon(
+                                children=["mdi-cogs"],
+                                size="large",
+                            )
+                        ],
+                        class_="ma-2 pa-3",
+                        elevation="3",
+                    ),
+                }],
                 children=[
                     v.Card(  # 1410
                         class_="pa-4",
@@ -105,8 +108,7 @@ class ProjectedValuesSelector:
                                         thumb_label="always",
                                         thumb_size=25,
                                     )
-                                ],
-                            )
+                                ], )
                         ],
                         min_width="500",
                     )
@@ -123,11 +125,14 @@ class ProjectedValuesSelector:
                 class_="ml-2 mr-2 mt-2",
             )
         ])
-        self.progress_bar = ProgressBar(self.widget.children[2], indeterminate=True)
+        self.progress_bar = ProgressBar(self.widget.children[2],
+                                        indeterminate=True)
         self.progress_bar.update(100, 0)
-        self.projection_select.on_event("change", self.projection_select_changed)
+        self.projection_select.on_event("change",
+                                        self.projection_select_changed)
         self.build_all_proj_param_w()
-        self.projection_select.on_event("change", self.projection_select_changed)
+        self.projection_select.on_event("change",
+                                        self.projection_select_changed)
 
     def initialize(self, progress_callback, X: pd.DataFrame):
         self.projected_value = self.pv_bank.get_projected_values(X)
@@ -137,8 +142,7 @@ class ProjectedValuesSelector:
     def refresh(self):
         self.disable(True)
         self.projection_select.v_model = DimReducMethod.dimreduc_method_as_str(
-            self.current_proj.reduction_method
-        )
+            self.current_proj.reduction_method)
         self.update_proj_params_menu()
         self.update_callback()
         self.disable(False)
@@ -172,8 +176,7 @@ class ProjectedValuesSelector:
         if self.projection_select.v_model == '!!disabled!!':
             self.projection_select.v_model = config.ATK_DEFAULT_PROJECTION
         return DimReducMethod.dimreduc_method_as_int(
-            self.projection_select.v_model
-        )
+            self.projection_select.v_model)
 
     @log_errors
     def projection_select_changed(self, *args):
@@ -238,14 +241,16 @@ class ProjectedValuesSelector:
         return sliders
 
     def update_proj_param_value(self):
-        parameters = self.projected_value.get_parameters(self.current_proj)['current']
+        parameters = self.projected_value.get_parameters(
+            self.current_proj)['current']
         param_widget = self._proj_params_cards[self.projection_method]
         for slider in param_widget:
             slider.v_model = parameters[slider.label]
 
     def build_all_proj_param_w(self):
         for dim_reduc in DimReducMethod.dimreduc_methods_as_list():
-            self._proj_params_cards[dim_reduc] = self.build_proj_param_widget(dim_reduc)
+            self._proj_params_cards[dim_reduc] = self.build_proj_param_widget(
+                dim_reduc)
 
     @log_errors
     def params_changed(self, widget, event, data):
@@ -291,7 +296,9 @@ class ProjectedValuesSelector:
         is_disabled |= len(params) == 0
         self.disable_params(is_disabled)
 
-    def get_current_X_proj(self, dim=None, progress_callback=None) -> pd.DataFrame | None:
+    def get_current_X_proj(self,
+                           dim=None,
+                           progress_callback=None) -> pd.DataFrame | None:
         """
         get current project X
         Parameters
@@ -303,23 +310,30 @@ class ProjectedValuesSelector:
         -------
 
         """
+        if self.projected_value is None:
+            raise NotInitialized()
         if dim is None:
             dim = self.current_dim
         if progress_callback is None:
             progress_callback = self.progress_bar.update
-        is_present = self.projected_value.is_present(Proj(self.current_proj.reduction_method, dim))
+        is_present = self.projected_value.is_present(
+            Proj(self.current_proj.reduction_method, dim))
         t = time.time()
         X = self.projected_value.get_projection(
-            Proj(self.current_proj.reduction_method, dim), progress_callback
-        )
+            Proj(self.current_proj.reduction_method, dim), progress_callback)
         if not is_present:
-            stats_logger.log('compute_projection',
-                             {'projection_method': self.current_proj.reduction_method, 'dimension': dim,
-                              'compute_time': time.time() - t})
+            stats_logger.log(
+                'compute_projection', {
+                    'projection_method': self.current_proj.reduction_method,
+                    'dimension': dim,
+                    'compute_time': time.time() - t
+                })
 
         return X
 
     def is_computed(self, projection_method=None, dim=None) -> bool:
+        if self.projected_value is None:
+            raise NotInitialized()
         if projection_method is None:
             projection_method = self.projection_method
         if dim is None:

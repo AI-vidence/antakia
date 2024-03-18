@@ -1,3 +1,5 @@
+from typing import Callable
+
 import ipyvuetify as v
 import pandas as pd
 from antakia_core.data_handler import ModelRegion
@@ -17,11 +19,11 @@ class Tab3:
             "sortable": True,
             "value": column,
             # "class": "primary white--text",\
-        }
-        for column in ['Sub-model', 'MSE', 'MAE', 'R2', 'delta']
+        } for column in ['Sub-model', 'MSE', 'MAE', 'R2', 'delta']
     ]
 
-    def __init__(self, X: pd.DataFrame, problem_category: ProblemCategory, validate_callback: callable):
+    def __init__(self, X: pd.DataFrame, problem_category: ProblemCategory,
+                 validate_callback: Callable):
         self.X = X
         self.problem_category = problem_category
         self.validate_callback = validate_callback
@@ -30,9 +32,9 @@ class Tab3:
         self.substitution_model_training = False  # tab 3 : training flag
 
         self._build_widget()
-        self.progress_bar = ProgressBar(
-            self.progress_wgt, indeterminate=True, reset_at_end=True
-        )
+        self.progress_bar = ProgressBar(self.progress_wgt,
+                                        indeterminate=True,
+                                        reset_at_end=True)
         self.progress_bar(100)
 
     def _build_widget(self):
@@ -48,9 +50,7 @@ class Tab3:
             children=[
                 v.Icon(
                     class_="mr-2",
-                    children=[
-                        "mdi-check"
-                    ],
+                    children=["mdi-check"],
                 ),
                 "Validate sub-model",
             ],
@@ -59,9 +59,15 @@ class Tab3:
             headers=self.headers,
             items=[],
         )
-        self.region_prefix_wgt = v.Html(class_="mr-2", tag="h3", children=["Region"])  # 450000
-        self.region_chip_wgt = v.Chip(color="red", children=["1"], )  # 450001
-        self.region_title = v.Html(class_="ml-2", tag="h3", children=[""])  # 450002
+        self.region_prefix_wgt = v.Html(class_="mr-2",
+                                        tag="h3",
+                                        children=["Region"])  # 450000
+        self.region_chip_wgt = v.Chip(
+            color="red",
+            children=["1"],
+        )  # 450001
+        self.region_title = v.Html(class_="ml-2", tag="h3",
+                                   children=[""])  # 450002
         self.progress_wgt = v.ProgressLinear(  # 450110
             style_="width: 100%",
             class_="mt-4",
@@ -81,13 +87,10 @@ class Tab3:
                                 class_="ma-1 d-flex flex-row align-center",
                                 children=[
                                     self.region_prefix_wgt,
-                                    self.region_chip_wgt,
-                                    self.region_title
-                                ]
-                            ),
+                                    self.region_chip_wgt, self.region_title
+                                ]),
                             self.model_table
-                        ]
-                    ),
+                        ]),
                     v.Col(  # Col2 - buttons #4501
                         class_="col-2",
                         children=[
@@ -96,34 +99,23 @@ class Tab3:
                                 children=[
                                     v.Tooltip(  # 45010
                                         bottom=True,
-                                        v_slots=[
-                                            {
-                                                'name': 'activator',
-                                                'variable': 'tooltip',
-                                                'children':
-                                                    self.validate_model_btn,
-                                            }
-                                        ],
-                                        children=['Chose this submodel']
-                                    )
-                                ]
-                            ),
-                            v.Row(
-                                class_="flex-column",
-                                children=[
-                                    self.progress_wgt
-                                ]
-                            )
-                        ]
-                    ),
+                                        v_slots=[{
+                                            'name':
+                                            'activator',
+                                            'variable':
+                                            'tooltip',
+                                            'children':
+                                            self.validate_model_btn,
+                                        }],
+                                        children=['Chose this submodel'])
+                                ]),
+                            v.Row(class_="flex-column",
+                                  children=[self.progress_wgt])
+                        ]),
                     v.Col(  # Col3 - model explorer #4502
                         class_="col-5",
-                        children=[
-                            self.model_explorer.widget
-                        ]
-                    ),
-                ]
-            )
+                        children=[self.model_explorer.widget]),
+                ])
         ]
         # We wire a select event on the 'substitution table' :
         self.model_table.set_callback(self._sub_model_selected_callback)
@@ -158,7 +150,8 @@ class Tab3:
             self.progress_bar(0)
             self.update()
             # show tab 3 (and update)
-            self.region.train_substitution_models(task_type=self.problem_category)
+            self.region.train_substitution_models(
+                task_type=self.problem_category)
 
             self.progress_bar(100)
             self.substitution_model_training = False
@@ -181,39 +174,39 @@ class Tab3:
         self.region_chip_wgt.children = [str(self.region.num)] if self.region else ["-"]
 
     def _update_model_table(self):
-        if (
-            self.substitution_model_training or
-            not self.region or
-            self.region.num_points() < config.ATK_MIN_POINTS_NUMBER or
-            len(self.region.perfs) == 0
-        ):
+        if (self.substitution_model_training or not self.region
+                or self.region.num_points() < config.ATK_MIN_POINTS_NUMBER
+                or len(self.region.perfs) == 0):
             self.model_table.items = []
         else:
-            def series_to_str(series: pd.Series) -> str:
+
+            def series_to_str(series: pd.Series) -> pd.Series:
                 return series.apply(lambda x: f"{x:.2f}")
 
             perfs = self.region.perfs.copy()
-            stats_logger.log('substitute_model', {'best_perf': perfs['delta'].min()})
+            stats_logger.log('substitute_model',
+                             {'best_perf': perfs['delta'].min()})
             for col in perfs.columns:
                 if col != 'delta_color':
                     perfs[col] = series_to_str(perfs[col])
             perfs = perfs.reset_index().rename(columns={"index": "Sub-model"})
-            headers = [
-                {
-                    "text": column,
-                    "sortable": False,
-                    "value": column,
-                }
-                for column in perfs.drop('delta_color', axis=1).columns
-            ]
+            headers = [{
+                "text": column,
+                "sortable": False,
+                "value": column,
+            } for column in perfs.drop('delta_color', axis=1).columns]
             self.model_table.headers = headers
             self.model_table.items = perfs.to_dict("records")
 
     def _update_selected(self):
         if self.region and self.region.interpretable_models.selected_model:
             # we set to selected model if any
-            self.model_table.selected = [{'Sub-model': self.region.interpretable_models.selected_model}]
-            self.model_explorer.update_selected_model(self.region.get_selected_model(), self.region)
+            self.model_table.selected = [{
+                'Sub-model':
+                self.region.interpretable_models.selected_model
+            }]
+            self.model_explorer.update_selected_model(
+                self.region.get_selected_model(), self.region)
         else:
             # clear selection if new region:
             self.model_explorer.reset()
@@ -231,12 +224,15 @@ class Tab3:
         elif not self.region:  # no region provided
             title.class_ = "ml-2 grey--text italic "
             title.children = [f"No region selected for substitution"]
-        elif self.region.num_points() < config.ATK_MIN_POINTS_NUMBER:  # region is too small
+        elif self.region.num_points(
+        ) < config.ATK_MIN_POINTS_NUMBER:  # region is too small
             title.class_ = "ml-2 red--text"
             title.children = ["Region too small for substitution !"]
         elif len(self.region.perfs) == 0:  # model not trained
             title.class_ = "ml-2 red--text"
-            title.children = ["click on substitute button to train substitution models"]
+            title.children = [
+                "click on substitute button to train substitution models"
+            ]
         else:
             # We have results
             title.class_ = "ml-2 black--text"
@@ -264,7 +260,8 @@ class Tab3:
         self.selected_sub_model = [data['item']]
         self.validate_model_btn.disabled = not is_selected
         if is_selected:
-            self.model_explorer.update_selected_model(self.region.get_model(data['item']['Sub-model']), self.region)
+            self.model_explorer.update_selected_model(
+                self.region.get_model(data['item']['Sub-model']), self.region)
         else:
             self.model_explorer.reset()
 
@@ -285,7 +282,8 @@ class Tab3:
 
         self.validate_model_btn.disabled = True
 
-        stats_logger.log('validate_sub_model', {'model': self.selected_sub_model[0]['Sub-model']})
+        stats_logger.log('validate_sub_model',
+                         {'model': self.selected_sub_model[0]['Sub-model']})
 
         # We udpate the region
         self.region.select_model(self.selected_sub_model[0]['Sub-model'])
