@@ -126,7 +126,7 @@ def check_tab_1_btn(gui):
     # self.widget[2].children[0].disabled = not self.valid_selection
     assert tab1.find_rules_btn.disabled == (not tab1.valid_selection) or (not tab1.selection_changed)
     assert tab1.undo_btn.disabled == empty_history
-    assert tab1.cancel_btn.disabled == empty_rule_set and empty_history
+    assert tab1.cancel_btn.disabled == (empty_rule_set and empty_history)
 
     has_modif = (
                     tab1.vs_rules_wgt.history_size > 1
@@ -150,7 +150,8 @@ def check_tab_2_btn(gui):
             gui.tab2.selected_regions[0]['Region'])
     else:
         first_region = None
-    enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
+    enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(
+        first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
     assert gui.tab2.divide_btn.disabled == (not enable_sub)
 
     enable_merge = (len(gui.tab2.selected_regions) > 1)
@@ -161,8 +162,8 @@ def check_tab_2_btn(gui):
 
 def check_tab_3_btn(gui):
     assert gui.tab3.validate_model_btn.disabled == (
-            (gui.tab3.region is None) or
-            len(gui.tab3.selected_sub_model) == 0
+        (gui.tab3.region is None) or
+        len(gui.tab3.selected_sub_model) == 0
     )
 
 
@@ -178,7 +179,6 @@ def check_all(gui):
 
 
 def check(method):
-
     @wraps(method)
     def check(gui, *args, check=False, **kw):
         result = method(gui, *args, **kw)
