@@ -1,5 +1,5 @@
 import pandas as pd
-from antakia_core.data_handler.projected_values import ProjectedValues
+from antakia_core.data_handler import ProjectedValues
 
 
 class ProjectedValueBank:

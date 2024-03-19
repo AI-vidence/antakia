@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Callable
 
 import pandas as pd
-from antakia_core.data_handler.projected_values import ProjectedValues
+from antakia_core.data_handler import ProjectedValues
 
 from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
@@ -133,7 +133,7 @@ class HighDimExplorer:
         return self.figure.set_tab(*args, **kwargs)
 
     def set_selection(self, *args, **kwargs):
-        return self.figure.set_selection(*args, **kwargs)
+        return self.figure.sync_selection(*args, **kwargs)
 
     def set_dim(self, dim: int):
         self.projected_value_selector.update_dim(dim)

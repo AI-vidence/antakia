@@ -7,7 +7,7 @@ from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSe
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.utils.dummy_datasets import generate_corner_dataset
-from antakia_core.data_handler.projected_values import Proj
+from antakia_core.data_handler import Proj
 from tests.utils_fct import dummy_callable
 
 

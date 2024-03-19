@@ -116,34 +116,34 @@ def check_proj_menu(gui):
 
 def check_tab_1_btn(gui):
     # data table
-    assert get_widget(gui.widget,
-                      "4320").disabled == bool(gui.selection_mask.all())
-    # skope_rule
-    assert gui.tab1.find_rules_btn.disabled == (not gui.tab1.selection_changed
-                                                or bool(
-                                                    gui.selection_mask.all()))
-    # undo
-    assert gui.tab1.undo_btn.disabled == (not (gui.tab1.vs_rules_wgt.rules_num
-                                               > 1))
-    # validate rule
-    assert gui.tab1.validate_btn.disabled == (
-        not (gui.tab1.vs_rules_wgt.rules_num > 0))
+    tab1 = gui.tab1
+
+    empty_rule_set = len(tab1.vs_rules_wgt.current_rules_set) == 0
+    empty_history = tab1.vs_rules_wgt.history_size <= 1
+
+    # data table
+    assert tab1.data_table.disabled == (not tab1.valid_selection)
+    # self.widget[2].children[0].disabled = not self.valid_selection
+    assert tab1.find_rules_btn.disabled == (not tab1.valid_selection) or (not tab1.selection_changed)
+    assert tab1.undo_btn.disabled == empty_history
+    assert tab1.cancel_btn.disabled == (empty_rule_set and empty_history)
+
+    has_modif = (
+                    tab1.vs_rules_wgt.history_size > 1
+                ) or (
+                    tab1.es_rules_wgt.history_size == 1 and tab1.region.num < 0  # do not validate a empty modif
+                )
+    assert tab1.validate_btn.disabled == (not has_modif) or empty_rule_set
 
 
 def check_tab_2_btn(gui):
     # auto-cluster button
-    assert get_widget(gui.widget, "4402000").disabled == False
+    assert gui.tab2.auto_cluster_btn.disabled == False
     # auto number == num slider disabled
-    assert get_widget(gui.widget,
-                      "4402100").disabled == get_widget(gui.widget,
-                                                        "440211").v_model
+    assert gui.tab2.cluster_num_wgt.disabled == gui.tab2.auto_cluster_checkbox.v_model
     # substitute
-    assert get_widget(gui.widget,
-                      "4401000").disabled == (len(gui.tab2.selected_regions)
-                                              != 1)
-    assert get_widget(gui.widget,
-                      "4401200").disabled == (len(gui.tab2.selected_regions)
-                                              != 1)
+    assert gui.tab2.substitute_btn.disabled == (len(gui.tab2.selected_regions) != 1)
+    assert gui.tab2.edit_btn.disabled == (len(gui.tab2.selected_regions) != 1)
     # subdivide
     if gui.tab2.selected_regions:
         first_region = gui.region_set.get(
@@ -152,20 +152,19 @@ def check_tab_2_btn(gui):
         first_region = None
     enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(
         first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
-    assert get_widget(gui.widget, "4401100").disabled == (not enable_sub)
+    assert gui.tab2.divide_btn.disabled == (not enable_sub)
 
     enable_merge = (len(gui.tab2.selected_regions) > 1)
-    get_widget(gui.widget, "4401300").disabled = not enable_merge
+    gui.tab2.merge_btn.disabled = not enable_merge
     # delete
-    assert get_widget(gui.widget, "4401400").disabled == (len(
-        gui.tab2.selected_regions) == 0)
+    assert gui.tab2.delete_btn.disabled == (len(gui.tab2.selected_regions) == 0)
 
 
 def check_tab_3_btn(gui):
-    assert get_widget(
-        gui.widget,
-        "4501000").disabled == ((gui.tab3.region is None)
-                                or len(gui.tab3.selected_sub_model) == 0)
+    assert gui.tab3.validate_model_btn.disabled == (
+        (gui.tab3.region is None) or
+        len(gui.tab3.selected_sub_model) == 0
+    )
 
 
 def check_all(gui):
@@ -180,7 +179,6 @@ def check_all(gui):
 
 
 def check(method):
-
     @wraps(method)
     def check(gui, *args, check=False, **kw):
         result = method(gui, *args, **kw)

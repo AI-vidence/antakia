@@ -8,9 +8,9 @@ from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier
 
-from antakia_core.data_handler.region import Region, RegionSet
+from antakia_core.data_handler import Region, RegionSet
 
-import antakia_core.utils.utils as utils
+import antakia_core.utils as utils
 import antakia.config as config
 
 import logging as logging
@@ -236,9 +236,7 @@ class FigureDisplay:
         -------
 
         """
-        rs = RegionSet(self.X)
-        rs.add(region)
-        self._colors[self.REGION_TRACE] = rs.get_color_serie()
+        self._colors[self.REGION_TRACE] = region.get_color_serie()
         self._display_zones(self.REGION_TRACE)
 
     def _display_zones(self, trace=None):
@@ -396,13 +394,13 @@ class FigureDisplay:
         self.first_selection = False
         self.current_selection = utils.boolean_mask(self.X, True)
         self.selection_changed(self, self.current_selection)
-        self.display_rules(~self.current_selection, ~self.current_selection)
+        self.display_rules(~self.current_selection)
         if rebuild:
             self.create_figure()
         else:
             self.display_selection()
 
-    def set_selection(self, new_selection_mask: pd.Series):
+    def sync_selection(self, new_selection_mask: pd.Series):
         """
         update selection from mask
         no update_callback
@@ -422,7 +420,7 @@ class FigureDisplay:
 
         # selection event
         self.current_selection = new_selection_mask
-        self.display_rules(self.current_selection, self.current_selection)
+        self.display_rules(self.current_selection)
         self.display_selection()
         return
 

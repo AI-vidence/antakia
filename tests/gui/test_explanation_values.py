@@ -5,7 +5,7 @@ import pytest
 from unittest import TestCase
 
 from antakia.utils.dummy_datasets import generate_corner_dataset
-from antakia_core.utils.utils import ProblemCategory
+from antakia_core.utils import ProblemCategory
 from antakia.gui.app_bar.explanation_values import ExplanationValues
 from tests.test_antakia import dummy_exp
 from tests.utils_fct import test_progress_bar, dummy_callable, DummyModel

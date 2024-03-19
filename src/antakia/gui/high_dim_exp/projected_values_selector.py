@@ -5,7 +5,7 @@ import pandas as pd
 
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
-from antakia_core.data_handler.projected_values import Proj, ProjectedValues
+from antakia_core.data_handler import Proj, ProjectedValues
 
 from antakia import config
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank

@@ -1,7 +1,7 @@
 import ipyvuetify as v
 import pandas as pd
 from antakia_core.compute.model_subtitution.model_class import MLModel
-from antakia_core.data_handler.region import Region, ModelRegion
+from antakia_core.data_handler import ModelRegion
 from plotly.graph_objects import FigureWidget, Bar
 
 from pdpbox.pdp import PDPIsolate, PDPInteract

@@ -1,5 +1,4 @@
 from __future__ import annotations
-from __future__ import annotations
 
 import time
 from typing import Callable
@@ -10,7 +9,7 @@ import pandas as pd
 import ipyvuetify as v
 import IPython.display
 
-from antakia_core.data_handler.region import ModelRegionSet, ModelRegion, Region
+from antakia_core.data_handler import ModelRegion, Region, ModelRegionSet
 
 from antakia.gui.app_bar.color_switch import ColorSwitch
 from antakia.gui.app_bar.dimension_switch import DimSwitch
@@ -18,9 +17,8 @@ from antakia.gui.splash_screen import SplashScreen
 from antakia.gui.app_bar.top_bar import TopBar
 from antakia.gui.app_bar.explanation_values import ExplanationValues
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
-from antakia_core.explanation.explanation_method import ExplanationMethod
+from antakia_core.explanation import ExplanationMethod
 import antakia.config as config
-from antakia_core.data_handler.rules import RuleSet
 
 from antakia.gui.tabs.model_explorer import ModelExplorer
 from antakia.gui.tabs.tab1 import Tab1
@@ -32,8 +30,7 @@ from antakia.gui.helpers.metadata import metadata
 
 import logging
 from antakia.utils.logging_utils import conf_logger
-from antakia_core.utils.utils import boolean_mask, ProblemCategory
-from antakia_core.utils.variable import DataVariables
+from antakia_core.utils import boolean_mask, ProblemCategory, DataVariables
 
 from antakia.utils.stats import stats_logger, log_errors
 
@@ -73,16 +70,17 @@ class GUI:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            model,
-            variables: DataVariables,
-            X_test: pd.DataFrame | None,
-            y_test: pd.Series | None,
-            X_exp: pd.DataFrame | None = None,
-            score: Callable | str = "mse",
-            problem_category: ProblemCategory = ProblemCategory.regression):
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        variables: DataVariables,
+        X_test: pd.DataFrame | None,
+        y_test: pd.Series | None,
+        X_exp: pd.DataFrame | None = None,
+        score: Callable | str = "mse",
+        problem_category: ProblemCategory = ProblemCategory.regression
+    ):
         metadata.start()
         self.tab = 1
         self.X = X
@@ -238,7 +236,7 @@ class GUI:
             progress_callback=self.splash.proj_progressbar.get_update(2),
             X=self.exp_values.current_exp_df)
         self.tab1.update_X_exp(self.exp_values.current_exp_df)
-        self.selection_changed(None, boolean_mask(self.X, True))
+        self.selection_changed(self, boolean_mask(self.X, True))
 
         self.select_tab(0)
         self.disable_hde()
@@ -336,8 +334,7 @@ class GUI:
         self.es_hde.disable(disable_figure, disable_proj)
 
     @log_errors
-    def selection_changed(self, caller: HighDimExplorer | None,
-                          new_selection_mask: pd.Series):
+    def selection_changed(self, caller, new_selection_mask: pd.Series):
         """
         callback to synchronize both hdes and tab1
         Parameters
@@ -350,11 +347,12 @@ class GUI:
 
         """
         """Called when the selection of one HighDimExplorer changes"""
-
+        if not new_selection_mask.any():
+            new_selection_mask = ~new_selection_mask
         self.selection_mask = new_selection_mask
+        self.disable_hde()
 
         # If new selection (empty or not) : if exists, we remove any 'pending rule'
-        self.disable_hde()
         if new_selection_mask.all():
             # Selection is empty
             self.select_tab(0)
@@ -369,16 +367,17 @@ class GUI:
                     str(self.es_hde.projected_value_selector.current_proj)
                 })
 
-        # We synchronize selection between the two HighDimExplorers
-        if caller is None:
-            self.es_hde.set_selection(self.selection_mask)
-            self.vs_hde.set_selection(self.selection_mask)
-        else:
-            other_hde = self.es_hde if caller == self.vs_hde.figure else self.vs_hde
-            other_hde.set_selection(self.selection_mask)
+        self.display_selection(caller, self.selection_mask)
 
-        # update tab1
-        self.tab1.update_selection(self.selection_mask)
+    def display_selection(self, caller, selection_mask: pd.Series):
+        if not selection_mask.any():
+            selection_mask = ~selection_mask
+        if caller != self.es_hde.figure:
+            self.es_hde.set_selection(selection_mask)
+        if caller != self.vs_hde.figure:
+            self.vs_hde.set_selection(selection_mask)
+        if caller != self.tab1:
+            self.tab1.update_reference_mask(selection_mask)
 
     # ==================== top bar ==================== #
 
@@ -443,13 +442,19 @@ class GUI:
 
     # ==================== TAB 1 ==================== #
 
-    def new_rule_selected_callback(self, selection_mask, rules_mask):
-        self.select_tab(1)
+    def new_rule_selected_callback(self, caller, event: str, selection_mask, rules_mask):
+        self.selection_mask = selection_mask
+        if selection_mask.all() or not selection_mask.any():
+            selection_mask = rules_mask
+            self.select_tab(0)
+        else:
+            self.select_tab(1)
+        self.display_selection(caller, selection_mask)
         self.vs_hde.figure.display_rules(selection_mask, rules_mask)
         self.es_hde.figure.display_rules(selection_mask, rules_mask)
 
-    def validate_rules_callback(self, region: Region):
-        self.selection_changed(None, boolean_mask(self.X, True))
+    def validate_rules_callback(self, caller, event: str, region: Region):
+        self.selection_changed(caller, boolean_mask(self.X, True))
         region.validate()
         self.region_set.add(region)
         self.select_tab(2)
@@ -459,6 +464,8 @@ class GUI:
     def edit_region_callback(self, caller, region):
         self.tab1.update_region(region)
         self.selection_mask = region.mask
+        # TODO : needed ?
+        self.selection_changed(caller, region.mask)
         self.select_tab(1)
 
     def update_region_callback(self, caller, region_set):

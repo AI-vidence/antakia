@@ -2,8 +2,8 @@ from typing import Callable
 
 import ipyvuetify as v
 import pandas as pd
-from antakia_core.data_handler.region import ModelRegion
-from antakia_core.utils.utils import ProblemCategory
+from antakia_core.data_handler import ModelRegion
+from antakia_core.utils import ProblemCategory, BASE_COLOR
 
 from antakia import config
 from antakia.gui.graphical_elements.sub_model_table import SubModelTable
@@ -170,9 +170,8 @@ class Tab3:
         # Region prefix text
         self.region_prefix_wgt.class_ = "mr-2 black--text" if self.region else "mr-2 grey--text"
         # v.Chip
-        self.region_chip_wgt.color = self.region.color if self.region else "grey"
-        self.region_chip_wgt.children = [str(self.region.num)
-                                         ] if self.region else ["-"]
+        self.region_chip_wgt.color = self.region.color if self.region else BASE_COLOR
+        self.region_chip_wgt.children = [str(self.region.num)] if self.region else ["-"]
 
     def _update_model_table(self):
         if (self.substitution_model_training or not self.region

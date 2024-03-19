@@ -1,6 +1,6 @@
 from traitlets.traitlets import List, Unicode
 import ipyvuetify as v
-from antakia_core.utils.utils import colors
+from antakia_core.utils import colors
 from typing import Callable
 
 

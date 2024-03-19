@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 from antakia.gui.widget_utils import get_widget
-from antakia_core.utils.utils import mask_to_rows
+from antakia_core.utils import mask_to_rows
 from tests.status_checks import check
 
 
@@ -181,7 +181,7 @@ def toggle_select_region(gui, region_num):
 def substitute(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401000")
+    btn = gui.tab2.substitute_btn
     if btn.disabled:
         raise InteractionError('substitute button disabled')
     btn.click()
@@ -201,9 +201,19 @@ def subdivide(gui):
 def merge(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401300")
+    btn = gui.tab2.merge_btn
     if btn.disabled:
         raise InteractionError('merge button disabled')
+    btn.click()
+
+
+@check
+def edit(gui):
+    if gui.tab != 2:
+        raise InteractionError('wrong tab')
+    btn = gui.tab2.edit_btn
+    if btn.disabled:
+        raise InteractionError('delete button disabled')
     btn.click()
 
 
@@ -211,7 +221,7 @@ def merge(gui):
 def delete(gui):
     if gui.tab != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401400")
+    btn = gui.tab2.delete_btn
     if btn.disabled:
         raise InteractionError('delete button disabled')
     btn.click()
@@ -235,7 +245,7 @@ def select_model(gui, model):
 def validate_model(gui):
     if gui.tab != 3:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4501000")
+    btn = gui.tab3.validate_model_btn
     if btn.disabled:
         raise InteractionError('validate button disabled')
     btn.click()

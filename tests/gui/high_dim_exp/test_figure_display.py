@@ -1,10 +1,8 @@
 from unittest import TestCase
 
 import pandas as pd
-import ipyvuetify as v
 
-import antakia.config as config
-import antakia_core.utils.utils as utils
+import antakia_core.utils as utils
 
 from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.utils.dummy_datasets import generate_corner_dataset
