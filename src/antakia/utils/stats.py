@@ -44,7 +44,7 @@ class ActivityLogger:
         -------
 
         """
-        if os.environ.get('ATK_SEND_LOG',
+        if os.environ.get('SEND_ANONYMOUS_LOGS',
                           '1') == '0' or not config.ATK_SEND_LOG:
             return
         if info is None:

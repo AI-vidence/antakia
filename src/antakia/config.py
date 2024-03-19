@@ -22,4 +22,4 @@ ATK_SHOW_LOG_MODULE_WIDGET = os.environ.get('SHOW_LOG_MODULE_WIDGET',
 # Auto cluster
 ATK_MIN_POINTS_NUMBER = 100
 
-ATK_SEND_LOG = os.environ.get('ATK_SEND_LOG', 'True') != '0'
+ATK_SEND_LOG = os.environ.get('SEND_ANONYMOUS_LOGS', 'True') != '0'

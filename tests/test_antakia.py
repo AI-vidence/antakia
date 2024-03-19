@@ -216,9 +216,9 @@ actions = {
     'change_tab': (change_tab, range(3)),
     'select_points': (select_points, range(2)),
     'unselect': (unselect, range(2)),
-    'find_rules': (find_rules, ),
-    'validate_rules': (validate_rules, ),
-    'auto_cluster': (auto_cluster, ),
+    'find_rules': (find_rules,),
+    'validate_rules': (validate_rules,),
+    'auto_cluster': (auto_cluster,),
     'toggle_select_region': (toggle_select_region, range(4)),
     'subdivide': (subdivide,),
     'merge': (merge,),
@@ -226,11 +226,15 @@ actions = {
     'clear_selection': (clear_region_selection,),
     'substitute': (substitute,),
     'select_model': (select_model, range(10)),
-    'validate_model': (validate_model, )
+    'validate_model': (validate_model,)
 }
 
 
-def random_walk(atk, steps):
+@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations',
+            wraps=dummy_exp)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection',
+            wraps=dummy_projection)
+def random_walk(atk, steps, compute_proj, compute_exp):
     atk.start_gui()
     gui = atk.gui
 
@@ -256,7 +260,11 @@ def random_walk(atk, steps):
             raise
 
 
-def run_walk(atk, walk):
+@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations',
+            wraps=dummy_exp)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection',
+            wraps=dummy_projection)
+def run_walk(atk, walk, compute_proj, compute_exp):
     atk.start_gui()
     gui = atk.gui
     k = 0
