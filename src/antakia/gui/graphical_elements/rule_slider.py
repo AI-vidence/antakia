@@ -5,8 +5,14 @@ import numpy as np
 
 
 class RuleSlider:
-    def __init__(self, range_min: float, range_max: float, step: float, value_min: float | None = None,
-                 value_max: float | None = None, change_callback=None):
+
+    def __init__(self,
+                 range_min: float,
+                 range_max: float,
+                 step: float,
+                 value_min: float | None = None,
+                 value_max: float | None = None,
+                 change_callback=None):
         self.range = range_min, range_max
         if value_max is None or value_max >= range_max:
             value_max = None
@@ -20,23 +26,19 @@ class RuleSlider:
         self.build_widget()
 
     def build_widget(self):
-        self.min_input = v.TextField(
-            class_='ml-2 px-2',
-            style_="max-width:100px",
-            v_model=self.value[0],
-            placeholder='',
-            label='',
-            disabled=False,
-            type_="number"
-        )
-        self.max_input = v.TextField(
-            class_='px-2',
-            style_="max-width:100px",
-            v_model=self.value[1],
-            placeholder='',
-            label='',
-            disabled=False
-        )
+        self.min_input = v.TextField(class_='ml-2 px-2',
+                                     style_="max-width:100px",
+                                     v_model=self.value[0],
+                                     placeholder='',
+                                     label='',
+                                     disabled=False,
+                                     type_="number")
+        self.max_input = v.TextField(class_='px-2',
+                                     style_="max-width:100px",
+                                     v_model=self.value[1],
+                                     placeholder='',
+                                     label='',
+                                     disabled=False)
         self.range_slider = v.RangeSlider(
             class_='px-2',
             thumb_label='always',
@@ -53,8 +55,7 @@ class RuleSlider:
             step=self.step,
             vertical=False,
             color='green',
-            track_color='red'
-        )
+            track_color='red')
 
         self.range_slider.on_event('end', self._update_txt)
         self.range_slider.on_event('start', self._update_txt)
@@ -66,10 +67,14 @@ class RuleSlider:
 
         self.widget = v.Row(
             children=[self.min_input, self.range_slider, self.max_input],
-            align="center"
-        )
+            align="center")
 
-    def _update_txt(self, wgt=None, event=None, data: tuple[float, float] = None, *, callback=True):
+    def _update_txt(self,
+                    wgt=None,
+                    event: str | None = None,
+                    data: tuple[float, float] | None = None,
+                    *,
+                    callback=True):
         """
         method to update text field values - called by slider
         Parameters

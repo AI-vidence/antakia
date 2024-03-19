@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Callable
 
 import pandas as pd
 import ipyvuetify as v
@@ -18,7 +19,8 @@ class RuleWidget:
     Attributes :
     """
 
-    def __init__(self, rule: Rule, X: pd.DataFrame, values_space: bool, rule_updated_callback: callable):
+    def __init__(self, rule: Rule, X: pd.DataFrame, values_space: bool,
+                 rule_updated_callback: Callable):
         '''
 
         Parameters
@@ -32,12 +34,13 @@ class RuleWidget:
         selectable_mask : list of point that could be selected using the current rule
         rule_updated_callback : callable called on update
         '''
-        self.idx = None
+        self.idx: float | None = None
         self.rule: Rule = rule
         self.X: pd.DataFrame = X
         self.X_col = X.loc[:, rule.variable.column_name]
         self.values_space: bool = values_space
-        self.rule_updated_callback: callable = partial(rule_updated_callback, self, 'updated')
+        self.rule_updated_callback: Callable = partial(rule_updated_callback,
+                                                       self, 'updated')
         self.display_sliders: bool = self.values_space  # enable rule edit
         self.widget = None
         self.init_mask = boolean_mask(X, True)
@@ -61,26 +64,16 @@ class RuleWidget:
         # build figure
         self._build_figure()
 
-        self.title = v.ExpansionPanelHeader(
-            class_="blue lighten-4",
-            children=[self._get_panel_title()]
-        )
+        self.title = v.ExpansionPanelHeader(class_="blue lighten-4",
+                                            children=[self._get_panel_title()])
 
         # root_widget is an ExpansionPanel
-        self.widget: v.ExpansionPanel = v.ExpansionPanel(
-            children=[
-                self.title,
-                v.ExpansionPanelContent(
-                    children=[
-                        v.Col(
-                            children=[
-                                self.select_widget,
-                                self.figure],
-                        )
-                    ]
-                ),
-            ]
-        )
+        self.widget = v.ExpansionPanel(children=[
+            self.title,
+            v.ExpansionPanelContent(
+                children=[v.Col(children=[self.select_widget, self.figure], )
+                          ]),
+        ])
 
         # The variable name bg (ExpansionPanelHeader) is light blue
         # get_widget(self.root_widget, "0").class_ = "blue lighten-4"
@@ -107,60 +100,102 @@ class RuleWidget:
             }
             h = []
             for name, color in colors_info.items():
-                h.append(Histogram(
-                    name=name,
-                    x=self.X_col[mask_color == color],
-                    marker_color=color,
-                    **base_args
-                ))
-            self.figure = FigureWidget(
-                data=h
-            )
+                h.append(
+                    Histogram(name=name,
+                              x=self.X_col[mask_color == color],
+                              marker_color=color,
+                              **base_args))
+            self.figure = FigureWidget(data=h)
             self.figure.update_layout(
                 barmode="stack",
                 bargap=0.1,
                 # width=600,
                 showlegend=False,
-                margin={'l': 0, 'r': 0, 't': 0, 'b': 0},
+                margin={
+                    'l': 0,
+                    'r': 0,
+                    't': 0,
+                    'b': 0
+                },
                 height=200,
             )
         else:
             swarm_plots = []
             for name, color in colors_info.items():
                 fig = Box({
-                    'alignmentgroup': 'True',
-                    'boxpoints': 'all',
-                    'fillcolor': 'rgba(255,255,255,0)',
-                    'hoveron': 'points',
-                    'hovertemplate': f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
-                    'jitter': 1,
-                    'legendgroup': name,
-                    'line': {'color': 'rgba(255,255,255,0)'},
-                    'marker': {'color': color},
-                    'name': name,
-                    'offsetgroup': name,
-                    'orientation': 'h',
-                    'pointpos': 0,
-                    'showlegend': True,
-                    'x': self.X_col[mask_color == color],
-                    'x0': ' ',
-                    'xaxis': 'x',
-                    'y': self.selectable_mask[mask_color == color],
-                    'y0': ' ',
-                    'yaxis': 'y'
+                    'alignmentgroup':
+                    'True',
+                    'boxpoints':
+                    'all',
+                    'fillcolor':
+                    'rgba(255,255,255,0)',
+                    'hoveron':
+                    'points',
+                    'hovertemplate':
+                    f'match={name}<br>{self.X_col.name}' +
+                    '=%{x}<extra></extra>',
+                    'jitter':
+                    1,
+                    'legendgroup':
+                    name,
+                    'line': {
+                        'color': 'rgba(255,255,255,0)'
+                    },
+                    'marker': {
+                        'color': color
+                    },
+                    'name':
+                    name,
+                    'offsetgroup':
+                    name,
+                    'orientation':
+                    'h',
+                    'pointpos':
+                    0,
+                    'showlegend':
+                    True,
+                    'x':
+                    self.X_col[mask_color == color],
+                    'x0':
+                    ' ',
+                    'xaxis':
+                    'x',
+                    'y':
+                    self.selectable_mask[mask_color == color],
+                    'y0':
+                    ' ',
+                    'yaxis':
+                    'y'
                 })
                 # fig.update_yaxes(showticklabels=False)
                 swarm_plots.append(fig)
-            self.figure = FigureWidget(
-                data=swarm_plots
-            )
+            self.figure = FigureWidget(data=swarm_plots)
             self.figure.update_layout({
                 'boxgap': 0,
                 'boxmode': 'overlay',
-                'legend': {'title': {'text': None}},
-                'margin': {'t': 0, 'b': 0, 'l': 0, 'r': 0},
-                'xaxis': {'showticklabels': True, 'title': {'text': self.rule.variable.column_name}},
-                'yaxis': {'showticklabels': False, 'title': {'text': 'selectable'}}
+                'legend': {
+                    'title': {
+                        'text': None
+                    }
+                },
+                'margin': {
+                    't': 0,
+                    'b': 0,
+                    'l': 0,
+                    'r': 0
+                },
+                'xaxis': {
+                    'showticklabels': True,
+                    'title': {
+                        'text': self.rule.variable.column_name
+                    }
+                },
+                'yaxis': {
+                    'showticklabels': False,
+                    'title': {
+                        'text': 'selectable'
+                    }
+                }
             })
             # data = pd.DataFrame([self.X_col, mask_color.replace({v: k for k, v in colors_info.items()})],
             #                     index=[self.X_col.name, 'color']).T
@@ -196,7 +231,8 @@ class RuleWidget:
             if self.rule.is_categorical_rule:
                 return v.Select(
                     label=self.rule.variable.display_name,
-                    items=self.X[self.rule.variable.column_name].unique().tolist(),
+                    items=self.X[
+                        self.rule.variable.column_name].unique().tolist(),
                     style_="width: 150px",
                     multiple=True,
                 )
@@ -212,14 +248,14 @@ class RuleWidget:
                 step,
                 value_min=current_min,
                 value_max=current_max,
-                change_callback=self._widget_value_changed
-            )
+                change_callback=self._widget_value_changed)
 
             return self.slider.widget
         else:
             return v.Col()
 
-    def _get_select_widget_values(self) -> tuple[float | None, float | None] | list[str]:
+    def _get_select_widget_values(
+            self) -> tuple[float | None, float | None] | list[str]:
         """
         sets the selection values
         Returns
@@ -255,14 +291,8 @@ class RuleWidget:
             min_ = max_ = None
         else:
             min_, max_ = data
-        new_rule = Rule(
-            self.rule.variable,
-            min_,
-            self.rule.includes_min,
-            max_,
-            self.rule.includes_max,
-            cat_values
-        )
+        new_rule = Rule(self.rule.variable, min_, self.rule.includes_min, max_,
+                        self.rule.includes_max, cat_values)
         self.rule = new_rule
         self._update_panel_title()
         self.rule_updated_callback(new_rule)
@@ -286,7 +316,10 @@ class RuleWidget:
         self.rule = rule
         self.init_mask = init_mask
 
-    def update(self, new_rules_mask: pd.Series, selectable_mask: pd.Series, rule: Rule = None):
+    def update(self,
+               new_rules_mask: pd.Series,
+               selectable_mask: pd.Series,
+               rule: Rule = None):
         """
             used to update the display (sliders and histogram) to match the new rule
             (called from outside th object to synchronize it)
@@ -308,11 +341,14 @@ class RuleWidget:
         with self.figure.batch_update():
             for i, color in enumerate(colors_info.values()):
                 self.figure.data[i].x = self.X_col[mask_color == color]
-                self.figure.data[i].y = self.selectable_mask[mask_color == color]
+                self.figure.data[i].y = self.selectable_mask[mask_color ==
+                                                             color]
 
     def _get_colors(self):
         if self.init_mask.all() or not self.init_mask.any():
-            mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.rule_mask)
+            mask_color, colors_info = get_mask_comparison_color(
+                self.rule_mask, self.rule_mask)
         else:
-            mask_color, colors_info = get_mask_comparison_color(self.rule_mask, self.init_mask)
+            mask_color, colors_info = get_mask_comparison_color(
+                self.rule_mask, self.init_mask)
         return mask_color, colors_info

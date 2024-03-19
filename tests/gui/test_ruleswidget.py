@@ -27,6 +27,6 @@ def test_rule_widget():
 
     # add tests
 
-    rw.update(mask2,mask2, rule1)
+    rw.update(mask2, mask2, rule1)
 
     # add tests

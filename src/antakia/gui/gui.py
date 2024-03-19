@@ -70,17 +70,16 @@ class GUI:
     """
 
     def __init__(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        model,
-        variables: DataVariables,
-        X_test: pd.DataFrame | None,
-        y_test: pd.Series | None,
-        X_exp: pd.DataFrame | None = None,
-        score: Callable | str = "mse",
-        problem_category: ProblemCategory = ProblemCategory.regression
-    ):
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            model,
+            variables: DataVariables,
+            X_test: pd.DataFrame | None,
+            y_test: pd.Series | None,
+            X_exp: pd.DataFrame | None = None,
+            score: Callable | str = "mse",
+            problem_category: ProblemCategory = ProblemCategory.regression):
         metadata.start()
         self.tab = 1
         self.X = X
@@ -442,7 +441,8 @@ class GUI:
 
     # ==================== TAB 1 ==================== #
 
-    def new_rule_selected_callback(self, caller, event: str, selection_mask, rules_mask):
+    def new_rule_selected_callback(self, caller, event: str, selection_mask,
+                                   rules_mask):
         self.selection_mask = selection_mask
         if selection_mask.all() or not selection_mask.any():
             selection_mask = rules_mask

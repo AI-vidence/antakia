@@ -22,7 +22,8 @@ class Tab1:
         self.region = Region(X)
         self.reference_mask = self.region.mask
         self.update_callback = partial(update_callback, self, 'rule_updated')
-        self.validate_rules_callback = partial(validate_rules_callback, self, 'rule_validated')
+        self.validate_rules_callback = partial(validate_rules_callback, self,
+                                               'rule_validated')
 
         self.X = X
         self.X_exp = X_exp
@@ -252,27 +253,33 @@ class Tab1:
         self.undo_btn.disabled = empty_history
         self.cancel_btn.disabled = empty_rule_set and empty_history
 
-        has_modif = (
-                        self.vs_rules_wgt.history_size > 1
-                    ) or (
-                        self.es_rules_wgt.history_size == 1 and self.region.num < 0  # do not validate a empty modif
-                    )
+        has_modif = (self.vs_rules_wgt.history_size > 1) or (
+            self.es_rules_wgt.history_size == 1
+            and self.region.num < 0  # do not validate a empty modif
+        )
         self.validate_btn.disabled = not has_modif or empty_rule_set
 
     @log_errors
     def compute_skope_rules(self, *args):
         self.selection_changed = False
         # compute es rules for info only
-        es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp, self.variables)
-        self.es_rules_wgt.change_rules(es_skr_rules_set, self.reference_mask, False)
+        es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
+                                          self.variables)
+        self.es_rules_wgt.change_rules(es_skr_rules_set, self.reference_mask,
+                                       False)
         # compute rules on vs space
 
-        skr_rules_set, skr_score_dict = skope_rules(self.reference_mask, self.X, self.variables)
+        skr_rules_set, skr_score_dict = skope_rules(self.reference_mask,
+                                                    self.X, self.variables)
         skr_score_dict['target_avg'] = self.y[self.reference_mask].mean()
         # init vs rules widget
-        self.vs_rules_wgt.change_rules(skr_rules_set, self.reference_mask, False)
+        self.vs_rules_wgt.change_rules(skr_rules_set, self.reference_mask,
+                                       False)
         # update widgets and hdes
-        self.new_rules_defined(self, 'skope_rule', rules_mask=skr_rules_set.get_matching_mask(self.X))
+        self.new_rules_defined(self,
+                               'skope_rule',
+                               rules_mask=skr_rules_set.get_matching_mask(
+                                   self.X))
         self.refresh_buttons()
         stats_logger.log('find_rules', skr_score_dict)
 
@@ -287,7 +294,8 @@ class Tab1:
     @log_errors
     def cancel_edit(self, *args):
         self.update_region(Region(self.X))
-        self.update_callback(selection_mask=self.reference_mask, rules_mask=self.reference_mask)
+        self.update_callback(selection_mask=self.reference_mask,
+                             rules_mask=self.reference_mask)
         self.refresh_buttons()
 
     @log_errors
@@ -298,7 +306,8 @@ class Tab1:
         """
         stats_logger.log('rule_changed')
         # We sent to the proper HDE the rules_indexes to render :
-        self.update_callback(selection_mask=self.reference_mask, rules_mask=rules_mask)
+        self.update_callback(selection_mask=self.reference_mask,
+                             rules_mask=rules_mask)
 
         # sync selection between rules_widgets
         if caller != self.vs_rules_wgt:

@@ -125,15 +125,17 @@ class TestAntakia(TestCase):
 
     def test_run_walk(self):
         atk = AntakIA(self.X, self.y, self.regression_DT)
-        run_walk(
-            atk,
-            [('change_tab', [1]), ('set_proj_method', [1, 2]), ('set_proj_method', [0, 1]), ('set_color', [0]),
-             ('set_exp_method', [1]), ('edit_parameter', [1]), ('set_proj_method', [1, 1]), ('select_points', [0]),
-             ('find_rules', []), ('select_dim', [1]), ('edit_parameter', [1]), ('change_tab', [2]), ('set_color', [2]),
-             ('set_color', [0]), ('set_color', [0]), ('select_dim', [0]), ('select_points', [0]), ('set_color', [2]),
-             ('select_dim', [0]), ('select_points', [0]), ('find_rules', [])]
-
-        )
+        run_walk(atk, [('change_tab', [1]), ('set_proj_method', [1, 2]),
+                       ('set_proj_method', [0, 1]), ('set_color', [0]),
+                       ('set_exp_method', [1]), ('edit_parameter', [1]),
+                       ('set_proj_method', [1, 1]), ('select_points', [0]),
+                       ('find_rules', []), ('select_dim', [1]),
+                       ('edit_parameter', [1]), ('change_tab', [2]),
+                       ('set_color', [2]), ('set_color', [0]),
+                       ('set_color', [0]), ('select_dim', [0]),
+                       ('select_points', [0]), ('set_color', [2]),
+                       ('select_dim', [0]), ('select_points', [0]),
+                       ('find_rules', [])])
 
     def test_classifier(self):
         atk = AntakIA(self.X, self.y, self.classifier_DT)
@@ -220,17 +222,17 @@ actions = {
     'change_tab': (change_tab, range(3)),
     'select_points': (select_points, range(2)),
     'unselect': (unselect, range(2)),
-    'find_rules': (find_rules,),
-    'validate_rules': (validate_rules,),
-    'auto_cluster': (auto_cluster,),
+    'find_rules': (find_rules, ),
+    'validate_rules': (validate_rules, ),
+    'auto_cluster': (auto_cluster, ),
     'toggle_select_region': (toggle_select_region, range(4)),
-    'subdivide': (subdivide,),
-    'merge': (merge,),
-    'edit': (edit,),
-    'clear_selection': (clear_region_selection,),
-    'substitute': (substitute,),
+    'subdivide': (subdivide, ),
+    'merge': (merge, ),
+    'edit': (edit, ),
+    'clear_selection': (clear_region_selection, ),
+    'substitute': (substitute, ),
     'select_model': (select_model, range(10)),
-    'validate_model': (validate_model,)
+    'validate_model': (validate_model, )
 }
 
 

@@ -171,7 +171,8 @@ class Tab3:
         self.region_prefix_wgt.class_ = "mr-2 black--text" if self.region else "mr-2 grey--text"
         # v.Chip
         self.region_chip_wgt.color = self.region.color if self.region else BASE_COLOR
-        self.region_chip_wgt.children = [str(self.region.num)] if self.region else ["-"]
+        self.region_chip_wgt.children = [str(self.region.num)
+                                         ] if self.region else ["-"]
 
     def _update_model_table(self):
         if (self.substitution_model_training or not self.region

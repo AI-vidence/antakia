@@ -124,15 +124,15 @@ def check_tab_1_btn(gui):
     # data table
     assert tab1.data_table.disabled == (not tab1.valid_selection)
     # self.widget[2].children[0].disabled = not self.valid_selection
-    assert tab1.find_rules_btn.disabled == (not tab1.valid_selection) or (not tab1.selection_changed)
+    assert tab1.find_rules_btn.disabled == (not tab1.valid_selection) or (
+        not tab1.selection_changed)
     assert tab1.undo_btn.disabled == empty_history
     assert tab1.cancel_btn.disabled == (empty_rule_set and empty_history)
 
-    has_modif = (
-                    tab1.vs_rules_wgt.history_size > 1
-                ) or (
-                    tab1.es_rules_wgt.history_size == 1 and tab1.region.num < 0  # do not validate a empty modif
-                )
+    has_modif = (tab1.vs_rules_wgt.history_size
+                 > 1) or (tab1.es_rules_wgt.history_size == 1 and
+                          tab1.region.num < 0  # do not validate a empty modif
+                          )
     assert tab1.validate_btn.disabled == (not has_modif) or empty_rule_set
 
 
@@ -142,7 +142,8 @@ def check_tab_2_btn(gui):
     # auto number == num slider disabled
     assert gui.tab2.cluster_num_wgt.disabled == gui.tab2.auto_cluster_checkbox.v_model
     # substitute
-    assert gui.tab2.substitute_btn.disabled == (len(gui.tab2.selected_regions) != 1)
+    assert gui.tab2.substitute_btn.disabled == (len(gui.tab2.selected_regions)
+                                                != 1)
     assert gui.tab2.edit_btn.disabled == (len(gui.tab2.selected_regions) != 1)
     # subdivide
     if gui.tab2.selected_regions:
@@ -157,14 +158,13 @@ def check_tab_2_btn(gui):
     enable_merge = (len(gui.tab2.selected_regions) > 1)
     gui.tab2.merge_btn.disabled = not enable_merge
     # delete
-    assert gui.tab2.delete_btn.disabled == (len(gui.tab2.selected_regions) == 0)
+    assert gui.tab2.delete_btn.disabled == (len(
+        gui.tab2.selected_regions) == 0)
 
 
 def check_tab_3_btn(gui):
     assert gui.tab3.validate_model_btn.disabled == (
-        (gui.tab3.region is None) or
-        len(gui.tab3.selected_sub_model) == 0
-    )
+        (gui.tab3.region is None) or len(gui.tab3.selected_sub_model) == 0)
 
 
 def check_all(gui):
@@ -179,6 +179,7 @@ def check_all(gui):
 
 
 def check(method):
+
     @wraps(method)
     def check(gui, *args, check=False, **kw):
         result = method(gui, *args, **kw)
