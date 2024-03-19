@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "antakia"
-version = "0.2.27"
+version = "0.3.0"
 description = "AI made Xplainable"
 readme = "README.md"
 authors = [
@@ -28,10 +28,10 @@ ipyvuetify = "<1.9.0" # do not edit please
 ipywidgets = ">=7.6"
 plotly = "<=5.19.0"# do not edit please
 python-dotenv = "^1.0.0"
-#antakia-core = "0.2.27"
+antakia-core = "0.3.0"
 antakia-ac = "^0.2.14"
 #antakia-ac = {path = "../antakia-ac/dist/antakia_ac-0.2.12-cp311-cp311-macosx_13_0_arm64.whl"}
-antakia-core = {path = "../antakia-core", develop = true}
+#antakia-core = {path = "../antakia-core", develop = true}
 requests = "^2.31.0"
 pdpbox = "^0.3.0"
 jupyterlab = ">=3"
