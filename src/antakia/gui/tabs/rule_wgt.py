@@ -122,80 +122,18 @@ class RuleWidget:
         else:
             swarm_plots = []
             for name, color in colors_info.items():
-                fig = Box({
-                    'alignmentgroup':
-                    'True',
-                    'boxpoints':
-                    'all',
-                    'fillcolor':
-                    'rgba(255,255,255,0)',
-                    'hoveron':
-                    'points',
-                    'hovertemplate':
-                    f'match={name}<br>{self.X_col.name}' +
-                    '=%{x}<extra></extra>',
-                    'jitter':
-                    1,
-                    'legendgroup':
-                    name,
-                    'line': {
-                        'color': 'rgba(255,255,255,0)'
-                    },
-                    'marker': {
-                        'color': color
-                    },
-                    'name':
-                    name,
-                    'offsetgroup':
-                    name,
-                    'orientation':
-                    'h',
-                    'pointpos':
-                    0,
-                    'showlegend':
-                    True,
-                    'x':
-                    self.X_col[mask_color == color],
-                    'x0':
-                    ' ',
-                    'xaxis':
-                    'x',
-                    'y':
-                    self.selectable_mask[mask_color == color],
-                    'y0':
-                    ' ',
-                    'yaxis':
-                    'y'
-                })
+                fig = self.get_swarm_plot(color, mask_color, name)
                 # fig.update_yaxes(showticklabels=False)
                 swarm_plots.append(fig)
             self.figure = FigureWidget(data=swarm_plots)
             self.figure.update_layout({
                 'boxgap': 0,
                 'boxmode': 'overlay',
-                'legend': {
-                    'title': {
-                        'text': None
-                    }
-                },
-                'margin': {
-                    't': 0,
-                    'b': 0,
-                    'l': 0,
-                    'r': 0
-                },
-                'xaxis': {
-                    'showticklabels': True,
-                    'title': {
-                        'text': self.rule.variable.column_name
-                    }
-                },
-                'yaxis': {
-                    'showticklabels': False,
-                    'title': {
-                        'text': 'selectable'
-                    }
-                }
+                # 'legend': {
+                #     'title': {
+                #         'text': None
+                #     }
+                # }
             })
             # data = pd.DataFrame([self.X_col, mask_color.replace({v: k for k, v in colors_info.items()})],
             #                     index=[self.X_col.name, 'color']).T
@@ -203,6 +141,58 @@ class RuleWidget:
             # fig = px.strip(data, x=self.X_col.name, color="color", stripmode='overlay', color_discrete_map=colors_info)
             # fig = fig.update_layout(boxgap=0).update_traces(jitter=1)
             # self.figure = FigureWidget(fig)
+        self.figure.update_layout({
+            'showlegend': False,
+            'legend': {
+                'title': {
+                    'text': None
+                }
+            },
+            'margin': {
+                't': 0,
+                'b': 0,
+                'l': 0,
+                'r': 0
+            },
+            'xaxis': {
+                'showticklabels': True,
+                'title': {
+                    'text': self.rule.variable.column_name
+                },
+                'categoryorder': 'category ascending'
+            },
+            'yaxis': {
+                'showticklabels': False,
+                'title': {
+                    'text': 'selectable'
+                }
+            }
+        })
+
+    def get_swarm_plot(self, color, mask_color, name):
+        box = Box({
+            'alignmentgroup': 'True',
+            'boxpoints': 'all',
+            'fillcolor': 'rgba(255,255,255,0)',
+            'hoveron': 'points',
+            'hovertemplate': f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
+            'jitter': 1,
+            'legendgroup': name,
+            'line': {'color': 'rgba(255,255,255,0)'},
+            'marker': {'color': color},
+            'name': name,
+            'offsetgroup': name,
+            'orientation': 'h',
+            'pointpos': 0,
+            'showlegend': True,
+            'x': self.X_col[mask_color == color],
+            'x0': ' ',
+            'xaxis': 'x',
+            'y': self.selectable_mask[mask_color == color],
+            'y0': ' ',
+            'yaxis': 'y'
+        })
+        return box
 
     def _get_panel_title(self):
         """
@@ -255,7 +245,7 @@ class RuleWidget:
             return v.Col()
 
     def _get_select_widget_values(
-            self) -> tuple[float | None, float | None] | list[str]:
+        self) -> tuple[float | None, float | None] | list[str]:
         """
         sets the selection values
         Returns

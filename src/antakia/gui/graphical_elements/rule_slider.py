@@ -120,6 +120,9 @@ class RuleSlider:
         else:
             try:
                 min_val = float(min_val)
+                if min_val < self.range[0]:
+                    min_val = None
+                    self.min_input.v_model = None
             except ValueError:
                 min_val = self.value[0]
         self.value[0] = min_val
@@ -130,6 +133,9 @@ class RuleSlider:
         else:
             try:
                 max_val = float(max_val)
+                if max_val > self.range[1]:
+                    max_val = None
+                    self.max_input.v_model = None
             except ValueError:
                 max_val = self.value[1]
         self.value[1] = max_val
