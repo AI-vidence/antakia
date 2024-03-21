@@ -25,7 +25,7 @@ def check_dim(gui):
 
 
 def check_hde_color(gui):
-    if gui.tab == 0:
+    if gui.tab_value == 0:
         mode = get_widget(gui.widget, '11').v_model
         if mode == 'y':
             c = gui.y
@@ -33,44 +33,44 @@ def check_hde_color(gui):
             c = gui.y_pred
         else:
             c = gui.y - gui.y_pred
-        if gui.vs_hde.figure._colors[gui.tab] is not None:
-            assert (gui.vs_hde.figure._colors[gui.tab] == c).all()
-            assert (gui.es_hde.figure._colors[gui.tab] == c).all()
+        if gui.vs_hde.figure._colors[gui.tab_value] is not None:
+            assert (gui.vs_hde.figure._colors[gui.tab_value] == c).all()
+            assert (gui.es_hde.figure._colors[gui.tab_value] == c).all()
         assert gui.vs_hde.figure.active_trace == 0
         assert gui.es_hde.figure.active_trace == 0
         assert gui.vs_hde.figure._visible == [1, 0, 0, 0]
-    elif gui.tab == 1:
+    elif gui.tab_value == 1:
         assert gui.vs_hde.figure.active_trace == 1
         assert gui.es_hde.figure.active_trace == 1
         assert gui.vs_hde.figure._visible == [0, 1, 0, 0]
         selection = gui.selection_mask
         assert selection.mean() not in (0, 1)
-        color = gui.vs_hde.figure._colors[gui.tab]
+        color = gui.vs_hde.figure._colors[gui.tab_value]
         if color is not None:
             assert len(color[selection].unique()) <= 2
             assert len(color[~selection].unique()) <= 2
             assert len(color.unique()) <= 4
-            assert (gui.vs_hde.figure._colors[gui.tab] ==
-                    gui.es_hde.figure._colors[gui.tab]).all()
-    elif gui.tab == 2:
+            assert (gui.vs_hde.figure._colors[gui.tab_value] ==
+                    gui.es_hde.figure._colors[gui.tab_value]).all()
+    elif gui.tab_value == 2:
         assert gui.vs_hde.figure.active_trace == 2
         assert gui.es_hde.figure.active_trace == 2
         assert gui.vs_hde.figure._visible == [0, 0, 1, 0]
 
         assert (gui.region_set.get_color_serie() ==
                 gui.vs_hde.figure._colors[2]).all()
-        assert (gui.vs_hde.figure._colors[gui.tab] ==
-                gui.es_hde.figure._colors[gui.tab]).all()
-    elif gui.tab == 3:
+        assert (gui.vs_hde.figure._colors[gui.tab_value] ==
+                gui.es_hde.figure._colors[gui.tab_value]).all()
+    elif gui.tab_value == 3:
         assert gui.vs_hde.figure.active_trace == 3
         assert gui.es_hde.figure.active_trace == 3
         assert gui.vs_hde.figure._visible == [0, 0, 0, 1]
 
-        color = gui.vs_hde.figure._colors[gui.tab]
+        color = gui.vs_hde.figure._colors[gui.tab_value]
         if color is not None:
             assert len(color.unique()) <= 2
-            assert (gui.vs_hde.figure._colors[gui.tab] ==
-                    gui.es_hde.figure._colors[gui.tab]).all()
+            assert (gui.vs_hde.figure._colors[gui.tab_value] ==
+                    gui.es_hde.figure._colors[gui.tab_value]).all()
 
 
 def check_exp_menu(gui):
@@ -99,7 +99,7 @@ def check_proj_menu(gui):
     vs_widget = vs_pvs.widget
     assert vs_pvs.proj_param_widget.disabled == (
         (vs_pvs.projection_select.v_model == 'PCA')
-        or (not gui.selection_mask.all() and gui.tab == 0))
+        or (not gui.selection_mask.all() and gui.tab_value == 0))
     assert len(get_widget(vs_widget, '100').children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(
             vs_pvs.projection_select.v_model)].parameters())
@@ -108,7 +108,7 @@ def check_proj_menu(gui):
     es_widget = es_pvs.widget
     assert es_pvs.proj_param_widget.disabled == (
         (es_pvs.projection_select.v_model == 'PCA')
-        or (not gui.selection_mask.all() and gui.tab == 0))
+        or (not gui.selection_mask.all() and gui.tab_value == 0))
     assert len(get_widget(es_widget, '100').children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(
             es_pvs.projection_select.v_model)].parameters())

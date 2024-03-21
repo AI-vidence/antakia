@@ -175,11 +175,16 @@ class RuleWidget:
             'boxpoints': 'all',
             'fillcolor': 'rgba(255,255,255,0)',
             'hoveron': 'points',
-            'hovertemplate': f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
+            'hovertemplate':
+            f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
             'jitter': 1,
             'legendgroup': name,
-            'line': {'color': 'rgba(255,255,255,0)'},
-            'marker': {'color': color},
+            'line': {
+                'color': 'rgba(255,255,255,0)'
+            },
+            'marker': {
+                'color': color
+            },
             'name': name,
             'offsetgroup': name,
             'orientation': 'h',
@@ -245,7 +250,7 @@ class RuleWidget:
             return v.Col()
 
     def _get_select_widget_values(
-        self) -> tuple[float | None, float | None] | list[str]:
+            self) -> tuple[float | None, float | None] | list[str]:
         """
         sets the selection values
         Returns

@@ -14,6 +14,8 @@ from antakia.utils.stats import log_errors, stats_logger
 
 
 class Tab1:
+    EDIT_RULE = 'edition'
+    CREATE_RULE = 'creation'
 
     def __init__(self, variables: DataVariables, update_callback: Callable,
                  validate_rules_callback: Callable, X: pd.DataFrame,
@@ -189,7 +191,7 @@ class Tab1:
 
     @property
     def edit_type(self):
-        return 'creation' if self.region.num == -1 else 'edition'
+        return self.CREATE_RULE if self.region.num == -1 else self.EDIT_RULE
 
     def _update_title_txt(self):
         if self.edit_type == 'creation':
@@ -262,7 +264,7 @@ class Tab1:
     @log_errors
     def compute_skope_rules(self, *args):
         self.selection_changed = False
-        # compute es rules for info only
+    # compute es rules for info only
         es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
                                           self.variables)
         self.es_rules_wgt.change_rules(es_skr_rules_set, self.reference_mask,

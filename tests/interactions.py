@@ -82,36 +82,36 @@ def change_tab(gui, tab):
 
 @check
 def select_points(gui, is_value_space, q=(1, 1)):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     X = gui.vs_hde.figure.get_X(masked=True)
     std = X.std().replace(0, 1)
-    X_scaled = (X - X.mean()) / std
+    X_scaled = X - X.mean(axis=0)
 
     b = X_scaled.iloc[:, 0] * q[0] > 0
-    b &= X_scaled.iloc[:, 1] * q[1] > 0
+    # b &= X_scaled.iloc[:, 1] * q[1] > 0
     if is_value_space:
         hde = gui.vs_hde
     else:
         hde = gui.es_hde
     points = namedtuple('points', ['point_inds'])
-    hde.figure._selection_event('', points(mask_to_rows(b)))
+    hde.figure._selection_event(gui.tab_value, '', points(mask_to_rows(b)))
 
 
 @check
 def unselect(gui, is_value_space):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     if is_value_space:
         hde = gui.vs_hde
     else:
         hde = gui.es_hde
-    hde.figure._deselection_event('', )
+    hde.figure._deselection_event(gui.tab_value, '', )
 
 
 @check
 def find_rules(gui):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     btn = gui.tab1.find_rules_btn
     if btn.disabled:
@@ -121,7 +121,7 @@ def find_rules(gui):
 
 @check
 def undo(gui):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     btn = gui.tab1.undo_btn
     if btn.disabled:
@@ -131,7 +131,7 @@ def undo(gui):
 
 @check
 def validate_rules(gui):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     btn = gui.tab1.validate_btn
     if btn.disabled:
@@ -141,7 +141,7 @@ def validate_rules(gui):
 
 @check
 def auto_cluster(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     btn = gui.tab2.auto_cluster_btn
     if btn.disabled:
@@ -151,7 +151,7 @@ def auto_cluster(gui):
 
 @check
 def clear_region_selection(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     for region in gui.tab2.selected_regions.copy():
         toggle_select_region(gui, region['Region'], check=False)
@@ -159,7 +159,7 @@ def clear_region_selection(gui):
 
 @check
 def toggle_select_region(gui, region_num):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     if gui.region_set.get(region_num) is None:
         raise InteractionError('unknown region')
@@ -179,7 +179,7 @@ def toggle_select_region(gui, region_num):
 
 @check
 def substitute(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     btn = gui.tab2.substitute_btn
     if btn.disabled:
@@ -189,7 +189,7 @@ def substitute(gui):
 
 @check
 def subdivide(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     btn = gui.tab2.divide_btn
     if btn.disabled:
@@ -199,7 +199,7 @@ def subdivide(gui):
 
 @check
 def merge(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     btn = gui.tab2.merge_btn
     if btn.disabled:
@@ -209,7 +209,7 @@ def merge(gui):
 
 @check
 def edit(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     btn = gui.tab2.edit_btn
     if btn.disabled:
@@ -219,7 +219,7 @@ def edit(gui):
 
 @check
 def delete(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     btn = gui.tab2.delete_btn
     if btn.disabled:
@@ -229,7 +229,7 @@ def delete(gui):
 
 @check
 def select_model(gui, model):
-    if gui.tab != 3:
+    if gui.tab_value != 3:
         raise InteractionError('wrong tab')
     if len(gui.tab2.selected_regions) == 0:
         raise InteractionError('no region selected')
@@ -243,7 +243,7 @@ def select_model(gui, model):
 
 @check
 def validate_model(gui):
-    if gui.tab != 3:
+    if gui.tab_value != 3:
         raise InteractionError('wrong tab')
     btn = gui.tab3.validate_model_btn
     if btn.disabled:

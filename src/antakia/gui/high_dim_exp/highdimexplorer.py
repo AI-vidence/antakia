@@ -133,7 +133,7 @@ class HighDimExplorer:
         return self.figure.set_tab(*args, **kwargs)
 
     def set_selection(self, *args, **kwargs):
-        return self.figure.sync_selection(*args, **kwargs)
+        return self.figure.set_selection(*args, **kwargs)
 
     def set_dim(self, dim: int):
         self.projected_value_selector.update_dim(dim)

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from functools import partial
 from typing import Callable
 
 import pandas as pd
 import numpy as np
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
+from plotly.express.colors import sample_colorscale
 import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -17,6 +19,7 @@ import logging as logging
 from antakia.utils.logging_utils import conf_logger
 from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors, stats_logger
+from antakia.utils.colors import colors
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -173,7 +176,7 @@ class FigureDisplay:
         if self.dim == 2 and self.figure is not None:
             self.figure.update_layout(dragmode=self._selection_mode)
 
-    def _show_trace(self, trace_id: int, show: bool):
+    def _show_trace(self, trace_id: int):
         """
         show/hide trace
         Parameters
@@ -185,8 +188,9 @@ class FigureDisplay:
         -------
 
         """
-        self._visible[trace_id] = show
-        self.figure.data[trace_id].visible = show
+        for i in range(len(self._visible)):
+            self._visible[i] = trace_id == i
+            self.figure.data[i].visible = trace_id == i
 
     def display_rules(self,
                       selection_mask: pd.Series,
@@ -202,8 +206,12 @@ class FigureDisplay:
         -------
 
         """
+        self.current_selection = selection_mask
         if selection_mask.all():
-            selection_mask = ~selection_mask
+            if rules_mask is not None:
+                selection_mask = rules_mask
+            else:
+                selection_mask = ~selection_mask
         if rules_mask is None:
             rules_mask = selection_mask
         color, _ = utils.get_mask_comparison_color(rules_mask, selection_mask)
@@ -239,6 +247,35 @@ class FigureDisplay:
         self._colors[self.REGION_TRACE] = region.get_color_serie()
         self._display_zones(self.REGION_TRACE)
 
+    def display_region_value(self, region: Region, y: pd.Series):
+        """
+        display a single region
+        Parameters
+        ----------
+        region
+
+        Returns
+        -------
+
+        """
+        if y.min() == y.max():
+            y[:] = 0.5
+        else:
+            y = (y + max(-y.min(), y.max())) / (2 * max(-y.min(), y.max()))
+        color_serie = pd.Series(index=self.X.index)
+        color_serie[~region.mask] = colors['gray']
+
+        cmap = ['blue', 'green', 'red1']
+        cmap = [colors[c] for c in cmap]
+        cmap = 'Portland'
+
+        color_serie[region.mask] = sample_colorscale(cmap,
+                                                     y[region.mask],
+                                                     low=0,
+                                                     high=1)
+        self._colors[self.REGION_TRACE] = color_serie
+        self._display_zones(self.REGION_TRACE)
+
     def _display_zones(self, trace=None):
         """
         refresh provided trace or all trace if None
@@ -251,7 +288,6 @@ class FigureDisplay:
         -------
 
         """
-
         if trace is None:
             for trace_id in range(self.NUM_TRACES):
                 self.refresh_trace(trace_id=trace_id)
@@ -341,7 +377,7 @@ class FigureDisplay:
         return guessed_selection.astype(bool)
 
     @log_errors
-    def _selection_event(self, trace, points, *args):
+    def _selection_event(self, trace_id, trace, points, *args):
         """
         callback triggered by selection on graph
         selects points and update display on both hde (calls selection changed)
@@ -358,21 +394,24 @@ class FigureDisplay:
         -------
 
         """
-        self.first_selection |= self.current_selection.all()
-        stats_logger.log('hde_selection', {
-            'first_selection': self.first_selection,
-            'space': self.space
-        })
-        self.current_selection &= self.selection_to_mask(points.point_inds)
-        self.display_rules(self.current_selection)
-        if self.current_selection.any():
-            self.create_figure()
-            self.selection_changed(self, self.current_selection)
-        else:
-            self._deselection_event(rebuild=True)
+        if trace_id == self.active_trace:
+            self.first_selection |= self.current_selection.all()
+            stats_logger.log(
+                'hde_selection', {
+                    'first_selection': str(self.first_selection),
+                    'space': str(self.space),
+                    'points': self.current_selection.mean()
+                })
+            extrapolated_selection = self.selection_to_mask(points.point_inds)
+            self.current_selection &= extrapolated_selection
+            if self.current_selection.any():
+                self.create_figure()
+                self.selection_changed(self, self.current_selection)
+            else:
+                self._deselection_event(trace_id, rebuild=True)
 
     @log_errors
-    def _deselection_event(self, *args, rebuild=False):
+    def _deselection_event(self, trace_id, *args, rebuild=False):
         """
         clear selection -- called by deselection on graph
         synchronize hdes
@@ -386,23 +425,24 @@ class FigureDisplay:
         -------
 
         """
-        stats_logger.log('hde_deselection', {
-            'first_selection': self.first_selection,
-            'space': self.space
-        })
-        # We tell the GUI
-        self.first_selection = False
-        self.current_selection = utils.boolean_mask(self.X, True)
-        self.selection_changed(self, self.current_selection)
-        self.display_rules(~self.current_selection)
-        if rebuild:
-            self.create_figure()
-        else:
-            self.display_selection()
+        if trace_id == self.active_trace:
+            stats_logger.log(
+                'hde_deselection', {
+                    'first_selection': str(self.first_selection),
+                    'space': str(self.space)
+                })
+            # We tell the GUI
+            self.first_selection = False
+            self.current_selection = utils.boolean_mask(self.X, True)
+            self.selection_changed(self, self.current_selection)
+            if rebuild:
+                self.create_figure()
+            else:
+                self.display_selection(self.current_selection)
 
-    def sync_selection(self, new_selection_mask: pd.Series):
+    def set_selection(self, new_selection_mask: pd.Series):
         """
-        update selection from mask
+        update selection from mask - only for trace 0
         no update_callback
         Called by tne UI when a new selection occurred on the other HDE
         Parameters
@@ -414,17 +454,16 @@ class FigureDisplay:
 
         """
 
-        if self.current_selection.all() and new_selection_mask.all():
-            # New selection is empty. We already have an empty selection : nothing to do
+        if (self.current_selection == new_selection_mask).all():
+            # no changes
             return
 
         # selection event
         self.current_selection = new_selection_mask
-        self.display_rules(self.current_selection)
-        self.display_selection()
+        self.display_selection(new_selection_mask)  # only for tab 0
         return
 
-    def display_selection(self):
+    def display_selection(self, selection_mask):
         """
         display selection on figure
         Returns
@@ -433,10 +472,9 @@ class FigureDisplay:
         """
         if self.dim == 2:
             fig = self.figure.data[0]
-            fig.update(selectedpoints=utils.mask_to_rows(
-                self.current_selection[self.mask]))
-            fig.selectedpoints = utils.mask_to_rows(
-                self.current_selection[self.mask])
+            fig.update(
+                selectedpoints=utils.mask_to_rows(selection_mask[self.mask]))
+            fig.selectedpoints = utils.mask_to_rows(selection_mask[self.mask])
 
     @property
     def mask(self) -> pd.Series:
@@ -465,8 +503,9 @@ class FigureDisplay:
         """
         x = y = z = None
 
-        if self.X is not None:
-            proj_values = self.get_X(masked=True)
+        if self.X is None:
+            return
+        proj_values = self.get_X(masked=True)
 
         hde_marker = {'color': self.y, 'colorscale': "Viridis"}
         if self.dim == 3:
@@ -515,14 +554,18 @@ class FigureDisplay:
         # We don't want the name of the trace to appear :
         for trace_id in range(len(self.figure.data)):
             self.figure.data[trace_id].showlegend = False
-            self._show_trace(trace_id, self._visible[trace_id])
             self.refresh_trace(trace_id)
-        self.display_selection()
+        self._show_trace(self._visible.index(1))
+        self.display_selection(self.current_selection)
 
         if self.dim == 2:
             # selection only on trace 0
-            self.figure.data[0].on_selection(self._selection_event)
-            self.figure.data[0].on_deselect(self._deselection_event)
+            self.figure.data[0].on_selection(partial(self._selection_event, 0))
+            self.figure.data[0].on_deselect(partial(self._deselection_event,
+                                                    0))
+            self.figure.data[1].on_selection(partial(self._selection_event, 1))
+            self.figure.data[1].on_deselect(partial(self._deselection_event,
+                                                    1))
         self.widget.children = [self.figure]
 
     def redraw(self):
@@ -543,8 +586,8 @@ class FigureDisplay:
                 if self.dim == 3:
                     self.figure.data[trace_id].z = projection[2]
                 self.figure.data[trace_id].showlegend = False
-                self._show_trace(trace_id, self._visible[trace_id])
                 self.refresh_trace(trace_id)
+            self._show_trace(self._visible.index(1))
         self.widget.children = [self.figure]
 
     def get_X(self, masked: bool) -> pd.DataFrame:
@@ -578,10 +621,7 @@ class FigureDisplay:
         -------
 
         """
-        self.disable_selection(tab > 1)
-        self._show_trace(self.VALUES_TRACE, tab == 0)
-        self._show_trace(self.RULES_TRACE, tab == 1)
-        self._show_trace(self.REGIONSET_TRACE, tab == 2)
-        self._show_trace(self.REGION_TRACE, tab == 3)
-        # and it's the only place where selection is allowed
+        self.disable_selection(tab >= 1)
+        self._show_trace(tab)
+        # self.refresh_trace(tab)
         self.active_trace = tab

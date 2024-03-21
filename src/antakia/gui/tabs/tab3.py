@@ -23,10 +23,11 @@ class Tab3:
     ]
 
     def __init__(self, X: pd.DataFrame, problem_category: ProblemCategory,
-                 validate_callback: Callable):
+                 validate_callback: Callable, display_model_data: Callable):
         self.X = X
         self.problem_category = problem_category
         self.validate_callback = validate_callback
+        self.display_model_data = display_model_data
         self.model_explorer = ModelExplorer(self.X)
         self.region: ModelRegion | None = None
         self.substitution_model_training = False  # tab 3 : training flag
@@ -259,11 +260,15 @@ class Tab3:
         is_selected = bool(data["value"])
         # We use this GUI attribute to store the selected sub-model
         self.selected_sub_model = [data['item']]
+        model_name = data['item']['Sub-model']
         self.validate_model_btn.disabled = not is_selected
         if is_selected:
             self.model_explorer.update_selected_model(
-                self.region.get_model(data['item']['Sub-model']), self.region)
+                self.region.get_model(model_name), self.region)
+            self.display_model_data(self.region,
+                                    self.region.train_residuals(model_name))
         else:
+            self.display_model_data(self.region, None)
             self.model_explorer.reset()
 
     @log_errors

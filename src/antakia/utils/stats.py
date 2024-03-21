@@ -50,12 +50,15 @@ class ActivityLogger:
         if info is None:
             info = {}
         payload = {'event': event, 'log': info, 'timestamp': time.time()}
-        try:
-            json.dumps(payload)
-            self._add_to_log_queue(payload)
-            self._send(force_send=payload['event'] in self.send_events)
-        except:
-            pass
+        if os.environ.get('ATK_LOCAL_LOGS'):
+            print(json.dumps(payload))
+        else:
+            try:
+                json.dumps(payload)
+                self._add_to_log_queue(payload)
+                self._send(force_send=payload['event'] in self.send_events)
+            except:
+                pass
 
     def _add_metadata(self, payload):
         payload['user_id'] = metadata.user_id

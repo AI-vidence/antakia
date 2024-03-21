@@ -81,7 +81,7 @@ class GUI:
             score: Callable | str = "mse",
             problem_category: ProblemCategory = ProblemCategory.regression):
         metadata.start()
-        self.tab = 1
+        self.tab_value = 1
         self.X = X
         self.X_test = X_test
         self.y = y
@@ -129,7 +129,8 @@ class GUI:
                          self.update_region_callback,
                          self.substitute_model_callback)
 
-        self.tab3 = Tab3(X, problem_category, self.model_validation_callback)
+        self.tab3 = Tab3(X, problem_category, self.model_validation_callback,
+                         self.display_model_data)
         self.model_explorer = ModelExplorer(self.X)
 
         self._build_widget()
@@ -322,9 +323,10 @@ class GUI:
     @log_errors
     def disable_hde(self, disable='auto'):
         if disable == 'auto':
-            disable_proj = bool((self.tab == 0) and self.selection_mask.any()
+            disable_proj = bool((self.tab_value == 0)
+                                and self.selection_mask.any()
                                 and not self.selection_mask.all())
-            disable_figure = bool(self.tab > 1)
+            disable_figure = bool(self.tab_value > 1)
         else:
             disable_proj = disable
             disable_figure = disable
@@ -347,14 +349,30 @@ class GUI:
         """
         """Called when the selection of one HighDimExplorer changes"""
         if not new_selection_mask.any():
+            print('empty selection')
             new_selection_mask = ~new_selection_mask
-        self.selection_mask = new_selection_mask
-        self.disable_hde()
+            caller = None
 
         # If new selection (empty or not) : if exists, we remove any 'pending rule'
         if new_selection_mask.all():
             # Selection is empty
-            self.select_tab(0)
+            if self.tab1.edit_type == self.tab1.CREATE_RULE:
+                self.select_tab(0)
+                self.tab1.reset()
+            else:
+                self.select_tab(1)
+                # reset to tab1 region
+                self.tab1.update_region(self.tab1.region)
+                caller = None
+                stats_logger.log(
+                    'deselection', {
+                        'exp_method':
+                        self.exp_values.current_exp,
+                        'vs_proj':
+                        str(self.vs_hde.projected_value_selector.current_proj),
+                        'es_proj':
+                        str(self.es_hde.projected_value_selector.current_proj)
+                    })
         else:
             stats_logger.log(
                 'selection_gui', {
@@ -366,17 +384,17 @@ class GUI:
                     str(self.es_hde.projected_value_selector.current_proj)
                 })
 
-        self.display_selection(caller, self.selection_mask)
-
-    def display_selection(self, caller, selection_mask: pd.Series):
-        if not selection_mask.any():
-            selection_mask = ~selection_mask
-        if caller != self.es_hde.figure:
-            self.es_hde.set_selection(selection_mask)
-        if caller != self.vs_hde.figure:
-            self.vs_hde.set_selection(selection_mask)
+        self.selection_mask = new_selection_mask
+        rule_mask = self.tab1.vs_rules_wgt.rule_mask.copy()
+        self.disable_hde()
+        if self.tab_value == 1:
+            self.vs_hde.figure.display_rules(new_selection_mask, rule_mask)
+            self.es_hde.figure.display_rules(new_selection_mask, rule_mask)
+        else:
+            self.vs_hde.set_selection(new_selection_mask)
+            self.es_hde.set_selection(new_selection_mask)
         if caller != self.tab1:
-            self.tab1.update_reference_mask(selection_mask)
+            self.tab1.update_reference_mask(new_selection_mask)
 
     # ==================== top bar ==================== #
 
@@ -410,33 +428,21 @@ class GUI:
         if tab == 1 and (not self.selection_mask.any()
                          or self.selection_mask.all()):
             return self.select_tab(0)
-        if tab == 1:
-            self.vs_hde.figure.display_selection()
-            self.es_hde.figure.display_selection()
         elif tab == 2:
-            self.tab2.update_region_table()
+            # refresh region set display
             self.update_region_callback(self, self.region_set)
         elif tab == 3:
-            if len(self.tab2.selected_regions) == 0:
-                self.select_tab(2)
-            else:
-                region = self.region_set.get(
-                    self.tab2.selected_regions[0]['Region'])
-                self.tab3.update_region(region, False)
-                if region is None:
-                    region = ModelRegion(self.X,
-                                         self.y,
-                                         self.X_test,
-                                         self.y_test,
-                                         self.model,
-                                         score=self.score)
-                self.vs_hde.figure.display_region(region)
+            if self.tab3.region is not None:
+                region = self.tab3.region
                 self.es_hde.figure.display_region(region)
+                self.vs_hde.figure.display_region(region)
+            else:
+                self.select_tab(2)
         if not front:
             self.widget.children[4].v_model = max(tab - 1, 0)
         self.vs_hde.set_tab(tab)
         self.es_hde.set_tab(tab)
-        self.tab = tab
+        self.tab_value = tab
         self.disable_hde()
 
     # ==================== TAB 1 ==================== #
@@ -445,11 +451,11 @@ class GUI:
                                    rules_mask):
         self.selection_mask = selection_mask
         if selection_mask.all() or not selection_mask.any():
+            # no selection mode - we edit keep the self selection mask clean
             selection_mask = rules_mask
             self.select_tab(0)
         else:
             self.select_tab(1)
-        self.display_selection(caller, selection_mask)
         self.vs_hde.figure.display_rules(selection_mask, rules_mask)
         self.es_hde.figure.display_rules(selection_mask, rules_mask)
 
@@ -457,22 +463,27 @@ class GUI:
         self.selection_changed(caller, boolean_mask(self.X, True))
         region.validate()
         self.region_set.add(region)
+        self.tab2.update_region_table()
         self.select_tab(2)
 
     # ==================== TAB 2 ==================== #
 
     def edit_region_callback(self, caller, region):
         self.tab1.update_region(region)
-        self.selection_mask = region.mask
-        # TODO : needed ?
-        self.selection_changed(caller, region.mask)
         self.select_tab(1)
+        self.vs_hde.figure.display_rules(boolean_mask(self.X, True),
+                                         region.mask)
+        self.es_hde.figure.display_rules(boolean_mask(self.X, True),
+                                         region.mask)
 
     def update_region_callback(self, caller, region_set):
         self.vs_hde.figure.display_regionset(region_set)
         self.es_hde.figure.display_regionset(region_set)
+        self.tab2.update_region_table()
 
     def substitute_model_callback(self, caller, region):
+        self.vs_hde.figure.display_region(region)
+        self.es_hde.figure.display_region(region)
         self.select_tab(3)
         self.tab3.update_region(region)
 
@@ -480,5 +491,15 @@ class GUI:
 
     @log_errors
     def model_validation_callback(self, *args):
-        self.select_tab(2)
+        self.tab2.update_region_table()
         self.tab2.selected_regions = []
+        self.select_tab(2)
+
+    def display_model_data(self, region, y=None):
+        print('region', region, y)
+        if y is None:
+            self.vs_hde.figure.display_region(region)
+            self.es_hde.figure.display_region(region)
+        else:
+            self.vs_hde.figure.display_region_value(region, y)
+            self.es_hde.figure.display_region_value(region, y)

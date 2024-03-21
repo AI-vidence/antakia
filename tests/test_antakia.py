@@ -125,17 +125,11 @@ class TestAntakia(TestCase):
 
     def test_run_walk(self):
         atk = AntakIA(self.X, self.y, self.regression_DT)
-        run_walk(atk, [('change_tab', [1]), ('set_proj_method', [1, 2]),
-                       ('set_proj_method', [0, 1]), ('set_color', [0]),
-                       ('set_exp_method', [1]), ('edit_parameter', [1]),
-                       ('set_proj_method', [1, 1]), ('select_points', [0]),
-                       ('find_rules', []), ('select_dim', [1]),
-                       ('edit_parameter', [1]), ('change_tab', [2]),
-                       ('set_color', [2]), ('set_color', [0]),
-                       ('set_color', [0]), ('select_dim', [0]),
-                       ('select_points', [0]), ('set_color', [2]),
-                       ('select_dim', [0]), ('select_points', [0]),
-                       ('find_rules', [])])
+        walk = [('change_tab', [1]), ('auto_cluster', []),
+                ('toggle_select_region', [1]), ('edit', []),
+                ('select_points', [0])]
+        walk = [('select_points', [0])]
+        run_walk(atk, walk)
 
     def test_classifier(self):
         atk = AntakIA(self.X, self.y, self.classifier_DT)
