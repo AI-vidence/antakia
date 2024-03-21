@@ -453,11 +453,13 @@ class GUI:
         if selection_mask.all() or not selection_mask.any():
             # no selection mode - we edit keep the self selection mask clean
             selection_mask = rules_mask
+            self.vs_hde.figure.display_selection(rules_mask)
+            self.es_hde.figure.display_selection(rules_mask)
             self.select_tab(0)
         else:
             self.select_tab(1)
-        self.vs_hde.figure.display_rules(selection_mask, rules_mask)
-        self.es_hde.figure.display_rules(selection_mask, rules_mask)
+            self.vs_hde.figure.display_rules(selection_mask, rules_mask)
+            self.es_hde.figure.display_rules(selection_mask, rules_mask)
 
     def validate_rules_callback(self, caller, event: str, region: Region):
         self.selection_changed(caller, boolean_mask(self.X, True))
