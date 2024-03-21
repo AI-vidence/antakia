@@ -258,6 +258,8 @@ class FigureDisplay:
         -------
 
         """
+        if self.X is None:
+            return
         if y.min() == y.max():
             y[:] = 0.5
         else:
@@ -265,8 +267,8 @@ class FigureDisplay:
         color_serie = pd.Series(index=self.X.index)
         color_serie[~region.mask] = colors['gray']
 
-        cmap = ['blue', 'green', 'red1']
-        cmap = [colors[c] for c in cmap]
+        # cmap = ['blue', 'green', 'red1']
+        # cmap = [colors[c] for c in cmap]
         cmap = 'Portland'
 
         color_serie[region.mask] = sample_colorscale(cmap,

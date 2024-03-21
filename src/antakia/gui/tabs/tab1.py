@@ -264,7 +264,7 @@ class Tab1:
     @log_errors
     def compute_skope_rules(self, *args):
         self.selection_changed = False
-    # compute es rules for info only
+        # compute es rules for info only
         es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
                                           self.variables)
         self.es_rules_wgt.change_rules(es_skr_rules_set, self.reference_mask,

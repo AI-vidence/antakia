@@ -106,7 +106,10 @@ def unselect(gui, is_value_space):
         hde = gui.vs_hde
     else:
         hde = gui.es_hde
-    hde.figure._deselection_event(gui.tab_value, '', )
+    hde.figure._deselection_event(
+        gui.tab_value,
+        '',
+    )
 
 
 @check
