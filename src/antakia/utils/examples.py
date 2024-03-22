@@ -17,7 +17,7 @@ AVAILABLE_EXAMPLES: dict[str, list[str]] = {
     "climate_change_survey": ["X_train", "X_test", "y_train", "y_test"],
     "wages": [],
     "titanic": ["train", "test"],
-    "car_prices":[]
+    "car_prices": []
 }
 
 BRANCH = "dev"

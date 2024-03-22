@@ -113,7 +113,7 @@ class MultiStepProgressBar:
         if step == 0 or step > self.steps:
             raise ValueError('step should be between 1 and self.steps')
 
-        def update_ac_progress_bar(progress: float, duration: float=None):
+        def update_ac_progress_bar(progress: float, duration: float = None):
             """
             Called by the AutoCluster to update the progress bar
             """

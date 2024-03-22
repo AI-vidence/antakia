@@ -54,23 +54,23 @@ class ProjectedValuesSelector:
                 class_="ml-2 mr-2",
                 v_slots=[{
                     "name":
-                        "activator",
+                    "activator",
                     "variable":
-                        "props",
+                    "props",
                     "children":
-                        v.Btn(
-                            v_on="props.on",
-                            icon=True,
-                            size="x-large",
-                            children=[
-                                v.Icon(
-                                    children=["mdi-cogs"],
-                                    size="large",
-                                )
-                            ],
-                            class_="ma-2 pa-3",
-                            elevation="3",
-                        ),
+                    v.Btn(
+                        v_on="props.on",
+                        icon=True,
+                        size="x-large",
+                        children=[
+                            v.Icon(
+                                children=["mdi-cogs"],
+                                size="large",
+                            )
+                        ],
+                        class_="ma-2 pa-3",
+                        elevation="3",
+                    ),
                 }],
                 children=[
                     v.Card(  # 1410

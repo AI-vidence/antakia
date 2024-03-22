@@ -106,7 +106,8 @@ class RuleWidget:
             for name, color in colors_info.items():
                 h.append(
                     Histogram(name=name,
-                              x=self.X_col[self.display_mask & (mask_color == color)],
+                              x=self.X_col[self.display_mask
+                                           & (mask_color == color)],
                               marker_color=color,
                               **base_args))
             self.figure = FigureWidget(data=h)
@@ -175,31 +176,48 @@ class RuleWidget:
 
     def get_swarm_plot(self, color, mask_color, name):
         box = Box({
-            'alignmentgroup': 'True',
-            'boxpoints': 'all',
-            'fillcolor': 'rgba(255,255,255,0)',
-            'hoveron': 'points',
+            'alignmentgroup':
+            'True',
+            'boxpoints':
+            'all',
+            'fillcolor':
+            'rgba(255,255,255,0)',
+            'hoveron':
+            'points',
             'hovertemplate':
-                f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
-            'jitter': 1,
-            'legendgroup': name,
+            f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
+            'jitter':
+            1,
+            'legendgroup':
+            name,
             'line': {
                 'color': 'rgba(255,255,255,0)'
             },
             'marker': {
                 'color': color
             },
-            'name': name,
-            'offsetgroup': name,
-            'orientation': 'h',
-            'pointpos': 0,
-            'showlegend': True,
-            'x': self.X_col[self.display_mask & (mask_color == color)],
-            'x0': ' ',
-            'xaxis': 'x',
-            'y': self.selectable_mask[self.display_mask & (mask_color == color)],
-            'y0': ' ',
-            'yaxis': 'y'
+            'name':
+            name,
+            'offsetgroup':
+            name,
+            'orientation':
+            'h',
+            'pointpos':
+            0,
+            'showlegend':
+            True,
+            'x':
+            self.X_col[self.display_mask & (mask_color == color)],
+            'x0':
+            ' ',
+            'xaxis':
+            'x',
+            'y':
+            self.selectable_mask[self.display_mask & (mask_color == color)],
+            'y0':
+            ' ',
+            'yaxis':
+            'y'
         })
         return box
 
@@ -254,7 +272,7 @@ class RuleWidget:
             return v.Col()
 
     def _get_select_widget_values(
-        self) -> tuple[float | None, float | None] | list[str]:
+            self) -> tuple[float | None, float | None] | list[str]:
         """
         sets the selection values
         Returns
@@ -339,8 +357,10 @@ class RuleWidget:
         mask_color, colors_info = self._get_colors()
         with self.figure.batch_update():
             for i, color in enumerate(colors_info.values()):
-                self.figure.data[i].x = self.X_col[self.display_mask & (mask_color == color)]
-                self.figure.data[i].y = self.selectable_mask[self.display_mask & (mask_color == color)]
+                self.figure.data[i].x = self.X_col[self.display_mask
+                                                   & (mask_color == color)]
+                self.figure.data[i].y = self.selectable_mask[
+                    self.display_mask & (mask_color == color)]
 
     def _get_colors(self):
         if self.init_mask.all() or not self.init_mask.any():
