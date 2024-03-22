@@ -16,7 +16,8 @@ AVAILABLE_EXAMPLES: dict[str, list[str]] = {
     "california_housing": [],
     "climate_change_survey": ["X_train", "X_test", "y_train", "y_test"],
     "wages": [],
-    "titanic": ["train", "test"]
+    "titanic": ["train", "test"],
+    "march_madness":[]
 }
 
 BRANCH = "main"
