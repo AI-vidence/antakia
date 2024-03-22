@@ -17,10 +17,10 @@ AVAILABLE_EXAMPLES: dict[str, list[str]] = {
     "climate_change_survey": ["X_train", "X_test", "y_train", "y_test"],
     "wages": [],
     "titanic": ["train", "test"],
-    "march_madness":[]
+    "car_prices":[]
 }
 
-BRANCH = "main"
+BRANCH = "dev"
 
 
 def _get_github_url(example: str, dataset_name: str | None = None) -> str:
