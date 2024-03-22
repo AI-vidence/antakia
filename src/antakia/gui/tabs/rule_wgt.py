@@ -1,13 +1,16 @@
 from functools import partial
 from typing import Callable
 
+import numpy as np
 import pandas as pd
 import ipyvuetify as v
 from antakia_core.data_handler import Rule
 from antakia_core.utils import boolean_mask, get_mask_comparison_color, compute_step
 from plotly.graph_objs import Histogram, FigureWidget, Box
 
+from antakia import config
 from antakia.gui.graphical_elements.rule_slider import RuleSlider
+from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors
 
 
@@ -46,6 +49,7 @@ class RuleWidget:
         self.init_mask = boolean_mask(X, True)
         self.rule_mask = boolean_mask(X, True)
         self.selectable_mask = boolean_mask(X, True)
+        self._display_mask = None
         self.type = 'auto'
         self._resolve_type()
 
@@ -102,7 +106,7 @@ class RuleWidget:
             for name, color in colors_info.items():
                 h.append(
                     Histogram(name=name,
-                              x=self.X_col[mask_color == color],
+                              x=self.X_col[self.display_mask & (mask_color == color)],
                               marker_color=color,
                               **base_args))
             self.figure = FigureWidget(data=h)
@@ -176,7 +180,7 @@ class RuleWidget:
             'fillcolor': 'rgba(255,255,255,0)',
             'hoveron': 'points',
             'hovertemplate':
-            f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
+                f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
             'jitter': 1,
             'legendgroup': name,
             'line': {
@@ -190,10 +194,10 @@ class RuleWidget:
             'orientation': 'h',
             'pointpos': 0,
             'showlegend': True,
-            'x': self.X_col[mask_color == color],
+            'x': self.X_col[self.display_mask & (mask_color == color)],
             'x0': ' ',
             'xaxis': 'x',
-            'y': self.selectable_mask[mask_color == color],
+            'y': self.selectable_mask[self.display_mask & (mask_color == color)],
             'y0': ' ',
             'yaxis': 'y'
         })
@@ -250,7 +254,7 @@ class RuleWidget:
             return v.Col()
 
     def _get_select_widget_values(
-            self) -> tuple[float | None, float | None] | list[str]:
+        self) -> tuple[float | None, float | None] | list[str]:
         """
         sets the selection values
         Returns
@@ -335,9 +339,8 @@ class RuleWidget:
         mask_color, colors_info = self._get_colors()
         with self.figure.batch_update():
             for i, color in enumerate(colors_info.values()):
-                self.figure.data[i].x = self.X_col[mask_color == color]
-                self.figure.data[i].y = self.selectable_mask[mask_color ==
-                                                             color]
+                self.figure.data[i].x = self.X_col[self.display_mask & (mask_color == color)]
+                self.figure.data[i].y = self.selectable_mask[self.display_mask & (mask_color == color)]
 
     def _get_colors(self):
         if self.init_mask.all() or not self.init_mask.any():
@@ -347,3 +350,24 @@ class RuleWidget:
             mask_color, colors_info = get_mask_comparison_color(
                 self.rule_mask, self.init_mask)
         return mask_color, colors_info
+
+    @property
+    def display_mask(self) -> pd.Series:
+        """
+        mask should be applied on each display (x,y,z,color, selection)
+        """
+        if self.X is None:
+            raise NotInitialized()
+        if self._display_mask is None:
+            limit = config.ATK_MAX_DOTS
+            if len(self.X) > limit:
+                self._mask = pd.Series([False] * len(self.X),
+                                       index=self.X.index)
+                indices = np.random.choice(self.X.index,
+                                           size=limit,
+                                           replace=False)
+                self._mask.loc[indices] = True
+            else:
+                self._mask = pd.Series([True] * len(self.X),
+                                       index=self.X.index)
+        return self._mask

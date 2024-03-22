@@ -50,7 +50,7 @@ class ActivityLogger:
         if info is None:
             info = {}
         payload = {'event': event, 'log': info, 'timestamp': time.time()}
-        if os.environ.get('ATK_LOCAL_LOGS'):
+        if os.environ.get('ATK_LOGS_TYPE') == 'print':
             print(json.dumps(payload))
         else:
             try:
@@ -58,6 +58,8 @@ class ActivityLogger:
                 self._add_to_log_queue(payload)
                 self._send(force_send=payload['event'] in self.send_events)
             except:
+                if os.environ.get('ATK_LOGS_TYPE') == 'debug':
+                    raise
                 pass
 
     def _add_metadata(self, payload):
@@ -76,7 +78,8 @@ class ActivityLogger:
             with open(self.log_file, 'a') as log_file:
                 log_file.write(json.dumps(payload) + '\n')
         except:
-            pass
+            if os.environ.get('ATK_LOGS_TYPE') == 'debug':
+                raise
 
     def _clear_logs(self):
         self._logs = []
@@ -84,7 +87,8 @@ class ActivityLogger:
             with open(self.log_file, 'w') as log_file:
                 log_file.write('')
         except:
-            pass
+            if os.environ.get('ATK_LOGS_TYPE') == 'debug':
+                raise
 
     def _send(self, force_send=False):
         if len(self._logs) > self.limit or force_send:
@@ -98,6 +102,8 @@ class ActivityLogger:
                     raise ConnectionError
                 self._clear_logs()
             except:
+                if os.environ.get('ATK_LOGS_TYPE') == 'debug':
+                    raise
                 payload = {'event': 'no connection', 'timestamp': time.time()}
                 self._add_to_log_queue(payload)
                 if len(self._logs) > self.size_limit:
