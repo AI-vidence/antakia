@@ -36,6 +36,7 @@ class ProjectedValuesSelector:
                 config.ATK_DEFAULT_PROJECTION), config.ATK_DEFAULT_DIMENSION)
 
         self._build_widget()
+        self.refresh_indeterminate_progress_bar()
 
     @property
     def current_dim(self):
@@ -53,23 +54,23 @@ class ProjectedValuesSelector:
                 class_="ml-2 mr-2",
                 v_slots=[{
                     "name":
-                    "activator",
+                        "activator",
                     "variable":
-                    "props",
+                        "props",
                     "children":
-                    v.Btn(
-                        v_on="props.on",
-                        icon=True,
-                        size="x-large",
-                        children=[
-                            v.Icon(
-                                children=["mdi-cogs"],
-                                size="large",
-                            )
-                        ],
-                        class_="ma-2 pa-3",
-                        elevation="3",
-                    ),
+                        v.Btn(
+                            v_on="props.on",
+                            icon=True,
+                            size="x-large",
+                            children=[
+                                v.Icon(
+                                    children=["mdi-cogs"],
+                                    size="large",
+                                )
+                            ],
+                            class_="ma-2 pa-3",
+                            elevation="3",
+                        ),
                 }],
                 children=[
                     v.Card(  # 1410
@@ -117,13 +118,11 @@ class ProjectedValuesSelector:
                 close_on_content_click=False,
                 offset_y=True,
             ),
-            v.ProgressCircular(  # progress bar
-                indeterminate=True,
-                color="blue",
+            v.ProgressCircular(
                 width="6",
                 size="35",
                 class_="ml-2 mr-2 mt-2",
-            )
+            )  # progress bar
         ])
         self.progress_bar = ProgressBar(self.widget.children[2],
                                         indeterminate=True)
@@ -146,6 +145,10 @@ class ProjectedValuesSelector:
         self.update_proj_params_menu()
         self.update_callback()
         self.disable(False)
+
+    def refresh_indeterminate_progress_bar(self):
+        self.progress_bar.indeterminate = not dim_reduc_factory[
+            self.current_proj.reduction_method].has_progress_callback
 
     def update_X(self, X: pd.DataFrame):
         self.projected_value = self.pv_bank.get_projected_values(X)
@@ -194,6 +197,7 @@ class ProjectedValuesSelector:
 
         """
         self.current_proj = Proj(self.projection_method, self.current_dim)
+        self.refresh_indeterminate_progress_bar()
         self.update_proj_params_menu()
         self.refresh()
 
