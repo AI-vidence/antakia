@@ -25,12 +25,12 @@ The dataset also gives for each block group the average price of a house. This d
 In our noteboox, this dataset is stored in a Pandas Dataframe named `X`.
 If you type `X.head()` you'll get :
 
-![](../img/head_x.png)
+![](../img/california/head_x.png)
 
 The "medium house values" are stored in a Pandas Series named `y`.
 A `y.head()` will give you something like :
 
-![](../img/y.png)
+![](../img/california/y.png)
 
 ## The use case
 
@@ -51,7 +51,7 @@ import pandas as pd
 df = pd.read_csv('../data/california_housing.csv').drop(['Unnamed: 0'], axis=1)
 ```
 
-We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So make this tutorial quicker and more pleaseant, our CSV file includes these pre-computed SHAP values.
+We start creating a dataframe from a local CSV file. You could have imported this dataset from the Scikit-learn package [here](https://inria.github.io/scikit-learn-mooc/python_scripts/datasets_california_housing.html). As you'll see, AntakIA needs to compute other values (eg. SHAP values for the data and the model). So as to make this tutorial quicker and more pleaseant, our CSV file includes these pre-computed SHAP values.
 
 ```
 # Remove outliers:

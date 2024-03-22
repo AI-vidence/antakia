@@ -3,6 +3,8 @@
 
 # AntakIA
 *metadata.json
+*logs.json
+*test.json
 
 # IDE
 .vscode/

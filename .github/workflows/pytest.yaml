@@ -1,0 +1,24 @@
+name: Run pytest
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        id: git-co
+        uses: actions/checkout@v1
+      - name: setup python
+        id: python
+        uses: actions/setup-python@v1
+      - name: setup poetry
+        id: poetry
+        uses: knowsuchagency/poetry-install@v1
+        env:
+          POETRY_VIRTUALENVS_CREATE: false
+      - name: run pytest
+        id: pytest
+        run: poetry run python -m pytest --cov=antakia --cov-report term-missing tests

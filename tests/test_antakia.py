@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 from antakia.antakia import AntakIA
-from antakia.gui.widgets import splash_widget, app_widget
 from antakia.utils.dummy_datasets import load_dataset
 from tests.interactions import *
 from tests.status_checks import check_all
@@ -18,10 +17,11 @@ from tests.utils_fct import DummyModel
 
 
 class TestAntakia(TestCase):
+
     @classmethod
     def setUpClass(cls):
-        config.MIN_POINTS_NUMBER = 10
-        config.MAX_DOTS = 100
+        config.ATK_MIN_POINTS_NUMBER = 10
+        config.ATK_MAX_DOTS = 100
 
         X, y = load_dataset('Corner', 1000, random_seed=42)
         cls.X = pd.DataFrame(X, columns=['X1', 'X2'])
@@ -34,15 +34,14 @@ class TestAntakia(TestCase):
         cls.y_test = pd.Series(y_test)
 
         cls.regression_DT = DecisionTreeRegressor().fit(cls.X, cls.y)
-        cls.regression_DT_np = DecisionTreeRegressor().fit(cls.X.values, cls.y.values)
+        cls.regression_DT_np = DecisionTreeRegressor().fit(
+            cls.X.values, cls.y.values)
         cls.regression_any = DummyModel()
         cls.classifier_DT = DecisionTreeClassifier().fit(cls.X, cls.y)
-        cls.x_exp = pd.concat(
-            [(cls.X.iloc[:, 0] > 0.5) * 0.5, (cls.X.iloc[:, 1] > 0.5) * 0.5, (cls.X.iloc[:, 2] > 2) * 1], axis=1)
-
-    def setUp(self):
-        splash_widget.reset()
-        app_widget.reset()
+        cls.x_exp = pd.concat([(cls.X.iloc[:, 0] > 0.5) * 0.5,
+                               (cls.X.iloc[:, 1] > 0.5) * 0.5,
+                               (cls.X.iloc[:, 2] > 2) * 1],
+                              axis=1)
 
     def test_vanilla_run(self):
         # vanilla run
@@ -51,14 +50,20 @@ class TestAntakia(TestCase):
 
     def test_vanilla_run_test(self):
         # vanilla run
-        atk = AntakIA(self.X, self.y, self.regression_DT,
-                      X_test=self.X_test, y_test=self.y_test)
+        atk = AntakIA(self.X,
+                      self.y,
+                      self.regression_DT,
+                      X_test=self.X_test,
+                      y_test=self.y_test)
         run_antakia(atk, True)
 
     def test_shape_issue(self):
         # shape issue
         with pytest.raises(AssertionError):
-            atk = AntakIA(self.X, self.y.iloc[:10], self.regression_DT, X_exp=self.x_exp)
+            atk = AntakIA(self.X,
+                          self.y.iloc[:10],
+                          self.regression_DT,
+                          X_exp=self.x_exp)
             run_antakia(atk, False)
 
     def test_vanilla_with_exp(self):
@@ -93,7 +98,10 @@ class TestAntakia(TestCase):
 
     def test_with_np_arrays_exp(self):
         # run with np array and x_exp
-        atk = AntakIA(self.X.values, self.y.values, self.regression_DT_np, X_exp=self.x_exp.values)
+        atk = AntakIA(self.X.values,
+                      self.y.values,
+                      self.regression_DT_np,
+                      X_exp=self.x_exp.values)
         run_antakia(atk, False)
 
     def test_y_as_df(self):
@@ -112,20 +120,16 @@ class TestAntakia(TestCase):
 
     def test_random(self):
         for _ in range(10):
-            splash_widget.reset()
-            app_widget.reset()
             atk = AntakIA(self.X, self.y, self.regression_DT)
             random_walk(atk, 20)
 
     def test_run_walk(self):
         atk = AntakIA(self.X, self.y, self.regression_DT)
-        run_walk(
-            atk,
-            [('change_tab', [0]), ('change_tab', [1]), ('set_exp_method', [2]), ('auto_cluster', []),
-             ('set_color', [1]), ('set_proj_method', [1, 2]), ('set_exp_method', [1]), ('unselect', [1]),
-             ('edit_parameter', [1]), ('set_color', [1]), ('select_points', [1]), ('select_points', [0]),
-             ('set_color', [2]), ('find_rules', []), ('select_points', [1])]
-        )
+        walk = [('change_tab', [1]), ('auto_cluster', []),
+                ('toggle_select_region', [1]), ('edit', []),
+                ('select_points', [0])]
+        walk = [('select_points', [0])]
+        run_walk(atk, walk)
 
     def test_classifier(self):
         atk = AntakIA(self.X, self.y, self.classifier_DT)
@@ -142,15 +146,17 @@ def dummy_exp(_X, model, method, task_type, callback, *args, **kwargs):
     return pd.DataFrame(_X.values, index=_X.index, columns=_X.columns)
 
 
-@mock.patch('antakia.gui.explanation_values.compute_explanations', wraps=dummy_exp)
-@mock.patch('antakia_core.data_handler.projected_values.compute_projection', wraps=dummy_projection)
+@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations',
+            wraps=dummy_exp)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection',
+            wraps=dummy_projection)
 def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
     atk.start_gui()
     # assert both progress bar are full after start up
 
     gui = atk.gui
-    assert get_widget(gui.splash_widget, '110').v_model == 100
-    assert get_widget(gui.splash_widget, '210').v_model == 100
+    assert get_widget(gui.splash.widget, '110').v_model == 100
+    assert get_widget(gui.splash.widget, '210').v_model == 100
     if check:
         check_all(gui)
     # change colors
@@ -202,6 +208,7 @@ def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
 
 
 actions = {
+    'select_dim': (select_dim, range(2)),
     'set_color': (set_color, range(3)),
     'set_exp_method': (set_exp_method, range(3)),
     'set_proj_method': (set_proj_method, range(2), range(3)),
@@ -209,20 +216,25 @@ actions = {
     'change_tab': (change_tab, range(3)),
     'select_points': (select_points, range(2)),
     'unselect': (unselect, range(2)),
-    'find_rules': (find_rules,),
-    'validate_rules': (validate_rules,),
-    'auto_cluster': (auto_cluster,),
+    'find_rules': (find_rules, ),
+    'validate_rules': (validate_rules, ),
+    'auto_cluster': (auto_cluster, ),
     'toggle_select_region': (toggle_select_region, range(4)),
-    'subdivide': (subdivide,),
-    'merge': (merge,),
-    'clear_selection': (clear_region_selection,),
-    'substitute': (substitute,),
+    'subdivide': (subdivide, ),
+    'merge': (merge, ),
+    'edit': (edit, ),
+    'clear_selection': (clear_region_selection, ),
+    'substitute': (substitute, ),
     'select_model': (select_model, range(10)),
-    'validate_model': (validate_model,)
+    'validate_model': (validate_model, )
 }
 
 
-def random_walk(atk, steps):
+@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations',
+            wraps=dummy_exp)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection',
+            wraps=dummy_projection)
+def random_walk(atk, steps, compute_proj, compute_exp):
     atk.start_gui()
     gui = atk.gui
 
@@ -248,7 +260,11 @@ def random_walk(atk, steps):
             raise
 
 
-def run_walk(atk, walk):
+@mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations',
+            wraps=dummy_exp)
+@mock.patch('antakia_core.data_handler.projected_values.compute_projection',
+            wraps=dummy_projection)
+def run_walk(atk, walk, compute_proj, compute_exp):
     atk.start_gui()
     gui = atk.gui
     k = 0

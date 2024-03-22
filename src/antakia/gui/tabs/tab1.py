@@ -1,390 +1,339 @@
-import ipyvuetify as v
-import numpy as np
+from functools import partial
+from typing import Callable
+
 import pandas as pd
-from plotly.graph_objs import FigureWidget
-from prometheus_client import Histogram
+from antakia_core.compute.skope_rule.skope_rule import skope_rules
+import ipyvuetify as v
+from antakia_core.data_handler import Region
+from antakia_core.data_handler import RuleSet
+from antakia_core.utils import format_data
+from antakia_core.utils.variable import DataVariables
 
-from antakia.gui.widgets import get_widget
+from antakia.gui.tabs.ruleswidget import RulesWidget
+from antakia.utils.stats import log_errors, stats_logger
 
 
-class tab1:
-    def __init__(self):
+class Tab1:
+    EDIT_RULE = 'edition'
+    CREATE_RULE = 'creation'
 
-        pass
+    def __init__(self, variables: DataVariables, update_callback: Callable,
+                 validate_rules_callback: Callable, X: pd.DataFrame,
+                 X_exp: pd.DataFrame | None, y: pd.Series):
+        self.selection_changed = False
+        self.region = Region(X)
+        self.reference_mask = self.region.mask
+        self.update_callback = partial(update_callback, self, 'rule_updated')
+        self.validate_rules_callback = partial(validate_rules_callback, self,
+                                               'rule_validated')
 
-    def build_widget(self):
-        self.widget = v.TabItem(  # Tab 1) Selection # 43
-            class_="mt-2",
+        self.X = X
+        self.X_exp = X_exp
+        self.y = y
+
+        self.variables = variables
+        self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True,
+                                        self.new_rules_defined)
+        self.es_rules_wgt = RulesWidget(self.X_exp, self.y, self.variables,
+                                        False)
+
+        self._build_widget()
+
+    def _build_widget(self):
+        self.find_rules_btn = v.Btn(  # 43010 Skope button
+            v_on='tooltip.on',
+            class_="ma-1 primary white--text",
             children=[
-                v.Row(  # buttons row # 430
-                    class_="d-flex flex-row align-top mt-2",
-                    children=[
-                        v.Sheet(  # Selection info # 4300
-                            class_="ml-3 mr-3 pa-2 align-top grey lighten-3",
-                            style_="width: 20%",
-                            elevation=1,
-                            children=[
-                                v.Html(  # 43000
-                                    tag="li",
-                                    children=[
-                                        v.Html(  # 430000
-                                            tag="strong",
-                                            children=["0 points"]
-                                            # 4300000 # selection_status_str_1
-                                        )
-                                    ]
-                                ),
-                                v.Html(  # 43001
-                                    tag="li",
-                                    children=["0% of the dataset"]
-                                    # 430010 # selection_status_str_2
-                                )
-                            ],
-                        ),
-                        v.Tooltip(  # 4301
-                            bottom=True,
-                            v_slots=[
-                                {
-                                    'name': 'activator',
-                                    'variable': 'tooltip',
-                                    'children':
-                                        v.Btn(  # 43010 Skope button
-                                            v_on='tooltip.on',
-                                            class_="ma-1 primary white--text",
-                                            children=[
-                                                v.Icon(
-                                                    class_="mr-2",
-                                                    children=[
-                                                        "mdi-axis-arrow"
-                                                    ],
-                                                ),
-                                                "Find rules",
-                                            ],
-                                        ),
-                                }
-                            ],
-                            children=['Find a rule to match the selection']
-                        ),
-                        v.Btn(  # 4302
-                            class_="ma-1",
-                            children=[
-                                v.Icon(
-                                    class_="mr-2",
-                                    children=[
-                                        "mdi-undo"
-                                    ],
-                                ),
-                                "Undo",
-                            ],
-                        ),
-                        v.Tooltip(  # 4303
-                            bottom=True,
-                            v_slots=[
-                                {
-                                    'name': 'activator',
-                                    'variable': 'tooltip',
-                                    'children':
-                                        v.Btn(  # 43030 Skope button
-                                            v_on='tooltip.on',
-                                            class_="ma-1 green white--text",
-                                            children=[
-                                                v.Icon(
-                                                    class_="mr-2",
-                                                    children=[
-                                                        "mdi-check"
-                                                    ],
-                                                ),
-                                                "Validate rules",
-                                            ],
-                                        ),
-                                }
-                            ],
-                            children=['Promote current rules as a region']
-                        ),
-                    ]
-                ),  # End Buttons row
-                v.Row(  # tab 1 / row #2 : 2 RulesWidgets # 431
-                    class_="d-flex flex-row",
-                    children=[
-                        v.Col(  # placeholder for the VS RulesWidget (RsW) # 4310
-                            children=[
-                                v.Col(  # 43100 / 0
-                                    children=[
-                                        v.Row(  # 431000 / 00
-                                            children=[
-                                                v.Icon(children=["mdi-target"]),  #
-                                                v.Html(class_="ml-3", tag="h2",
-                                                       children=[
-                                                           "Rules applied on the values space"]),
-                                            ]
-                                        ),
-                                        v.Html(  # 431001 / 01
-                                            class_="ml-7",
-                                            tag="li",
-                                            children=[
-                                                "Precision = n/a, recall = n/a, f1_score = n/a"
-                                            ]
-                                        ),
-                                        v.Html(  # 431002 / 02
-                                            class_="ml-7",
-                                            tag="li",
-                                            children=[
-                                                "N/A"
-                                            ]
-                                        ),
-                                    ]
-                                ),
-                                v.ExpansionPanels(  # Holds VS RuleWidgets  # 43101 / 1
-                                    style_="max-width: 95%",
-                                    children=[
-                                        v.ExpansionPanel(  # PH for VS RuleWidget #431010 10
-                                            children=[
-                                                v.ExpansionPanelHeader(  # 0 / 100
-                                                    class_="blue lighten-4",
-                                                    children=[
-                                                        "A VS rule variable"  # 1000
-                                                    ]
-                                                ),
-                                                v.ExpansionPanelContent(  # 1
-                                                    children=[
-                                                        v.Col(
-                                                            children=[
-                                                                v.Spacer(),
-                                                                v.RangeSlider(
-                                                                    # class_="ma-3",
-                                                                    v_model=[
-                                                                        -1,
-                                                                        1,
-                                                                    ],
-                                                                    min=-5,
-                                                                    max=5,
-                                                                    step=0.1,
-                                                                    thumb_label="always",
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        FigureWidget(
-                                                            data=[  # Dummy histogram
-                                                                Histogram(
-                                                                    x=pd.Series(
-                                                                        np.random.normal(0, 1,
-                                                                                         100) * 2,
-                                                                        name='x'),
-                                                                    bingroup=1,
-                                                                    nbinsx=20,
-                                                                    marker_color="grey",
-                                                                ),
-                                                            ],
-                                                            layout={
-                                                                'height': 300,
-                                                                'margin': {'t': 0, 'b': 0,
-                                                                           'l': 0,
-                                                                           'r': 0},
-                                                                'width': 600
-                                                            }
-                                                        ),
-                                                    ]
-                                                ),
-                                            ]
-                                        )
-                                    ]
-                                ),
-                            ],
-                        ),
-                        v.Col(  # placeholder for the ES RulesWidget (RsW) # 4311
-                            size_="width=50%",
-                            children=[
-                                v.Col(  # placeholder for the ES RulesWidget card # 43110
-                                    children=[
-                                        v.Row(  # 431100
-                                            children=[
-                                                v.Icon(children=["mdi-target"]),
-                                                v.Html(class_="ml-3", tag="h2", children=[
-                                                    "Rules applied on the explanations space"]),
-                                            ]
-                                        ),
-                                        v.Html(  # 431101
-                                            class_="ml-7",
-                                            tag="li",
-                                            children=[
-                                                "Precision = n/a, Recall = n/a, F1 = n/a"]
-                                        ),
-                                        v.Html(  # 431102
-                                            class_="ml-7",
-                                            tag="li",
-                                            children=[
-                                                "N/A"
-                                            ]
-                                        )
-                                    ]
-                                ),
-                                v.ExpansionPanels(  # 43111
-                                    style_="max-width: 95%",
-                                    children=[
-                                        v.ExpansionPanel(  # Placeholder for the ES RuleWidgets
-                                            children=[
-                                                v.ExpansionPanelHeader(  # 0
-                                                    class_="blue lighten-4",
-                                                    # variant="outlined",
-                                                    children=[
-                                                        "An ES rule variable"  # 00
-                                                    ]
-                                                ),
-                                                v.ExpansionPanelContent(  # #
-                                                    children=[
-                                                        v.Col(
-                                                            children=[
-                                                                v.Spacer(),
-                                                                v.RangeSlider(
-                                                                    v_model=[
-                                                                        -1,
-                                                                        1,
-                                                                    ],
-                                                                    min=-5,
-                                                                    max=5,
-                                                                    step=0.1,
-                                                                    thumb_label="always",
-                                                                ),
-                                                            ],
-                                                        ),
-                                                        FigureWidget(  # Dummy histogram
-                                                            data=[
-                                                                Histogram(
-                                                                    x=pd.Series(
-                                                                        np.random.normal(0, 1,
-                                                                                         100) * 2,
-                                                                        name='x'),
-                                                                    bingroup=1,
-                                                                    nbinsx=20,
-                                                                    marker_color="grey",
-                                                                ),
-                                                            ],
-                                                            layout={
-                                                                'height': 300,
-                                                                'margin': {'t': 0, 'b': 0,
-                                                                           'l': 0,
-                                                                           'r': 0},
-                                                                'width': 600
-                                                            }
-                                                        ),
-                                                    ]
-                                                ),
-                                            ]
-                                        )
-                                    ]
-                                )
-                            ],
-                        ),
-                    ],  # end Row
+                v.Icon(
+                    class_="mr-2",
+                    children=["mdi-axis-arrow"],
                 ),
-                v.ExpansionPanels(  # tab 1 / row #3 : datatable with selected rows # 432
-                    class_="d-flex flex-row",
-                    children=[
-                        v.ExpansionPanel(  # 4320 # is enabled or disabled when no selection
-                            children=[
-                                v.ExpansionPanelHeader(  # 43200
-                                    class_="grey lighten-3",
-                                    children=["Data selected"]
-                                ),
-                                v.ExpansionPanelContent(  # 43201
-                                    children=[
-                                        v.DataTable(  # 432010
-                                            v_model=[],
-                                            show_select=False,
-                                            headers=[
-                                                {
-                                                    "text": column,
-                                                    "sortable": True,
-                                                    "value": column,
-                                                }
-                                                for column in dummy_df.columns
-                                            ],
-                                            items=dummy_df.to_dict(
-                                                "records"
-                                            ),
-                                            hide_default_footer=False,
-                                            disable_sort=False,
-                                        )
-                                    ],
+                "Find rules",
+            ],
+        )
+        self.cancel_btn = v.Btn(  # 4302
+            class_="ma-1",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=["mdi-close-circle-outline"],
+                ),
+                "Cancel",
+            ],
+        )
+        self.undo_btn = v.Btn(  # 4302
+            class_="ma-1",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=["mdi-undo"],
+                ),
+                "Undo",
+            ],
+        )
+        self.validate_btn = v.Btn(  # 43030 validate
+            v_on='tooltip.on',
+            class_="ma-1 green white--text",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=["mdi-check"],
+                ),
+                "Validate rules",
+            ],
+        )
+        self.title_wgt = v.Row(children=[
+            v.Html(  # 44000
+                tag="h3",
+                class_="ml-2",
+                children=["Creating new region :"],
+            )
+        ])
+        self.selection_status_str_1 = v.Html(  # 430000
+            tag="strong",
+            children=["0 points"]
+            # 4300000 # selection_status_str_1
+        )
+        self.selection_status_str_2 = v.Html(  # 43001
+            tag="li",
+            children=["0% of the dataset"]
+            # 430010 # selection_status_str_2
+        )
+        self.data_table = v.DataTable(  # 432010
+            v_model=[],
+            show_select=False,
+            headers=[{
+                "text": column,
+                "sortable": True,
+                "value": column,
+            } for column in self.X.columns],
+            items=[],
+            hide_default_footer=False,
+            disable_sort=False,
+        )
+        self.widget = [
+            self.title_wgt,
+            v.Row(  # buttons row # 430
+                class_="d-flex flex-row align-top mt-2",
+                children=[
+                    v.Sheet(  # Selection info # 4300
+                        class_="ml-3 mr-3 pa-2 align-top grey lighten-3",
+                        style_="width: 20%",
+                        elevation=1,
+                        children=[
+                            v.Html(  # 43000
+                                tag="li",
+                                children=[self.selection_status_str_1]),
+                            self.selection_status_str_2
+                        ],
+                    ),
+                    v.Tooltip(  # 4301
+                        bottom=True,
+                        v_slots=[{
+                            'name': 'activator',
+                            'variable': 'tooltip',
+                            'children': self.find_rules_btn
+                        }],
+                        children=['Find a rule to match the selection']),
+                    self.cancel_btn,
+                    self.undo_btn,
+                    v.Tooltip(  # 4303
+                        bottom=True,
+                        v_slots=[{
+                            'name': 'activator',
+                            'variable': 'tooltip',
+                            'children': self.validate_btn
+                        }],
+                        children=['Promote current rules as a region']),
+                ]),  # End Buttons row
+            v.Row(  # tab 1 / row #2 : 2 RulesWidgets # 431
+                class_="d-flex flex-row",
+                children=[self.vs_rules_wgt.widget,
+                          self.es_rules_wgt.widget],  # end Row
+            ),
+            v.
+            ExpansionPanels(  # tab 1 / row #3 : datatable with selected rows # 432
+                class_="d-flex flex-row",
+                children=[
+                    v.
+                    ExpansionPanel(  # 4320 # is enabled or disabled when no selection
+                        children=[
+                            v.ExpansionPanelHeader(  # 43200
+                                class_="grey lighten-3",
+                                children=["Data selected"]),
+                            v.ExpansionPanelContent(  # 43201
+                                children=[self.data_table], ),
+                        ])
+                ],
+            ),
+        ]
+        # get_widget(self.widget[2], "0").disabled = True  # disable datatable
+        # We wire the click events
+        self.find_rules_btn.on_event("click", self.compute_skope_rules)
+        self.undo_btn.on_event("click", self.undo_rules)
+        self.cancel_btn.on_event("click", self.cancel_edit)
+        self.validate_btn.on_event("click", self.validate_rules)
+        self.refresh_buttons()
 
-                                ),
-                            ]
-                        )
-                    ],
-                ),
+    @property
+    def valid_selection(self):
+        return self.reference_mask.any() and not (self.reference_mask.all())
+
+    def refresh_selection_status(self):
+        if self.valid_selection:
+            selection_status_str_1 = f"{self.reference_mask.sum()} point selected"
+            selection_status_str_2 = f"{100 * self.reference_mask.mean():.2f}% of the  dataset"
+        else:
+            selection_status_str_1 = f"0 point selected"
+            selection_status_str_2 = f"0% of the  dataset"
+        self.selection_status_str_1.children = [selection_status_str_1]
+        self.selection_status_str_2.children = [selection_status_str_2]
+
+    @property
+    def edit_type(self):
+        return self.CREATE_RULE if self.region.num == -1 else self.EDIT_RULE
+
+    def _update_title_txt(self):
+        if self.edit_type == 'creation':
+            self.title_wgt.children = [
+                v.Html(  # 44000
+                    tag="h3",
+                    class_="ml-2",
+                    children=["Creating new region :"],
+                )
             ]
-        )
+        else:
+            region_prefix_wgt = v.Html(class_="mr-2",
+                                       tag="h3",
+                                       children=["Editing Region"])  # 450000
+            region_chip_wgt = v.Chip(
+                color=self.region.color,
+                children=[str(self.region.num)],
+            )
+            self.title_wgt.children = [
+                v.Sheet(  # 45000
+                    class_="ma-1 d-flex flex-row align-center",
+                    children=[region_prefix_wgt, region_chip_wgt])
+            ]
 
-    def refresh_buttons_tab_1(self):
-        self.disable_hde()
+    def reset(self):
+        self.selection_changed = False
+        region = Region(self.X)
+        self.update_region(region)
+
+    def update_region(self, region: Region):
+        self.region = region
+        self._update_title_txt()
+        self.vs_rules_wgt.change_rules(region.rules, region.mask, True)
+        self.es_rules_wgt.change_rules(RuleSet(), region.mask, True)
+        self.update_reference_mask(region.mask)
+        if self.valid_selection:
+            self.new_rules_defined(self, 'region_update', region.mask)
+
+    def update_reference_mask(self, reference_mask):
+        self.reference_mask = reference_mask
+        self.selection_changed = self.valid_selection
+        X_rounded = self.X.loc[reference_mask].copy().apply(format_data)
+        self.data_table.items = X_rounded.to_dict("records")
+        self.refresh_selection_status()
+        self.vs_rules_wgt.update_reference_mask(self.reference_mask)
+        self.es_rules_wgt.update_reference_mask(self.reference_mask)
+        self.refresh_buttons()
+
+    def update_X_exp(self, X_exp: pd.DataFrame):
+        self.X_exp = X_exp
+        self.es_rules_wgt.change_underlying_dataframe(X_exp)
+
+    def refresh_buttons(self):
+        empty_rule_set = len(self.vs_rules_wgt.current_rules_set) == 0
+        empty_history = self.vs_rules_wgt.history_size <= 1
+
         # data table
-        get_widget(self.widget, "20").disabled = bool(self.selection_mask.all())
-        # skope_rule
-        get_widget(self.widget, "010").disabled = not self.new_selection or bool(self.selection_mask.all())
-        # undo
-        get_widget(self.widget, "02").disabled = not (self.vs_rules_wgt.rules_num > 1)
-        # validate rule
-        get_widget(self.widget, "030").disabled = not (self.vs_rules_wgt.rules_num > 0)
+        self.data_table.disabled = not self.valid_selection
+        # self.widget[2].children[0].disabled = not self.valid_selection
+        self.find_rules_btn.disabled = not self.valid_selection or not self.selection_changed
+        self.undo_btn.disabled = empty_history
+        self.cancel_btn.disabled = empty_rule_set and empty_history
 
+        has_modif = (self.vs_rules_wgt.history_size > 1) or (
+            self.es_rules_wgt.history_size == 1
+            and self.region.num < 0  # do not validate a empty modif
+        )
+        self.validate_btn.disabled = not has_modif or empty_rule_set
+
+    @log_errors
     def compute_skope_rules(self, *args):
-        self.new_selection = False
+        self.selection_changed = False
+        # compute es rules for info only
+        es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
+                                          self.variables)
+        self.es_rules_wgt.change_rules(es_skr_rules_set, self.reference_mask,
+                                       False)
+        # compute rules on vs space
 
-        if self.tab != 1:
-            self.select_tab(1)
-        # compute skope rules
-        skr_rules_list, skr_score_dict = skope_rules(self.selection_mask, self.vs_hde.current_X, self.variables)
-        skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
+        skr_rules_set, skr_score_dict = skope_rules(self.reference_mask,
+                                                    self.X, self.variables)
+        skr_score_dict['target_avg'] = self.y[self.reference_mask].mean()
         # init vs rules widget
-        self.vs_rules_wgt.init_rules(skr_rules_list, skr_score_dict, self.selection_mask)
-        # update VS and ES HDE
-        self.vs_hde.figure.display_rules(
-            selection_mask=self.selection_mask,
-            rules_mask=skr_rules_list.get_matching_mask(self.X)
-        )
-        self.es_hde.figure.display_rules(
-            selection_mask=self.selection_mask,
-            rules_mask=skr_rules_list.get_matching_mask(self.X)
-        )
+        self.vs_rules_wgt.change_rules(skr_rules_set, self.reference_mask,
+                                       False)
+        # update widgets and hdes
+        self.new_rules_defined(self,
+                               'skope_rule',
+                               rules_mask=skr_rules_set.get_matching_mask(
+                                   self.X))
+        self.refresh_buttons()
+        stats_logger.log('find_rules', skr_score_dict)
 
-        es_skr_rules_list, es_skr_score_dict = skope_rules(self.selection_mask, self.es_hde.current_X, self.variables)
-        es_skr_score_dict['target_avg'] = self.y[self.selection_mask].mean()
-        self.es_rules_wgt.init_rules(es_skr_rules_list, es_skr_score_dict, self.selection_mask)
-        self.refresh_buttons_tab_1()
-        self.select_tab(1)
-
+    @log_errors
     def undo_rules(self, *args):
-        if self.tab != 1:
-            self.select_tab(1)
-        if self.vs_rules_wgt.rules_num > 0:
+        if self.vs_rules_wgt.history_size > 0:
             self.vs_rules_wgt.undo()
         else:
-            # TODO : pourquoi on annule d'abord le VS puis l'ES?
             self.es_rules_wgt.undo()
-        self.refresh_buttons_tab_1()
+        self.refresh_buttons()
 
+    @log_errors
+    def cancel_edit(self, *args):
+        self.update_region(Region(self.X))
+        self.update_callback(selection_mask=self.reference_mask,
+                             rules_mask=self.reference_mask)
+        self.refresh_buttons()
+
+    @log_errors
+    def new_rules_defined(self, caller, event: str, rules_mask: pd.Series):
+        """
+        Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
+        The function asks the HDEs to display the rules result
+        """
+        stats_logger.log('rule_changed')
+        # We sent to the proper HDE the rules_indexes to render :
+        self.update_callback(selection_mask=self.reference_mask,
+                             rules_mask=rules_mask)
+
+        # sync selection between rules_widgets
+        if caller != self.vs_rules_wgt:
+            self.vs_rules_wgt.update_rule_mask(rules_mask, sync=False)
+        if caller != self.es_rules_wgt:
+            self.es_rules_wgt.update_rule_mask(rules_mask, sync=False)
+
+        self.refresh_buttons()
+
+    @log_errors
     def validate_rules(self, *args):
-        if self.tab != 1:
-            self.select_tab(1)
-
-        rules_list = self.vs_rules_wgt.current_rules_list
-        # UI rules :
-        # We clear selection
-        self.selection_changed(None, boolean_mask(self.X, True))
-        # We clear the RulesWidget
-        self.es_rules_wgt.reset_widget()
-        self.vs_rules_wgt.reset_widget()
-        if len(rules_list) == 0:
-            self.vs_rules_wgt.show_msg("No rules found on Value space cannot validate region", "red--text")
+        stats_logger.log('validate_rules')
+        # get rule set and check validity
+        rules_set = self.vs_rules_wgt.current_rules_set
+        if len(rules_set) == 0:
+            stats_logger.log('validate_rules', info={'error': 'invalid rules'})
+            self.vs_rules_wgt.show_msg(
+                "No rules found on Value space cannot validate region",
+                "red--text")
             return
 
-        # We add them to our region_set
-        region = self.region_set.add_region(rules=rules_list)
-        self.region_num_for_validated_rules = region.num
-        # lock rule
-        region.validate()
-
-        # And update the rules table (tab 2)
-        # we refresh buttons
-        self.refresh_buttons_tab_1()
-        # We force tab 2
-        self.select_tab(2)
+        # we persist the rule set in the region
+        self.region.update_rule_set(rules_set)
+        # we ship the region to GUI to synchronize other tab
+        self.validate_rules_callback(self.region)
+        # we reset the tab
+        self.reset()

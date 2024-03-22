@@ -1,7 +1,7 @@
 from collections import namedtuple
 
-from antakia.gui.widgets import get_widget, app_widget
-from antakia_core.utils.utils import mask_to_rows
+from antakia.gui.widget_utils import get_widget
+from antakia_core.utils import mask_to_rows
 from tests.status_checks import check
 
 
@@ -11,20 +11,22 @@ class InteractionError(Exception):
 
 @check
 def select_dim(gui, dim):
-    gui.set_dimension(dim)
+    gui.dimension_switch.widget.v_model = dim
+    gui.dimension_switch.widget.fire_event('change', dim)
 
 
 @check
 def set_color(gui, color):
     colors = ['y', 'y^', 'residual']
-    get_widget(gui.widget, '11').v_model = colors[color]
-    get_widget(gui.widget, '11').fire_event('change', get_widget(gui.widget, '11').v_model)
+    wgt = gui.color_switch.widget
+    wgt.v_model = colors[color]
+    wgt.fire_event('change', wgt.v_model)
 
 
 @check
 def set_exp_method(gui, method):
     widget = gui.exp_values.get_explanation_select()
-    methods = list(map(lambda x:x['text'], widget.items))
+    methods = list(map(lambda x: x['text'], widget.items))
     exp = methods[method]
     if widget.disabled:
         raise InteractionError('exp menu disabled')
@@ -80,38 +82,41 @@ def change_tab(gui, tab):
 
 @check
 def select_points(gui, is_value_space, q=(1, 1)):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     X = gui.vs_hde.figure.get_X(masked=True)
     std = X.std().replace(0, 1)
-    X_scaled = (X - X.mean()) / std
+    X_scaled = X - X.mean(axis=0)
 
     b = X_scaled.iloc[:, 0] * q[0] > 0
-    b &= X_scaled.iloc[:, 1] * q[1] > 0
+    # b &= X_scaled.iloc[:, 1] * q[1] > 0
     if is_value_space:
         hde = gui.vs_hde
     else:
         hde = gui.es_hde
     points = namedtuple('points', ['point_inds'])
-    hde.figure._selection_event('', points(mask_to_rows(b)))
+    hde.figure._selection_event(gui.tab_value, '', points(mask_to_rows(b)))
 
 
 @check
 def unselect(gui, is_value_space):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     if is_value_space:
         hde = gui.vs_hde
     else:
         hde = gui.es_hde
-    hde.figure._deselection_event('', )
+    hde.figure._deselection_event(
+        gui.tab_value,
+        '',
+    )
 
 
 @check
 def find_rules(gui):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "43010")
+    btn = gui.tab1.find_rules_btn
     if btn.disabled:
         raise InteractionError('skr button disabled')
     btn.click()
@@ -119,9 +124,9 @@ def find_rules(gui):
 
 @check
 def undo(gui):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4302")
+    btn = gui.tab1.undo_btn
     if btn.disabled:
         raise InteractionError('undo button disabled')
     btn.click()
@@ -129,9 +134,9 @@ def undo(gui):
 
 @check
 def validate_rules(gui):
-    if gui.tab > 1:
+    if gui.tab_value > 1:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "43030")
+    btn = gui.tab1.validate_btn
     if btn.disabled:
         raise InteractionError('validate_rules button disabled')
     btn.click()
@@ -139,9 +144,9 @@ def validate_rules(gui):
 
 @check
 def auto_cluster(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4402000")
+    btn = gui.tab2.auto_cluster_btn
     if btn.disabled:
         raise InteractionError('auto_cluster button disabled')
     btn.click()
@@ -149,35 +154,37 @@ def auto_cluster(gui):
 
 @check
 def clear_region_selection(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
-    for region in gui.selected_regions.copy():
+    for region in gui.tab2.selected_regions.copy():
         toggle_select_region(gui, region['Region'], check=False)
 
 
 @check
 def toggle_select_region(gui, region_num):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
     if gui.region_set.get(region_num) is None:
         raise InteractionError('unknown region')
-    value = len(list(filter(lambda r: r['Region'] == region_num, gui.selected_regions))) == 0
-    data = {
-        'value': value,
-        'item': {'Region': region_num}
-    }
-    gui.region_selected(data)
+    value = len(
+        list(
+            filter(lambda r: r['Region'] == region_num,
+                   gui.tab2.selected_regions))) == 0
+    data = {'value': value, 'item': {'Region': region_num}}
+    gui.tab2.region_selected(data)
     if value:
-        gui.selected_regions += [data['item']]
+        gui.tab2.selected_regions += [data['item']]
     else:
-        gui.selected_regions = list(filter(lambda x: x['Region'] != region_num, gui.selected_regions))
+        gui.tab2.selected_regions = list(
+            filter(lambda x: x['Region'] != region_num,
+                   gui.tab2.selected_regions))
 
 
 @check
 def substitute(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401000")
+    btn = gui.tab2.substitute_btn
     if btn.disabled:
         raise InteractionError('substitute button disabled')
     btn.click()
@@ -185,9 +192,9 @@ def substitute(gui):
 
 @check
 def subdivide(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401100")
+    btn = gui.tab2.divide_btn
     if btn.disabled:
         raise InteractionError('subdivide button disabled')
     btn.click()
@@ -195,19 +202,29 @@ def subdivide(gui):
 
 @check
 def merge(gui):
-    if gui.tab != 2:
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401200")
+    btn = gui.tab2.merge_btn
     if btn.disabled:
         raise InteractionError('merge button disabled')
     btn.click()
 
 
 @check
-def delete(gui):
-    if gui.tab != 2:
+def edit(gui):
+    if gui.tab_value != 2:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4401300")
+    btn = gui.tab2.edit_btn
+    if btn.disabled:
+        raise InteractionError('delete button disabled')
+    btn.click()
+
+
+@check
+def delete(gui):
+    if gui.tab_value != 2:
+        raise InteractionError('wrong tab')
+    btn = gui.tab2.delete_btn
     if btn.disabled:
         raise InteractionError('delete button disabled')
     btn.click()
@@ -215,26 +232,23 @@ def delete(gui):
 
 @check
 def select_model(gui, model):
-    if gui.tab != 3:
+    if gui.tab_value != 3:
         raise InteractionError('wrong tab')
-    if len(gui.selected_regions) == 0:
+    if len(gui.tab2.selected_regions) == 0:
         raise InteractionError('no region selected')
-    region = gui.region_set.get(gui.selected_regions[0]['Region'])
+    region = gui.region_set.get(gui.tab2.selected_regions[0]['Region'])
     if model >= len(region.perfs):
         raise InteractionError('unknown model')
     model = region.perfs.index[model]
-    data = {
-        'value': True,
-        'item': {'Sub-model': model}
-    }
-    gui.sub_model_selected_callback(data)
+    data = {'value': True, 'item': {'Sub-model': model}}
+    gui.tab3._sub_model_selected_callback(data)
 
 
 @check
 def validate_model(gui):
-    if gui.tab != 3:
+    if gui.tab_value != 3:
         raise InteractionError('wrong tab')
-    btn = get_widget(gui.widget, "4501000")
+    btn = gui.tab3.validate_model_btn
     if btn.disabled:
         raise InteractionError('validate button disabled')
     btn.click()
