@@ -67,7 +67,7 @@ class ProgressBar(ProgressCallback):
 
     @property
     def progress(self):
-        if self.widget.v_model == '!!disabeld!!':
+        if self.widget.v_model == '!!disabled!!':
             self.progress = 0
         return self.widget.v_model
 

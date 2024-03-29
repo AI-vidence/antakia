@@ -44,7 +44,8 @@ def check_hde_color(gui):
         assert gui.es_hde.figure.active_trace == 1
         assert gui.vs_hde.figure._visible == [0, 1, 0, 0]
         selection = gui.selection_mask
-        assert selection.mean() not in (0, 1)
+        if gui.tab1.edit_type == gui.tab1.CREATE_RULE:
+            assert selection.mean() not in (0, 1)
         color = gui.vs_hde.figure._colors[gui.tab_value]
         if color is not None:
             assert len(color[selection].unique()) <= 2

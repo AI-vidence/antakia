@@ -500,7 +500,6 @@ class GUI:
         self.select_tab(2)
 
     def display_model_data(self, region, y=None):
-        print('region', region, y)
         if y is None:
             self.vs_hde.figure.display_region(region)
             self.es_hde.figure.display_region(region)

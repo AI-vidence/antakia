@@ -357,7 +357,6 @@ class RuleWidget:
 
     def update_figure(self):
         if self.expanded:
-            print('figure_updated', self.rule)
             if self.display_sliders:
                 min_val, max_val = self._get_select_widget_values()
                 self.slider.set_value(min_val, max_val)
