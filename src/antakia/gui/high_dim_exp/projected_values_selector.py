@@ -302,7 +302,8 @@ class ProjectedValuesSelector:
 
     def get_current_X_proj(self,
                            dim=None,
-                           progress_callback=None) -> pd.DataFrame | None:
+                           progress_callback: ProgressBar | None = None
+                           ) -> pd.DataFrame | None:
         """
         get current project X
         Parameters
@@ -319,7 +320,7 @@ class ProjectedValuesSelector:
         if dim is None:
             dim = self.current_dim
         if progress_callback is None:
-            progress_callback = self.progress_bar.update
+            progress_callback = self.progress_bar
         is_present = self.projected_value.is_present(
             Proj(self.current_proj.reduction_method, dim))
         t = time.time()

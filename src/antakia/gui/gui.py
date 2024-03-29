@@ -225,19 +225,21 @@ class GUI:
         # We trigger VS proj computation :
         self.splash.set_proj_msg(
             f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
-        self.vs_hde.initialize(
-            progress_callback=self.splash.proj_progressbar.get_update(1),
-            X=self.X)
+        pb1, pb2 = self.splash.proj_progressbar.split(50)
+        self.vs_hde.initialize(progress_callback=pb1, X=self.X)
 
         # THen we trigger ES proj computation :
         self.splash.set_proj_msg(
             f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
-        self.es_hde.initialize(
-            progress_callback=self.splash.proj_progressbar.get_update(2),
-            X=self.exp_values.current_exp_df)
+        self.es_hde.initialize(progress_callback=pb2,
+                               X=self.exp_values.current_exp_df)
         self.tab1.update_X_exp(self.exp_values.current_exp_df)
         self.selection_changed(self, boolean_mask(self.X, True))
 
+        main_variables = self.exp_values.current_exp_df.abs().mean(
+        ).sort_values(ascending=False).iloc[:10].index
+        self.variables.set_main_variables(main_variables.to_list())
+        self.tab1.initialize()
         self.select_tab(0)
         self.disable_hde()
 
@@ -385,7 +387,7 @@ class GUI:
                 })
 
         self.selection_mask = new_selection_mask
-        rule_mask = self.tab1.vs_rules_wgt.rule_mask.copy()
+        rule_mask = self.tab1.vs_rules_wgt.rule_mask
         self.disable_hde()
         if self.tab_value == 1:
             self.vs_hde.figure.display_rules(new_selection_mask, rule_mask)

@@ -2,7 +2,7 @@ import ipyvuetify as v
 from ipywidgets import Layout, widgets
 from importlib.resources import files
 
-from antakia.gui.helpers.progress_bar import ProgressBar, MultiStepProgressBar
+from antakia.gui.helpers.progress_bar import ProgressBar
 
 
 class SplashScreen:
@@ -32,11 +32,9 @@ class SplashScreen:
             height="15",
             striped=True,
         )
-        self.proj_progressbar = MultiStepProgressBar(
-            proj_progressbar_wgt,
-            steps=2,
-            unactive_color="light blue",
-            reset_at_end=False)
+        self.proj_progressbar = ProgressBar(proj_progressbar_wgt,
+                                            unactive_color="light blue",
+                                            reset_at_end=False)
 
         self.exp_txt = v.TextField(  # 120
             variant="plain",

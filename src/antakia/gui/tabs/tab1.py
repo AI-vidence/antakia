@@ -28,6 +28,7 @@ class Tab1:
                                                'rule_validated')
 
         self.X = X
+        self.X_rounded = None
         self.X_exp = X_exp
         self.y = y
 
@@ -175,6 +176,11 @@ class Tab1:
         self.validate_btn.on_event("click", self.validate_rules)
         self.refresh_buttons()
 
+    def initialize(self):
+        self.X_rounded = self.X.apply(format_data)
+        self.vs_rules_wgt.initialize()
+        self.es_rules_wgt.initialize()
+
     @property
     def valid_selection(self):
         return self.reference_mask.any() and not (self.reference_mask.all())
@@ -233,8 +239,11 @@ class Tab1:
     def update_reference_mask(self, reference_mask):
         self.reference_mask = reference_mask
         self.selection_changed = self.valid_selection
-        X_rounded = self.X.loc[reference_mask].copy().apply(format_data)
-        self.data_table.items = X_rounded.to_dict("records")
+        if self.X_rounded is None:
+            self.data_table.items = []
+        else:
+            self.data_table.items = self.X_rounded.loc[reference_mask].to_dict(
+                "records")
         self.refresh_selection_status()
         self.vs_rules_wgt.update_reference_mask(self.reference_mask)
         self.es_rules_wgt.update_reference_mask(self.reference_mask)

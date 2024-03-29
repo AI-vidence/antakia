@@ -185,7 +185,7 @@ class Tab3:
             def series_to_str(series: pd.Series) -> pd.Series:
                 return series.apply(lambda x: f"{x:.2f}")
 
-            perfs = self.region.perfs.copy()
+            perfs = self.region.perfs
             stats_logger.log('substitute_model',
                              {'best_perf': perfs['delta'].min()})
             for col in perfs.columns:

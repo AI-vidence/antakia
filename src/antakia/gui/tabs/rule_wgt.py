@@ -23,7 +23,8 @@ class RuleWidget:
     """
 
     def __init__(self, rule: Rule, X: pd.DataFrame, values_space: bool,
-                 rule_updated_callback: Callable):
+                 rule_updated_callback: Callable,
+                 _reset_expanded_callback: Callable):
         '''
 
         Parameters
@@ -44,6 +45,8 @@ class RuleWidget:
         self.values_space: bool = values_space
         self.rule_updated_callback: Callable = partial(rule_updated_callback,
                                                        self, 'updated')
+        self._reset_expanded_callback = partial(_reset_expanded_callback, self,
+                                                'expanded_switch', {})
         self.display_sliders: bool = self.values_space  # enable rule edit
         self.widget = None
         self.init_mask = boolean_mask(X, True)
@@ -51,6 +54,7 @@ class RuleWidget:
         self.selectable_mask = boolean_mask(X, True)
         self._display_mask = None
         self.type = 'auto'
+        self.expanded = False
         self._resolve_type()
 
         self._build_widget()
@@ -68,7 +72,7 @@ class RuleWidget:
         # build figure
         self._build_figure()
 
-        self.title = v.ExpansionPanelHeader(class_="blue lighten-4",
+        self.title = v.ExpansionPanelHeader(class_="grey lighten-4",
                                             children=[self._get_panel_title()])
 
         # root_widget is an ExpansionPanel
@@ -78,6 +82,7 @@ class RuleWidget:
                 children=[v.Col(children=[self.select_widget, self.figure], )
                           ]),
         ])
+        self.widget.on_event('click', self.panel_changed_callback)
 
         # The variable name bg (ExpansionPanelHeader) is light blue
         # get_widget(self.root_widget, "0").class_ = "blue lighten-4"
@@ -351,16 +356,18 @@ class RuleWidget:
         self.update_figure()
 
     def update_figure(self):
-        if self.display_sliders:
-            min_val, max_val = self._get_select_widget_values()
-            self.slider.set_value(min_val, max_val)
-        mask_color, colors_info = self._get_colors()
-        with self.figure.batch_update():
-            for i, color in enumerate(colors_info.values()):
-                self.figure.data[i].x = self.X_col[self.display_mask
-                                                   & (mask_color == color)]
-                self.figure.data[i].y = self.selectable_mask[
-                    self.display_mask & (mask_color == color)]
+        if self.expanded:
+            print('figure_updated', self.rule)
+            if self.display_sliders:
+                min_val, max_val = self._get_select_widget_values()
+                self.slider.set_value(min_val, max_val)
+            mask_color, colors_info = self._get_colors()
+            with self.figure.batch_update():
+                for i, color in enumerate(colors_info.values()):
+                    self.figure.data[i].x = self.X_col[self.display_mask
+                                                       & (mask_color == color)]
+                    self.figure.data[i].y = self.selectable_mask[
+                        self.display_mask & (mask_color == color)]
 
     def _get_colors(self):
         if self.init_mask.all() or not self.init_mask.any():
@@ -391,3 +398,8 @@ class RuleWidget:
                 self._mask = pd.Series([True] * len(self.X),
                                        index=self.X.index)
         return self._mask
+
+    def panel_changed_callback(self, *args):
+        self.expanded = not self.expanded
+        self._reset_expanded_callback()
+        self.update_figure()

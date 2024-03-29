@@ -10,7 +10,7 @@ from antakia_core.data_handler import RegionSet
 from antakia import config
 from antakia.gui.graphical_elements.color_table import ColorTable
 from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSelector
-from antakia.gui.helpers.progress_bar import MultiStepProgressBar
+from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.utils.stats import stats_logger, log_errors
 
 
@@ -381,18 +381,18 @@ class Tab2:
             es_compute = int(not self.es_pvs.is_computed(dim=3))
             steps = 1 + vs_compute + es_compute
 
-            progress_bar = MultiStepProgressBar(self.auto_cluster_progress,
-                                                steps=steps)
-            step = 1
+            progress_bar = ProgressBar(self.auto_cluster_progress)
+            pb1, pb2, pb3 = progress_bar.split([
+                vs_compute / steps * 100,
+                (vs_compute + es_compute) / steps * 100
+            ])
             vs_proj_3d_df = self.vs_pvs.get_current_X_proj(
-                3, progress_callback=progress_bar.get_update(step))
+                3, progress_callback=pb1)
 
-            step += vs_compute
             es_proj_3d_df = self.es_pvs.get_current_X_proj(
-                3, progress_callback=progress_bar.get_update(step))
+                3, progress_callback=pb2)
 
-            step += es_compute
-            ac = AutoCluster(self.X, progress_bar.get_update(step))
+            ac = AutoCluster(self.X, pb3)
 
             found_regions = ac.compute(
                 vs_proj_3d_df.loc[not_rules_indexes_list],
@@ -401,7 +401,7 @@ class Tab2:
                 cluster_num,
             )  # type: ignore
             self.region_set.extend(found_regions)
-            progress_bar.set_progress(100)
+            progress_bar(100)
         else:
             print('not enough points to cluster')
 

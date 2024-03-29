@@ -2,16 +2,19 @@ import math
 
 import ipyvuetify as v
 import pandas as pd
+from antakia_core.utils.splittable_callback import ProgressCallback
 
 
-class ProgressBar:
+class ProgressBar(ProgressCallback):
 
     def __init__(self,
                  widget,
                  indeterminate: bool = False,
                  active_color='blue',
                  unactive_color='grey',
-                 reset_at_end=True):
+                 reset_at_end=True,
+                 min: float = 0,
+                 max: float = 100):
         """
         generic progress bar update
         Parameters
@@ -22,13 +25,15 @@ class ProgressBar:
         unactive_color
         reset_at_end : should we reset widget when 100% is reached
         """
+        assert min <= max
         self.active_color = active_color
         self.unactive_color = unactive_color
         assert isinstance(widget, (v.ProgressLinear, v.ProgressCircular))
         self.widget = widget
         self.indeterminate = indeterminate
-        self.progress = 0
         self.reset_at_end = reset_at_end
+        self.min = min
+        self.max = max
 
     def update(self, progress: float, time_elapsed=None):
         """
@@ -42,6 +47,9 @@ class ProgressBar:
         -------
 
         """
+        if progress > 100 or progress < 0:
+            raise ValueError("progress should be between 0 and 100")
+        progress = self.min + (self.max - self.min) / 100 * progress
         self.progress = progress
         self.widget.color = self.active_color
         self.widget.indeterminate = self.indeterminate
@@ -59,6 +67,8 @@ class ProgressBar:
 
     @property
     def progress(self):
+        if self.widget.v_model == '!!disabeld!!':
+            self.progress = 0
         return self.widget.v_model
 
     @progress.setter
@@ -72,81 +82,29 @@ class ProgressBar:
                 self.widget.indeterminate = False
             self.widget.v_model = value
 
+    def split(self, value: float | list[float]) -> list['ProgressBar']:
+        if isinstance(value, list):
+            value.sort()
+            if len(value) == 0:
+                return self
+            if len(value) == 1:
+                return self.split(value[0])
+            progress_bars = self.split(value[1:])
+            return progress_bars[0].split(value[0]) + progress_bars[1:]
 
-class MultiStepProgressBar:
-
-    def __init__(self,
-                 widget,
-                 steps=1,
-                 active_color='blue',
-                 unactive_color='grey',
-                 reset_at_end=True):
-        """
-        generic progress bar update
-
-        Parameters
-        ----------
-        widget : widget element
-        steps
-        active_color
-        unactive_color
-        reset_at_end : should we reset widget when 100% is reached
-        """
-        self.steps = steps
-        self.widget = widget
-        self.active_color = active_color
-        self.unactive_color = unactive_color
-        self.widget.v_model = 0
-        self.reset_at_end = reset_at_end
-
-    def get_update(self, step):
-        """
-        returns the progress updater for the provided step
-        Parameters
-        ----------
-        step
-
-        Returns
-        -------
-
-        """
-        if step == 0 or step > self.steps:
-            raise ValueError('step should be between 1 and self.steps')
-
-        def update_ac_progress_bar(progress: float,
-                                   duration: float | None = None):
-            """
-            Called by the AutoCluster to update the progress bar
-            """
-            self.widget.color = self.active_color
-            progress = round(((step - 1) * 100 + progress) / self.steps)
-            self.set_progress(progress)
-
-        return update_ac_progress_bar
-
-    def set_progress(self, progress: float):
-        """
-        force progress value
-        Parameters
-        ----------
-        progress
-
-        Returns
-        -------
-
-        """
-        self.widget.v_model = progress
-        if progress >= 100 and self.reset_at_end:
-            self.reset_progress_bar()
-
-    @property
-    def progress(self):
-        return self.widget.v_model
-
-    @progress.setter
-    def progress(self, value):
-        self.set_progress(value)
-
-    def reset_progress_bar(self):
-        self.progress = 0
-        self.widget.color = self.unactive_color
+        new_value = self.min + value / 100 * (self.max - self.min)
+        first = ProgressBar(self.widget,
+                            self.indeterminate,
+                            self.active_color,
+                            self.unactive_color,
+                            self.reset_at_end,
+                            min=self.min,
+                            max=new_value)
+        second = ProgressBar(self.widget,
+                             self.indeterminate,
+                             self.active_color,
+                             self.unactive_color,
+                             self.reset_at_end,
+                             min=new_value,
+                             max=self.max)
+        return [first, second]

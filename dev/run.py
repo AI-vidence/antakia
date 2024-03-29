@@ -12,23 +12,28 @@ from tests.utils_fct import DummyModel
 config.ATK_MIN_POINTS_NUMBER = 10
 config.ATK_MAX_DOTS = 100
 
-X, y = load_dataset('Corner', 1000, random_seed=42)
-X = pd.DataFrame(X, columns=['X1', 'X2'])
-X['X3'] = np.random.random(len(X))
-y = pd.Series(y)
+num_samples = 2000
+num_features = 200
 
-X_test, y_test = load_dataset('Corner', 100, random_seed=56)
-X_test = pd.DataFrame(X_test, columns=['X1', 'X2'])
-X_test['X3'] = np.random.random(len(X_test))
-y_test = pd.Series(y_test)
+X, y = load_dataset('Corner',
+                    num_samples,
+                    random_seed=42,
+                    num_cols=num_features)
+
+X_test, y_test = load_dataset('Corner',
+                              100,
+                              random_seed=56,
+                              num_cols=num_features)
 
 regression_DT = DecisionTreeRegressor().fit(X, y)
 regression_DT_np = DecisionTreeRegressor().fit(X.values, y.values)
 regression_any = DummyModel()
 classifier_DT = DecisionTreeClassifier().fit(X, y)
-x_exp = pd.concat([(X.iloc[:, 0] > 0.5) * 0.5, (X.iloc[:, 1] > 0.5) * 0.5,
-                   (X.iloc[:, 2] > 2) * 1],
-                  axis=1)
+x_exp = pd.DataFrame(np.zeros((num_samples, num_features)),
+                     columns=X.columns,
+                     index=X.index)
+x_exp.iloc[:, 0] = (X.iloc[:, 0] > 0.5) * 0.5
+x_exp.iloc[:, 1] = (X.iloc[:, 1] > 0.5) * 0.5
 
 atk = AntakIA(X, y, regression_DT)
 run_antakia(atk, True)

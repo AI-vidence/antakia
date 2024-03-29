@@ -22,26 +22,29 @@ class TestAntakia(TestCase):
     def setUpClass(cls):
         config.ATK_MIN_POINTS_NUMBER = 10
         config.ATK_MAX_DOTS = 100
+        num_samples = 500
+        num_features = 3
 
-        X, y = load_dataset('Corner', 1000, random_seed=42)
-        cls.X = pd.DataFrame(X, columns=['X1', 'X2'])
-        cls.X['X3'] = np.random.random(len(X))
-        cls.y = pd.Series(y)
+        cls.X, cls.y = load_dataset('Corner',
+                                    num_samples,
+                                    random_seed=42,
+                                    num_cols=num_features)
 
-        X_test, y_test = load_dataset('Corner', 100, random_seed=56)
-        cls.X_test = pd.DataFrame(X_test, columns=['X1', 'X2'])
-        cls.X_test['X3'] = np.random.random(len(X_test))
-        cls.y_test = pd.Series(y_test)
+        cls.X_test, cls.y_test = load_dataset('Corner',
+                                              100,
+                                              random_seed=56,
+                                              num_cols=num_features)
 
         cls.regression_DT = DecisionTreeRegressor().fit(cls.X, cls.y)
         cls.regression_DT_np = DecisionTreeRegressor().fit(
             cls.X.values, cls.y.values)
         cls.regression_any = DummyModel()
         cls.classifier_DT = DecisionTreeClassifier().fit(cls.X, cls.y)
-        cls.x_exp = pd.concat([(cls.X.iloc[:, 0] > 0.5) * 0.5,
-                               (cls.X.iloc[:, 1] > 0.5) * 0.5,
-                               (cls.X.iloc[:, 2] > 2) * 1],
-                              axis=1)
+        cls.x_exp = pd.DataFrame(np.zeros((num_samples, num_features)),
+                                 columns=cls.X.columns,
+                                 index=cls.X.index)
+        cls.x_exp.iloc[:, 0] = (cls.X.iloc[:, 0] > 0.5) * 0.5
+        cls.x_exp.iloc[:, 1] = (cls.X.iloc[:, 1] > 0.5) * 0.5
 
     def test_vanilla_run(self):
         # vanilla run

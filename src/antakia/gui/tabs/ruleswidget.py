@@ -63,6 +63,7 @@ class RulesWidget:
         values_space: is the widget on the value space
         update_callback: callback on rule update
         """
+        self.initialized = False
         self.X = X
         self.y = y
         self.variables: DataVariables = variables
@@ -84,7 +85,6 @@ class RulesWidget:
         self.is_disabled = True
 
         self._build_widget()
-        self._create_rule_widgets()
         self.refresh()
 
     # ------------------- widget init -------------#
@@ -120,6 +120,11 @@ class RulesWidget:
         )
         self.disable()
 
+    def initialize(self):
+        self.initialized = True
+        self._create_rule_widgets()
+        self._reorder_rule_widgets()
+
     def _create_rule_widgets(self):
         """
         creates all rule widgets
@@ -128,16 +133,19 @@ class RulesWidget:
 
         """
         # We set new RuleWidget list and put it in our ExpansionPanels children
+        self._rules_widgets.children = []
         if self.X is not None:
             for variable in self.variables.variables.values():
-                self.rule_widget_collection[variable] = RuleWidget(
-                    Rule(variable), self.X, self.is_value_space,
-                    self.sync_rule_widgets)
-            self._rules_widgets.children = [
-                rw.widget for rw in self.rule_widget_collection.values()
-            ]
-        else:
-            self._rules_widgets.children = []
+                if variable.main_feature or self.current_rules_set.get_rule(
+                        variable) is not None:
+                    self._add_rule_widget(variable)
+
+    def _add_rule_widget(self, variable: Variable):
+        if self.X is not None:
+            rw = RuleWidget(Rule(variable), self.X, self.is_value_space,
+                            self.sync_rule_widgets,
+                            self._reset_expanded_callback)
+            self.rule_widget_collection[variable] = rw
 
     def _reorder_rule_widgets(self, all: bool = False):
         rule_widgets = list(self.rule_widget_collection.values())
@@ -293,7 +301,8 @@ class RulesWidget:
         self.X = X
         self.update_reference_mask(boolean_mask(X, True))
         self.update_rule_mask(boolean_mask(X, True), False)
-        self._create_rule_widgets()
+        if self.initialized:
+            self._create_rule_widgets()
         self.refresh()
 
     def change_rules(self,
@@ -308,7 +317,11 @@ class RulesWidget:
         # we start wih a fresh widget
         if reset:
             self._reset_widget()
-        self._put_in_db(rules_set)
+        self.current_rules_set = rules_set
+        for variable in rules_set.rules.keys():
+            if variable not in self.rule_widget_collection:
+                self._add_rule_widget(variable)
+        self._reorder_rule_widgets()
         self.disable(False)
         if reference_mask is not None:
             self.update_reference_mask(reference_mask)
@@ -360,7 +373,7 @@ class RulesWidget:
         new_rules_set = self.current_rules_set.copy()
         new_rules_set.replace(new_rule)
         new_rules_mask = new_rules_set.get_matching_mask(self.X)
-        self._put_in_db(new_rules_set)
+        self.current_rules_set = new_rules_set
         self.update_rule_mask(new_rules_mask=new_rules_mask, sync=True)
 
     def update_reference_mask(self, reference_mask: pd.Series):
@@ -440,6 +453,10 @@ class RulesWidget:
         else:
             return self.rules_history[-1]
 
+    @current_rules_set.setter
+    def current_rules_set(self, value: RuleSet) -> None:
+        self._put_in_db(value)
+
     def current_scores_dict(self) -> dict:
         """
         computes the current score dict
@@ -472,3 +489,8 @@ class RulesWidget:
 
         """
         return len(self.rules_history)
+
+    def _reset_expanded_callback(self, caller, event, data):
+        for rule_widget in self.rule_widget_collection.values():
+            if rule_widget is not caller:
+                rule_widget.expanded = False

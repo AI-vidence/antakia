@@ -9,10 +9,10 @@ from sklearn.datasets import load_breast_cancer, make_blobs
 from scipy.stats import multivariate_normal
 
 
-def generate_corner_dataset(
-        num_samples: int,
-        corner_position: str = "top_right",
-        random_seed: int | None = None) -> tuple[np.ndarray, np.ndarray]:
+def generate_corner_dataset(num_samples: int,
+                            corner_position: str = "top_right",
+                            random_seed: int | None = None,
+                            num_cols=2) -> tuple[pd.DataFrame, pd.Series]:
     """Generate a toy dataset with a corner of the feature space.
 
     Parameters
@@ -33,23 +33,25 @@ def generate_corner_dataset(
         If corner_position is not one of "top_left", "top_right", "bottom_left", "bottom_right".
     """
     np.random.seed(random_seed)
-    X = np.random.uniform(0, 1, (num_samples, 2))
+    X_np = np.random.uniform(0, 1, (num_samples, num_cols))
 
     if corner_position == "top_right":
-        mask = (X[:, 0] > 0.5) & (X[:, 1] > 0.5)
+        mask = (X_np[:, 0] > 0.5) & (X_np[:, 1] > 0.5)
     elif corner_position == "top_left":
-        mask = (X[:, 0] < 0.5) & (X[:, 1] > 0.5)
+        mask = (X_np[:, 0] < 0.5) & (X_np[:, 1] > 0.5)
     elif corner_position == "bottom_right":
-        mask = (X[:, 0] > 0.5) & (X[:, 1] < 0.5)
+        mask = (X_np[:, 0] > 0.5) & (X_np[:, 1] < 0.5)
     elif corner_position == "bottom_left":
-        mask = (X[:, 0] < 0.5) & (X[:, 1] < 0.5)
+        mask = (X_np[:, 0] < 0.5) & (X_np[:, 1] < 0.5)
 
     else:
         raise ValueError(
             "Invalid corner position must be one of: top_right, top_left, bottom_right, bottom_left."
         )
 
-    y = mask.astype(int)
+    y_np = mask.astype(int)
+    X = pd.DataFrame(X_np, columns=[f'X{i + 1}' for i in range(num_cols)])
+    y = pd.Series(y_np)
     return X, y
 
 

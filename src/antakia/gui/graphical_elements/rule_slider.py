@@ -140,7 +140,7 @@ class RuleSlider:
                 max_val = self.value[1]
         self.value[1] = max_val
         # compute range
-        range_ = self.value.copy()
+        range_ = self.value[:]
         if range_[0] is None:
             range_[0] = self.range[0]
         if range_[1] is None:

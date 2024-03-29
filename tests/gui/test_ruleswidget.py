@@ -23,7 +23,8 @@ def test_rule_widget():
     rules2 = RuleSet([rule2, rule4])
     mask2 = rules2.get_matching_mask(data)
 
-    rw = RuleWidget(rule1, data.iloc[:, :2], True, lambda x: None)
+    rw = RuleWidget(rule1, data.iloc[:, :2], True, lambda x: None,
+                    lambda x: None)
 
     # add tests
 
