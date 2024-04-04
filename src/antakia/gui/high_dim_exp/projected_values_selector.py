@@ -34,7 +34,8 @@ class ProjectedValuesSelector:
         self.X = None
         self.current_proj = Proj(
             DimReducMethod.dimreduc_method_as_int(
-                AppConfig.ATK_DEFAULT_PROJECTION), AppConfig.ATK_DEFAULT_DIMENSION)
+                AppConfig.ATK_DEFAULT_PROJECTION),
+            AppConfig.ATK_DEFAULT_DIMENSION)
 
         self._build_widget()
         self.refresh_indeterminate_progress_bar()

@@ -188,7 +188,7 @@ class Tab3:
 
             perfs = self.region.perfs
             stats_logger.log('substitute_model',
-                              {'best_perf': perfs['delta'].min()})
+                             {'best_perf': perfs['delta'].min()})
             for col in perfs.columns:
                 if col != 'delta_color':
                     perfs[col] = series_to_str(perfs[col])
@@ -267,8 +267,8 @@ class Tab3:
             if is_selected:
                 self.model_explorer.update_selected_model(
                     self.region.get_model(model_name), self.region)
-                self.display_model_data(self.region,
-                                        self.region.train_residuals(model_name))
+                self.display_model_data(
+                    self.region, self.region.train_residuals(model_name))
             else:
                 self.display_model_data(self.region, None)
                 self.model_explorer.reset()
@@ -290,8 +290,9 @@ class Tab3:
         with Log('_validate_sub_model', 2):
             self.validate_model_btn.disabled = True
 
-            stats_logger.log('validate_sub_model',
-                              {'model': self.selected_sub_model[0]['Sub-model']})
+            stats_logger.log(
+                'validate_sub_model',
+                {'model': self.selected_sub_model[0]['Sub-model']})
 
             # We udpate the region
             self.region.select_model(self.selected_sub_model[0]['Sub-model'])

@@ -38,7 +38,7 @@ class AntakIA:
                  y: pd.Series,
                  model,
                  variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame
-                            | None = None,
+                 | None = None,
                  X_test: pd.DataFrame | None = None,
                  y_test: pd.Series | None = None,
                  X_exp: pd.DataFrame | None = None,
@@ -88,8 +88,8 @@ class AntakIA:
         with Log('building variables', 2):
             self.set_variables(X, variables)
         with Log('building GUI', 1):
-            self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_test,
-                           self.y_test, self.X_exp, self.score,
+            self.gui = GUI(self.X, self.y, self.model, self.variables,
+                           self.X_test, self.y_test, self.X_exp, self.score,
                            self.problem_category)
         stats_logger.log(
             'launch_info', {

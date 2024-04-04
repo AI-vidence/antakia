@@ -9,6 +9,7 @@ from antakia.utils.stats import stats_logger
 
 
 class Log:
+
     def __init__(self, msg: str, level, iter=-1):
         self.msg = msg
         self.level = level
@@ -70,7 +71,7 @@ class OutputWidgetHandler(Handler):
             "output_type": "stream",
             "text": formatted_record + "\n",
         }
-        self.out.outputs = (new_output,) + self.out.outputs
+        self.out.outputs = (new_output, ) + self.out.outputs
 
     def show_logs(self):
         """Show the logs"""

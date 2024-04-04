@@ -497,7 +497,7 @@ class Tab2:
                 self.region_set.get(r['Region']) for r in self.selected_regions
             ]
             stats_logger.log('merge_region',
-                              {'num_regions': len(selected_regions)})
+                             {'num_regions': len(selected_regions)})
             mask = None
             for region in selected_regions:
                 if mask is None:
@@ -527,7 +527,7 @@ class Tab2:
         """
         with Log('delete_region', 2):
             stats_logger.log('merge_region',
-                              {'num_regions': len(self.selected_regions)})
+                             {'num_regions': len(self.selected_regions)})
             for selected_region in self.selected_regions:
                 region = self.region_set.get(selected_region['Region'])
                 # Then we delete the regions in self.region_set

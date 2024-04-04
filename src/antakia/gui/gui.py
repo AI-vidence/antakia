@@ -114,10 +114,9 @@ class GUI:
         # init Explanation space
         # first explanation getter/compute
         with Log('building exp values', 2):
-            self.exp_values = ExplanationValues(self.X, self.y, self.model,
-                                                problem_category,
-                                                self.explanation_changed_callback,
-                                                self.disable_hde, X_exp)
+            self.exp_values = ExplanationValues(
+                self.X, self.y, self.model, problem_category,
+                self.explanation_changed_callback, self.disable_hde, X_exp)
         # then hde
         with Log('building es hde', 2):
             self.es_hde = HighDimExplorer(self.pv_bank, self.selection_changed,
@@ -126,17 +125,20 @@ class GUI:
         # init tabs
         with Log('building tab1', 2):
             self.tab1 = Tab1(variables, self.new_rule_selected_callback,
-                             self.validate_rules_callback, self.X, X_exp, self.y)
+                             self.validate_rules_callback, self.X, X_exp,
+                             self.y)
 
         with Log('building tab2', 2):
-            self.tab2 = Tab2(variables, X, self.vs_hde.projected_value_selector,
-                             self.es_hde.projected_value_selector, self.region_set,
-                             self.edit_region_callback,
+            self.tab2 = Tab2(variables, X,
+                             self.vs_hde.projected_value_selector,
+                             self.es_hde.projected_value_selector,
+                             self.region_set, self.edit_region_callback,
                              self.update_region_callback,
                              self.substitute_model_callback)
 
         with Log('building tab3', 2):
-            self.tab3 = Tab3(X, problem_category, self.model_validation_callback,
+            self.tab3 = Tab3(X, problem_category,
+                             self.model_validation_callback,
                              self.display_model_data)
             self.model_explorer = ModelExplorer(self.X)
 
@@ -157,7 +159,7 @@ class GUI:
                             'variable': 'tooltip',
                             'children': self.dimension_switch.widget
                         }  # End v_slots dict
-                        ],  # End v_slots list
+                                 ],  # End v_slots list
                         children=['Change dimensions']),  # End v.Tooltip
                     self.color_switch.widget,
                     v.Col(  # 12
@@ -205,19 +207,19 @@ class GUI:
             v.Tabs(  # 4
                 v_model=0,  # default active tab
                 children=[
-                             v.Tab(children=["Selection"]),  # 40
-                             v.Tab(children=["Regions"]),  # 41
-                             v.Tab(children=["Substitution"]),  # 42
-                         ] + [
-                             v.TabItem(  # Tab 1)
-                                 class_="mt-2", children=self.tab1.widget),
-                             v.TabItem(  # Tab 2) Regions #44
-                                 children=self.tab2.widget),  # End of v.TabItem #2
-                             v.TabItem(  # TabItem #3 Substitution #45
-                                 children=self.tab3.widget)
-                         ])  # End of v.Tabs
+                    v.Tab(children=["Selection"]),  # 40
+                    v.Tab(children=["Regions"]),  # 41
+                    v.Tab(children=["Substitution"]),  # 42
+                ] + [
+                    v.TabItem(  # Tab 1)
+                        class_="mt-2", children=self.tab1.widget),
+                    v.TabItem(  # Tab 2) Regions #44
+                        children=self.tab2.widget),  # End of v.TabItem #2
+                    v.TabItem(  # TabItem #3 Substitution #45
+                        children=self.tab3.widget)
+                ])  # End of v.Tabs
         ]  # End v.Col children
-        )  # End of v.Col
+                            )  # End of v.Col
 
     def compute_base_values(self):
         # We trigger ES explain computation if needed :
@@ -304,7 +306,7 @@ class GUI:
         if self._y_pred is None:
             pred = self.model.predict(self.X)
             if self.problem_category in [
-                ProblemCategory.classification_with_proba
+                    ProblemCategory.classification_with_proba
             ]:
                 pred = self.model.predict_proba(self.X)
 
@@ -324,7 +326,7 @@ class GUI:
     def explanation_changed_callback(self,
                                      current_exp_df: pd.DataFrame,
                                      progress_callback: Callable
-                                                        | None = None):
+                                     | None = None):
         """
         on explanation change, synchronizes es_hde and tab1
         Parameters
@@ -386,21 +388,21 @@ class GUI:
                 stats_logger.log(
                     'deselection', {
                         'exp_method':
-                            self.exp_values.current_exp,
+                        self.exp_values.current_exp,
                         'vs_proj':
-                            str(self.vs_hde.projected_value_selector.current_proj),
+                        str(self.vs_hde.projected_value_selector.current_proj),
                         'es_proj':
-                            str(self.es_hde.projected_value_selector.current_proj)
+                        str(self.es_hde.projected_value_selector.current_proj)
                     })
         else:
             stats_logger.log(
                 'selection_gui', {
                     'exp_method':
-                        self.exp_values.current_exp,
+                    self.exp_values.current_exp,
                     'vs_proj':
-                        str(self.vs_hde.projected_value_selector.current_proj),
+                    str(self.vs_hde.projected_value_selector.current_proj),
                     'es_proj':
-                        str(self.es_hde.projected_value_selector.current_proj)
+                    str(self.es_hde.projected_value_selector.current_proj)
                 })
 
         self.selection_mask = new_selection_mask

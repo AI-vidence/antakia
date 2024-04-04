@@ -113,15 +113,11 @@ class TestExplanationValues(TestCase):
             'disabled': True,
             "text": 'Imported'
         }, {
-            'disabled':
-            False,
-            "text":
-            'SHAP (compute)'
+            'disabled': False,
+            "text": 'SHAP (compute)'
         }, {
-            'disabled':
-            False,
-            "text":
-            'LIME (compute)'
+            'disabled': False,
+            "text": 'LIME (compute)'
         }]
 
     @mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations',

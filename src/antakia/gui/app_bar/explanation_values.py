@@ -91,10 +91,8 @@ class ExplanationValues:
             size="35",
         )
         self.progress_bar = ProgressBar(self.progress_bar_wgt)
-        self.widget = v.Row(children=[
-            self.explanation_select,
-            self.progress_bar_wgt
-        ])
+        self.widget = v.Row(
+            children=[self.explanation_select, self.progress_bar_wgt])
         # refresh select menu
         self.update_explanation_select()
         # set up callback
@@ -158,10 +156,10 @@ class ExplanationValues:
             else:
                 exp_values.append({
                     "text":
-                        exp +
-                        (' (compute)' if self.explanations[exp] is None else ''),
+                    exp +
+                    (' (compute)' if self.explanations[exp] is None else ''),
                     'disabled':
-                        False
+                    False
                 })
         self.explanation_select.items = exp_values
         self.explanation_select.v_model = self.current_exp

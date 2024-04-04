@@ -278,12 +278,12 @@ class Tab1:
             # compute es rules for info only
             es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
                                               self.variables)
-            self.es_rules_wgt.change_rules(es_skr_rules_set, self.reference_mask,
-                                           False)
+            self.es_rules_wgt.change_rules(es_skr_rules_set,
+                                           self.reference_mask, False)
             # compute rules on vs space
 
-            skr_rules_set, skr_score_dict = skope_rules(self.reference_mask,
-                                                        self.X, self.variables)
+            skr_rules_set, skr_score_dict = skope_rules(
+                self.reference_mask, self.X, self.variables)
             skr_score_dict['target_avg'] = self.y[self.reference_mask].mean()
             # init vs rules widget
             self.vs_rules_wgt.change_rules(skr_rules_set, self.reference_mask,
@@ -339,7 +339,8 @@ class Tab1:
             # get rule set and check validity
             rules_set = self.vs_rules_wgt.current_rules_set
             if len(rules_set) == 0:
-                stats_logger.log('validate_rules', info={'error': 'invalid rules'})
+                stats_logger.log('validate_rules',
+                                 info={'error': 'invalid rules'})
                 self.vs_rules_wgt.show_msg(
                     "No rules found on Value space cannot validate region",
                     "red--text")
