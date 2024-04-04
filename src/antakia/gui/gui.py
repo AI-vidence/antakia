@@ -80,10 +80,8 @@ class GUI:
         X_exp: pd.DataFrame | None = None,
         score: Callable | str = "mse",
         problem_category: ProblemCategory = ProblemCategory.regression,
-        verbose: int = 0
     ):
         metadata.start()
-        self.verbose = verbose
         self.tab_value = 1
         self.X = X
         self.X_test = X_test

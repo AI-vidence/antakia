@@ -8,6 +8,7 @@ from antakia_core.utils import DataVariables
 
 from antakia_core.utils.utils import ProblemCategory
 
+from antakia.config import AppConfig
 from antakia.utils.stats import stats_logger, log_errors
 from antakia.utils.checks import is_valid_model
 from antakia.gui.gui import GUI
@@ -57,6 +58,7 @@ class AntakIA:
             score : reference scoring function
         """
         stats_logger.log('launched', {})
+        AppConfig.verbose = verbose
 
         if not is_valid_model(model):
             raise ValueError(model,
@@ -86,7 +88,7 @@ class AntakIA:
 
         self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_test,
                        self.y_test, self.X_exp, self.score,
-                       self.problem_category, verbose=verbose)
+                       self.problem_category)
         stats_logger.log(
             'launch_info', {
                 'data_dim': str(self.X.shape),
