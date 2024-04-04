@@ -6,6 +6,7 @@ from plotly.graph_objects import FigureWidget, Bar
 
 from pdpbox.pdp import PDPIsolate, PDPInteract
 
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors
 
 
@@ -84,42 +85,43 @@ class ModelExplorer:
 
     @log_errors
     def display_pdp(self, *args):
-        if self.model is not None:
-            selected_feature = self.pdp_feature_select.v_model
-            if self.X[self.region.mask][selected_feature].nunique() > 1:
-                predict_func = self.model.__class__.predict
-                figure = PDPIsolate(
-                    df=self.X.copy(),
-                    feature=selected_feature,
-                    feature_name=selected_feature,
-                    model=self.model,
-                    model_features=self.X.columns,
-                    pred_func=predict_func,
-                    n_classes=0  # regression
-                ).plot()[0]
-                self.figure_pdp = FigureWidget(figure)
-                self.figure_pdp.update_layout(
-                    autosize=True,
-                    width=None,
-                    height=None,
-                    margin={
-                        't': 0,
-                        'b': 0,
-                        'l': 0,
-                        'r': 0
-                    },
-                )
-                self.figure_pdp._config = self.figure_pdp._config | {
-                    "displaylogo": False
-                }
+        with Log('display pdp', 2):
+            if self.model is not None:
+                selected_feature = self.pdp_feature_select.v_model
+                if self.X[self.region.mask][selected_feature].nunique() > 1:
+                    predict_func = self.model.__class__.predict
+                    figure = PDPIsolate(
+                        df=self.X.copy(),
+                        feature=selected_feature,
+                        feature_name=selected_feature,
+                        model=self.model,
+                        model_features=self.X.columns,
+                        pred_func=predict_func,
+                        n_classes=0  # regression
+                    ).plot()[0]
+                    self.figure_pdp = FigureWidget(figure)
+                    self.figure_pdp.update_layout(
+                        autosize=True,
+                        width=None,
+                        height=None,
+                        margin={
+                            't': 0,
+                            'b': 0,
+                            'l': 0,
+                            'r': 0
+                        },
+                    )
+                    self.figure_pdp._config = self.figure_pdp._config | {
+                        "displaylogo": False
+                    }
 
-                self.pdp_figure.children = [self.figure_pdp]
+                    self.pdp_figure.children = [self.figure_pdp]
+                else:
+                    self.pdp_figure.children = [
+                        'only one feature value, no pdp to display'
+                    ]
             else:
-                self.pdp_figure.children = [
-                    'only one feature value, no pdp to display'
-                ]
-        else:
-            self.pdp_figure.children = []
+                self.pdp_figure.children = []
 
     def reset(self):
         self.model = None

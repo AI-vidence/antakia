@@ -2,6 +2,7 @@ from functools import partial
 
 import ipyvuetify as v
 
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors, stats_logger
 
 
@@ -85,12 +86,13 @@ class ColorSwitch:
         """
 
         # Color : a pd.Series with one color value par row
-        color = None
-        stats_logger.log('color_changed', {'color': data})
-        if data == "y":
-            color = self.y
-        elif data == "y^":
-            color = self.y_pred
-        elif data == "residual":
-            color = self.y - self.y_pred
-        self.update_callback(color)
+        with Log('switch_color', 2):
+            color = None
+            stats_logger.log('color_changed', {'color': data})
+            if data == "y":
+                color = self.y
+            elif data == "y^":
+                color = self.y_pred
+            elif data == "residual":
+                color = self.y - self.y_pred
+            self.update_callback(color)

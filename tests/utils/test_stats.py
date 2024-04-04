@@ -4,7 +4,7 @@ import mock
 import pandas as pd
 import pytest
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia.utils import stats
 
 
@@ -121,13 +121,13 @@ class TestStats(TestCase):
     def test_no_log(self):
         assert len(stats.stats_logger._logs) == 0
 
-        config.ATK_SEND_LOG = False
+        AppConfig.ATK_SEND_LOG = False
 
         stats.stats_logger.log('test1')
         assert len(stats.stats_logger._logs) == 0
         check_log_file()
 
-        config.ATK_SEND_LOG = True
+        AppConfig.ATK_SEND_LOG = True
         os.environ['SEND_ANONYMOUS_LOGS'] = '0'
 
         stats.stats_logger.log('test1')

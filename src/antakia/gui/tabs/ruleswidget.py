@@ -467,9 +467,16 @@ class RulesWidget:
         if self.reference_mask is None or self.is_disabled:
             return {}
         rules_mask = self.current_rules_set.get_matching_mask(self.X)
-        precision = (rules_mask & self.reference_mask).sum() / rules_mask.sum()
-        recall = (rules_mask
-                  & self.reference_mask).sum() / self.reference_mask.sum()
+        if rules_mask.sum() == 0:
+            precision = 1
+        else:
+            precision = (rules_mask
+                         & self.reference_mask).sum() / rules_mask.sum()
+        if self.reference_mask.sum() == 0:
+            recall = 1
+        else:
+            recall = (rules_mask
+                      & self.reference_mask).sum() / self.reference_mask.sum()
         f1 = 2 * (precision * recall) / (precision + recall)
 
         return {

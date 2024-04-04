@@ -5,12 +5,12 @@ from antakia.antakia import AntakIA
 from antakia.utils.dummy_datasets import load_dataset
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 
-from antakia import config
+from antakia.config import AppConfig
 from tests.test_antakia import run_antakia
 from tests.utils_fct import DummyModel
 
-config.ATK_MIN_POINTS_NUMBER = 10
-config.ATK_MAX_DOTS = 100
+AppConfig.ATK_MIN_POINTS_NUMBER = 10
+AppConfig.ATK_MAX_DOTS = 100
 
 num_samples = 2000
 num_features = 200

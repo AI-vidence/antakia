@@ -1,6 +1,6 @@
 from functools import wraps
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
 from antakia.gui.widget_utils import get_widget
@@ -76,13 +76,12 @@ def check_hde_color(gui):
 
 def check_exp_menu(gui):
     # assert value displayed
-    assert gui.exp_values.current_exp == gui.exp_values.get_explanation_select(
-    ).v_model
+    assert gui.exp_values.current_exp == gui.exp_values.explanation_select.v_model
     # assert value in hde up to date
     assert gui.es_hde.current_X is gui.exp_values.current_exp_df
 
     # assert value enabled if computed
-    # select_options = gui.exp_values.get_explanation_select().items
+    # select_options = gui.exp_values.explanation_select.items
     # assert select_options[1]['disabled'] == (gui.exp_values.explanations['SHAP'] is None)
     # assert select_options[2]['disabled'] == (gui.exp_values.explanations['LIME'] is None)
 
@@ -153,7 +152,7 @@ def check_tab_2_btn(gui):
     else:
         first_region = None
     enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(
-        first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
+        first_region.num_points() >= AppConfig.ATK_MIN_POINTS_NUMBER)
     assert gui.tab2.divide_btn.disabled == (not enable_sub)
 
     enable_merge = (len(gui.tab2.selected_regions) > 1)

@@ -10,6 +10,7 @@ from antakia_core.utils import format_data
 from antakia_core.utils.variable import DataVariables
 
 from antakia.gui.tabs.ruleswidget import RulesWidget
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors, stats_logger
 
 
@@ -272,42 +273,45 @@ class Tab1:
 
     @log_errors
     def compute_skope_rules(self, *args):
-        self.selection_changed = False
-        # compute es rules for info only
-        es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
-                                          self.variables)
-        self.es_rules_wgt.change_rules(es_skr_rules_set, self.reference_mask,
-                                       False)
-        # compute rules on vs space
+        with Log('compute_skope_rules', 2):
+            self.selection_changed = False
+            # compute es rules for info only
+            es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
+                                              self.variables)
+            self.es_rules_wgt.change_rules(es_skr_rules_set,
+                                           self.reference_mask, False)
+            # compute rules on vs space
 
-        skr_rules_set, skr_score_dict = skope_rules(self.reference_mask,
-                                                    self.X, self.variables)
-        skr_score_dict['target_avg'] = self.y[self.reference_mask].mean()
-        # init vs rules widget
-        self.vs_rules_wgt.change_rules(skr_rules_set, self.reference_mask,
-                                       False)
-        # update widgets and hdes
-        self.new_rules_defined(self,
-                               'skope_rule',
-                               rules_mask=skr_rules_set.get_matching_mask(
-                                   self.X))
-        self.refresh_buttons()
-        stats_logger.log('find_rules', skr_score_dict)
+            skr_rules_set, skr_score_dict = skope_rules(
+                self.reference_mask, self.X, self.variables)
+            skr_score_dict['target_avg'] = self.y[self.reference_mask].mean()
+            # init vs rules widget
+            self.vs_rules_wgt.change_rules(skr_rules_set, self.reference_mask,
+                                           False)
+            # update widgets and hdes
+            self.new_rules_defined(self,
+                                   'skope_rule',
+                                   rules_mask=skr_rules_set.get_matching_mask(
+                                       self.X))
+            self.refresh_buttons()
+            stats_logger.log('find_rules', skr_score_dict)
 
     @log_errors
     def undo_rules(self, *args):
-        if self.vs_rules_wgt.history_size > 0:
-            self.vs_rules_wgt.undo()
-        else:
-            self.es_rules_wgt.undo()
-        self.refresh_buttons()
+        with Log('undo_rules', 2):
+            if self.vs_rules_wgt.history_size > 0:
+                self.vs_rules_wgt.undo()
+            else:
+                self.es_rules_wgt.undo()
+            self.refresh_buttons()
 
     @log_errors
     def cancel_edit(self, *args):
-        self.update_region(Region(self.X))
-        self.update_callback(selection_mask=self.reference_mask,
-                             rules_mask=self.reference_mask)
-        self.refresh_buttons()
+        with Log('cancel_edit', 2):
+            self.update_region(Region(self.X))
+            self.update_callback(selection_mask=self.reference_mask,
+                                 rules_mask=self.reference_mask)
+            self.refresh_buttons()
 
     @log_errors
     def new_rules_defined(self, caller, event: str, rules_mask: pd.Series):
@@ -330,19 +334,21 @@ class Tab1:
 
     @log_errors
     def validate_rules(self, *args):
-        stats_logger.log('validate_rules')
-        # get rule set and check validity
-        rules_set = self.vs_rules_wgt.current_rules_set
-        if len(rules_set) == 0:
-            stats_logger.log('validate_rules', info={'error': 'invalid rules'})
-            self.vs_rules_wgt.show_msg(
-                "No rules found on Value space cannot validate region",
-                "red--text")
-            return
+        with Log('validate_rules', 2):
+            stats_logger.log('validate_rules')
+            # get rule set and check validity
+            rules_set = self.vs_rules_wgt.current_rules_set
+            if len(rules_set) == 0:
+                stats_logger.log('validate_rules',
+                                 info={'error': 'invalid rules'})
+                self.vs_rules_wgt.show_msg(
+                    "No rules found on Value space cannot validate region",
+                    "red--text")
+                return
 
-        # we persist the rule set in the region
-        self.region.update_rule_set(rules_set)
-        # we ship the region to GUI to synchronize other tab
-        self.validate_rules_callback(self.region)
-        # we reset the tab
-        self.reset()
+            # we persist the rule set in the region
+            self.region.update_rule_set(rules_set)
+            # we ship the region to GUI to synchronize other tab
+            self.validate_rules_callback(self.region)
+            # we reset the tab
+            self.reset()

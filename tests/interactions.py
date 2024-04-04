@@ -25,7 +25,7 @@ def set_color(gui, color):
 
 @check
 def set_exp_method(gui, method):
-    widget = gui.exp_values.get_explanation_select()
+    widget = gui.exp_values.explanation_select
     methods = list(map(lambda x: x['text'], widget.items))
     exp = methods[method]
     if widget.disabled:

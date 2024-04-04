@@ -8,8 +8,9 @@ from antakia_core.data_handler import Rule
 from antakia_core.utils import boolean_mask, get_mask_comparison_color, compute_step
 from plotly.graph_objs import Histogram, FigureWidget, Box
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia.gui.graphical_elements.rule_slider import RuleSlider
+from antakia.utils.logging_utils import Log
 from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors
 
@@ -385,7 +386,7 @@ class RuleWidget:
         if self.X is None:
             raise NotInitialized()
         if self._display_mask is None:
-            limit = config.ATK_MAX_DOTS
+            limit = AppConfig.ATK_MAX_DOTS
             if len(self.X) > limit:
                 self._mask = pd.Series([False] * len(self.X),
                                        index=self.X.index)
@@ -399,6 +400,7 @@ class RuleWidget:
         return self._mask
 
     def panel_changed_callback(self, *args):
-        self.expanded = not self.expanded
-        self._reset_expanded_callback()
-        self.update_figure()
+        with Log('panel_changed_callback', 2):
+            self.expanded = not self.expanded
+            self._reset_expanded_callback()
+            self.update_figure()

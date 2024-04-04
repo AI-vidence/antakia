@@ -5,10 +5,11 @@ import pandas as pd
 from antakia_core.data_handler import ModelRegion
 from antakia_core.utils import ProblemCategory, BASE_COLOR
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia.gui.graphical_elements.sub_model_table import SubModelTable
 from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.gui.tabs.model_explorer import ModelExplorer
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors, stats_logger
 
 
@@ -177,7 +178,7 @@ class Tab3:
 
     def _update_model_table(self):
         if (self.substitution_model_training or not self.region
-                or self.region.num_points() < config.ATK_MIN_POINTS_NUMBER
+                or self.region.num_points() < AppConfig.ATK_MIN_POINTS_NUMBER
                 or len(self.region.perfs) == 0):
             self.model_table.items = []
         else:
@@ -227,7 +228,7 @@ class Tab3:
             title.class_ = "ml-2 grey--text italic "
             title.children = [f"No region selected for substitution"]
         elif self.region.num_points(
-        ) < config.ATK_MIN_POINTS_NUMBER:  # region is too small
+        ) < AppConfig.ATK_MIN_POINTS_NUMBER:  # region is too small
             title.class_ = "ml-2 red--text"
             title.children = ["Region too small for substitution !"]
         elif len(self.region.perfs) == 0:  # model not trained
@@ -257,19 +258,20 @@ class Tab3:
         -------
 
         """
-        is_selected = bool(data["value"])
-        # We use this GUI attribute to store the selected sub-model
-        self.selected_sub_model = [data['item']]
-        model_name = data['item']['Sub-model']
-        self.validate_model_btn.disabled = not is_selected
-        if is_selected:
-            self.model_explorer.update_selected_model(
-                self.region.get_model(model_name), self.region)
-            self.display_model_data(self.region,
-                                    self.region.train_residuals(model_name))
-        else:
-            self.display_model_data(self.region, None)
-            self.model_explorer.reset()
+        with Log('_sub_model_selected_callback', 2):
+            is_selected = bool(data["value"])
+            # We use this GUI attribute to store the selected sub-model
+            self.selected_sub_model = [data['item']]
+            model_name = data['item']['Sub-model']
+            self.validate_model_btn.disabled = not is_selected
+            if is_selected:
+                self.model_explorer.update_selected_model(
+                    self.region.get_model(model_name), self.region)
+                self.display_model_data(
+                    self.region, self.region.train_residuals(model_name))
+            else:
+                self.display_model_data(self.region, None)
+                self.model_explorer.reset()
 
     @log_errors
     def _validate_sub_model(self, *args):
@@ -285,17 +287,18 @@ class Tab3:
         """
         # We get the sub-model data from the SubModelTable:
         # get_widget(self.widget,"45001").items[self.validated_sub_model]
+        with Log('_validate_sub_model', 2):
+            self.validate_model_btn.disabled = True
 
-        self.validate_model_btn.disabled = True
+            stats_logger.log(
+                'validate_sub_model',
+                {'model': self.selected_sub_model[0]['Sub-model']})
 
-        stats_logger.log('validate_sub_model',
-                         {'model': self.selected_sub_model[0]['Sub-model']})
-
-        # We udpate the region
-        self.region.select_model(self.selected_sub_model[0]['Sub-model'])
-        self.region.validate()
-        # empty selected region
-        self.region = None
-        self.selected_sub_model = []
-        # Show tab 2
-        self.validate_callback()
+            # We udpate the region
+            self.region.select_model(self.selected_sub_model[0]['Sub-model'])
+            self.region.validate()
+            # empty selected region
+            self.region = None
+            self.selected_sub_model = []
+            # Show tab 2
+            self.validate_callback()
