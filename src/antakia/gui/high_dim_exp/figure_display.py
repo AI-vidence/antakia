@@ -13,7 +13,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from antakia_core.data_handler import Region, RegionSet
 
 import antakia_core.utils as utils
-import antakia.config as config
+from antakia.config import AppConfig
 
 import logging as logging
 from antakia.utils.logging_utils import conf_logger
@@ -128,7 +128,7 @@ class FigureDisplay:
     @property
     def dim(self):
         if self.X is None:
-            return config.ATK_DEFAULT_DIMENSION
+            return AppConfig.ATK_DEFAULT_DIMENSION
         return self.X.shape[1]
 
     @property
@@ -486,7 +486,7 @@ class FigureDisplay:
         if self.X is None:
             raise NotInitialized()
         if self._mask is None:
-            limit = config.ATK_MAX_DOTS
+            limit = AppConfig.ATK_MAX_DOTS
             if len(self.X) > limit:
                 self._mask = pd.Series([False] * len(self.X),
                                        index=self.X.index)

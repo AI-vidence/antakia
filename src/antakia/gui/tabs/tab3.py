@@ -5,7 +5,7 @@ import pandas as pd
 from antakia_core.data_handler import ModelRegion
 from antakia_core.utils import ProblemCategory, BASE_COLOR
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia.gui.graphical_elements.sub_model_table import SubModelTable
 from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.gui.tabs.model_explorer import ModelExplorer
@@ -177,7 +177,7 @@ class Tab3:
 
     def _update_model_table(self):
         if (self.substitution_model_training or not self.region
-                or self.region.num_points() < config.ATK_MIN_POINTS_NUMBER
+                or self.region.num_points() < AppConfig.ATK_MIN_POINTS_NUMBER
                 or len(self.region.perfs) == 0):
             self.model_table.items = []
         else:
@@ -227,7 +227,7 @@ class Tab3:
             title.class_ = "ml-2 grey--text italic "
             title.children = [f"No region selected for substitution"]
         elif self.region.num_points(
-        ) < config.ATK_MIN_POINTS_NUMBER:  # region is too small
+        ) < AppConfig.ATK_MIN_POINTS_NUMBER:  # region is too small
             title.class_ = "ml-2 red--text"
             title.children = ["Region too small for substitution !"]
         elif len(self.region.perfs) == 0:  # model not trained

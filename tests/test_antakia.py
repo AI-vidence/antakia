@@ -12,7 +12,7 @@ from tests.interactions import *
 from tests.status_checks import check_all
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 
-from antakia import config
+from antakia.config import AppConfig
 from tests.utils_fct import DummyModel
 
 
@@ -20,8 +20,8 @@ class TestAntakia(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        config.ATK_MIN_POINTS_NUMBER = 10
-        config.ATK_MAX_DOTS = 100
+        AppConfig.ATK_MIN_POINTS_NUMBER = 10
+        AppConfig.ATK_MAX_DOTS = 100
         num_samples = 500
         num_features = 3
 

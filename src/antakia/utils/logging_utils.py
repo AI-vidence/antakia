@@ -2,9 +2,9 @@ from logging import Handler, Logger, DEBUG, Formatter, INFO
 
 import ipywidgets as widgets
 from IPython.core.display_functions import display
-from ipywidgets import Widget
 
-import antakia.config as config
+from antakia.config import AppConfig
+
 
 
 class OutputWidgetHandler(Handler):
@@ -40,7 +40,7 @@ class OutputWidgetHandler(Handler):
 
 
 def conf_logger(logger: Logger, height: int = 160):
-    if config.ATK_SHOW_LOG_MODULE_WIDGET:
+    if AppConfig.ATK_SHOW_LOG_MODULE_WIDGET:
         logger.setLevel(DEBUG)
         handler = OutputWidgetHandler(height)
         handler.setFormatter(

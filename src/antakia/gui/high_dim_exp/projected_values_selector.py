@@ -7,7 +7,7 @@ from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
 from antakia_core.data_handler import Proj, ProjectedValues
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia.gui.helpers.progress_bar import ProgressBar
 from ipywidgets import widgets
@@ -33,7 +33,7 @@ class ProjectedValuesSelector:
         self.X = None
         self.current_proj = Proj(
             DimReducMethod.dimreduc_method_as_int(
-                config.ATK_DEFAULT_PROJECTION), config.ATK_DEFAULT_DIMENSION)
+                AppConfig.ATK_DEFAULT_PROJECTION), AppConfig.ATK_DEFAULT_DIMENSION)
 
         self._build_widget()
         self.refresh_indeterminate_progress_bar()
@@ -177,7 +177,7 @@ class ProjectedValuesSelector:
 
         """
         if self.projection_select.v_model == '!!disabled!!':
-            self.projection_select.v_model = config.ATK_DEFAULT_PROJECTION
+            self.projection_select.v_model = AppConfig.ATK_DEFAULT_PROJECTION
         return DimReducMethod.dimreduc_method_as_int(
             self.projection_select.v_model)
 

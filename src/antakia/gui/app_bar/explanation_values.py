@@ -4,7 +4,7 @@ from typing import Callable
 import pandas as pd
 import ipyvuetify as v
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia_core.explanation import compute_explanations, ExplanationMethod
 from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.utils.stats import stats_logger, log_errors
@@ -111,7 +111,7 @@ class ExplanationValues:
         """
         if not self.has_user_exp:
             # compute explanation if not provided
-            self.compute_explanation(config.ATK_DEFAULT_EXPLANATION_METHOD,
+            self.compute_explanation(AppConfig.ATK_DEFAULT_EXPLANATION_METHOD,
                                      progress_callback)
         # ensure progress is at 100%
         progress_callback(100, 0)
@@ -177,7 +177,7 @@ class ExplanationValues:
         return self.widget.children[0]
 
     def compute_explanation(self, explanation_method: int,
-                            progress_bar: Callable):
+                            progress_bar: ProgressBar):
         """
         compute explanation and refresh widgets (select the new explanation method)
         Parameters

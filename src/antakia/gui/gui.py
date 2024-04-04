@@ -18,7 +18,7 @@ from antakia.gui.app_bar.top_bar import TopBar
 from antakia.gui.app_bar.explanation_values import ExplanationValues
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia_core.explanation import ExplanationMethod
-import antakia.config as config
+from antakia.config import AppConfig
 
 from antakia.gui.tabs.model_explorer import ModelExplorer
 from antakia.gui.tabs.tab1 import Tab1
@@ -70,17 +70,20 @@ class GUI:
     """
 
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            model,
-            variables: DataVariables,
-            X_test: pd.DataFrame | None,
-            y_test: pd.Series | None,
-            X_exp: pd.DataFrame | None = None,
-            score: Callable | str = "mse",
-            problem_category: ProblemCategory = ProblemCategory.regression):
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        variables: DataVariables,
+        X_test: pd.DataFrame | None,
+        y_test: pd.Series | None,
+        X_exp: pd.DataFrame | None = None,
+        score: Callable | str = "mse",
+        problem_category: ProblemCategory = ProblemCategory.regression,
+        verbose: int = 0
+    ):
         metadata.start()
+        self.verbose = verbose
         self.tab_value = 1
         self.X = X
         self.X_test = X_test
@@ -149,7 +152,7 @@ class GUI:
                             'variable': 'tooltip',
                             'children': self.dimension_switch.widget
                         }  # End v_slots dict
-                                 ],  # End v_slots list
+                        ],  # End v_slots list
                         children=['Change dimensions']),  # End v.Tooltip
                     self.color_switch.widget,
                     v.Col(  # 12
@@ -197,25 +200,25 @@ class GUI:
             v.Tabs(  # 4
                 v_model=0,  # default active tab
                 children=[
-                    v.Tab(children=["Selection"]),  # 40
-                    v.Tab(children=["Regions"]),  # 41
-                    v.Tab(children=["Substitution"]),  # 42
-                ] + [
-                    v.TabItem(  # Tab 1)
-                        class_="mt-2", children=self.tab1.widget),
-                    v.TabItem(  # Tab 2) Regions #44
-                        children=self.tab2.widget),  # End of v.TabItem #2
-                    v.TabItem(  # TabItem #3 Substitution #45
-                        children=self.tab3.widget)
-                ])  # End of v.Tabs
+                             v.Tab(children=["Selection"]),  # 40
+                             v.Tab(children=["Regions"]),  # 41
+                             v.Tab(children=["Substitution"]),  # 42
+                         ] + [
+                             v.TabItem(  # Tab 1)
+                                 class_="mt-2", children=self.tab1.widget),
+                             v.TabItem(  # Tab 2) Regions #44
+                                 children=self.tab2.widget),  # End of v.TabItem #2
+                             v.TabItem(  # TabItem #3 Substitution #45
+                                 children=self.tab3.widget)
+                         ])  # End of v.Tabs
         ]  # End v.Col children
-                            )  # End of v.Col
+        )  # End of v.Col
 
     def compute_base_values(self):
         # We trigger ES explain computation if needed :
         if not self.exp_values.has_user_exp:  # No imported explanation values
             exp_method = ExplanationMethod.explain_method_as_str(
-                config.ATK_DEFAULT_EXPLANATION_METHOD)
+                AppConfig.ATK_DEFAULT_EXPLANATION_METHOD)
             msg = f"Computing {exp_method} on {self.X.shape}"
         else:
             msg = f"Imported explained values {self.X.shape}"
@@ -224,13 +227,13 @@ class GUI:
 
         # We trigger VS proj computation :
         self.splash.set_proj_msg(
-            f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
+            f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
         pb1, pb2 = self.splash.proj_progressbar.split(50)
         self.vs_hde.initialize(progress_callback=pb1, X=self.X)
 
         # THen we trigger ES proj computation :
         self.splash.set_proj_msg(
-            f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
+            f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
         self.es_hde.initialize(progress_callback=pb2,
                                X=self.exp_values.current_exp_df)
         self.tab1.update_X_exp(self.exp_values.current_exp_df)
@@ -287,7 +290,7 @@ class GUI:
         if self._y_pred is None:
             pred = self.model.predict(self.X)
             if self.problem_category in [
-                    ProblemCategory.classification_with_proba
+                ProblemCategory.classification_with_proba
             ]:
                 pred = self.model.predict_proba(self.X)
 
@@ -307,7 +310,7 @@ class GUI:
     def explanation_changed_callback(self,
                                      current_exp_df: pd.DataFrame,
                                      progress_callback: Callable
-                                     | None = None):
+                                                        | None = None):
         """
         on explanation change, synchronizes es_hde and tab1
         Parameters
@@ -369,21 +372,21 @@ class GUI:
                 stats_logger.log(
                     'deselection', {
                         'exp_method':
-                        self.exp_values.current_exp,
+                            self.exp_values.current_exp,
                         'vs_proj':
-                        str(self.vs_hde.projected_value_selector.current_proj),
+                            str(self.vs_hde.projected_value_selector.current_proj),
                         'es_proj':
-                        str(self.es_hde.projected_value_selector.current_proj)
+                            str(self.es_hde.projected_value_selector.current_proj)
                     })
         else:
             stats_logger.log(
                 'selection_gui', {
                     'exp_method':
-                    self.exp_values.current_exp,
+                        self.exp_values.current_exp,
                     'vs_proj':
-                    str(self.vs_hde.projected_value_selector.current_proj),
+                        str(self.vs_hde.projected_value_selector.current_proj),
                     'es_proj':
-                    str(self.es_hde.projected_value_selector.current_proj)
+                        str(self.es_hde.projected_value_selector.current_proj)
                 })
 
         self.selection_mask = new_selection_mask

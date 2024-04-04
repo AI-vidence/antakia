@@ -36,12 +36,13 @@ class AntakIA:
                  y: pd.Series,
                  model,
                  variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame
-                 | None = None,
+                            | None = None,
                  X_test: pd.DataFrame | None = None,
                  y_test: pd.Series | None = None,
                  X_exp: pd.DataFrame | None = None,
                  score: Callable | str = 'auto',
-                 problem_category: str = 'auto'):
+                 problem_category: str = 'auto',
+                 verbose=0):
         """
         AntakiIA constructor.
 
@@ -85,7 +86,7 @@ class AntakIA:
 
         self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_test,
                        self.y_test, self.X_exp, self.score,
-                       self.problem_category)
+                       self.problem_category, verbose=verbose)
         stats_logger.log(
             'launch_info', {
                 'data_dim': str(self.X.shape),

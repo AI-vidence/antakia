@@ -7,7 +7,7 @@ from importlib.resources import files
 
 import requests
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia.gui.helpers.metadata import metadata
 
 
@@ -45,7 +45,7 @@ class ActivityLogger:
 
         """
         if os.environ.get('SEND_ANONYMOUS_LOGS',
-                          '1') == '0' or not config.ATK_SEND_LOG:
+                          '1') == '0' or not AppConfig.ATK_SEND_LOG:
             return
         if info is None:
             info = {}

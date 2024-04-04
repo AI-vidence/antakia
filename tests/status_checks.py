@@ -1,6 +1,6 @@
 from functools import wraps
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 from antakia_core.compute.dim_reduction.dim_reduction import dim_reduc_factory
 from antakia.gui.widget_utils import get_widget
@@ -153,7 +153,7 @@ def check_tab_2_btn(gui):
     else:
         first_region = None
     enable_sub = (len(gui.tab2.selected_regions) == 1) and bool(
-        first_region.num_points() >= config.ATK_MIN_POINTS_NUMBER)
+        first_region.num_points() >= AppConfig.ATK_MIN_POINTS_NUMBER)
     assert gui.tab2.divide_btn.disabled == (not enable_sub)
 
     enable_merge = (len(gui.tab2.selected_regions) > 1)

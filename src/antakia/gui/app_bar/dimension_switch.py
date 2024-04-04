@@ -2,7 +2,7 @@ from functools import partial
 
 import ipyvuetify as v
 
-from antakia import config
+from antakia.config import AppConfig
 from antakia.utils.stats import log_errors, stats_logger
 
 
@@ -16,7 +16,7 @@ class DimSwitch:
         self.widget = v.Switch(  # 100 # Dimension switch
             v_on='tooltip.on',
             class_="ml-6 mr-2",
-            v_model=config.ATK_DEFAULT_DIMENSION == 3,
+            v_model=AppConfig.ATK_DEFAULT_DIMENSION == 3,
             label="2D/3D",
         )
 
