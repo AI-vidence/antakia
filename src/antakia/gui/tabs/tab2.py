@@ -11,6 +11,7 @@ from antakia.config import AppConfig
 from antakia.gui.graphical_elements.color_table import ColorTable
 from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSelector
 from antakia.gui.helpers.progress_bar import ProgressBar
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import stats_logger, log_errors
 
 
@@ -333,36 +334,38 @@ class Tab2:
         Called when the user clicks on the 'auto-cluster' button
         """
         # We disable the AC button. Il will be re-enabled when the AC progress is 100%
-        self.auto_cluster_running = True
-        if self.region_set.stats()["coverage"] > 80:
-            # UI rules :
-            # region_set coverage is > 80% : we need to clear it to do another auto-cluster
-            self.region_set.clear_unvalidated()
+        with Log('auto_cluster', 2):
+            self.auto_cluster_running = True
+            if self.region_set.stats()["coverage"] > 80:
+                # UI rules :
+                # region_set coverage is > 80% : we need to clear it to do another auto-cluster
+                self.region_set.clear_unvalidated()
 
-        # We assemble indices ot all existing regions :
-        region_set_mask = self.region_set.mask
-        not_rules_indexes_list = ~region_set_mask
-        # We call the auto_cluster with remaining X and explained(X) :
-        cluster_num = self._get_cluster_num()
-        stats_logger.log(
-            'auto_cluster', {
-                'cluster_num': cluster_num,
-                'vs_proj': str(self.vs_pvs.current_proj),
-                'es_proj': str(self.es_pvs.current_proj)
-            })
+            # We assemble indices ot all existing regions :
+            region_set_mask = self.region_set.mask
+            not_rules_indexes_list = ~region_set_mask
+            # We call the auto_cluster with remaining X and explained(X) :
+            cluster_num = self._get_cluster_num()
+            stats_logger.log(
+                'auto_cluster', {
+                    'cluster_num': cluster_num,
+                    'vs_proj': str(self.vs_pvs.current_proj),
+                    'es_proj': str(self.es_pvs.current_proj)
+                })
 
-        self._compute_auto_cluster(not_rules_indexes_list, cluster_num)
-        self.update_region_table()
-        self.update_callback()
-        # We re-enable the button
-        self.auto_cluster_running = False
-        self.update_btns()
+            self._compute_auto_cluster(not_rules_indexes_list, cluster_num)
+            self.update_region_table()
+            self.update_callback()
+            # We re-enable the button
+            self.auto_cluster_running = False
+            self.update_btns()
 
     def num_cluster_changed(self, *args):
         """
         Called when the user changes the number of clusters
         """
-        self.update_btns()
+        with Log('num_cluster_changed', 2):
+            self.update_btns()
 
     def _get_cluster_num(self):
         if self.auto_cluster_checkbox.v_model:
@@ -442,11 +445,12 @@ class Tab2:
             self.auto_cluster_checkbox.v_model)
 
     def region_selected(self, data):
-        operation = {
-            'type': 'select' if data['value'] else 'unselect',
-            'region_num': data['item']['Region']
-        }
-        self.update_btns(operation)
+        with Log('region_selected', 2):
+            operation = {
+                'type': 'select' if data['value'] else 'unselect',
+                'region_num': data['item']['Region']
+            }
+            self.update_btns(operation)
 
     def clear_selected_regions(self):
         self.selected_regions = []
@@ -457,82 +461,86 @@ class Tab2:
         """
         Called when the user clicks on the 'divide' (region) button
         """
-        stats_logger.log('edit_region')
-        # we recover the region to sudivide
-        region = self.region_set.get(self.selected_regions[0]['Region'])
-        self.edit_callback(region)
+        with Log('edit_region', 2):
+            stats_logger.log('edit_region')
+            # we recover the region to sudivide
+            region = self.region_set.get(self.selected_regions[0]['Region'])
+            self.edit_callback(region)
 
     @log_errors
     def divide_region_clicked(self, *args):
         """
         Called when the user clicks on the 'divide' (region) button
         """
-        stats_logger.log('divide_region')
-        # we recover the region to sudivide
-        region = self.region_set.get(self.selected_regions[0]['Region'])
-        if region.num_points() > AppConfig.ATK_MIN_POINTS_NUMBER:
-            # Then we delete the region in self.region_set
-            self.region_set.remove(region.num)
-            # we compute the subregions and add them to the region set
-            cluster_num = self._get_cluster_num()
-            self._compute_auto_cluster(region.mask, cluster_num)
-        # There is no more selected region
-        self.clear_selected_regions()
-        self.update_region_table()
-        self.update_callback()
+        with Log('divide_region', 2):
+            stats_logger.log('divide_region')
+            # we recover the region to sudivide
+            region = self.region_set.get(self.selected_regions[0]['Region'])
+            if region.num_points() > AppConfig.ATK_MIN_POINTS_NUMBER:
+                # Then we delete the region in self.region_set
+                self.region_set.remove(region.num)
+                # we compute the subregions and add them to the region set
+                cluster_num = self._get_cluster_num()
+                self._compute_auto_cluster(region.mask, cluster_num)
+            # There is no more selected region
+            self.clear_selected_regions()
+            self.update_region_table()
+            self.update_callback()
 
     @log_errors
     def merge_region_clicked(self, *args):
         """
         Called when the user clicks on the 'merge' (regions) button
         """
+        with Log('merge_region', 2):
+            selected_regions = [
+                self.region_set.get(r['Region']) for r in self.selected_regions
+            ]
+            stats_logger.log('merge_region',
+                              {'num_regions': len(selected_regions)})
+            mask = None
+            for region in selected_regions:
+                if mask is None:
+                    mask = region.mask
+                else:
+                    mask |= region.mask
 
-        selected_regions = [
-            self.region_set.get(r['Region']) for r in self.selected_regions
-        ]
-        stats_logger.log('merge_region',
-                         {'num_regions': len(selected_regions)})
-        mask = None
-        for region in selected_regions:
-            if mask is None:
-                mask = region.mask
+            # compute skope rules
+            skr_rules_list, _ = skope_rules(mask, self.X, self.variables)
+
+            # delete regions
+            for region in selected_regions:
+                self.region_set.remove(region.num)
+            # add new region
+            if len(skr_rules_list) > 0:
+                r = self.region_set.add_region(rules=skr_rules_list)
             else:
-                mask |= region.mask
-
-        # compute skope rules
-        skr_rules_list, _ = skope_rules(mask, self.X, self.variables)
-
-        # delete regions
-        for region in selected_regions:
-            self.region_set.remove(region.num)
-        # add new region
-        if len(skr_rules_list) > 0:
-            r = self.region_set.add_region(rules=skr_rules_list)
-        else:
-            r = self.region_set.add_region(mask=mask)
-        self.selected_regions = [{'Region': r.num}]
-        self.update_region_table()
-        self.update_callback()
+                r = self.region_set.add_region(mask=mask)
+            self.selected_regions = [{'Region': r.num}]
+            self.update_region_table()
+            self.update_callback()
 
     @log_errors
     def delete_region_clicked(self, *args):
         """
         Called when the user clicks on the 'delete' (region) button
         """
-        stats_logger.log('merge_region',
-                         {'num_regions': len(self.selected_regions)})
-        for selected_region in self.selected_regions:
-            region = self.region_set.get(selected_region['Region'])
-            # Then we delete the regions in self.region_set
-            self.region_set.remove(region.num)
+        with Log('delete_region', 2):
+            stats_logger.log('merge_region',
+                              {'num_regions': len(self.selected_regions)})
+            for selected_region in self.selected_regions:
+                region = self.region_set.get(selected_region['Region'])
+                # Then we delete the regions in self.region_set
+                self.region_set.remove(region.num)
 
-        # There is no more selected region
-        self.clear_selected_regions()
-        self.update_region_table()
-        self.update_callback()
+            # There is no more selected region
+            self.clear_selected_regions()
+            self.update_region_table()
+            self.update_callback()
 
     @log_errors
     def substitute_clicked(self, widget, event, data):
-        stats_logger.log('substitute_region')
-        region = self.region_set.get(self.selected_regions[0]['Region'])
-        self.substitute_callback(region)
+        with Log('substitute_region', 2):
+            stats_logger.log('substitute_region')
+            region = self.region_set.get(self.selected_regions[0]['Region'])
+            self.substitute_callback(region)

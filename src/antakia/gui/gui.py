@@ -29,7 +29,7 @@ from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
 from antakia.gui.helpers.metadata import metadata
 
 import logging
-from antakia.utils.logging_utils import conf_logger
+from antakia.utils.logging_utils import conf_logger, Log
 from antakia_core.utils import boolean_mask, ProblemCategory, DataVariables
 
 from antakia.utils.stats import stats_logger, log_errors
@@ -107,35 +107,42 @@ class GUI:
                                         self.color_update_callback)
 
         # first hde
-        self.vs_hde = HighDimExplorer(self.pv_bank, self.selection_changed,
-                                      'VS')
+        with Log('building vs hde', 2):
+            self.vs_hde = HighDimExplorer(self.pv_bank, self.selection_changed,
+                                          'VS')
 
         # init Explanation space
         # first explanation getter/compute
-        self.exp_values = ExplanationValues(self.X, self.y, self.model,
-                                            problem_category,
-                                            self.explanation_changed_callback,
-                                            self.disable_hde, X_exp)
+        with Log('building exp values', 2):
+            self.exp_values = ExplanationValues(self.X, self.y, self.model,
+                                                problem_category,
+                                                self.explanation_changed_callback,
+                                                self.disable_hde, X_exp)
         # then hde
-        self.es_hde = HighDimExplorer(self.pv_bank, self.selection_changed,
-                                      'ES')
+        with Log('building es hde', 2):
+            self.es_hde = HighDimExplorer(self.pv_bank, self.selection_changed,
+                                          'ES')
 
         # init tabs
-        self.tab1 = Tab1(variables, self.new_rule_selected_callback,
-                         self.validate_rules_callback, self.X, X_exp, self.y)
+        with Log('building tab1', 2):
+            self.tab1 = Tab1(variables, self.new_rule_selected_callback,
+                             self.validate_rules_callback, self.X, X_exp, self.y)
 
-        self.tab2 = Tab2(variables, X, self.vs_hde.projected_value_selector,
-                         self.es_hde.projected_value_selector, self.region_set,
-                         self.edit_region_callback,
-                         self.update_region_callback,
-                         self.substitute_model_callback)
+        with Log('building tab2', 2):
+            self.tab2 = Tab2(variables, X, self.vs_hde.projected_value_selector,
+                             self.es_hde.projected_value_selector, self.region_set,
+                             self.edit_region_callback,
+                             self.update_region_callback,
+                             self.substitute_model_callback)
 
-        self.tab3 = Tab3(X, problem_category, self.model_validation_callback,
-                         self.display_model_data)
-        self.model_explorer = ModelExplorer(self.X)
+        with Log('building tab3', 2):
+            self.tab3 = Tab3(X, problem_category, self.model_validation_callback,
+                             self.display_model_data)
+            self.model_explorer = ModelExplorer(self.X)
 
-        self._build_widget()
-        self.splash = SplashScreen(X)
+        with Log('building widget', 2):
+            self._build_widget()
+            self.splash = SplashScreen(X)
 
     def _build_widget(self):
         self.widget = v.Col(children=[
@@ -221,26 +228,35 @@ class GUI:
         else:
             msg = f"Imported explained values {self.X.shape}"
         self.splash.set_exp_msg(msg)
-        self.exp_values.initialize(self.splash.exp_progressbar)
+        with Log('initializing explanations', 1) as log:
+            self.splash.exp_progressbar.set_log(log)
+            self.exp_values.initialize(self.splash.exp_progressbar)
 
         # We trigger VS proj computation :
         self.splash.set_proj_msg(
             f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.X.shape} 1/2")
         pb1, pb2 = self.splash.proj_progressbar.split(50)
-        self.vs_hde.initialize(progress_callback=pb1, X=self.X)
+        with Log('projecting Value space', 1) as log:
+            pb1.set_log(log)
+            self.vs_hde.initialize(progress_callback=pb1, X=self.X)
 
         # THen we trigger ES proj computation :
         self.splash.set_proj_msg(
             f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
-        self.es_hde.initialize(progress_callback=pb2,
-                               X=self.exp_values.current_exp_df)
-        self.tab1.update_X_exp(self.exp_values.current_exp_df)
-        self.selection_changed(self, boolean_mask(self.X, True))
+        with Log('projecting Explanation space', 1) as log:
+            pb2.set_log(log)
+            self.es_hde.initialize(progress_callback=pb2,
+                                   X=self.exp_values.current_exp_df)
+        with Log('updating es rules', 1):
+            self.tab1.update_X_exp(self.exp_values.current_exp_df)
+        with Log('refreshing seleciton', 1):
+            self.selection_changed(self, boolean_mask(self.X, True))
 
-        main_variables = self.exp_values.current_exp_df.abs().mean(
-        ).sort_values(ascending=False).iloc[:10].index
-        self.variables.set_main_variables(main_variables.to_list())
-        self.tab1.initialize()
+        with Log('refreshing rule_widget', 1):
+            main_variables = self.exp_values.current_exp_df.abs().mean(
+            ).sort_values(ascending=False).iloc[:10].index
+            self.variables.set_main_variables(main_variables.to_list())
+            self.tab1.initialize()
         self.select_tab(0)
         self.disable_hde()
 
@@ -258,14 +274,14 @@ class GUI:
         IPython.display.display(self.splash.widget, self.widget)
 
         self.compute_base_values()
-
         self.wire()
 
         self.splash.widget.hide()
         self.widget.show()
         # redraw figures once app is displayed to be able to autosize it
-        self.vs_hde.figure.create_figure()
-        self.es_hde.figure.create_figure()
+        with Log('refreshing figures', 2):
+            self.vs_hde.figure.create_figure()
+            self.es_hde.figure.create_figure()
         stats_logger.log('gui_init_end', {'load_time': time.time() - t})
 
     def wire(self):
@@ -422,8 +438,9 @@ class GUI:
 
         @log_errors
         def call_fct(*args):
-            stats_logger.log('tab_selected', {'tab': tab})
-            self.select_tab(tab, front=True)
+            with Log(f'front_tab_{tab}_selected', 2):
+                stats_logger.log('tab_selected', {'tab': tab})
+                self.select_tab(tab, front=True)
 
         return call_fct
 

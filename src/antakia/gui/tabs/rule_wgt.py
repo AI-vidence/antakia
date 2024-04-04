@@ -10,6 +10,7 @@ from plotly.graph_objs import Histogram, FigureWidget, Box
 
 from antakia.config import AppConfig
 from antakia.gui.graphical_elements.rule_slider import RuleSlider
+from antakia.utils.logging_utils import Log
 from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors
 
@@ -399,6 +400,7 @@ class RuleWidget:
         return self._mask
 
     def panel_changed_callback(self, *args):
-        self.expanded = not self.expanded
-        self._reset_expanded_callback()
-        self.update_figure()
+        with Log('panel_changed_callback', 2):
+            self.expanded = not self.expanded
+            self._reset_expanded_callback()
+            self.update_figure()

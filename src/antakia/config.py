@@ -25,4 +25,5 @@ class AppConfig:
     ATK_MIN_POINTS_NUMBER = 100
 
     ATK_SEND_LOG = os.environ.get('SEND_ANONYMOUS_LOGS', 'True') != '0'
-    verbose = 0
+    verbose = 3
+    log_with_time = True

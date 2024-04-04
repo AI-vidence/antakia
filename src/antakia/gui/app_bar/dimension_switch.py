@@ -3,6 +3,7 @@ from functools import partial
 import ipyvuetify as v
 
 from antakia.config import AppConfig
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors, stats_logger
 
 
@@ -24,6 +25,7 @@ class DimSwitch:
 
     @log_errors
     def switch_dimension(self, widget=None, event=None, data=None):
-        dim = 3 if data else 2
-        stats_logger.log('dim_changed', {'dim': dim})
-        self.update_callback(dim)
+        with Log('switch_dimension', 2):
+            dim = 3 if data else 2
+            stats_logger.log('dim_changed', {'dim': dim})
+            self.update_callback(dim)

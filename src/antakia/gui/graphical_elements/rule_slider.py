@@ -3,6 +3,8 @@ from functools import partial
 import ipyvuetify as v
 import numpy as np
 
+from antakia.utils.logging_utils import Log
+
 
 class RuleSlider:
 
@@ -87,19 +89,20 @@ class RuleSlider:
         -------
 
         """
-        if data is not None:
-            if data[1] >= self.range[1]:
-                self.value[1] = None
-            else:
-                self.value[1] = float(data[1])
-            if data[0] <= self.range[0]:
-                self.value[0] = None
-            else:
-                self.value[0] = float(data[0])
-        self.max_input.v_model = self.value[1]
-        self.min_input.v_model = self.value[0]
-        if callback:
-            self.change_callback(self.value)
+        with Log('rule_slider_update_txt', 2):
+            if data is not None:
+                if data[1] >= self.range[1]:
+                    self.value[1] = None
+                else:
+                    self.value[1] = float(data[1])
+                if data[0] <= self.range[0]:
+                    self.value[0] = None
+                else:
+                    self.value[0] = float(data[0])
+            self.max_input.v_model = self.value[1]
+            self.min_input.v_model = self.value[0]
+            if callback:
+                self.change_callback(self.value)
 
     def _update_slider(self, *args, callback=True):
         """
@@ -157,10 +160,11 @@ class RuleSlider:
         -------
 
         """
-        self._update_slider(callback=False)
-        self._update_txt(callback=False)
-        if callback:
-            self.change_callback(self.value)
+        with Log('rule_update_slider_and_txt', 2):
+            self._update_slider(callback=False)
+            self._update_txt(callback=False)
+            if callback:
+                self.change_callback(self.value)
 
     def set_value(self, min_val=None, max_val=None):
         """

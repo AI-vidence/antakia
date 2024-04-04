@@ -70,13 +70,13 @@ class TestExplanationValues(TestCase):
                                     X_exp=X_exp)
         exp_val.initialize(self.callable)
         assert exp_val.current_exp == exp_val.available_exp[0]
-        assert exp_val.get_explanation_select().v_model == 'Imported'
+        assert exp_val.explanation_select.v_model == 'Imported'
 
         exp_val1 = ExplanationValues(pd.DataFrame(self.X), self.y, self.model,
                                      ProblemCategory.regression,
                                      self.on_change_callback, self.callable)
         exp_val1.initialize(test_progress_bar.update)
-        assert exp_val1.get_explanation_select().v_model == 'SHAP'
+        assert exp_val1.explanation_select.v_model == 'SHAP'
         assert test_progress_bar.progress == 100
 
     def test_current_pv(self):
@@ -109,7 +109,7 @@ class TestExplanationValues(TestCase):
                                     self.on_change_callback, self.callable)
 
         cpt_exp.return_value = self.X
-        assert exp_val.get_explanation_select().items == [{
+        assert exp_val.explanation_select.items == [{
             'disabled': True,
             "text": 'Imported'
         }, {
@@ -140,7 +140,7 @@ class TestExplanationValues(TestCase):
         exp_val.compute_explanation(1, test_progress_bar.update)
 
         assert test_progress_bar.progress == 100
-        assert exp_val.get_explanation_select().items == [{
+        assert exp_val.explanation_select.items == [{
             "text": 'Imported',
             'disabled': True
         }, {
@@ -163,13 +163,13 @@ class TestExplanationValues(TestCase):
                                  ProblemCategory.regression,
                                  self.on_change_callback, self.callable)
         exp0.disable_selection(True)
-        assert exp0.get_explanation_select().disabled
+        assert exp0.explanation_select.disabled
 
         exp2 = ExplanationValues(pd.DataFrame(self.X), self.y, self.model,
                                  ProblemCategory.regression,
                                  self.on_change_callback, self.callable)
         exp2.disable_selection(False)
-        assert not exp2.get_explanation_select().disabled
+        assert not exp2.explanation_select.disabled
 
     @mock.patch('antakia.gui.app_bar.explanation_values.compute_explanations')
     def test_explanation_select_changed(self, cpt_exp):

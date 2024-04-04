@@ -15,6 +15,7 @@ import ipyvuetify as v
 
 from antakia_core.utils import utils
 
+from antakia.utils.logging_utils import Log
 from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import stats_logger, log_errors
 
@@ -196,10 +197,11 @@ class ProjectedValuesSelector:
         -------
 
         """
-        self.current_proj = Proj(self.projection_method, self.current_dim)
-        self.refresh_indeterminate_progress_bar()
-        self.update_proj_params_menu()
-        self.refresh()
+        with Log('projection_select_changed', 2):
+            self.current_proj = Proj(self.projection_method, self.current_dim)
+            self.refresh_indeterminate_progress_bar()
+            self.update_proj_params_menu()
+            self.refresh()
 
     @property
     def proj_param_widget(self):

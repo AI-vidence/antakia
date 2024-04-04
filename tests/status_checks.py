@@ -76,13 +76,12 @@ def check_hde_color(gui):
 
 def check_exp_menu(gui):
     # assert value displayed
-    assert gui.exp_values.current_exp == gui.exp_values.get_explanation_select(
-    ).v_model
+    assert gui.exp_values.current_exp == gui.exp_values.explanation_select.v_model
     # assert value in hde up to date
     assert gui.es_hde.current_X is gui.exp_values.current_exp_df
 
     # assert value enabled if computed
-    # select_options = gui.exp_values.get_explanation_select().items
+    # select_options = gui.exp_values.explanation_select.items
     # assert select_options[1]['disabled'] == (gui.exp_values.explanations['SHAP'] is None)
     # assert select_options[2]['disabled'] == (gui.exp_values.explanations['LIME'] is None)
 

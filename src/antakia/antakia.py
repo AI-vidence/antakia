@@ -9,6 +9,7 @@ from antakia_core.utils import DataVariables
 from antakia_core.utils.utils import ProblemCategory
 
 from antakia.config import AppConfig
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import stats_logger, log_errors
 from antakia.utils.checks import is_valid_model
 from antakia.gui.gui import GUI
@@ -63,9 +64,10 @@ class AntakIA:
         if not is_valid_model(model):
             raise ValueError(model,
                              " should implement predict and score methods")
-        X, y, X_exp = self._preprocess_data(X, y, X_exp)
-        if X_test is not None:
-            X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
+        with Log('cleaning data', 2):
+            X, y, X_exp = self._preprocess_data(X, y, X_exp)
+            if X_test is not None:
+                X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
         self.X = X
         if y.ndim > 1:
             y = y.squeeze()  # type:ignore
@@ -83,12 +85,12 @@ class AntakIA:
         self.problem_category = self._preprocess_problem_category(
             problem_category, model, X)
         self.score = self._preprocess_score(score, self.problem_category)
-
-        self.set_variables(X, variables)
-
-        self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_test,
-                       self.y_test, self.X_exp, self.score,
-                       self.problem_category)
+        with Log('building variables', 2):
+            self.set_variables(X, variables)
+        with Log('building GUI', 1):
+            self.gui = GUI(self.X, self.y, self.model, self.variables, self.X_test,
+                           self.y_test, self.X_exp, self.score,
+                           self.problem_category)
         stats_logger.log(
             'launch_info', {
                 'data_dim': str(self.X.shape),
@@ -153,21 +155,22 @@ class AntakIA:
                                      X: pd.DataFrame) -> ProblemCategory:
         if problem_category not in [e.name for e in ProblemCategory]:
             raise ValueError('Invalid problem category')
-        if problem_category == 'auto':
-            if hasattr(model, 'predict_proba'):
-                return ProblemCategory['classification_with_proba']
-            pred = self.model.predict(self.X.sample(min(100, len(self.X))))
-            if len(pred.shape) > 1 and pred.shape[1] > 1:
-                return ProblemCategory['classification_proba']
-            return ProblemCategory['regression']
-        if problem_category == 'classification':
-            if hasattr(model, 'prodict_proba'):
-                return ProblemCategory['classification_with_proba']
-            pred = model.predict(X.sample(min(100, len(X))))
-            if len(pred.shape) > 1 and pred.shape[1] > 1:
-                return ProblemCategory['classification_proba']
-            return ProblemCategory['classification_label_only']
-        return ProblemCategory[problem_category]
+        with Log('Preprocessing problem category', 2):
+            if problem_category == 'auto':
+                if hasattr(model, 'predict_proba'):
+                    return ProblemCategory['classification_with_proba']
+                pred = self.model.predict(self.X.sample(min(100, len(self.X))))
+                if len(pred.shape) > 1 and pred.shape[1] > 1:
+                    return ProblemCategory['classification_proba']
+                return ProblemCategory['regression']
+            if problem_category == 'classification':
+                if hasattr(model, 'prodict_proba'):
+                    return ProblemCategory['classification_with_proba']
+                pred = model.predict(X.sample(min(100, len(X))))
+                if len(pred.shape) > 1 and pred.shape[1] > 1:
+                    return ProblemCategory['classification_proba']
+                return ProblemCategory['classification_label_only']
+            return ProblemCategory[problem_category]
 
     def _preprocess_score(self, score, problem_category):
         """

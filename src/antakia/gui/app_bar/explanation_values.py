@@ -7,6 +7,7 @@ import ipyvuetify as v
 from antakia.config import AppConfig
 from antakia_core.explanation import compute_explanations, ExplanationMethod
 from antakia.gui.helpers.progress_bar import ProgressBar
+from antakia.utils.logging_utils import Log
 from antakia.utils.stats import stats_logger, log_errors
 
 
@@ -62,41 +63,44 @@ class ExplanationValues:
         self._build_widget()
 
     def _build_widget(self):
+        self.explanation_select = v.Select(  # Select of explanation method
+            label="Explanation method",
+            items=[
+                {
+                    "text": "Imported",
+                    "disabled": True
+                },
+                {
+                    "text": "SHAP",
+                    "disabled": True
+                },
+                {
+                    "text": "LIME",
+                    "disabled": True
+                },
+            ],
+            class_="ml-2 mr-2",
+            style_="width: 15%",
+            disabled=False,
+        )
+        self.progress_bar_wgt = v.ProgressCircular(  # exp menu progress bar
+            class_="ml-2 mr-2 mt-2",
+            indeterminate=False,
+            color="grey",
+            width="6",
+            size="35",
+        )
+        self.progress_bar = ProgressBar(self.progress_bar_wgt)
         self.widget = v.Row(children=[
-            v.Select(  # Select of explanation method
-                label="Explanation method",
-                items=[
-                    {
-                        "text": "Imported",
-                        "disabled": True
-                    },
-                    {
-                        "text": "SHAP",
-                        "disabled": True
-                    },
-                    {
-                        "text": "LIME",
-                        "disabled": True
-                    },
-                ],
-                class_="ml-2 mr-2",
-                style_="width: 15%",
-                disabled=False,
-            ),
-            v.ProgressCircular(  # exp menu progress bar
-                class_="ml-2 mr-2 mt-2",
-                indeterminate=False,
-                color="grey",
-                width="6",
-                size="35",
-            )
+            self.explanation_select,
+            self.progress_bar_wgt
         ])
         # refresh select menu
         self.update_explanation_select()
-        self.get_explanation_select().on_event("change",
-                                               self.explanation_select_changed)
         # set up callback
-        self.get_progress_bar().reset_progress_bar()
+        self.explanation_select.on_event("change",
+                                         self.explanation_select_changed)
+        self.progress_bar.reset_progress_bar()
 
     def initialize(self, progress_callback):
         """
@@ -154,27 +158,13 @@ class ExplanationValues:
             else:
                 exp_values.append({
                     "text":
-                    exp +
-                    (' (compute)' if self.explanations[exp] is None else ''),
+                        exp +
+                        (' (compute)' if self.explanations[exp] is None else ''),
                     'disabled':
-                    False
+                        False
                 })
-        self.get_explanation_select().items = exp_values
-        self.get_explanation_select().v_model = self.current_exp
-
-    def get_progress_bar(self):
-        progress_widget = self.widget.children[1]
-        progress_bar = ProgressBar(progress_widget)
-        return progress_bar
-
-    def get_explanation_select(self):
-        """
-        returns the explanation select menu
-        Returns
-        -------
-
-        """
-        return self.widget.children[0]
+        self.explanation_select.items = exp_values
+        self.explanation_select.v_model = self.current_exp
 
     def compute_explanation(self, explanation_method: int,
                             progress_bar: ProgressBar):
@@ -217,7 +207,7 @@ class ExplanationValues:
         -------
 
         """
-        self.get_explanation_select().disabled = is_disabled
+        self.explanation_select.disabled = is_disabled
 
     @log_errors
     def explanation_select_changed(self, widget, event, data):
@@ -235,16 +225,16 @@ class ExplanationValues:
 
         Called when the user chooses another dataframe
         """
-        stats_logger.log('exp_method_changed', {'selected': data})
-        if not isinstance(data, str):
-            raise KeyError('invalid explanation')
-        data = data.replace(' ', '').replace('(compute)', '')
-        self.current_exp = data
+        with Log('explanation_select_changed', 2):
+            stats_logger.log('exp_method_changed', {'selected': data})
+            if not isinstance(data, str):
+                raise KeyError('invalid explanation')
+            data = data.replace(' ', '').replace('(compute)', '')
+            self.current_exp = data
 
-        if self.explanations[self.current_exp] is None:
-            exp_method = ExplanationMethod.explain_method_as_int(
-                self.current_exp)
-            progress_bar = self.get_progress_bar()
-            self.compute_explanation(exp_method, progress_bar)
+            if self.explanations[self.current_exp] is None:
+                exp_method = ExplanationMethod.explain_method_as_int(
+                    self.current_exp)
+                self.compute_explanation(exp_method, self.progress_bar)
 
-        self.on_change_callback(self.current_exp_df)
+            self.on_change_callback(self.current_exp_df)
