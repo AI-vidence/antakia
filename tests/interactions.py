@@ -84,7 +84,7 @@ def change_tab(gui, tab):
 def select_points(gui, is_value_space, q=(1, 1)):
     if gui.tab_value > 1:
         raise InteractionError('wrong tab')
-    X = gui.vs_hde.figure.get_X(masked=True)
+    X = gui.vs_hde.figure._get_figure_data(masked=True)
     std = X.std().replace(0, 1)
     X_scaled = X - X.mean(axis=0)
 
@@ -164,7 +164,7 @@ def clear_region_selection(gui):
 def toggle_select_region(gui, region_num):
     if gui.tab_value != 2:
         raise InteractionError('wrong tab')
-    if gui.region_set.get(region_num) is None:
+    if gui.data_store.region_set.get(region_num) is None:
         raise InteractionError('unknown region')
     value = len(
         list(
@@ -236,7 +236,7 @@ def select_model(gui, model):
         raise InteractionError('wrong tab')
     if len(gui.tab2.selected_regions) == 0:
         raise InteractionError('no region selected')
-    region = gui.region_set.get(gui.tab2.selected_regions[0]['Region'])
+    region = gui.data_store.region_set.get(gui.tab2.selected_regions[0]['Region'])
     if model >= len(region.perfs):
         raise InteractionError('unknown model')
     model = region.perfs.index[model]

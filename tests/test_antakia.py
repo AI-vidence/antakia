@@ -128,10 +128,11 @@ class TestAntakia(TestCase):
 
     def test_run_walk(self):
         atk = AntakIA(self.X, self.y, self.regression_DT)
-        walk = [('select_points', [1]), ('set_color', [2]), ('find_rules', []),
-                ('edit_parameter', [0]), ('validate_rules', []),
-                ('set_color', [2]), ('edit_parameter', [1]),
-                ('select_points', [0]), ('set_color', [1])]
+        walk = [('set_proj_method', [1, 1]), ('change_tab', [1]), ('set_color', [2]), ('select_points', [1]), ('select_dim', [1]), ('unselect', [1]), ('edit_parameter', [1]), ('unselect', [0]), ('select_dim', [1]), ('change_tab', [2]), ('set_proj_method', [1, 2]), ('change_tab', [0]), ('select_points', [0]), ('find_rules', []), ('set_exp_method', [2])]
+        # walk = [('select_points', [1]), ('set_color', [2]), ('find_rules', []),
+        #         ('edit_parameter', [0]), ('validate_rules', []),
+        #         ('set_color', [2]), ('edit_parameter', [1]),
+        #         ('select_points', [0]), ('set_color', [1])]
         run_walk(atk, walk)
 
     def test_classifier(self):
@@ -167,7 +168,7 @@ def run_antakia(atk: AntakIA, check, compute_proj, compute_exp):
         set_color(gui, color, check=check)
     # iterate over compute exp and projection
     # note compute and project are mocked
-    if atk.X_exp is None:
+    if atk.data_store.user_x_exp is None:
         exp_range = [1, 2]
         compute = [2]
     else:

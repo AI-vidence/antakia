@@ -2,15 +2,15 @@ from functools import partial
 
 import ipyvuetify as v
 
+from antakia.gui.helpers.data import DataStore
 from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors, stats_logger
 
 
 class ColorSwitch:
 
-    def __init__(self, y, y_pred, update_callback):
-        self.y = y
-        self.y_pred = y_pred
+    def __init__(self, data_store: DataStore, update_callback):
+        self.data_store = data_store
         self.update_callback = partial(update_callback, self)
         self._build_widget()
 
@@ -90,9 +90,9 @@ class ColorSwitch:
             color = None
             stats_logger.log('color_changed', {'color': data})
             if data == "y":
-                color = self.y
+                color = self.data_store.y
             elif data == "y^":
-                color = self.y_pred
+                color = self.data_store.y_pred
             elif data == "residual":
-                color = self.y - self.y_pred
+                color = self.data_store.y - self.data_store.y_pred
             self.update_callback(color)
