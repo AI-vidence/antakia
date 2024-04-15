@@ -2,12 +2,14 @@ from unittest import TestCase
 
 import pandas as pd
 import ipyvuetify as v
+import numpy as np
 
 import antakia.config as config
 import antakia_core.utils.utils as utils
 
 from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.utils.dummy_datasets import generate_corner_dataset
+from tests.utils_fct import dummy_mask
 
 trace_name = FigureDisplay.trace_name
 
@@ -15,16 +17,20 @@ trace_name = FigureDisplay.trace_name
 class TestFigureDisplay(TestCase):
 
     def setUp(self):
-        self.X, self.y = generate_corner_dataset(10)
-        self.X = pd.DataFrame(self.X)
-        self.y = pd.DataFrame(self.y)
-        self.fd = FigureDisplay(self.X, self.y, lambda x: x + 1, 'VS')
+        np.random.seed(1234)
+        X = pd.DataFrame(np.random.randn(500, 3), columns=['var1', 'var2', 'var3'])
+        y = np.sum(X, axis=1)
+        self.X_2D = X.iloc[:, [0, 1]]
+        self.X_3D = X.iloc[:, [0, 1, 2]]
+        self.y = pd.Series(y)
+
+        self.fd = FigureDisplay(self.X_2D, self.y, lambda x: x + 1, 'VS')
 
     def test_trace_name(self):
-        assert trace_name(0) == 'values trace'
-        assert trace_name(1) == 'rules trace'
-        assert trace_name(2) == 'regionset trace'
-        assert trace_name(3) == 'region trace'
+        assert trace_name(FigureDisplay.VALUES_TRACE) == 'values trace'
+        assert trace_name(FigureDisplay.RULES_TRACE) == 'rules trace'
+        assert trace_name(FigureDisplay.REGIONSET_TRACE) == 'regionset trace'
+        assert trace_name(FigureDisplay.REGION_TRACE) == 'region trace'
         assert trace_name(8) == 'unknown trace'
 
     def test_init(self):
@@ -45,13 +51,27 @@ class TestFigureDisplay(TestCase):
 
         fd = FigureDisplay(None, self.y, lambda x: x + 1, 'VS')
         assert fd._current_selection is None
+        #test dim property when X is None
+        assert fd.dim == config.ATK_DEFAULT_DIMENSION
 
     def test_set_get_figure(self):
+        # check for dim=2
         fd = self.fd
         fd.figure = 5
+        assert fd.figure == 5
 
-        fd1 = FigureDisplay(None, self.y, lambda x: x + 1, 'VS')
-        fd1.figure = 5
+        # check for dim=3
+        fd = FigureDisplay(self.X_3D, self.y, lambda x: x + 1, 'VS')
+        fd.figure = 5
+        assert fd.figure == 5
+
+    def test_set_get_current_selection(self):
+        fd = FigureDisplay(None, self.y, lambda x: x + 1, 'VS')
+        assert fd.current_selection.all()
+        fd = self.fd
+        mask = dummy_mask(fd.X)
+        fd.current_selection = mask
+        assert fd._current_selection.equals(mask)
 
     def test_initialize_create_figure(self):
         pass

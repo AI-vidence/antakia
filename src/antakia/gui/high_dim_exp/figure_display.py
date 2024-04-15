@@ -129,13 +129,13 @@ class FigureDisplay:
         return self.X.shape[1]
 
     @property
-    def current_selection(self):
+    def current_selection(self) -> pd.Series:
         if self._current_selection is None:
             self._current_selection = utils.boolean_mask(self.X, True)
         return self._current_selection
 
     @current_selection.setter
-    def current_selection(self, value):
+    def current_selection(self, value: pd.Series) -> None:
         self._current_selection = value
 
     def initialize(self, X: pd.DataFrame | None):
@@ -499,10 +499,10 @@ class FigureDisplay:
         self.figure.update_traces(selected={"marker": {
             "opacity": 1.0
         }},
-                                  unselected={"marker": {
-                                      "opacity": 0.1
-                                  }},
-                                  selector={'type': "scatter"})
+            unselected={"marker": {
+                "opacity": 0.1
+            }},
+            selector={'type': "scatter"})
         self.figure.update_layout(
             autosize=True,
             margin={
