@@ -38,14 +38,14 @@ class DataStore:
         self.region_set = ModelRegionSet(self.X, self.y, self.X_test,
                                          self.y_test, self.model, self.score)
         self.pv_bank = ProjectedValueBank(self.y)
-        self._display_mask = None
+        self._display_mask: pd.Series | None = None
 
     @property
     def y_pred(self):
         if self._y_pred is None:
             pred = self.model.predict(self.X)
             if self.problem_category in [
-                    ProblemCategory.classification_with_proba
+                ProblemCategory.classification_with_proba
             ]:
                 pred = self.model.predict_proba(self.X)
 
@@ -91,7 +91,7 @@ class DataStore:
                 self._rules_mask, self._selection_mask)
 
     @property
-    def rules_mask(self):
+    def rules_mask(self) -> pd.Series:
         return self._rules_mask
 
     @rules_mask.setter

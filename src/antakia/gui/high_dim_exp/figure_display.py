@@ -85,7 +85,7 @@ class FigureDisplay:
         # callback to notify gui that the selection has changed
         self.selection_changed = partial(selection_changed, self)
         self.data_store = data_store
-        self.figure_data = None
+        self.figure_data: pd.DataFrame | None = None
 
         self.space = space
 
@@ -331,7 +331,7 @@ class FigureDisplay:
                         self.figure.data[trace_id].marker.color = colors
 
     @timeit
-    def update_X(self, X: pd.DataFrame):
+    def update_X(self, X: pd.DataFrame | None):
         """
         changes the underlying data - update the data used in display and dimension is necessary
         Parameters
@@ -539,10 +539,10 @@ class FigureDisplay:
         self.figure.update_traces(selected={"marker": {
             "opacity": 1.0
         }},
-                                  unselected={"marker": {
-                                      "opacity": 0.1
-                                  }},
-                                  selector={'type': "scatter"})
+            unselected={"marker": {
+                "opacity": 0.1
+            }},
+            selector={'type': "scatter"})
         self.figure.update_layout(
             autosize=True,
             margin={

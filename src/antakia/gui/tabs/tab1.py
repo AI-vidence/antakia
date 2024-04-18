@@ -272,7 +272,7 @@ class Tab1:
     @timeit
     def update_region(self, region: Region):
         self._region = region
-        self.data_store.rule_mask = region.mask
+        self.data_store.rule_mask = region.mask  # type: ignore
         self.data_store.selection_mask = region.mask
 
         self._refresh_title_txt()
@@ -290,13 +290,13 @@ class Tab1:
             # compute es rules for info only
             es_skr_rules_set, _ = skope_rules(self.data_store.selection_mask,
                                               self.data_store.X_exp,
-                                              self.data_store.variables)
+                                              variables=self.data_store.variables)
             self.es_rules_wgt.change_rules(es_skr_rules_set, False)
             # compute rules on vs space
 
             skr_rules_set, skr_score_dict = skope_rules(
                 self.data_store.selection_mask, self.data_store.X,
-                self.data_store.variables)
+                variables=self.data_store.variables)
             self.data_store.rules_mask = skr_rules_set.get_matching_mask(
                 self.data_store.X)
             skr_score_dict['target_avg'] = self.data_store.y[

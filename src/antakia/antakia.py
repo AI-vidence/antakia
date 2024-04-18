@@ -40,7 +40,7 @@ class AntakIA:
                  y: pd.Series,
                  model,
                  variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame
-                 | None = None,
+                            | None = None,
                  X_test: pd.DataFrame | None = None,
                  y_test: pd.Series | None = None,
                  X_exp: pd.DataFrame | None = None,
@@ -92,12 +92,12 @@ class AntakIA:
                         X: pd.DataFrame,
                         y: pd.Series,
                         model,
-                        X_exp: pd.DataFrame = None,
-                        X_test: pd.DataFrame = None,
+                        X_exp: pd.DataFrame | None = None,
+                        X_test: pd.DataFrame | None = None,
                         problem_category: str = 'auto',
                         score: Callable | str = 'auto',
                         variables: DataVariables | List[Dict[str, Any]]
-                        | pd.DataFrame | None = None,
+                                   | pd.DataFrame | None = None,
                         y_test=None):
         with Log('cleaning data', 2):
             X, y, X_exp = cls._preprocess_data(X, y, X_exp)

@@ -368,8 +368,8 @@ class RulesWidget:
         new_rules_set = self.current_rules_set.copy()
         new_rules_set.replace(new_rule)
         self.current_rules_set = new_rules_set
-
-        self.update_callback()
+        if self.update_callback is not None:
+            self.update_callback()
 
     def undo(self):
         """
