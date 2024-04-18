@@ -46,7 +46,7 @@ class Tab3:
         -------
 
         """
-        self.validate_model_btn = v.Btn(  # 4501000
+        self.validate_model_btn = v.Btn(
             v_on='tooltip.on',
             class_="ma-1 green white--text",
             children=[
@@ -57,20 +57,20 @@ class Tab3:
                 "Validate sub-model",
             ],
         )
-        self.model_table = SubModelTable(  # 45001
+        self.model_table = SubModelTable(
             headers=self.headers,
             items=[],
         )
         self.region_prefix_wgt = v.Html(class_="mr-2",
                                         tag="h3",
-                                        children=["Region"])  # 450000
+                                        children=["Region"])
         self.region_chip_wgt = v.Chip(
             color="red",
             children=["1"],
-        )  # 450001
+        )
         self.region_title = v.Html(class_="ml-2", tag="h3",
-                                   children=[""])  # 450002
-        self.progress_wgt = v.ProgressLinear(  # 450110
+                                   children=[""])
+        self.progress_wgt = v.ProgressLinear(
             style_="width: 100%",
             class_="mt-4",
             v_model=0,
@@ -78,14 +78,14 @@ class Tab3:
             indeterminate=True,
             color="blue",
         )
-        self.widget = [v.Col(children=[ # 450
-            v.Row(  #Row1 : Title and validate button # 4501
+        self.widget = [v.Col(children=[
+            v.Row(  #Row1 : Title and validate button
                 class_="d-flex",
                 children=[
                     v.Col(  # Col1 - region table
                         class_="col-9",
                         children=[
-                            v.Sheet(  # 45000
+                            v.Sheet(
                                 class_="ma-1 d-flex flex-row align-center",
                                 children=[
                                     self.region_prefix_wgt,
@@ -112,7 +112,7 @@ class Tab3:
                                 ])
                         ]),
                 ]),
-            v.Row( #Row2 : Progress bar #4502
+            v.Row( #Row2 : Progress bar
                 class_ = ' flex-column align-center', children = [v.Col(class_="col-5",
                   children=[self.progress_wgt])]),
             v.Row(#Row3 : Model table and explanations table
