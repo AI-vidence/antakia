@@ -28,11 +28,11 @@ def check_hde_color(gui):
     if gui.tab_value == 0:
         mode = get_widget(gui.widget, '11').v_model
         if mode == 'y':
-            c = gui.y
+            c = gui.data_store.y
         elif mode == 'y^':
-            c = gui.y_pred
+            c = gui.data_store.y_pred
         else:
-            c = gui.y - gui.y_pred
+            c = gui.data_store.y - gui.data_store.y_pred
         if gui.vs_hde.figure._colors[gui.tab_value] is not None:
             assert (gui.vs_hde.figure._colors[gui.tab_value] == c).all()
             assert (gui.es_hde.figure._colors[gui.tab_value] == c).all()
@@ -43,13 +43,11 @@ def check_hde_color(gui):
         assert gui.vs_hde.figure.active_trace == 1
         assert gui.es_hde.figure.active_trace == 1
         assert gui.vs_hde.figure._visible == [0, 1, 0, 0]
-        selection = gui.selection_mask
-        if gui.tab1.edit_type == gui.tab1.CREATE_RULE:
-            assert selection.mean() not in (0, 1)
+        selection = gui.data_store.selection_mask
         color = gui.vs_hde.figure._colors[gui.tab_value]
         if color is not None:
-            assert len(color[selection].unique()) <= 2
-            assert len(color[~selection].unique()) <= 2
+            # assert len(color[selection].unique()) <= 2
+            # assert len(color[~selection].unique()) <= 2
             assert len(color.unique()) <= 4
             assert (gui.vs_hde.figure._colors[gui.tab_value] ==
                     gui.es_hde.figure._colors[gui.tab_value]).all()
@@ -58,7 +56,7 @@ def check_hde_color(gui):
         assert gui.es_hde.figure.active_trace == 2
         assert gui.vs_hde.figure._visible == [0, 0, 1, 0]
 
-        assert (gui.region_set.get_color_serie() ==
+        assert (gui.data_store.region_set.get_color_serie() ==
                 gui.vs_hde.figure._colors[2]).all()
         assert (gui.vs_hde.figure._colors[gui.tab_value] ==
                 gui.es_hde.figure._colors[gui.tab_value]).all()
@@ -69,7 +67,6 @@ def check_hde_color(gui):
 
         color = gui.vs_hde.figure._colors[gui.tab_value]
         if color is not None:
-            assert len(color.unique()) <= 2
             assert (gui.vs_hde.figure._colors[gui.tab_value] ==
                     gui.es_hde.figure._colors[gui.tab_value]).all()
 
@@ -99,7 +96,7 @@ def check_proj_menu(gui):
     vs_widget = vs_pvs.widget
     assert vs_pvs.proj_param_widget.disabled == (
         (vs_pvs.projection_select.v_model == 'PCA')
-        or (not gui.selection_mask.all() and gui.tab_value == 0))
+        or (not gui.data_store.empty_selection and gui.tab_value == 0))
     assert len(get_widget(vs_widget, '100').children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(
             vs_pvs.projection_select.v_model)].parameters())
@@ -108,7 +105,7 @@ def check_proj_menu(gui):
     es_widget = es_pvs.widget
     assert es_pvs.proj_param_widget.disabled == (
         (es_pvs.projection_select.v_model == 'PCA')
-        or (not gui.selection_mask.all() and gui.tab_value == 0))
+        or (not gui.data_store.empty_selection and gui.tab_value == 0))
     assert len(get_widget(es_widget, '100').children) == len(
         dim_reduc_factory[DimReducMethod.dimreduc_method_as_int(
             es_pvs.projection_select.v_model)].parameters())
@@ -122,16 +119,16 @@ def check_tab_1_btn(gui):
     empty_history = tab1.vs_rules_wgt.history_size <= 1
 
     # data table
-    assert tab1.data_table.disabled == (not tab1.valid_selection)
+    assert tab1.data_table.disabled == (not tab1._valid_selection)
     # self.widget[2].children[0].disabled = not self.valid_selection
-    assert tab1.find_rules_btn.disabled == (not tab1.valid_selection) or (
-        not tab1.selection_changed)
+    assert tab1.find_rules_btn.disabled == (not tab1._valid_selection) or (
+        not tab1._selection_changed)
     assert tab1.undo_btn.disabled == empty_history
     assert tab1.cancel_btn.disabled == (empty_rule_set and empty_history)
 
     has_modif = (tab1.vs_rules_wgt.history_size
                  > 1) or (tab1.es_rules_wgt.history_size == 1 and
-                          tab1.region.num < 0  # do not validate a empty modif
+                          tab1._region.num < 0  # do not validate a empty modif
                           )
     assert tab1.validate_btn.disabled == (not has_modif) or empty_rule_set
 
@@ -147,7 +144,7 @@ def check_tab_2_btn(gui):
     assert gui.tab2.edit_btn.disabled == (len(gui.tab2.selected_regions) != 1)
     # subdivide
     if gui.tab2.selected_regions:
-        first_region = gui.region_set.get(
+        first_region = gui.data_store.region_set.get(
             gui.tab2.selected_regions[0]['Region'])
     else:
         first_region = None

@@ -7,8 +7,7 @@ from antakia.gui.helpers.progress_bar import ProgressBar
 
 class SplashScreen:
 
-    def __init__(self, X):
-        self.X = X
+    def __init__(self):
         self._build_widget()
 
     def _build_widget(self):

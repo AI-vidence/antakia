@@ -5,8 +5,8 @@ from typing import Callable
 import pandas as pd
 from antakia_core.data_handler import ProjectedValues
 
+from antakia.gui.helpers.data import DataStore
 from antakia.gui.high_dim_exp.figure_display import FigureDisplay
-from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSelector
 
 import logging as logging
@@ -35,8 +35,8 @@ class HighDimExplorer:
 
     """
 
-    def __init__(self, pv_bank: ProjectedValueBank,
-                 selection_changed: Callable, space: str):
+    def __init__(self, data_store: DataStore, selection_changed: Callable,
+                 space: str):
         """
 
         Parameters
@@ -44,13 +44,13 @@ class HighDimExplorer:
         pv_bank: projected values storage
         selection_changed : callable called when a selection changed
         """
-        self.pv_bank = pv_bank
+        self.data_store = data_store
 
         # projected values handler & widget
         self.projected_value_selector = ProjectedValuesSelector(
-            pv_bank, self.refresh, space)
+            data_store.pv_bank, self.refresh, space)
 
-        self.figure = FigureDisplay(None, pv_bank.y, selection_changed, space)
+        self.figure = FigureDisplay(data_store, selection_changed, space)
 
         self.initialized = False
 
@@ -95,7 +95,7 @@ class HighDimExplorer:
             self.get_current_X_proj(progress_callback=progress_callback))
         self.disable(False, False)
 
-    def update_X(self, X: pd.DataFrame, progress_callback=None):
+    def update_X(self):
         """
         changes the undelying projected value instance - update the data used in display
         Parameters
@@ -107,8 +107,7 @@ class HighDimExplorer:
         -------
 
         """
-        self.projected_value_selector.update_X(X)
-        self.refresh(progress_callback)
+        self.projected_value_selector.update_X(self.data_store.X_exp)
 
     @property
     def current_pv(self) -> ProjectedValues:
@@ -132,8 +131,8 @@ class HighDimExplorer:
     def set_tab(self, *args, **kwargs):
         return self.figure.set_tab(*args, **kwargs)
 
-    def set_selection(self, *args, **kwargs):
-        return self.figure.set_selection(*args, **kwargs)
+    def display_selection(self, *args, **kwargs):
+        return self.figure.display_selection(*args, **kwargs)
 
     def set_dim(self, dim: int):
         self.projected_value_selector.update_dim(dim)
