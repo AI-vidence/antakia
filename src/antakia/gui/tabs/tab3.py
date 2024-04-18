@@ -121,8 +121,11 @@ class Tab3:
 
         ])
         ]
+        self.progressbar_widget = self.widget[0].children[1]
+        self.model_table_widget = self.widget[0].children[2]
 
-        self.widget[0].children[2].hide()
+        self.model_table_widget.hide()
+
         # We wire a select event on the 'substitution table' :
         self.model_table.set_callback(self._sub_model_selected_callback)
 
@@ -159,8 +162,8 @@ class Tab3:
             # show tab 3 (and update)
             self.region.train_substitution_models(
                 task_type=self.problem_category)
-            self.widget[0].children[1].hide() #hides the progress bar widget once submodels trained
-            self.widget[0].children[2].show() #displays the submodel table once submodels trained
+            self.progressbar_widget.hide() #hides the progress bar widget once submodels trained
+            self.model_table_widget.show() #displays the submodel table once submodels trained
 
             self.progress_bar(100)
             self.substitution_model_training = False
@@ -309,3 +312,6 @@ class Tab3:
             self.selected_sub_model = []
             # Show tab 2
             self.validate_callback()
+            self.progressbar_widget.show()  # displays the progress bar widget in preparation for the next submodel training
+            self.model_table_widget.hide()  # hides the submodel table
+
