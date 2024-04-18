@@ -3,7 +3,7 @@ from typing import Callable
 
 import ipyvuetify as v
 import pandas as pd
-from antakia_ac.auto_cluster import AutoCluster
+from auto_cluster import AutoCluster
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 from antakia_core.data_handler import RegionSet
 
