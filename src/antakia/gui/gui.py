@@ -518,6 +518,8 @@ class GUI:
         self.tab2.update_region_table()
         self.tab2.selected_regions = []
         self.select_tab(2)
+        self.tab3.widget[0].children[2].hide()  # displays the progress bar widget in preparation for the next submodel training
+        self.tab3.widget[0].children[1].show()  # hides the submodel table
 
     def display_model_data(self, region, y=None):
         if y is None:
