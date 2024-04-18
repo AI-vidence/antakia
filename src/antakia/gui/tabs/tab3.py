@@ -78,11 +78,11 @@ class Tab3:
             indeterminate=True,
             color="blue",
         )
-        self.widget = [v.Col(children=[
-            v.Row(  # 450
+        self.widget = [v.Col(children=[ # 450
+            v.Row(  #Row1 : Title and validate button # 4501
                 class_="d-flex",
                 children=[
-                    v.Col(  # Col1 - sub model table #4500
+                    v.Col(  # Col1 - region table
                         class_="col-9",
                         children=[
                             v.Sheet(  # 45000
@@ -92,13 +92,13 @@ class Tab3:
                                     self.region_chip_wgt, self.region_title
                                 ])
                         ]),
-                    v.Col(  # Col2 - buttons #4501
+                    v.Col(  # Col2 - buttons
                         class_="col3",
                         children=[
                             v.Row(
                                 class_="flex-column",
                                 children=[
-                                    v.Tooltip(  # 45010
+                                    v.Tooltip(
                                         bottom=True,
                                         v_slots=[{
                                             'name':
@@ -108,13 +108,15 @@ class Tab3:
                                             'children':
                                                 self.validate_model_btn,
                                         }],
-                                        children=['Chooose this submodel'])
+                                        children=['Chose this submodel'])
                                 ])
                         ]),
                 ]),
-            v.Row(class_ = ' flex-column align-center', children = [v.Col(class_="col-5",
+            v.Row( #Row2 : Progress bar #4502
+                class_ = ' flex-column align-center', children = [v.Col(class_="col-5",
                   children=[self.progress_wgt])]),
-            v.Row(children=[v.Col(class_="col-6", children=[self.model_table]),
+            v.Row(#Row3 : Model table and explanations table
+                children=[v.Col(class_="col-6", children=[self.model_table]),
                           v.Col(class_="col-6", children=[self.model_explorer.widget])])
 
         ])
@@ -157,8 +159,8 @@ class Tab3:
             # show tab 3 (and update)
             self.region.train_substitution_models(
                 task_type=self.problem_category)
-            self.widget[0].children[1].hide()
-            self.widget[0].children[2].show()
+            self.widget[0].children[1].hide() #hides the progress bar widget once submodels trained
+            self.widget[0].children[2].show() #displays the submodel table once submodels trained
 
             self.progress_bar(100)
             self.substitution_model_training = False
