@@ -539,10 +539,10 @@ class FigureDisplay:
         self.figure.update_traces(selected={"marker": {
             "opacity": 1.0
         }},
-            unselected={"marker": {
-                "opacity": 0.1
-            }},
-            selector={'type': "scatter"})
+                                  unselected={"marker": {
+                                      "opacity": 0.1
+                                  }},
+                                  selector={'type': "scatter"})
         self.figure.update_layout(
             autosize=True,
             margin={

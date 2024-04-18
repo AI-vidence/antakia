@@ -45,7 +45,7 @@ class DataStore:
         if self._y_pred is None:
             pred = self.model.predict(self.X)
             if self.problem_category in [
-                ProblemCategory.classification_with_proba
+                    ProblemCategory.classification_with_proba
             ]:
                 pred = self.model.predict_proba(self.X)
 

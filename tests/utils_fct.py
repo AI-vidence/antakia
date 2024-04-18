@@ -36,4 +36,3 @@ class DummyModel:
 def is_mask_of_X(mask, X):
     return (isinstance(mask, pd.Series) and is_bool_dtype(mask)
             and pd.testing.assert_index_equal(mask.index, X.index))
-
