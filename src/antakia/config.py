@@ -11,7 +11,7 @@ class AppConfig:
     ATK_DEFAULT_PROJECTION = 'PaCMAP'
 
     ATK_INIT_FIG_WIDTH = int(os.environ.get('INIT_FIG_WIDTH', 1800))
-    ATK_MAX_DOTS = int(os.environ.get('MAX_DOTS', 5000))
+    ATK_MAX_DOTS = int(os.environ.get('MAX_DOTS', 2000))
 
     # Rule format
     ATK_USE_INTERVALS_FOR_RULES = os.environ.get('USE_INTERVALS_FOR_RULES',
@@ -28,3 +28,4 @@ class AppConfig:
     ATK_SEND_LOG = os.environ.get('SEND_ANONYMOUS_LOGS', 'True') != '0'
     verbose = 3
     log_with_time = True
+    dev = False
