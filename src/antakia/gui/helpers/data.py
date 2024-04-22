@@ -3,8 +3,7 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 from antakia_core.data_handler import ModelRegionSet, ModelRegion
-from antakia_core.utils import ProblemCategory, boolean_mask, get_mask_comparison_color, timeit
-from auto_cluster import DataVariables
+from antakia_core.utils import ProblemCategory, boolean_mask, get_mask_comparison_color, timeit, DataVariables
 
 from antakia.config import AppConfig
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank

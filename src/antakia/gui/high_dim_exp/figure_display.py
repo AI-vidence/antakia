@@ -531,8 +531,7 @@ class FigureDisplay:
         self.figure = FigureWidget(data=[fig_builder(**fig_args)
                                          ])  # Trace 0 for dots
         self.figure.add_trace(fig_builder(**fig_args))  # Trace 1 for rules
-        self.figure.add_trace(
-            fig_builder(**fig_args))  # Trace 2 for region set
+        self.figure.add_trace(fig_builder(**fig_args))  # Trace 2 for region set
         self.figure.add_trace(fig_builder(**fig_args))  # Trace 3 for region
 
         self.figure.update_layout(dragmode=self._selection_mode)

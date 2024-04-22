@@ -73,6 +73,26 @@ class ColorSwitch:
                         ),
                     }],
                     children=['Display residual values']),
+                v.Tooltip(  # 112
+                    bottom=True,
+                    v_slots=[{
+                        'name':
+                            'activator',
+                        'variable':
+                            'tooltip',
+                        'children':
+                            v.Btn(  # 1130
+                                v_on='tooltip.on',
+                                icon=True,
+                                children=[
+                                    v.Icon(children=["mdi-view-dashboard"])
+                                ],
+                                value="regions",
+                                v_model=True,
+                            ),
+                    }],
+                    children=['Display regions']),
+
             ],
         )
 
@@ -95,4 +115,6 @@ class ColorSwitch:
                 color = self.data_store.y_pred
             elif data == "residual":
                 color = self.data_store.y - self.data_store.y_pred
+            elif data == "regions":
+                color = self.data_store.region_set.get_color_serie()
             self.update_callback(color)
