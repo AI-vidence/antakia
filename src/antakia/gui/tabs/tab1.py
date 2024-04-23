@@ -257,6 +257,7 @@ class Tab1:
     def refresh(self):
         self.vs_rules_wgt.refresh()
         self.es_rules_wgt.refresh()
+        self._refresh_title_txt()
         self._refresh_data_table()
         self._refresh_selection_stat_card()
         self._refresh_buttons()
@@ -272,8 +273,8 @@ class Tab1:
     @timeit
     def update_region(self, region: Region):
         self._region = region
-        self.data_store.rules_mask = region.mask  # type: ignore
-        self.data_store.selection_mask = region.mask
+        self.data_store._rules_mask = region.mask.copy()  # type: ignore
+        self.data_store.selection_mask = region.mask.copy()
 
         self._refresh_title_txt()
         self.vs_rules_wgt.change_rules(region.rules, True)

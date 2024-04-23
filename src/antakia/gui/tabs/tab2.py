@@ -464,8 +464,6 @@ class Tab2:
             stats_logger.log('edit_region')
             # we recover the region to sudivide
             region = self.region_set.get(self.selected_regions[0]['Region'])
-            self.data_store.rules_mask = region.mask
-            self.data_store.selection_mask = region.mask
             self.edit_callback(region)
 
     @log_errors
