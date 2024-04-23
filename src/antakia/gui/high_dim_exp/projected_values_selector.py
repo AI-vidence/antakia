@@ -31,8 +31,6 @@ class ProjectedValuesSelector:
         self.pv_bank = pv_bank
         self.space = space
 
-        self.X = None
-        self.X_scaled = None
         self.current_proj = Proj(
             DimReducMethod.dimreduc_method_as_int(
                 AppConfig.ATK_DEFAULT_PROJECTION),
@@ -309,7 +307,7 @@ class ProjectedValuesSelector:
                            progress_callback: ProgressBar | None = None
                            ) -> pd.DataFrame | None:
         """
-        get current project X
+        get current projection
         Parameters
         ----------
         dim: dimension to get, if None use current
@@ -328,7 +326,7 @@ class ProjectedValuesSelector:
         is_present = self.projected_value.is_present(
             Proj(self.current_proj.reduction_method, dim))
         t = time.time()
-        X = self.projected_value.get_projection(
+        projection = self.projected_value.get_projection(
             Proj(self.current_proj.reduction_method, dim), progress_callback)
         if not is_present:
             stats_logger.log(
@@ -338,7 +336,7 @@ class ProjectedValuesSelector:
                     'compute_time': time.time() - t
                 })
 
-        return X
+        return projection
 
     def is_computed(self, projection_method=None, dim=None) -> bool:
         if self.projected_value is None:
