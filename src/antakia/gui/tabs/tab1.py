@@ -272,7 +272,7 @@ class Tab1:
     @timeit
     def update_region(self, region: Region):
         self._region = region
-        self.data_store.rule_mask = region.mask  # type: ignore
+        self.data_store.rules_mask = region.mask  # type: ignore
         self.data_store.selection_mask = region.mask
 
         self._refresh_title_txt()

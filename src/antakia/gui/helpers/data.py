@@ -67,7 +67,7 @@ class DataStore:
     def X_exp(self, explanation_dataframe):
         self._X_exp = explanation_dataframe
         self._selection_mask = boolean_mask(self.X, True)
-        self._rule_mask = boolean_mask(self.X, True)
+        self._rules_mask = boolean_mask(self.X, True)
         self._compute_rule_selection_color()
 
     @property
