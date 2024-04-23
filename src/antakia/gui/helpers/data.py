@@ -18,6 +18,7 @@ class DataStore:
                  y_test: pd.Series | None, model,
                  problem_category: ProblemCategory, score: Callable | str):
         self.X = X
+        self.X_scaled: pd.DataFrame | None = None
         self.user_x_exp = X_exp
         self._X_exp = X_exp
         self.variables = variables

@@ -7,6 +7,7 @@ import pandas as pd
 
 import ipyvuetify as v
 import IPython.display
+from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
 from antakia_core.data_handler import Region
 
@@ -207,21 +208,28 @@ class GUI:
             self.exp_values.initialize(self.splash.exp_progressbar)
 
         # We trigger VS proj computation :
-        pb1, pb2 = self.splash.proj_progressbar.split(50)
+        scale_pb, vs_pb, es_pb = self.splash.proj_progressbar.split([33, 66])
+        with Log('preparing data', 1) as log:
+            self.splash.set_proj_msg(f"preparing data")
+            scale_pb.set_log(log)
+            self.data_store.X_scaled = DimReducMethod.scale_value_space(
+                self.data_store.X, self.data_store.y, scale_pb)
+
         with Log('projecting Value space', 1) as log:
             self.splash.set_proj_msg(
-                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape} 1/2"
+                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape}"
             )
-            pb1.set_log(log)
-            self.vs_hde.initialize(progress_callback=pb1, X=self.data_store.X)
+            vs_pb.set_log(log)
+            self.vs_hde.initialize(progress_callback=vs_pb,
+                                   X=self.data_store.X_scaled)
 
         # THen we trigger ES proj computation :
         with Log('projecting Explanation space', 1) as log:
             self.splash.set_proj_msg(
-                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape} 2/2"
+                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape}"
             )
-            pb2.set_log(log)
-            self.es_hde.initialize(progress_callback=pb2,
+            es_pb.set_log(log)
+            self.es_hde.initialize(progress_callback=es_pb,
                                    X=self.exp_values.current_exp_df)
         step = 'updating es rules'
         with Log(step, 1):
