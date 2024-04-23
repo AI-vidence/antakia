@@ -236,7 +236,8 @@ def select_model(gui, model):
         raise InteractionError('wrong tab')
     if len(gui.tab2.selected_regions) == 0:
         raise InteractionError('no region selected')
-    region = gui.data_store.region_set.get(gui.tab2.selected_regions[0]['Region'])
+    region = gui.data_store.region_set.get(
+        gui.tab2.selected_regions[0]['Region'])
     if model >= len(region.perfs):
         raise InteractionError('unknown model')
     model = region.perfs.index[model]

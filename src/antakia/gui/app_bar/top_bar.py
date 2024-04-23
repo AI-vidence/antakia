@@ -95,13 +95,13 @@ class TopBar:
         self.star_dialog.v_model = True
 
     def get_logo(self):
-        try:
-            url = 'https://drive.ai-vidence.com/s/6PQaTGEGD6iXHEp/download/antakia_horizontal.png'
-            response = requests.get(url)
-            if response.status_code < 300:
-                return response.content
-        except:
-            pass
+        # try:
+        #     url = 'https://drive.ai-vidence.com/s/6PQaTGEGD6iXHEp/download/antakia_horizontal.png'
+        #     response = requests.get(url)
+        #     if response.status_code < 300:
+        #         return response.content
+        # except:
+        #     pass
         file = files("antakia").joinpath(
             "assets/logo_antakia_horizontal.png")  # type: ignore
         return open(file, 'rb').read()

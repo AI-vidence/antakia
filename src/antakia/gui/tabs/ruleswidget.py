@@ -67,7 +67,7 @@ class RulesWidget:
         self.is_value_space = values_space
         if update_callback is not None:
             self.update_callback: Callable | None = partial(
-                update_callback, self, 'rule_updated')
+                update_callback, self)
         else:
             self.update_callback = None
 
@@ -368,27 +368,22 @@ class RulesWidget:
         new_rules_set = self.current_rules_set.copy()
         new_rules_set.replace(new_rule)
         self.current_rules_set = new_rules_set
-
-        self.update_callback()
+        if self.update_callback is not None:
+            self.update_callback(event)
 
     def undo(self):
         """
         Restore the previous rules
         """
-        # We remove last rules item from the db:
+        # We remove last rules item from the db and update rule mask:
         if len(self.rules_history) > 1:
             self.rules_history.pop(-1)
-            self.data_store.rule_mask = self.current_rules_set.get_matching_mask(
+            self.data_store.rules_mask = self.current_rules_set.get_matching_mask(
                 self.X)
 
-        # We compute again the rules mask
-
-        # we refresh the widget macro info
-        self.refresh()
-
-        # We notify the GUI and tell there are new rules to draw if necessary
+        # We notify the parent class and tell there are new rules to draw if necessary
         if self.update_callback is not None:
-            self.update_callback()
+            self.update_callback('undo')
 
     @property
     def current_rules_set(self) -> RuleSet:

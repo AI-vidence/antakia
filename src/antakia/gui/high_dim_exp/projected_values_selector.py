@@ -23,7 +23,7 @@ from antakia.utils.stats import stats_logger, log_errors
 class ProjectedValuesSelector:
 
     def __init__(self, pv_bank: ProjectedValueBank, update_callback: Callable,
-                 space):
+                 space: str):
         self.widget = None
         self.projected_value: ProjectedValues | None = None
         self._proj_params_cards: dict[int, list[v.Slider]] = {}
@@ -32,6 +32,7 @@ class ProjectedValuesSelector:
         self.space = space
 
         self.X = None
+        self.X_scaled = None
         self.current_proj = Proj(
             DimReducMethod.dimreduc_method_as_int(
                 AppConfig.ATK_DEFAULT_PROJECTION),
