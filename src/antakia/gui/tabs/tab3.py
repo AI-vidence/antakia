@@ -80,48 +80,52 @@ class Tab3:
             indeterminate=True,
             color="blue",
         )
-        self.widget = [v.Col(children=[
-            v.Row(  #Row1 : Title and validate button
-                class_="d-flex",
-                children=[
-                    v.Col(  # Col1 - region table
-                        class_="col-9",
-                        children=[
-                            v.Sheet(
-                                class_="ma-1 d-flex flex-row align-center",
-                                children=[
-                                    self.region_prefix_wgt,
-                                    self.region_chip_wgt, self.region_title
-                                ])
-                        ]),
-                    v.Col(  # Col2 - buttons
-                        class_="col-3",
-                        children=[
-                            v.Row(
-                                class_="flex-column",
-                                children=[
-                                    v.Tooltip(
-                                        bottom=True,
-                                        v_slots=[{
-                                            'name':
-                                                'activator',
-                                            'variable':
-                                                'tooltip',
-                                            'children':
-                                                self.validate_model_btn,
-                                        }],
-                                        children=['Chose this submodel'])
-                                ])
-                        ]),
-                ]),
-            v.Row( #Row2 : Progress bar
-                class_ = ' flex-column align-center', children = [v.Col(class_="col-5",
-                  children=[self.progress_wgt])]),
-            v.Row(#Row3 : Model table and explanations table
-                children=[v.Col(class_="col-6", children=[self.model_table]),
-                          v.Col(class_="col-6", children=[self.model_explorer.widget])])
-
-        ])
+        self.widget = [
+            v.Col(children=[
+                v.Row(  #Row1 : Title and validate button
+                    class_="d-flex",
+                    children=[
+                        v.Col(  # Col1 - region table
+                            class_="col-9",
+                            children=[
+                                v.Sheet(
+                                    class_="ma-1 d-flex flex-row align-center",
+                                    children=[
+                                        self.region_prefix_wgt,
+                                        self.region_chip_wgt, self.region_title
+                                    ])
+                            ]),
+                        v.Col(  # Col2 - buttons
+                            class_="col-3",
+                            children=[
+                                v.Row(class_="flex-column",
+                                      children=[
+                                          v.Tooltip(
+                                              bottom=True,
+                                              v_slots=[{
+                                                  'name':
+                                                  'activator',
+                                                  'variable':
+                                                  'tooltip',
+                                                  'children':
+                                                  self.validate_model_btn,
+                                              }],
+                                              children=['Chose this submodel'])
+                                      ])
+                            ]),
+                    ]),
+                v.Row(  #Row2 : Progress bar
+                    class_=' flex-column align-center',
+                    children=[
+                        v.Col(class_="col-5", children=[self.progress_wgt])
+                    ]),
+                v.Row(  #Row3 : Model table and explanations table
+                    children=[
+                        v.Col(class_="col-6", children=[self.model_table]),
+                        v.Col(class_="col-6",
+                              children=[self.model_explorer.widget])
+                    ])
+            ])
         ]
         self.progressbar_widget = self.widget[0].children[1]
         self.model_table_widget = self.widget[0].children[2]
@@ -163,8 +167,10 @@ class Tab3:
             # show tab 3 (and update)
             self.region.train_substitution_models(
                 task_type=self.data_store.problem_category)
-            self.progressbar_widget.hide() #hides the progress bar widget once submodels trained
-            self.model_table_widget.show() #displays the submodel table once submodels trained
+            self.progressbar_widget.hide(
+            )  #hides the progress bar widget once submodels trained
+            self.model_table_widget.show(
+            )  #displays the submodel table once submodels trained
 
             self.progress_bar(100)
             self.substitution_model_training = False
@@ -217,7 +223,7 @@ class Tab3:
             # we set to selected model if any
             self.model_table.selected = [{
                 'Sub-model':
-                    self.region.interpretable_models.selected_model
+                self.region.interpretable_models.selected_model
             }]
             self.model_explorer.update_selected_model(
                 self.region.get_selected_model(), self.region)
@@ -312,6 +318,6 @@ class Tab3:
             self.selected_sub_model = []
             # Show tab 2
             self.validate_callback()
-            self.progressbar_widget.show()  # displays the progress bar widget in preparation for the next submodel training
+            self.progressbar_widget.show(
+            )  # displays the progress bar widget in preparation for the next submodel training
             self.model_table_widget.hide()  # hides the submodel table
-
