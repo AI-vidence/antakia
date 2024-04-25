@@ -128,16 +128,11 @@ class TestAntakia(TestCase):
 
     def test_run_walk(self):
         atk = AntakIA(self.X, self.y, self.regression_DT)
-        walk = [('change_tab', [2]), ('edit_parameter', [0]),
-                ('set_proj_method', [0, 1]), ('set_color', [1]),
-                ('unselect', [1]), ('set_color', [1]), ('select_points', [0]),
-                ('find_rules', []), ('select_dim', [1]), ('find_rules', []),
-                ('set_color', [1]), ('select_points', [1]),
-                ('validate_rules', []), ('auto_cluster', []),
-                ('select_dim', [0]), ('auto_cluster', []),
-                ('toggle_select_region', [2]), ('set_proj_method', [0, 1]),
-                ('edit', []), ('set_proj_method', [0, 2]),
-                ('select_points', [0])]
+        walk = [('change_tab', [1]), ('auto_cluster', []),
+                ('edit_parameter', [0]), ('auto_cluster', []),
+                ('clear_selection', []), ('set_exp_method', [1]),
+                ('select_dim', [0]), ('toggle_select_region', [3]),
+                ('subdivide', [])]
 
         # walk = [('select_points', [1]), ('set_color', [2]), ('find_rules', []),
         #         ('edit_parameter', [0]), ('validate_rules', []),

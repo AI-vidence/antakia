@@ -3,6 +3,7 @@ from typing import Callable
 
 import ipyvuetify as v
 import pandas as pd
+from antakia_core.data_handler import RegionSet
 from auto_cluster import AutoCluster
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 
@@ -396,13 +397,21 @@ class Tab2:
                 3, progress_callback=pb2)
 
             ac = AutoCluster(self.data_store.X, pb3)
-
-            found_regions = ac.compute(
-                vs_proj_3d_df.loc[not_rules_indexes_list],
-                es_proj_3d_df.loc[not_rules_indexes_list],
-                # We send 'auto' or we read the number of clusters from the Slider
-                cluster_num,
-            )  # type: ignore
+            n_points = not_rules_indexes_list.sum()
+            if n_points > 50:
+                # assertion in antakia ac
+                found_regions = ac.compute(
+                    vs_proj_3d_df.loc[not_rules_indexes_list],
+                    es_proj_3d_df.loc[not_rules_indexes_list],
+                    # We send 'auto' or we read the number of clusters from the Slider
+                    cluster_num,
+                )  # type: ignore
+            else:
+                found_regions = RegionSet(self.data_store.X)
+                found_regions.add_region(mask=pd.Series(
+                    [True] * n_points,
+                    index=vs_proj_3d_df.loc[not_rules_indexes_list].index),
+                                         auto_cluster=True)
             self.region_set.extend(found_regions)
             progress_bar(100)
         else:
