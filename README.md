@@ -1,6 +1,11 @@
 # Welcome to AntakIA !
+Hi!
 
-AntakIA is an open-source tool from AI-vidence to explain ML black box models. See [doc](https://doc.antakia.ai).
+AntakIA is THE tool to explain an ML model or replace it with a collection of basic explainable models.
+
+AntakIA can be used for many purposes: it may help you understand the truths your ML model has learned, or it can assist you in converting an ML model into multiple simple rule-based algorithms.
+
+It achieves this by dividing a given ML model into smaller regions. Hence its name: Antakia is an ancient city famous for its mosaics (and IA is AI in French).
 
 Here is a quick overview on AntakIA:
 ![AntakIA demo](/docs/img/antakia.gif)

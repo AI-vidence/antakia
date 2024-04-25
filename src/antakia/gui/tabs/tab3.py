@@ -3,9 +3,10 @@ from typing import Callable
 import ipyvuetify as v
 import pandas as pd
 from antakia_core.data_handler import ModelRegion
-from antakia_core.utils import ProblemCategory, BASE_COLOR
+from antakia_core.utils import BASE_COLOR
 
 from antakia.config import AppConfig
+from antakia.gui.helpers.data import DataStore
 from antakia.gui.graphical_elements.sub_model_table import SubModelTable
 from antakia.gui.helpers.progress_bar import ProgressBar
 from antakia.gui.tabs.model_explorer import ModelExplorer
@@ -23,13 +24,12 @@ class Tab3:
         } for column in ['Sub-model', 'MSE', 'MAE', 'R2', 'delta']
     ]
 
-    def __init__(self, X: pd.DataFrame, problem_category: ProblemCategory,
-                 validate_callback: Callable, display_model_data: Callable):
-        self.X = X
-        self.problem_category = problem_category
+    def __init__(self, data_store: DataStore, validate_callback: Callable,
+                 display_model_data: Callable):
+        self.data_store = data_store
         self.validate_callback = validate_callback
         self.display_model_data = display_model_data
-        self.model_explorer = ModelExplorer(self.X)
+        self.model_explorer = ModelExplorer(self.data_store.X)
         self.region: ModelRegion | None = None
         self.substitution_model_training = False  # tab 3 : training flag
 
@@ -65,12 +65,14 @@ class Tab3:
                                         tag="h3",
                                         children=["Region"])
         self.region_chip_wgt = v.Chip(
-            color="red",
-            children=["1"],
-        )
-        self.region_title = v.Html(class_="ml-2", tag="h3",
-                                   children=[""])
-        self.progress_wgt = v.ProgressLinear(
+            color=BASE_COLOR,
+            children=["-"],
+        )  # 450001
+        self.region_title = v.Html(
+            class_="ml-2",
+            tag="h3",
+            children=["No region selected for substitution"])  # 450002
+        self.progress_wgt = v.ProgressLinear(  # 450110
             style_="width: 100%",
             class_="mt-4",
             v_model=0,
@@ -93,7 +95,7 @@ class Tab3:
                                 ])
                         ]),
                     v.Col(  # Col2 - buttons
-                        class_="col3",
+                        class_="col-3",
                         children=[
                             v.Row(
                                 class_="flex-column",
@@ -156,12 +158,11 @@ class Tab3:
         if self.region is not None and train:
             # We update the substitution table once to show the name of the region
             self.substitution_model_training = True
-
             self.progress_bar(0)
             self.update()
             # show tab 3 (and update)
             self.region.train_substitution_models(
-                task_type=self.problem_category)
+                task_type=self.data_store.problem_category)
             self.progressbar_widget.hide() #hides the progress bar widget once submodels trained
             self.model_table_widget.show() #displays the submodel table once submodels trained
 
@@ -228,7 +229,6 @@ class Tab3:
     def _update_substitution_title(self):
         title = self.region_title
         title.tag = "h3"
-        table = self.model_table  # subModel table
         if self.substitution_model_training:
             # We tell to wait ...
             title.class_ = "ml-2 grey--text italic "

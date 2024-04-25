@@ -5,10 +5,11 @@ from typing import Callable
 
 import pandas as pd
 import numpy as np
+from antakia_core.utils import timeit, boolean_mask
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
 from plotly.express.colors import sample_colorscale
 import ipyvuetify as v
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
 
 from antakia_core.data_handler import Region, RegionSet
 
@@ -16,7 +17,9 @@ import antakia_core.utils as utils
 from antakia.config import AppConfig
 
 import logging as logging
-from antakia.utils.logging_utils import conf_logger
+
+from antakia.gui.helpers.data import DataStore
+from antakia.utils.logging_utils import conf_logger, Log
 from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors, stats_logger
 from antakia.utils.colors import colors
@@ -66,24 +69,23 @@ class FigureDisplay:
         else:
             return "unknown trace"
 
-    def __init__(self, X: pd.DataFrame | None, y: pd.Series,
-                 selection_changed: Callable, space: str):
+    def __init__(self, data_store: DataStore, selection_changed: Callable,
+                 space: str):
         """
 
         Parameters
         ----------
-        X: data to display, should be 2 or 3D 
-        y: target value (default color)
+        data_store: data to display, should be 2 or 3D
         selection_changed : callable called when a selection changed
         """
         # current active trace
         self.active_trace = 0
         # mask of value to display to limit points on graph
-        self._mask: pd.Series | None = None
+        self._display_mask: pd.Series | None = None
         # callback to notify gui that the selection has changed
-        self.selection_changed = selection_changed
-        self.X = X
-        self.y = y
+        self.selection_changed = partial(selection_changed, self)
+        self.data_store = data_store
+        self.figure_data: pd.DataFrame | None = None
 
         self.space = space
 
@@ -93,11 +95,6 @@ class FigureDisplay:
 
         # is graph selectable
         self._selection_mode = 'lasso'
-        # current selection
-        if X is not None:
-            self._current_selection = utils.boolean_mask(self.X, True)
-        else:
-            self._current_selection = None
         # is this selection first since last deselection ?
         self.first_selection = True
 
@@ -127,21 +124,11 @@ class FigureDisplay:
 
     @property
     def dim(self):
-        if self.X is None:
+        if self.figure_data is None:
             return AppConfig.ATK_DEFAULT_DIMENSION
-        return self.X.shape[1]
+        return self.figure_data.shape[1]
 
-    @property
-    def current_selection(self):
-        if self._current_selection is None:
-            self._current_selection = utils.boolean_mask(self.X, True)
-        return self._current_selection
-
-    @current_selection.setter
-    def current_selection(self, value):
-        self._current_selection = value
-
-    def initialize(self, X: pd.DataFrame | None):
+    def initialize(self, figure_data: pd.DataFrame | None):
         """
         inital computation called at startup, after init to compute required values
         Parameters
@@ -152,10 +139,10 @@ class FigureDisplay:
         -------
 
         """
-        if X is not None:
-            self.X = X
+        if figure_data is not None:
+            self.update_X(figure_data)
             # compute X if needed
-            self.get_X(masked=True)
+            self._get_figure_data(masked=True)
         self.initialized = True
 
     # ---- display Methods ------
@@ -176,13 +163,13 @@ class FigureDisplay:
         if self.dim == 2 and self.figure is not None:
             self.figure.update_layout(dragmode=self._selection_mode)
 
+    @timeit
     def _show_trace(self, trace_id: int):
         """
         show/hide trace
         Parameters
         ----------
         trace_id : trace to change
-        show : show/hide
 
         Returns
         -------
@@ -192,9 +179,8 @@ class FigureDisplay:
             self._visible[i] = trace_id == i
             self.figure.data[i].visible = trace_id == i
 
-    def display_rules(self,
-                      selection_mask: pd.Series,
-                      rules_mask: pd.Series | None = None):
+    @timeit
+    def display_rules(self):
         """
         display a rule vs a selection
         Parameters
@@ -206,19 +192,10 @@ class FigureDisplay:
         -------
 
         """
-        self.current_selection = selection_mask
-        if selection_mask.all():
-            if rules_mask is not None:
-                selection_mask = rules_mask
-            else:
-                selection_mask = ~selection_mask
-        if rules_mask is None:
-            rules_mask = selection_mask
-        color, _ = utils.get_mask_comparison_color(rules_mask, selection_mask)
+        self._colors[self.RULES_TRACE] = self.data_store.rule_selection_color
+        self._refresh_color(self.RULES_TRACE)
 
-        self._colors[self.RULES_TRACE] = color
-        self._display_zones(self.RULES_TRACE)
-
+    @timeit
     def display_regionset(self, region_set: RegionSet):
         """
         display a region set, each region in its color
@@ -231,8 +208,9 @@ class FigureDisplay:
 
         """
         self._colors[self.REGIONSET_TRACE] = region_set.get_color_serie()
-        self._display_zones(self.REGIONSET_TRACE)
+        self._refresh_color(self.REGIONSET_TRACE)
 
+    @timeit
     def display_region(self, region: Region):
         """
         display a single region
@@ -245,11 +223,12 @@ class FigureDisplay:
 
         """
         self._colors[self.REGION_TRACE] = region.get_color_serie()
-        self._display_zones(self.REGION_TRACE)
+        self._refresh_color(self.REGION_TRACE)
 
+    @timeit
     def display_region_value(self, region: Region, y: pd.Series):
         """
-        display a single region
+        display a single region, with target colors
         Parameters
         ----------
         region
@@ -258,13 +237,13 @@ class FigureDisplay:
         -------
 
         """
-        if self.X is None:
+        if self.figure_data is None:
             return
         if y.min() == y.max():
             y[:] = 0.5
         else:
             y = (y + max(-y.min(), y.max())) / (2 * max(-y.min(), y.max()))
-        color_serie = pd.Series(index=self.X.index)
+        color_serie = pd.Series(index=self.figure_data.index)
         color_serie[~region.mask] = colors['gray']
 
         # cmap = ['blue', 'green', 'red1']
@@ -276,26 +255,9 @@ class FigureDisplay:
                                                      low=0,
                                                      high=1)
         self._colors[self.REGION_TRACE] = color_serie
-        self._display_zones(self.REGION_TRACE)
+        self._refresh_color(self.REGION_TRACE)
 
-    def _display_zones(self, trace=None):
-        """
-        refresh provided trace or all trace if None
-        do not alter visibility
-        Parameters
-        ----------
-        trace
-
-        Returns
-        -------
-
-        """
-        if trace is None:
-            for trace_id in range(self.NUM_TRACES):
-                self.refresh_trace(trace_id=trace_id)
-        else:
-            self.refresh_trace(trace_id=trace)
-
+    @timeit
     def set_color(self, color: pd.Series, trace_id: int):
         """
         set the provided color as the scatter point color on the provided trace id
@@ -310,9 +272,38 @@ class FigureDisplay:
 
         """
         self._colors[trace_id] = color
-        self.refresh_trace(trace_id)
+        self._refresh_color(trace_id)
 
-    def refresh_trace(self, trace_id: int):
+    @timeit
+    def _refresh_data(self):
+        """
+        refresh all traces data, create figure if absent
+        Returns
+        -------
+
+        """
+        if self.figure is None:
+            self.create_figure()
+        projection = self._get_figure_data(masked=True)
+
+        with self.figure.batch_update():
+            trace_id = self.active_trace
+            self.figure.data[trace_id].x = projection[0]
+            self.figure.data[trace_id].y = projection[1]
+            self.figure.data[trace_id].customdata = self.data_store.y[
+                self.display_mask]
+
+            colors = self._colors[trace_id]
+            if colors is None:
+                colors = self.data_store.y
+            colors = colors[self.display_mask]
+
+            self.figure.data[trace_id].marker.color = colors
+            if self.dim == 3:
+                self.figure.data[trace_id].z = projection[2]
+
+    @timeit
+    def _refresh_color(self, trace_id: int):
         """
         refresh the provided trace id
         do not alter show/hide trace
@@ -326,16 +317,21 @@ class FigureDisplay:
 
         """
         if self.figure is None:
-            self.create_figure()
+            raise ValueError()
         else:
-            colors = self._colors[trace_id]
-            if colors is None:
-                colors = self.y
-            colors = colors[self.mask]
-            with self.figure.batch_update():
-                self.figure.data[trace_id].marker.color = colors
+            if trace_id == self.active_trace:
+                if len(self.figure.data[trace_id].x) == 0:
+                    return self._refresh_data()
+                else:
+                    colors = self._colors[trace_id]
+                    if colors is None:
+                        colors = self.data_store.y
+                    colors = colors[self.display_mask]
+                    with self.figure.batch_update():
+                        self.figure.data[trace_id].marker.color = colors
 
-    def update_X(self, X: pd.DataFrame):
+    @timeit
+    def update_X(self, X: pd.DataFrame | None):
         """
         changes the underlying data - update the data used in display and dimension is necessary
         Parameters
@@ -346,9 +342,28 @@ class FigureDisplay:
         -------
 
         """
-        self.X = X
-        self.redraw()
+        self.figure_data = X
+        self._prepare_mask_extrapolation()
+        self._refresh_data()
+        active_trace = self._visible.index(True)
+        with self.figure.batch_update():
+            self._refresh_color(active_trace)
+        self.widget.children = [self.figure]
 
+    @timeit
+    def _prepare_mask_extrapolation(self):
+        X_train = self._get_figure_data(masked=True)
+        nn = NearestNeighbors(n_neighbors=3).fit(X_train)
+
+        X_predict = self._get_figure_data(masked=False)
+        dist, neighbors = nn.kneighbors(X_predict, return_distance=True)
+
+        neighbors_weight = 1 / (dist + 0.0001)
+        neighbors_weight = (neighbors_weight.T /
+                            neighbors_weight.sum(axis=1)).T
+        self._neighbors_data = neighbors_weight, neighbors
+
+    @timeit
     def selection_to_mask(self, row_numbers: list[int]):
         """
 
@@ -362,23 +377,29 @@ class FigureDisplay:
         -------
 
         """
-        if self.X is None:
+        if self.figure_data is None:
             raise NotInitialized()
-        selection = utils.rows_to_mask(self.X[self.mask], row_numbers)
+        selection = utils.rows_to_mask(self.figure_data[self.display_mask],
+                                       row_numbers)
         if not selection.any() or selection.all():
-            return utils.boolean_mask(self.get_X(masked=False),
-                                      selection.mean())
-        if self.mask.all():
+            return utils.boolean_mask(self._get_figure_data(masked=False),
+                                      selection.iloc[0])
+        if self.display_mask.all():
             return selection
-        X_train = self.get_X(masked=True)
-        knn = KNeighborsClassifier().fit(X_train, selection)
-        X_predict = self.get_X(masked=False)
-        guessed_selection = pd.Series(knn.predict(X_predict),
-                                      index=X_predict.index)
-        # KNN extrapolation
+
+        neighbors_weight, neighbors = self._neighbors_data
+        neighbors_label = np.zeros(neighbors.shape)
+        for k in range(neighbors.shape[1]):
+            neighbors_label[:, k] = selection.iloc[neighbors[:, k]]
+        majority_label = (neighbors_label *
+                          neighbors_weight).sum(axis=1).round()
+
+        guessed_selection = pd.Series(majority_label,
+                                      index=self.figure_data.index)
         return guessed_selection.astype(bool)
 
     @log_errors
+    @timeit
     def _selection_event(self, trace_id, trace, points, *args):
         """
         callback triggered by selection on graph
@@ -397,23 +418,28 @@ class FigureDisplay:
 
         """
         if trace_id == self.active_trace:
-            self.first_selection |= self.current_selection.all()
+            # selection bug : we need to recreate figure in order to display the selection
+            self.create_figure()
+            self._refresh_data()
+            # self.figure.data[trace_id].update(selectedpoints=[None])
+            # self.figure.data[trace_id].selectedpoints = [None]
+            self.first_selection |= self.data_store.empty_selection
             stats_logger.log(
                 'hde_selection', {
                     'first_selection': str(self.first_selection),
                     'space': str(self.space),
-                    'points': self.current_selection.mean()
+                    'points': self.data_store.selection_mask.mean()
                 })
             extrapolated_selection = self.selection_to_mask(points.point_inds)
-            self.current_selection &= extrapolated_selection
-            if self.current_selection.any():
-                self.create_figure()
-                self.selection_changed(self, self.current_selection)
+            self.data_store.selection_mask &= extrapolated_selection
+            if not self.data_store.empty_selection:
+                self.selection_changed('selection_event')
             else:
-                self._deselection_event(trace_id, rebuild=True)
+                self._deselection_event(trace_id)
 
     @log_errors
-    def _deselection_event(self, trace_id, *args, rebuild=False):
+    @timeit
+    def _deselection_event(self, trace_id, *args):
         """
         clear selection -- called by deselection on graph
         synchronize hdes
@@ -435,94 +461,69 @@ class FigureDisplay:
                 })
             # We tell the GUI
             self.first_selection = False
-            self.current_selection = utils.boolean_mask(self.X, True)
-            self.selection_changed(self, self.current_selection)
-            if rebuild:
-                self.create_figure()
-            else:
-                self.display_selection(self.current_selection)
+            self.data_store.selection_mask = utils.boolean_mask(
+                self.figure_data, True)
+            self.selection_changed('selection_event')
 
-    def set_selection(self, new_selection_mask: pd.Series):
-        """
-        update selection from mask - only for trace 0
-        no update_callback
-        Called by tne UI when a new selection occurred on the other HDE
-        Parameters
-        ----------
-        new_selection_mask
-
-        Returns
-        -------
-
-        """
-
-        if (self.current_selection == new_selection_mask).all():
-            # no changes
-            return
-
-        # selection event
-        self.current_selection = new_selection_mask
-        self.display_selection(new_selection_mask)  # only for tab 0
-        return
-
-    def display_selection(self, selection_mask):
+    @timeit
+    def display_selection(self):
         """
         display selection on figure
         Returns
         -------
 
         """
-        if self.dim == 2:
-            fig = self.figure.data[0]
-            fig.update(
-                selectedpoints=utils.mask_to_rows(selection_mask[self.mask]))
-            fig.selectedpoints = utils.mask_to_rows(selection_mask[self.mask])
+        with Log('display_selection ' + self.space, level=3):
+            if self.dim == 2:
+                fig = self.figure.data[self.active_trace]
+
+                fig.selectedpoints = utils.mask_to_rows(
+                    self.data_store.selection_mask[self.display_mask])
+                # fig.update(
+                #      selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.mask]))
 
     @property
-    def mask(self) -> pd.Series:
+    @timeit
+    def display_mask(self) -> pd.Series:
         """
         mask should be applied on each display (x,y,z,color, selection)
         """
-        if self.X is None:
+        return self.data_store.display_mask
+        if self.figure_data is None:
             raise NotInitialized()
-        if self._mask is None:
+        if self._display_mask is None:
             limit = AppConfig.ATK_MAX_DOTS
-            if len(self.X) > limit:
-                self._mask = pd.Series([False] * len(self.X),
-                                       index=self.X.index)
-                indices = np.random.choice(self.X.index,
+            if len(self.figure_data) > limit:
+                self._display_mask = pd.Series([False] * len(self.figure_data),
+                                               index=self.figure_data.index)
+                indices = np.random.choice(self.figure_data.index,
                                            size=limit,
                                            replace=False)
-                self._mask.loc[indices] = True
+                self._display_mask.loc[indices] = True
             else:
-                self._mask = pd.Series([True] * len(self.X),
-                                       index=self.X.index)
-        return self._mask
+                self._display_mask = pd.Series([True] * len(self.figure_data),
+                                               index=self.figure_data.index)
+        return self._display_mask
 
+    @timeit
     def create_figure(self):
         """
-        Builds the FigureWidget for the given dimension
+        Builds the FigureWidget for the given dimension with no data
         """
-        x = y = z = None
-
-        if self.X is None:
-            return
-        proj_values = self.get_X(masked=True)
-
-        hde_marker = {'color': self.y, 'colorscale': "Viridis"}
+        hde_marker = {'color': self.data_store.y, 'colorscale': "Viridis"}
         if self.dim == 3:
             hde_marker['size'] = 2
 
         fig_args = {
-            'x': proj_values[0],
-            'y': proj_values[1],
+            'x': [],
+            'y': [],
             'mode': "markers",
             'marker': hde_marker,
-            'customdata': self.y[self.mask],
+            'customdata': [],
             'hovertemplate': "%{customdata:.3f}",
         }
         if self.dim == 3:
-            fig_args['z'] = proj_values[2]
+            fig_args['z'] = []
             fig_builder = Scatter3d
         else:
             fig_builder = Scattergl
@@ -556,9 +557,6 @@ class FigureDisplay:
         # We don't want the name of the trace to appear :
         for trace_id in range(len(self.figure.data)):
             self.figure.data[trace_id].showlegend = False
-            self.refresh_trace(trace_id)
-        self._show_trace(self._visible.index(1))
-        self.display_selection(self.current_selection)
 
         if self.dim == 2:
             # selection only on trace 0
@@ -570,29 +568,15 @@ class FigureDisplay:
                                                     1))
         self.widget.children = [self.figure]
 
-    def redraw(self):
-        """
-        redraw all traces, without recreating figure
-        Returns
-        -------
-
-        """
-        if self.figure is None:
+    @timeit
+    def rebuild(self):
+        with Log('rebuild ' + self.space, level=3):
             self.create_figure()
-        projection = self.get_X(masked=True)
+            self._refresh_data()
+            self._refresh_color(self.active_trace)
+            self._show_trace(self.active_trace)
 
-        with self.figure.batch_update():
-            for trace_id in range(len(self.figure.data)):
-                self.figure.data[trace_id].x = projection[0]
-                self.figure.data[trace_id].y = projection[1]
-                if self.dim == 3:
-                    self.figure.data[trace_id].z = projection[2]
-                self.figure.data[trace_id].showlegend = False
-                self.refresh_trace(trace_id)
-            self._show_trace(self._visible.index(1))
-        self.widget.children = [self.figure]
-
-    def get_X(self, masked: bool) -> pd.DataFrame:
+    def _get_figure_data(self, masked: bool) -> pd.DataFrame:
         """
 
         return current projection value
@@ -606,11 +590,11 @@ class FigureDisplay:
         -------
 
         """
-        if self.X is None:
+        if self.figure_data is None:
             raise NotInitialized()
         if masked:
-            return self.X.loc[self.mask]
-        return self.X
+            return self.figure_data.loc[self.display_mask]
+        return self.figure_data
 
     def set_tab(self, tab):
         """
@@ -625,5 +609,5 @@ class FigureDisplay:
         """
         self.disable_selection(tab >= 1)
         self._show_trace(tab)
-        # self.refresh_trace(tab)
         self.active_trace = tab
+        self._refresh_color(tab)

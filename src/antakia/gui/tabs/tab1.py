@@ -6,9 +6,9 @@ from antakia_core.compute.skope_rule.skope_rule import skope_rules
 import ipyvuetify as v
 from antakia_core.data_handler import Region
 from antakia_core.data_handler import RuleSet
-from antakia_core.utils import format_data
-from antakia_core.utils.variable import DataVariables
+from antakia_core.utils import format_data, timeit, boolean_mask
 
+from antakia.gui.helpers.data import DataStore
 from antakia.gui.tabs.ruleswidget import RulesWidget
 from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors, stats_logger
@@ -18,30 +18,27 @@ class Tab1:
     EDIT_RULE = 'edition'
     CREATE_RULE = 'creation'
 
-    def __init__(self, variables: DataVariables, update_callback: Callable,
-                 validate_rules_callback: Callable, X: pd.DataFrame,
-                 X_exp: pd.DataFrame | None, y: pd.Series):
-        self.selection_changed = False
-        self.region = Region(X)
-        self.reference_mask = self.region.mask
+    def __init__(self, data_store: DataStore, update_callback: Callable,
+                 validate_rules_callback: Callable):
+        self.data_store = data_store
+        self._region = Region(self.data_store.X)
         self.update_callback = partial(update_callback, self, 'rule_updated')
         self.validate_rules_callback = partial(validate_rules_callback, self,
                                                'rule_validated')
 
-        self.X = X
         self.X_rounded = None
-        self.X_exp = X_exp
-        self.y = y
 
-        self.variables = variables
-        self.vs_rules_wgt = RulesWidget(self.X, self.y, self.variables, True,
-                                        self.new_rules_defined)
-        self.es_rules_wgt = RulesWidget(self.X_exp, self.y, self.variables,
-                                        False)
+        self.vs_rules_wgt = RulesWidget(self.data_store, True,
+                                        self.refresh_callback)
+        self.es_rules_wgt = RulesWidget(self.data_store, False)
 
         self._build_widget()
 
     def _build_widget(self):
+        self.find_rule_progress = v.ProgressCircular(class_="my-2",
+                                                     color="primary",
+                                                     width="6",
+                                                     indeterminate=False)
         self.find_rules_btn = v.Btn(  # 43010 Skope button
             v_on='tooltip.on',
             class_="ma-1 primary white--text",
@@ -108,11 +105,20 @@ class Tab1:
                 "text": column,
                 "sortable": True,
                 "value": column,
-            } for column in self.X.columns],
+            } for column in self.data_store.X.columns],
             items=[],
             hide_default_footer=False,
             disable_sort=False,
         )
+        self.data_panel = v.ExpansionPanel(  # 4320 # is enabled or disabled when no selection
+            children=[
+                v.ExpansionPanelHeader(  # 43200
+                    class_="grey lighten-3",
+                    children=["Data selected"]),
+                v.ExpansionPanelContent(  # 43201
+                    children=[self.data_table], ),
+            ])
+        self._data_panel_expanded = False
         self.widget = [
             self.title_wgt,
             v.Row(  # buttons row # 430
@@ -137,6 +143,7 @@ class Tab1:
                             'children': self.find_rules_btn
                         }],
                         children=['Find a rule to match the selection']),
+                    self.find_rule_progress,
                     self.cancel_btn,
                     self.undo_btn,
                     v.Tooltip(  # 4303
@@ -156,17 +163,7 @@ class Tab1:
             v.
             ExpansionPanels(  # tab 1 / row #3 : datatable with selected rows # 432
                 class_="d-flex flex-row",
-                children=[
-                    v.
-                    ExpansionPanel(  # 4320 # is enabled or disabled when no selection
-                        children=[
-                            v.ExpansionPanelHeader(  # 43200
-                                class_="grey lighten-3",
-                                children=["Data selected"]),
-                            v.ExpansionPanelContent(  # 43201
-                                children=[self.data_table], ),
-                        ])
-                ],
+                children=[self.data_panel],
             ),
         ]
         # get_widget(self.widget[2], "0").disabled = True  # disable datatable
@@ -175,32 +172,33 @@ class Tab1:
         self.undo_btn.on_event("click", self.undo_rules)
         self.cancel_btn.on_event("click", self.cancel_edit)
         self.validate_btn.on_event("click", self.validate_rules)
-        self.refresh_buttons()
+        self.data_panel.on_event('click', self.data_panel_changed)
+        self._refresh_buttons()
 
+    @timeit
     def initialize(self):
-        self.X_rounded = self.X.apply(format_data)
         self.vs_rules_wgt.initialize()
         self.es_rules_wgt.initialize()
 
     @property
-    def valid_selection(self):
-        return self.reference_mask.any() and not (self.reference_mask.all())
+    def _valid_selection(self) -> bool:
+        return not self.data_store.empty_selection
 
-    def refresh_selection_status(self):
-        if self.valid_selection:
-            selection_status_str_1 = f"{self.reference_mask.sum()} point selected"
-            selection_status_str_2 = f"{100 * self.reference_mask.mean():.2f}% of the  dataset"
+    @property
+    def edit_type(self) -> str:
+        return self.CREATE_RULE if self._region.num == -1 else self.EDIT_RULE
+
+    def _refresh_selection_stat_card(self):
+        if self._valid_selection:
+            selection_status_str_1 = f"{self.data_store.selection_mask.sum()} point selected"
+            selection_status_str_2 = f"{100 * self.data_store.selection_mask.mean():.2f}% of the  dataset"
         else:
             selection_status_str_1 = f"0 point selected"
             selection_status_str_2 = f"0% of the  dataset"
         self.selection_status_str_1.children = [selection_status_str_1]
         self.selection_status_str_2.children = [selection_status_str_2]
 
-    @property
-    def edit_type(self):
-        return self.CREATE_RULE if self.region.num == -1 else self.EDIT_RULE
-
-    def _update_title_txt(self):
+    def _refresh_title_txt(self):
         if self.edit_type == 'creation':
             self.title_wgt.children = [
                 v.Html(  # 44000
@@ -214,8 +212,8 @@ class Tab1:
                                        tag="h3",
                                        children=["Editing Region"])  # 450000
             region_chip_wgt = v.Chip(
-                color=self.region.color,
-                children=[str(self.region.num)],
+                color=self._region.color,
+                children=[str(self._region.num)],
             )
             self.title_wgt.children = [
                 v.Sheet(  # 45000
@@ -223,116 +221,127 @@ class Tab1:
                     children=[region_prefix_wgt, region_chip_wgt])
             ]
 
-    def reset(self):
-        self.selection_changed = False
-        region = Region(self.X)
-        self.update_region(region)
-
-    def update_region(self, region: Region):
-        self.region = region
-        self._update_title_txt()
-        self.vs_rules_wgt.change_rules(region.rules, region.mask, True)
-        self.es_rules_wgt.change_rules(RuleSet(), region.mask, True)
-        self.update_reference_mask(region.mask)
-        if self.valid_selection:
-            self.new_rules_defined(self, 'region_update', region.mask)
-
-    def update_reference_mask(self, reference_mask):
-        self.reference_mask = reference_mask
-        self.selection_changed = self.valid_selection
-        if self.X_rounded is None:
+    def _refresh_data_table(self):
+        if self.X_rounded is None or not self._data_panel_expanded:
             self.data_table.items = []
         else:
-            self.data_table.items = self.X_rounded.loc[reference_mask].to_dict(
-                "records")
-        self.refresh_selection_status()
-        self.vs_rules_wgt.update_reference_mask(self.reference_mask)
-        self.es_rules_wgt.update_reference_mask(self.reference_mask)
-        self.refresh_buttons()
+            # TODO : loader
+            if self.X_rounded is None:
+                self.X_rounded = self.data_store.X.apply(format_data)
+            self.data_table.items = self.X_rounded.loc[
+                self.data_store.selection_mask].to_dict("records")
 
-    def update_X_exp(self, X_exp: pd.DataFrame):
-        self.X_exp = X_exp
-        self.es_rules_wgt.change_underlying_dataframe(X_exp)
+    @timeit
+    def refresh_X_exp(self):
+        self.es_rules_wgt.change_underlying_dataframe(self.data_store.X_exp)
+        self.es_rules_wgt.refresh()
 
-    def refresh_buttons(self):
+    def _refresh_buttons(self):
         empty_rule_set = len(self.vs_rules_wgt.current_rules_set) == 0
         empty_history = self.vs_rules_wgt.history_size <= 1
 
         # data table
-        self.data_table.disabled = not self.valid_selection
+        self.data_table.disabled = not self._valid_selection
         # self.widget[2].children[0].disabled = not self.valid_selection
-        self.find_rules_btn.disabled = not self.valid_selection or not self.selection_changed
+        self.find_rules_btn.disabled = not self._valid_selection
         self.undo_btn.disabled = empty_history
         self.cancel_btn.disabled = empty_rule_set and empty_history
 
         has_modif = (self.vs_rules_wgt.history_size > 1) or (
             self.es_rules_wgt.history_size == 1
-            and self.region.num < 0  # do not validate a empty modif
+            and self._region.num < 0  # do not validate a empty modif
         )
         self.validate_btn.disabled = not has_modif or empty_rule_set
 
+    @timeit
+    def refresh(self):
+        self.vs_rules_wgt.refresh()
+        self.es_rules_wgt.refresh()
+        self._refresh_title_txt()
+        self._refresh_data_table()
+        self._refresh_selection_stat_card()
+        self._refresh_buttons()
+
+    @timeit
+    def reset(self):
+        self._region = Region(self.data_store.X)
+        self.data_store.reset_rules_mask()
+        self.vs_rules_wgt.change_rules(RuleSet(), True)
+        self.es_rules_wgt.change_rules(RuleSet(), True)
+        self.refresh()
+
+    @timeit
+    def update_region(self, region: Region):
+        self._region = region
+        self.data_store._rules_mask = region.mask.copy()  # type: ignore
+        self.data_store.selection_mask = region.mask.copy()
+
+        self._refresh_title_txt()
+        self.vs_rules_wgt.change_rules(region.rules, True)
+        self.es_rules_wgt.change_rules(RuleSet(), True)
+        self.refresh()
+
+    # ----------- interactions -----------------#
     @log_errors
+    @timeit
     def compute_skope_rules(self, *args):
         with Log('compute_skope_rules', 2):
-            self.selection_changed = False
+            self.find_rule_progress.indeterminate = True
+            self.find_rules_btn.disabled = True
             # compute es rules for info only
-            es_skr_rules_set, _ = skope_rules(self.reference_mask, self.X_exp,
-                                              self.variables)
-            self.es_rules_wgt.change_rules(es_skr_rules_set,
-                                           self.reference_mask, False)
+            es_skr_rules_set, _ = skope_rules(
+                self.data_store.selection_mask,
+                self.data_store.X_exp,
+                variables=self.data_store.variables)
+            self.es_rules_wgt.change_rules(es_skr_rules_set, False)
             # compute rules on vs space
 
             skr_rules_set, skr_score_dict = skope_rules(
-                self.reference_mask, self.X, self.variables)
-            skr_score_dict['target_avg'] = self.y[self.reference_mask].mean()
+                self.data_store.selection_mask,
+                self.data_store.X,
+                variables=self.data_store.variables)
+            self.data_store.rules_mask = skr_rules_set.get_matching_mask(
+                self.data_store.X)
+            skr_score_dict['target_avg'] = self.data_store.y[
+                self.data_store.selection_mask].mean()
             # init vs rules widget
-            self.vs_rules_wgt.change_rules(skr_rules_set, self.reference_mask,
-                                           False)
+            self.vs_rules_wgt.change_rules(skr_rules_set, False)
             # update widgets and hdes
-            self.new_rules_defined(self,
-                                   'skope_rule',
-                                   rules_mask=skr_rules_set.get_matching_mask(
-                                       self.X))
-            self.refresh_buttons()
+            self.refresh()
+            self.update_callback()
             stats_logger.log('find_rules', skr_score_dict)
+            self.find_rules_btn.disabled = False
+            self.find_rule_progress.indeterminate = False
 
     @log_errors
+    @timeit
     def undo_rules(self, *args):
         with Log('undo_rules', 2):
             if self.vs_rules_wgt.history_size > 0:
                 self.vs_rules_wgt.undo()
-            else:
-                self.es_rules_wgt.undo()
-            self.refresh_buttons()
+            self._refresh_buttons()
 
     @log_errors
+    @timeit
     def cancel_edit(self, *args):
         with Log('cancel_edit', 2):
-            self.update_region(Region(self.X))
-            self.update_callback(selection_mask=self.reference_mask,
-                                 rules_mask=self.reference_mask)
-            self.refresh_buttons()
+            self.reset()
+            self.update_callback()
 
+    @timeit
     @log_errors
-    def new_rules_defined(self, caller, event: str, rules_mask: pd.Series):
+    def refresh_callback(self, caller, event: str):
         """
         Called by a RulesWidget Skope rule creation or when the user wants new rules to be plotted
         The function asks the HDEs to display the rules result
         """
         stats_logger.log('rule_changed')
+        self.refresh()
         # We sent to the proper HDE the rules_indexes to render :
-        self.update_callback(selection_mask=self.reference_mask,
-                             rules_mask=rules_mask)
-
-        # sync selection between rules_widgets
-        if caller != self.vs_rules_wgt:
-            self.vs_rules_wgt.update_rule_mask(rules_mask, sync=False)
-        if caller != self.es_rules_wgt:
-            self.es_rules_wgt.update_rule_mask(rules_mask, sync=False)
-
-        self.refresh_buttons()
+        self.update_callback()
 
     @log_errors
+    @timeit
     def validate_rules(self, *args):
         with Log('validate_rules', 2):
             stats_logger.log('validate_rules')
@@ -347,8 +356,13 @@ class Tab1:
                 return
 
             # we persist the rule set in the region
-            self.region.update_rule_set(rules_set)
+            self._region.update_rule_set(rules_set)
             # we ship the region to GUI to synchronize other tab
-            self.validate_rules_callback(self.region)
+            self.validate_rules_callback(self._region)
             # we reset the tab
             self.reset()
+
+    @timeit
+    def data_panel_changed(self, *args):
+        self._data_panel_expanded = not self._data_panel_expanded
+        self._refresh_data_table()

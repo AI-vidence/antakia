@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 import ipyvuetify as v
 from antakia_core.data_handler import Rule
-from antakia_core.utils import boolean_mask, get_mask_comparison_color, compute_step
+from antakia_core.utils import boolean_mask, compute_step, timeit
 from plotly.graph_objs import Histogram, FigureWidget, Box
 
 from antakia.config import AppConfig
 from antakia.gui.graphical_elements.rule_slider import RuleSlider
+from antakia.gui.helpers.data import DataStore
 from antakia.utils.logging_utils import Log
 from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors
@@ -23,8 +24,8 @@ class RuleWidget:
     Attributes :
     """
 
-    def __init__(self, rule: Rule, X: pd.DataFrame, values_space: bool,
-                 rule_updated_callback: Callable,
+    def __init__(self, rule: Rule, data_store: DataStore, X: pd.DataFrame,
+                 values_space: bool, rule_updated_callback: Callable,
                  _reset_expanded_callback: Callable):
         '''
 
@@ -42,6 +43,7 @@ class RuleWidget:
         self.idx: float | None = None
         self.rule: Rule = rule
         self.X: pd.DataFrame = X
+        self.data_store: DataStore = data_store
         self.X_col = X.loc[:, rule.variable.column_name]
         self.values_space: bool = values_space
         self.rule_updated_callback: Callable = partial(rule_updated_callback,
@@ -51,11 +53,11 @@ class RuleWidget:
         self.display_sliders: bool = self.values_space  # enable rule edit
         self.widget = None
         self.init_mask = boolean_mask(X, True)
-        self.rule_mask = boolean_mask(X, True)
         self.selectable_mask = boolean_mask(X, True)
         self._display_mask = None
         self.type = 'auto'
         self.expanded = False
+        self.edited = True
         self._resolve_type()
 
         self._build_widget()
@@ -69,25 +71,23 @@ class RuleWidget:
 
         """
         # build slider
-        self.select_widget = self._get_select_widget()
+        self.select_widget = None
         # build figure
-        self._build_figure()
-
+        self.figure = None
         self.title = v.ExpansionPanelHeader(class_="grey lighten-4",
                                             children=[self._get_panel_title()])
 
         # root_widget is an ExpansionPanel
         self.widget = v.ExpansionPanel(children=[
             self.title,
-            v.ExpansionPanelContent(
-                children=[v.Col(children=[self.select_widget, self.figure], )
-                          ]),
+            v.ExpansionPanelContent(children=[]),
         ])
         self.widget.on_event('click', self.panel_changed_callback)
 
         # The variable name bg (ExpansionPanelHeader) is light blue
         # get_widget(self.root_widget, "0").class_ = "blue lighten-4"
 
+    @timeit
     def _resolve_type(self):
         if self.type == 'auto':
             if self.X_col.nunique() > 15:
@@ -95,6 +95,7 @@ class RuleWidget:
             else:
                 self.type = 'histogram'
 
+    @timeit
     def _build_figure(self):
         """
         draw the histograms
@@ -102,7 +103,7 @@ class RuleWidget:
         -------
 
         """
-        mask_color, colors_info = self._get_colors()
+        _, colors_info = self._get_colors()
         if self.type == 'histogram':
             base_args = {
                 'bingroup': 1,
@@ -111,10 +112,7 @@ class RuleWidget:
             h = []
             for name, color in colors_info.items():
                 h.append(
-                    Histogram(name=name,
-                              x=self.X_col[self.display_mask
-                                           & (mask_color == color)],
-                              marker_color=color,
+                    Histogram(name=name, x=[], marker_color=color,
                               **base_args))
             self.figure = FigureWidget(data=h)
             self.figure.update_layout(
@@ -133,7 +131,7 @@ class RuleWidget:
         else:
             swarm_plots = []
             for name, color in colors_info.items():
-                fig = self.get_swarm_plot(color, mask_color, name)
+                fig = self._get_swarm_plot(color, name)
                 # fig.update_yaxes(showticklabels=False)
                 swarm_plots.append(fig)
             self.figure = FigureWidget(data=swarm_plots)
@@ -180,53 +178,38 @@ class RuleWidget:
             }
         })
 
-    def get_swarm_plot(self, color, mask_color, name):
+    @timeit
+    def _get_swarm_plot(self, color, name):
         box = Box({
-            'alignmentgroup':
-            'True',
-            'boxpoints':
-            'all',
-            'fillcolor':
-            'rgba(255,255,255,0)',
-            'hoveron':
-            'points',
+            'alignmentgroup': 'True',
+            'boxpoints': 'all',
+            'fillcolor': 'rgba(255,255,255,0)',
+            'hoveron': 'points',
             'hovertemplate':
             f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
-            'jitter':
-            1,
-            'legendgroup':
-            name,
+            'jitter': 1,
+            'legendgroup': name,
             'line': {
                 'color': 'rgba(255,255,255,0)'
             },
             'marker': {
                 'color': color
             },
-            'name':
-            name,
-            'offsetgroup':
-            name,
-            'orientation':
-            'h',
-            'pointpos':
-            0,
-            'showlegend':
-            True,
-            'x':
-            self.X_col[self.display_mask & (mask_color == color)],
-            'x0':
-            ' ',
-            'xaxis':
-            'x',
-            'y':
-            self.selectable_mask[self.display_mask & (mask_color == color)],
-            'y0':
-            ' ',
-            'yaxis':
-            'y'
+            'name': name,
+            'offsetgroup': name,
+            'orientation': 'h',
+            'pointpos': 0,
+            'showlegend': True,
+            'x': [],
+            'x0': ' ',
+            'xaxis': 'x',
+            'y': [],
+            'y0': ' ',
+            'yaxis': 'y'
         })
         return box
 
+    @timeit
     def _get_panel_title(self):
         """
         compute and display accordion title
@@ -236,6 +219,7 @@ class RuleWidget:
         """
         return repr(self.rule)
 
+    @timeit
     def _update_panel_title(self):
         if self.rule.rule_type == -1:
             self.title.class_ = "grey lighten-4"
@@ -243,6 +227,7 @@ class RuleWidget:
             self.title.class_ = "blue lighten-4"
         self.title.children = [self._get_panel_title()]
 
+    @timeit
     def _get_select_widget(self):
         """
         builds the widget to edit the rule
@@ -277,6 +262,7 @@ class RuleWidget:
         else:
             return v.Col()
 
+    @timeit
     def _get_select_widget_values(
             self) -> tuple[float | None, float | None] | list[str]:
         """
@@ -292,6 +278,7 @@ class RuleWidget:
 
     # --------------- callbacks ------------------- #
     @log_errors
+    @timeit
     def _widget_value_changed(self, widget, event, data):
         """
         callback called when the user edits a value (called by the widget)
@@ -317,9 +304,16 @@ class RuleWidget:
         new_rule = Rule(self.rule.variable, min_, self.rule.includes_min, max_,
                         self.rule.includes_max, cat_values)
         self.rule = new_rule
+
+        if self.values_space:
+            self.data_store.rules_mask = self.selectable_mask & self.rule(
+                self.X_col)
+
         self._update_panel_title()
+        self._update_data()
         self.rule_updated_callback(new_rule)
 
+    @timeit
     def reinit_rule(self, rule: Rule, init_mask: pd.Series):
         """
         edits the rule of the widget and changes reference selection
@@ -338,11 +332,10 @@ class RuleWidget:
 
         self.rule = rule
         self.init_mask = init_mask
+        self.edited = True
 
-    def update(self,
-               new_rules_mask: pd.Series,
-               selectable_mask: pd.Series,
-               rule: Rule = None):
+    @timeit
+    def update(self, selectable_mask: pd.Series, rule: Rule = None):
         """
             used to update the display (sliders and histogram) to match the new rule
             (called from outside th object to synchronize it)
@@ -350,57 +343,50 @@ class RuleWidget:
 
         if rule is not None:
             self.rule = rule
-        self.rule_mask = new_rules_mask
         self.selectable_mask = selectable_mask
+        self.edited = True
 
         self._update_panel_title()
-        self.update_figure()
+        self._update_expansion_panel()
 
-    def update_figure(self):
+    @timeit
+    def _update_expansion_panel(self):
         if self.expanded:
+            if self.select_widget is None:
+                self.select_widget = self._get_select_widget()
+                self._build_figure()
+            self.widget.children[1].children = [
+                v.Col(children=[self.select_widget, self.figure])
+            ]
+
             if self.display_sliders:
                 min_val, max_val = self._get_select_widget_values()
                 self.slider.set_value(min_val, max_val)
-            mask_color, colors_info = self._get_colors()
-            with self.figure.batch_update():
-                for i, color in enumerate(colors_info.values()):
-                    self.figure.data[i].x = self.X_col[self.display_mask
-                                                       & (mask_color == color)]
-                    self.figure.data[i].y = self.selectable_mask[
-                        self.display_mask & (mask_color == color)]
-
-    def _get_colors(self):
-        if self.init_mask.all() or not self.init_mask.any():
-            mask_color, colors_info = get_mask_comparison_color(
-                self.rule_mask, self.rule_mask)
+            if self.edited:
+                self._update_data()
         else:
-            mask_color, colors_info = get_mask_comparison_color(
-                self.rule_mask, self.init_mask)
+            self.widget.children[1].children = []
+
+    @timeit
+    def _update_data(self):
+        mask_color, colors_info = self._get_colors()
+        with self.figure.batch_update():
+            for i, color in enumerate(colors_info.values()):
+                to_display = self.data_store.display_mask & (mask_color
+                                                             == color)
+                self.figure.data[i].x = self.X_col[to_display]
+                self.figure.data[i].y = self.selectable_mask[to_display]
+        self.edited = False
+
+    @timeit
+    def _get_colors(self):
+        mask_color = self.data_store.rule_selection_color
+        colors_info = self.data_store.rule_selection_color_legend
         return mask_color, colors_info
 
-    @property
-    def display_mask(self) -> pd.Series:
-        """
-        mask should be applied on each display (x,y,z,color, selection)
-        """
-        if self.X is None:
-            raise NotInitialized()
-        if self._display_mask is None:
-            limit = AppConfig.ATK_MAX_DOTS
-            if len(self.X) > limit:
-                self._mask = pd.Series([False] * len(self.X),
-                                       index=self.X.index)
-                indices = np.random.choice(self.X.index,
-                                           size=limit,
-                                           replace=False)
-                self._mask.loc[indices] = True
-            else:
-                self._mask = pd.Series([True] * len(self.X),
-                                       index=self.X.index)
-        return self._mask
-
+    @timeit
     def panel_changed_callback(self, *args):
         with Log('panel_changed_callback', 2):
             self.expanded = not self.expanded
             self._reset_expanded_callback()
-            self.update_figure()
+            self._update_expansion_panel()

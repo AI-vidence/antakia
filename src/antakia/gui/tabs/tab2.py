@@ -3,11 +3,11 @@ from typing import Callable
 
 import ipyvuetify as v
 import pandas as pd
-from antakia_ac.auto_cluster import AutoCluster
+from auto_cluster import AutoCluster
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
-from antakia_core.data_handler import RegionSet
 
 from antakia.config import AppConfig
+from antakia.gui.helpers.data import DataStore
 from antakia.gui.graphical_elements.color_table import ColorTable
 from antakia.gui.high_dim_exp.projected_values_selector import ProjectedValuesSelector
 from antakia.gui.helpers.progress_bar import ProgressBar
@@ -25,18 +25,14 @@ class Tab2:
         ['Region', 'Rules', 'Average', 'Points', '% dataset', 'Sub-model']
     ]
 
-    def __init__(self, variables, X: pd.DataFrame,
-                 vs_pvs: ProjectedValuesSelector,
-                 es_pvs: ProjectedValuesSelector, region_set: RegionSet,
-                 edit_callback: Callable, update_callback: Callable,
-                 substitute_callback: Callable):
-        self.X = X
+    def __init__(self, data_store: DataStore, vs_pvs: ProjectedValuesSelector,
+                 es_pvs: ProjectedValuesSelector, edit_callback: Callable,
+                 update_callback: Callable, substitute_callback: Callable):
+        self.data_store = data_store
         self.vs_pvs = vs_pvs
         self.es_pvs = es_pvs
-        self.variables = variables
-        self.region_set = region_set
         self.edit_callback = partial(edit_callback, self)
-        self.update_callback = partial(update_callback, self, self.region_set)
+        self.update_callback = partial(update_callback, self)
         self.substitute_callback = partial(substitute_callback, self)
         self.auto_cluster_running = False
 
@@ -298,6 +294,10 @@ class Tab2:
         self.region_table_wgt.selected = value
         self.update_btns()
 
+    @property
+    def region_set(self):
+        return self.data_store.region_set
+
     def update_stats(self):
         region_stats = self.region_set.stats()
         str_stats = [
@@ -395,7 +395,7 @@ class Tab2:
             es_proj_3d_df = self.es_pvs.get_current_X_proj(
                 3, progress_callback=pb2)
 
-            ac = AutoCluster(self.X, pb3)
+            ac = AutoCluster(self.data_store.X, pb3)
 
             found_regions = ac.compute(
                 vs_proj_3d_df.loc[not_rules_indexes_list],
@@ -506,7 +506,8 @@ class Tab2:
                     mask |= region.mask
 
             # compute skope rules
-            skr_rules_list, _ = skope_rules(mask, self.X, self.variables)
+            skr_rules_list, _ = skope_rules(mask, self.data_store.X,
+                                            self.data_store.variables)
 
             # delete regions
             for region in selected_regions:

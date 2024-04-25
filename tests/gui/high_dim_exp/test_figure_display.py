@@ -6,17 +6,18 @@ import antakia_core.utils as utils
 
 from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.utils.dummy_datasets import generate_corner_dataset
+from tests.antakia_test_case import AntakiaTestCase
 
 trace_name = FigureDisplay.trace_name
 
 
-class TestFigureDisplay(TestCase):
+class TestFigureDisplay(AntakiaTestCase):
 
     def setUp(self):
-        self.X, self.y = generate_corner_dataset(10)
-        self.X = pd.DataFrame(self.X)
-        self.y = pd.DataFrame(self.y)
-        self.fd = FigureDisplay(self.X, self.y, lambda x: x + 1, 'VS')
+        super().setUp()
+        self.fd = FigureDisplay(self.data_store, lambda x: x + 1, 'VS')
+        self.X_proj = pd.DataFrame(self.data_store.X.values,
+                                   index=self.data_store.X.index)
 
     def test_trace_name(self):
         assert trace_name(0) == 'values trace'
@@ -28,12 +29,12 @@ class TestFigureDisplay(TestCase):
     def test_init(self):
         fd = self.fd
         assert fd.active_trace == 0
-        assert fd._mask is None
+        assert fd._display_mask is None
         # assert fd.selection_changed
         # assert fd.widget == v.Container()
         assert fd.widget.class_ == "flex-fill"
         assert fd._selection_mode == 'lasso'
-        assert fd._current_selection.equals(utils.boolean_mask(fd.X, True))
+        assert fd.data_store is self.data_store
         assert fd.first_selection
         assert fd._visible == [True, False, False, False]
         assert fd._colors == [None, None, None, None]
@@ -41,22 +42,23 @@ class TestFigureDisplay(TestCase):
         assert fd.figure_3D is None
         assert not fd.initialized
 
-        fd = FigureDisplay(None, self.y, lambda x: x + 1, 'VS')
-        assert fd._current_selection is None
+        self.fd.initialize(self.X_proj)
+        assert fd.data_store.selection_mask.equals(
+            utils.boolean_mask(fd.figure_data, True))
 
     def test_set_get_figure(self):
+        self.fd.initialize(self.X_proj)
         fd = self.fd
-        fd.figure = 5
-
-        fd1 = FigureDisplay(None, self.y, lambda x: x + 1, 'VS')
-        fd1.figure = 5
+        fd1 = FigureDisplay(self.data_store, lambda x: x + 1, 'VS')
 
     def test_initialize_create_figure(self):
+        self.fd.initialize(self.X_proj)
         pass
 
     def test_get_X(self):
+        self.fd.initialize(self.X_proj)
         fd = self.fd
-        fd.get_X(True)
 
     def test_display_region(self):
+        self.fd.initialize(self.X_proj)
         fd = self.fd

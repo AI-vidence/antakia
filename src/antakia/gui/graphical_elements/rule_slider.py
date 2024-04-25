@@ -2,6 +2,7 @@ from functools import partial
 
 import ipyvuetify as v
 import numpy as np
+from antakia_core.utils import timeit
 
 from antakia.utils.logging_utils import Log
 
@@ -59,113 +60,99 @@ class RuleSlider:
             color='green',
             track_color='red')
 
-        self.range_slider.on_event('end', self._update_txt)
-        self.range_slider.on_event('start', self._update_txt)
+        # self.range_slider.on_event('start', self._update_from_min_slider)
+        self.range_slider.on_event('end', self._update_from_slider)
 
-        self.max_input.on_event('blur', self._update_slider_and_txt)
-        self.max_input.on_event('keyup.enter', self._update_slider_and_txt)
-        self.min_input.on_event('blur', self._update_slider_and_txt)
-        self.min_input.on_event('keyup.enter', self._update_slider_and_txt)
+        self.min_input.on_event('blur', self._update_from_min_txt)
+        self.min_input.on_event('keyup.enter', self._update_from_min_txt)
+        self.max_input.on_event('blur', self._update_from_max_txt)
+        self.max_input.on_event('keyup.enter', self._update_from_max_txt)
 
         self.widget = v.Row(
             children=[self.min_input, self.range_slider, self.max_input],
             align="center")
 
-    def _update_txt(self,
-                    wgt=None,
-                    event: str | None = None,
-                    data: tuple[float, float] | None = None,
-                    *,
-                    callback=True):
-        """
-        method to update text field values - called by slider
-        Parameters
-        ----------
-        wgt
-        event
-        data : new range value from slider - data contains always two float
+    def _display(self):
+        self.min_input.v_model = self.value[0]
+        self.max_input.v_model = self.value[1]
 
-        Returns
-        -------
+        min_val = self.value[0] if self.value[0] is not None else self.range[0]
+        max_val = self.value[1] if self.value[1] is not None else self.range[1]
+        self.range_slider.v_model = (min_val, max_val)
 
-        """
-        with Log('rule_slider_update_txt', 2):
-            if data is not None:
-                if data[1] >= self.range[1]:
-                    self.value[1] = None
-                else:
-                    self.value[1] = float(data[1])
-                if data[0] <= self.range[0]:
-                    self.value[0] = None
-                else:
-                    self.value[0] = float(data[0])
-            self.max_input.v_model = self.value[1]
-            self.min_input.v_model = self.value[0]
-            if callback:
-                self.change_callback(self.value)
-
-    def _update_slider(self, *args, callback=True):
-        """
-        method to update slider values - called by txt fields
-        Parameters
-        ----------
-        args
-
-        Returns
-        -------
-
-        """
-        # update self.value
-        # update min
+    def _update_min_txt(self):
         min_val = self.min_input.v_model
-        if not min_val:
-            min_val = None
-        else:
-            try:
+        try:
+            if not min_val:
+                min_val = None
+            else:
                 min_val = float(min_val)
                 if min_val < self.range[0]:
                     min_val = None
-                    self.min_input.v_model = None
-            except ValueError:
-                min_val = self.value[0]
-        self.value[0] = min_val
-        # update max
+            self.value[0] = min_val
+        except ValueError:
+            pass
+
+    def _update_max_txt(self):
         max_val = self.max_input.v_model
-        if not max_val:
-            max_val = None
-        else:
-            try:
+        try:
+            if not max_val:
+                max_val = None
+            else:
                 max_val = float(max_val)
                 if max_val > self.range[1]:
                     max_val = None
-                    self.max_input.v_model = None
-            except ValueError:
-                max_val = self.value[1]
-        self.value[1] = max_val
-        # compute range
-        range_ = self.value[:]
-        if range_[0] is None:
-            range_[0] = self.range[0]
-        if range_[1] is None:
-            range_[1] = self.range[1]
-        # update slider
-        self.range_slider.v_model = range_
-        if callback:
-            self.change_callback(self.value)
+            self.value[1] = max_val
+        except ValueError:
+            pass
 
-    def _update_slider_and_txt(self, *args, callback=True):
-        """
-        method to update slider and txt fields
-        Returns
-        -------
+    def _update_from_min_txt(self, *args):
+        self._update_min_txt()
+        self._display()
+        self.change_callback(self.value)
 
-        """
-        with Log('rule_update_slider_and_txt', 2):
-            self._update_slider(callback=False)
-            self._update_txt(callback=False)
-            if callback:
-                self.change_callback(self.value)
+    def _update_from_max_txt(self, *args):
+        self._update_max_txt()
+        self._display()
+        self.change_callback(self.value)
 
+    def _update_min_slider(self):
+        min_val = self.range_slider.v_model[0]
+        try:
+            min_val = float(min_val)
+            if min_val <= self.range[0]:
+                min_val = None
+            self.value[0] = min_val
+        except ValueError:
+            pass
+
+    def _update_max_slider(self):
+        max_val = self.range_slider.v_model[1]
+        try:
+            max_val = float(max_val)
+            if max_val >= self.range[1]:
+                max_val = None
+            self.value[1] = max_val
+        except ValueError:
+            pass
+
+    def _update_from_slider(self, *args):
+        if self.value[0] is not None and self.value[
+                0] != self.range_slider.v_model[0]:
+            self._update_min_slider()
+        elif self.value[0] is None and self.range_slider.v_model[
+                0] >= self.range[0]:
+            self._update_min_slider()
+        if self.value[1] is not None and self.value[
+                1] != self.range_slider.v_model[1]:
+            self._update_max_slider()
+        elif self.value[1] is None and self.range_slider.v_model[
+                1] <= self.range[1]:
+            self._update_max_slider()
+        self._display()
+        self.change_callback(self.value)
+
+    @timeit
     def set_value(self, min_val=None, max_val=None):
         """
 
@@ -178,11 +165,9 @@ class RuleSlider:
         -------
 
         """
-        if min_val == -np.inf:
+        if min_val <= self.range[0]:
             min_val = None
-        if max_val == np.inf:
+        if max_val >= self.range[1]:
             max_val = None
-
-        self.max_input.v_model = max_val
-        self.min_input.v_model = min_val
-        self._update_slider_and_txt(callback=False)
+        self.value = [min_val, max_val]
+        self._display()
