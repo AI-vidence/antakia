@@ -46,9 +46,9 @@ class Tab3:
         -------
 
         """
-        self.validate_model_btn = v.Btn(  # 4501000
+        self.validate_model_btn = v.Btn(
             v_on='tooltip.on',
-            class_="ma-1 mt-12 green white--text",
+            class_="ma-1 green white--text",
             children=[
                 v.Icon(
                     class_="mr-2",
@@ -57,13 +57,13 @@ class Tab3:
                 "Validate sub-model",
             ],
         )
-        self.model_table = SubModelTable(  # 45001
+        self.model_table = SubModelTable(
             headers=self.headers,
             items=[],
         )
         self.region_prefix_wgt = v.Html(class_="mr-2",
                                         tag="h3",
-                                        children=["Region"])  # 450000
+                                        children=["Region"])
         self.region_chip_wgt = v.Chip(
             color=BASE_COLOR,
             children=["-"],
@@ -80,51 +80,58 @@ class Tab3:
             indeterminate=True,
             color="blue",
         )
-        self.widget = [
-            v.Row(  # 450
+        self.widget = [v.Col(children=[
+            v.Row(  #Row1 : Title and validate button
                 class_="d-flex",
                 children=[
-                    v.Col(  # Col1 - sub model table #4500
-                        class_="col-5",
+                    v.Col(  # Col1 - region table
+                        class_="col-9",
                         children=[
-                            v.Sheet(  # 45000
+                            v.Sheet(
                                 class_="ma-1 d-flex flex-row align-center",
                                 children=[
                                     self.region_prefix_wgt,
                                     self.region_chip_wgt, self.region_title
-                                ]),
-                            self.model_table
+                                ])
                         ]),
-                    v.Col(  # Col2 - buttons #4501
-                        class_="col-2",
+                    v.Col(  # Col2 - buttons
+                        class_="col-3",
                         children=[
                             v.Row(
                                 class_="flex-column",
                                 children=[
-                                    v.Tooltip(  # 45010
+                                    v.Tooltip(
                                         bottom=True,
                                         v_slots=[{
                                             'name':
-                                            'activator',
+                                                'activator',
                                             'variable':
-                                            'tooltip',
+                                                'tooltip',
                                             'children':
-                                            self.validate_model_btn,
+                                                self.validate_model_btn,
                                         }],
                                         children=['Chose this submodel'])
-                                ]),
-                            v.Row(class_="flex-column",
-                                  children=[self.progress_wgt])
+                                ])
                         ]),
-                    v.Col(  # Col3 - model explorer #4502
-                        class_="col-5",
-                        children=[self.model_explorer.widget]),
-                ])
+                ]),
+            v.Row( #Row2 : Progress bar
+                class_ = ' flex-column align-center', children = [v.Col(class_="col-5",
+                  children=[self.progress_wgt])]),
+            v.Row(#Row3 : Model table and explanations table
+                children=[v.Col(class_="col-6", children=[self.model_table]),
+                          v.Col(class_="col-6", children=[self.model_explorer.widget])])
+
+        ])
         ]
+        self.progressbar_widget = self.widget[0].children[1]
+        self.model_table_widget = self.widget[0].children[2]
+
+        self.model_table_widget.hide()
+
         # We wire a select event on the 'substitution table' :
         self.model_table.set_callback(self._sub_model_selected_callback)
 
-        # We wire a ckick event on the "validate sub-model" button :
+        # We wire a click event on the "validate sub-model" button :
         self.validate_model_btn.on_event("click", self._validate_sub_model)
         self.update()
 
@@ -156,6 +163,8 @@ class Tab3:
             # show tab 3 (and update)
             self.region.train_substitution_models(
                 task_type=self.data_store.problem_category)
+            self.progressbar_widget.hide() #hides the progress bar widget once submodels trained
+            self.model_table_widget.show() #displays the submodel table once submodels trained
 
             self.progress_bar(100)
             self.substitution_model_training = False
@@ -208,7 +217,7 @@ class Tab3:
             # we set to selected model if any
             self.model_table.selected = [{
                 'Sub-model':
-                self.region.interpretable_models.selected_model
+                    self.region.interpretable_models.selected_model
             }]
             self.model_explorer.update_selected_model(
                 self.region.get_selected_model(), self.region)
@@ -303,3 +312,6 @@ class Tab3:
             self.selected_sub_model = []
             # Show tab 2
             self.validate_callback()
+            self.progressbar_widget.show()  # displays the progress bar widget in preparation for the next submodel training
+            self.model_table_widget.hide()  # hides the submodel table
+
