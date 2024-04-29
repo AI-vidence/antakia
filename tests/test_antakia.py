@@ -225,17 +225,17 @@ actions = {
     'change_tab': (change_tab, range(3)),
     'select_points': (select_points, range(2)),
     'unselect': (unselect, range(2)),
-    'find_rules': (find_rules, ),
-    'validate_rules': (validate_rules, ),
-    'auto_cluster': (auto_cluster, ),
+    'find_rules': (find_rules,),
+    'validate_rules': (validate_rules,),
+    'auto_cluster': (auto_cluster,),
     'toggle_select_region': (toggle_select_region, range(4)),
-    'subdivide': (subdivide, ),
-    'merge': (merge, ),
-    'edit': (edit, ),
-    'clear_selection': (clear_region_selection, ),
-    'substitute': (substitute, ),
+    'subdivide': (subdivide,),
+    'merge': (merge,),
+    'edit': (edit,),
+    'clear_selection': (clear_region_selection,),
+    'substitute': (substitute,),
     'select_model': (select_model, range(10)),
-    'validate_model': (validate_model, )
+    'validate_model': (validate_model,)
 }
 
 
