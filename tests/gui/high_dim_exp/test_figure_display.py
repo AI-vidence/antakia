@@ -8,7 +8,7 @@ from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.utils.dummy_datasets import generate_corner_dataset
 from tests.antakia_test_case import AntakiaTestCase
 
-trace_name = FigureDisplay.trace_name
+# trace_name = FigureDisplay.trace_name
 
 
 class TestFigureDisplay(AntakiaTestCase):
@@ -18,12 +18,12 @@ class TestFigureDisplay(AntakiaTestCase):
         self.fd = FigureDisplay(self.data_store, lambda x: x + 1, 'VS')
         self.X_proj = pd.DataFrame(self.data_store.X.values, index=self.data_store.X.index)
 
-    def test_trace_name(self):
-        assert trace_name(0) == 'values trace'
-        assert trace_name(1) == 'rules trace'
-        assert trace_name(2) == 'regionset trace'
-        assert trace_name(3) == 'region trace'
-        assert trace_name(8) == 'unknown trace'
+    # def test_trace_name(self):
+    #     assert trace_name(0) == 'values trace'
+    #     assert trace_name(1) == 'rules trace'
+    #     assert trace_name(2) == 'regionset trace'
+    #     assert trace_name(3) == 'region trace'
+    #     assert trace_name(8) == 'unknown trace'
 
     def test_init(self):
         fd = self.fd

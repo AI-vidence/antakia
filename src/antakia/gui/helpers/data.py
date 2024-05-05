@@ -27,6 +27,7 @@ class DataStore:
         self.problem_category = problem_category
         self._y_pred = None
         self.score = score
+        self.colors = y
 
         self._selection_mask = boolean_mask(X, True)
         self.empty_selection = True

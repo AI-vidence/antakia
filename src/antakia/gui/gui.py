@@ -378,14 +378,15 @@ class GUI:
         self.disable_hde(caller, 'dimension_changed')
 
     @log_errors
-    def color_update_callback(self, caller, color):
+    def color_update_callback(self, caller):
         """
         Called with the user clicks on the colorChoiceBtnToggle
         Allows change the color of the dots
         """
-        self.vs_hde.figure.set_color(color, 0)
-        self.es_hde.figure.set_color(color, 0)
-        self.select_tab(0, msg='color')
+        self.vs_hde.figure.refresh_color()
+        self.es_hde.figure.refresh_color()
+        #AJOUTER ICI L'UPDATE DU RULE WIDGET
+        # self.select_tab(0, msg='color')
 
     # ==================== TAB handling ==================== #
 
@@ -415,8 +416,9 @@ class GUI:
                 self.select_tab(2, msg='no region selected')
         if not front:
             self.widget.children[4].v_model = max(tab - 1, 0)
-        self.vs_hde.set_tab(tab)
-        self.es_hde.set_tab(tab)
+
+        self.color_switch.update_color(tab)
+        self.color_switch.update_btn(tab)
         self.tab_value = tab
         self.disable_hde(self, 'select_tab')
 
