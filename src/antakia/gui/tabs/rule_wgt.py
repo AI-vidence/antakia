@@ -352,13 +352,6 @@ class RuleWidget:
     @timeit
     def _update_expansion_panel(self):
         if self.expanded:
-            if self.select_widget is None:
-                self.select_widget = self._get_select_widget()
-                self._build_figure()
-            self.widget.children[1].children = [
-                v.Col(children=[self.select_widget, self.figure])
-            ]
-
             if self.display_sliders:
                 min_val, max_val = self._get_select_widget_values()
                 self.slider.set_value(min_val, max_val)
