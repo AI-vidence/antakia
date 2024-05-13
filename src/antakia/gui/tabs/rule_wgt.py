@@ -40,6 +40,7 @@ class RuleWidget:
         selectable_mask : list of point that could be selected using the current rule
         rule_updated_callback : callable called on update
         '''
+        self.display_sliders: bool = values_space  # enable rule edit
         self.idx: float | None = None
         self.rule: Rule = rule
         self.X: pd.DataFrame = X
@@ -50,7 +51,6 @@ class RuleWidget:
                                                        self, 'updated')
         self._reset_expanded_callback = partial(_reset_expanded_callback, self,
                                                 'expanded_switch', {})
-        self.display_sliders: bool = self.values_space  # enable rule edit
         self.widget = None
         self.init_mask = boolean_mask(X, True)
         self.selectable_mask = boolean_mask(X, True)
@@ -71,9 +71,9 @@ class RuleWidget:
 
         """
         # build slider
-        self.select_widget = None
+        self.select_widget = self._get_select_widget()
         # build figure
-        self.figure = None
+        self._build_figure()
         self.title = v.ExpansionPanelHeader(class_="grey lighten-4",
                                             children=[self._get_panel_title()])
 
@@ -357,6 +357,7 @@ class RuleWidget:
                 self.slider.set_value(min_val, max_val)
             if self.edited:
                 self._update_data()
+            self.widget.children[1].children = [self.slider.widget, self.figure]
         else:
             self.widget.children[1].children = []
 
