@@ -100,14 +100,26 @@ class ColorSwitch:
 
         self.widget.on_event("change", self.switch_color)
 
-    def update_color(self, tab):
+    def update_color(self, tab : int, event : str):
+        value = "y"
+        if event == 'tab change':
+            if tab == 1:
+                value = "y"
+            elif tab == 2:
+                value = "region"
+            elif tab == 3:
+                value = "y"
+
+        # elif event == 'color selected':
 
 
-        self.update_callback() #refresh color of ES VS and Rule widget
+
+
         self.update_btn(value)
         self.switch_color(value = value)
+        self.update_callback() #refresh color of ES VS and Rule widget
     @log_errors
-    def switch_color(self, widget, event, value):
+    def switch_color(self, value, widget=None):
         """
         Called with the user clicks on the colorChoiceBtnToggle
         Allows change the color of the dots
@@ -129,7 +141,6 @@ class ColorSwitch:
                 self.data_store.colors = self.data_store.rule_selection_color
             elif value == "region":
                 self.data_store.colors = self.data_store.colors
-
 
 
     def update_btn(self, value):

@@ -417,8 +417,7 @@ class GUI:
         if not front:
             self.widget.children[4].v_model = max(tab - 1, 0)
 
-        self.color_switch.update_color(tab)
-        self.color_switch.update_btn(tab)
+        self.color_switch.update_color(tab, 'tab change' )
         self.tab_value = tab
         self.disable_hde(self, 'select_tab')
 
