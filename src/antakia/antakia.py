@@ -92,8 +92,8 @@ class AntakIA:
                         X: pd.DataFrame,
                         y: pd.Series,
                         model,
-                        X_exp: pd.DataFrame = None,
-                        X_test: pd.DataFrame = None,
+                        X_exp: pd.DataFrame | None = None,
+                        X_test: pd.DataFrame | None = None,
                         problem_category: str = 'auto',
                         score: Callable | str = 'auto',
                         variables: DataVariables | List[Dict[str, Any]]

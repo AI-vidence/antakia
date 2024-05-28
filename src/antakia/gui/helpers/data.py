@@ -17,6 +17,7 @@ class DataStore:
                  y_test: pd.Series | None, model,
                  problem_category: ProblemCategory, score: Callable | str):
         self.X = X
+        self.X_scaled: pd.DataFrame | None = None
         self.user_x_exp = X_exp
         self._X_exp = X_exp
         self.variables = variables
@@ -38,7 +39,7 @@ class DataStore:
         self.region_set = ModelRegionSet(self.X, self.y, self.X_test,
                                          self.y_test, self.model, self.score)
         self.pv_bank = ProjectedValueBank(self.y)
-        self._display_mask = None
+        self._display_mask: pd.Series | None = None
 
     @property
     def y_pred(self):
@@ -67,7 +68,7 @@ class DataStore:
     def X_exp(self, explanation_dataframe):
         self._X_exp = explanation_dataframe
         self._selection_mask = boolean_mask(self.X, True)
-        self._rule_mask = boolean_mask(self.X, True)
+        self._rules_mask = boolean_mask(self.X, True)
         self._compute_rule_selection_color()
 
     @property
@@ -91,7 +92,7 @@ class DataStore:
                 self._rules_mask, self._selection_mask)
 
     @property
-    def rules_mask(self):
+    def rules_mask(self) -> pd.Series:
         return self._rules_mask
 
     @rules_mask.setter

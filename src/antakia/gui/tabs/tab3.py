@@ -217,7 +217,7 @@ class Tab3:
             # we set to selected model if any
             self.model_table.selected = [{
                 'Sub-model':
-                    self.region.interpretable_models.selected_model
+                self.region.interpretable_models.selected_model
             }]
             self.model_explorer.update_selected_model(
                 self.region.get_selected_model(), self.region)
@@ -314,4 +314,3 @@ class Tab3:
             self.validate_callback()
             self.progressbar_widget.show()  # displays the progress bar widget in preparation for the next submodel training
             self.model_table_widget.hide()  # hides the submodel table
-

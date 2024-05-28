@@ -16,7 +16,8 @@ class TestFigureDisplay(AntakiaTestCase):
     def setUp(self):
         super().setUp()
         self.fd = FigureDisplay(self.data_store, lambda x: x + 1, 'VS')
-        self.X_proj = pd.DataFrame(self.data_store.X.values, index=self.data_store.X.index)
+        self.X_proj = pd.DataFrame(self.data_store.X.values,
+                                   index=self.data_store.X.index)
 
     # def test_trace_name(self):
     #     assert trace_name(0) == 'values trace'
@@ -42,7 +43,8 @@ class TestFigureDisplay(AntakiaTestCase):
         assert not fd.initialized
 
         self.fd.initialize(self.X_proj)
-        assert fd.data_store.selection_mask.equals(utils.boolean_mask(fd.figure_data, True))
+        assert fd.data_store.selection_mask.equals(
+            utils.boolean_mask(fd.figure_data, True))
 
     def test_set_get_figure(self):
         self.fd.initialize(self.X_proj)

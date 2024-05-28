@@ -55,7 +55,7 @@ class FigureDisplay:
         # callback to notify gui that the selection has changed
         self.selection_changed = partial(selection_changed, self)
         self.data_store = data_store
-        self.figure_data = None
+        self.figure_data: pd.DataFrame | None = None
 
         self.space = space
 
@@ -248,7 +248,7 @@ class FigureDisplay:
 
 
     @timeit
-    def update_X(self, X: pd.DataFrame):
+    def update_X(self, X: pd.DataFrame | None):
         """
         changes the underlying data - update the data used in display and dimension is necessary
         Parameters

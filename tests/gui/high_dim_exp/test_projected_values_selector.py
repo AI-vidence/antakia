@@ -29,7 +29,6 @@ class TestProjectedValuesSelector(TestCase):
         assert isinstance(pvs.widget, Widget)
         assert isinstance(pvs.progress_bar, ProgressBar)
         assert pvs.projected_value is None
-        assert pvs.X is None
         assert pvs.update_callback is self.callable
         assert pvs.space == self.space
         assert pvs.pv_bank is self.pv_bank

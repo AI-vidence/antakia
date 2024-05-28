@@ -257,6 +257,7 @@ class Tab1:
     def refresh(self):
         self.vs_rules_wgt.refresh()
         self.es_rules_wgt.refresh()
+        self._refresh_title_txt()
         self._refresh_data_table()
         self._refresh_selection_stat_card()
         self._refresh_buttons()
@@ -272,8 +273,8 @@ class Tab1:
     @timeit
     def update_region(self, region: Region):
         self._region = region
-        self.data_store.rule_mask = region.mask
-        self.data_store.selection_mask = region.mask
+        self.data_store._rules_mask = region.mask.copy()  # type: ignore
+        self.data_store.selection_mask = region.mask.copy()
 
         self._refresh_title_txt()
         self.vs_rules_wgt.change_rules(region.rules, True)
@@ -288,15 +289,17 @@ class Tab1:
             self.find_rule_progress.indeterminate = True
             self.find_rules_btn.disabled = True
             # compute es rules for info only
-            es_skr_rules_set, _ = skope_rules(self.data_store.selection_mask,
-                                              self.data_store.X_exp,
-                                              self.data_store.variables)
+            es_skr_rules_set, _ = skope_rules(
+                self.data_store.selection_mask,
+                self.data_store.X_exp,
+                variables=self.data_store.variables)
             self.es_rules_wgt.change_rules(es_skr_rules_set, False)
             # compute rules on vs space
 
             skr_rules_set, skr_score_dict = skope_rules(
-                self.data_store.selection_mask, self.data_store.X,
-                self.data_store.variables)
+                self.data_store.selection_mask,
+                self.data_store.X,
+                variables=self.data_store.variables)
             self.data_store.rules_mask = skr_rules_set.get_matching_mask(
                 self.data_store.X)
             skr_score_dict['target_avg'] = self.data_store.y[

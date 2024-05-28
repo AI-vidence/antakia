@@ -7,6 +7,7 @@ import pandas as pd
 
 import ipyvuetify as v
 import IPython.display
+from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
 from antakia_core.data_handler import Region
 
@@ -130,7 +131,7 @@ class GUI:
                             'variable': 'tooltip',
                             'children': self.dimension_switch.widget
                         }  # End v_slots dict
-                        ],  # End v_slots list
+                                 ],  # End v_slots list
                         children=['Change dimensions']),  # End v.Tooltip
                     self.color_switch.widget,
                     v.Col(  # 12
@@ -178,19 +179,19 @@ class GUI:
             v.Tabs(  # 4
                 v_model=0,  # default active tab
                 children=[
-                             v.Tab(children=["Selection"]),  # 40
-                             v.Tab(children=["Regions"]),  # 41
-                             v.Tab(children=["Substitution"]),  # 42
-                         ] + [
-                             v.TabItem(  # Tab 1)
-                                 class_="mt-2", children=self.tab1.widget),
-                             v.TabItem(  # Tab 2) Regions #44
-                                 children=self.tab2.widget),  # End of v.TabItem #2
-                             v.TabItem(  # TabItem #3 Substitution #45
-                                 children=self.tab3.widget)
-                         ])  # End of v.Tabs
+                    v.Tab(children=["Selection"]),  # 40
+                    v.Tab(children=["Regions"]),  # 41
+                    v.Tab(children=["Substitution"]),  # 42
+                ] + [
+                    v.TabItem(  # Tab 1)
+                        class_="mt-2", children=self.tab1.widget),
+                    v.TabItem(  # Tab 2) Regions #44
+                        children=self.tab2.widget),  # End of v.TabItem #2
+                    v.TabItem(  # TabItem #3 Substitution #45
+                        children=self.tab3.widget)
+                ])  # End of v.Tabs
         ]  # End v.Col children
-        )  # End of v.Col
+                            )  # End of v.Col
 
     @timeit
     def compute_base_values(self):
@@ -207,21 +208,28 @@ class GUI:
             self.exp_values.initialize(self.splash.exp_progressbar)
 
         # We trigger VS proj computation :
-        pb1, pb2 = self.splash.proj_progressbar.split(50)
+        scale_pb, vs_pb, es_pb = self.splash.proj_progressbar.split([33, 66])
+        with Log('preparing data', 1) as log:
+            self.splash.set_proj_msg(f"preparing data")
+            scale_pb.set_log(log)
+            self.data_store.X_scaled = DimReducMethod.scale_value_space(
+                self.data_store.X, self.data_store.y, scale_pb)
+
         with Log('projecting Value space', 1) as log:
             self.splash.set_proj_msg(
-                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape} 1/2"
+                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape}"
             )
-            pb1.set_log(log)
-            self.vs_hde.initialize(progress_callback=pb1, X=self.data_store.X)
+            vs_pb.set_log(log)
+            self.vs_hde.initialize(progress_callback=vs_pb,
+                                   X=self.data_store.X_scaled)
 
         # THen we trigger ES proj computation :
         with Log('projecting Explanation space', 1) as log:
             self.splash.set_proj_msg(
-                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape} 2/2"
+                f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape}"
             )
-            pb2.set_log(log)
-            self.es_hde.initialize(progress_callback=pb2,
+            es_pb.set_log(log)
+            self.es_hde.initialize(progress_callback=es_pb,
                                    X=self.exp_values.current_exp_df)
         step = 'updating es rules'
         with Log(step, 1):
@@ -283,7 +291,7 @@ class GUI:
                                      caller,
                                      event,
                                      progress_callback: Callable
-                                                        | None = None):
+                                     | None = None):
         """
         on explanation change, synchronizes es_hde and tab1
         Parameters
@@ -344,21 +352,21 @@ class GUI:
                 stats_logger.log(
                     'deselection', {
                         'exp_method':
-                            self.exp_values.current_exp,
+                        self.exp_values.current_exp,
                         'vs_proj':
-                            str(self.vs_hde.projected_value_selector.current_proj),
+                        str(self.vs_hde.projected_value_selector.current_proj),
                         'es_proj':
-                            str(self.es_hde.projected_value_selector.current_proj)
+                        str(self.es_hde.projected_value_selector.current_proj)
                     })
         else:
             stats_logger.log(
                 'selection_gui', {
                     'exp_method':
-                        self.exp_values.current_exp,
+                    self.exp_values.current_exp,
                     'vs_proj':
-                        str(self.vs_hde.projected_value_selector.current_proj),
+                    str(self.vs_hde.projected_value_selector.current_proj),
                     'es_proj':
-                        str(self.es_hde.projected_value_selector.current_proj)
+                    str(self.es_hde.projected_value_selector.current_proj)
                 })
         self.disable_hde(self, 'selection_changed')
         if self.tab_value == 1:

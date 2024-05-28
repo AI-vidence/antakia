@@ -128,11 +128,11 @@ class TestAntakia(TestCase):
 
     def test_run_walk(self):
         atk = AntakIA(self.X, self.y, self.regression_DT)
-        walk = [('set_proj_method', [1, 1]), ('change_tab', [1]), ('set_color', [2]), ('select_points', [1]), ('select_dim', [1]), ('unselect', [1]), ('edit_parameter', [1]), ('unselect', [0]), ('select_dim', [1]), ('change_tab', [2]), ('set_proj_method', [1, 2]), ('change_tab', [0]), ('select_points', [0]), ('find_rules', []), ('set_exp_method', [2])]
-        # walk = [('select_points', [1]), ('set_color', [2]), ('find_rules', []),
-        #         ('edit_parameter', [0]), ('validate_rules', []),
-        #         ('set_color', [2]), ('edit_parameter', [1]),
-        #         ('select_points', [0]), ('set_color', [1])]
+        walk = [('edit_parameter', [0]), ('set_color', [0]), ('change_tab', [1]), ('set_proj_method', [0, 2]),
+                ('edit_parameter', [0]), ('select_dim', [0]), ('edit_parameter', [0]), ('clear_selection', []),
+                ('auto_cluster', []), ('toggle_select_region', [3]), ('select_dim', [1]), ('subdivide', []),
+                ('toggle_select_region', [3]), ('set_proj_method', [1, 0]), ('auto_cluster', []), ('edit', []),
+                ('unselect', [0])]
         run_walk(atk, walk)
 
     def test_classifier(self):
@@ -220,17 +220,17 @@ actions = {
     'change_tab': (change_tab, range(3)),
     'select_points': (select_points, range(2)),
     'unselect': (unselect, range(2)),
-    'find_rules': (find_rules, ),
-    'validate_rules': (validate_rules, ),
-    'auto_cluster': (auto_cluster, ),
+    'find_rules': (find_rules,),
+    'validate_rules': (validate_rules,),
+    'auto_cluster': (auto_cluster,),
     'toggle_select_region': (toggle_select_region, range(4)),
-    'subdivide': (subdivide, ),
-    'merge': (merge, ),
-    'edit': (edit, ),
-    'clear_selection': (clear_region_selection, ),
-    'substitute': (substitute, ),
+    'subdivide': (subdivide,),
+    'merge': (merge,),
+    'edit': (edit,),
+    'clear_selection': (clear_region_selection,),
+    'substitute': (substitute,),
     'select_model': (select_model, range(10)),
-    'validate_model': (validate_model, )
+    'validate_model': (validate_model,)
 }
 
 
