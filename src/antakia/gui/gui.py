@@ -9,7 +9,7 @@ import ipyvuetify as v
 import IPython.display
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
-from antakia_core.data_handler import Region
+from antakia_core.data_handler import Region, region_set, RegionSet
 
 from antakia.gui.app_bar.color_switch import ColorSwitch
 
@@ -79,6 +79,8 @@ class GUI:
         self.topbar = TopBar()
 
         self.dimension_switch = DimSwitch(self.dimension_update_callback)
+        self.color_switch = ColorSwitch(self.data_store,
+                                        self.color_update_callback)
 
         # first hde
         with Log('building vs hde', 2):
@@ -114,8 +116,6 @@ class GUI:
             self.tab3 = Tab3(self.data_store, self.model_validation_callback,
                              self.display_model_data)
 
-        self.color_switch = ColorSwitch(self.data_store,
-                                        self.color_update_callback)
 
         with Log('building widget', 2):
             self._build_widget()
@@ -404,9 +404,9 @@ class GUI:
     def select_tab(self, tab, front=False, msg=None):
         if tab == 1 and (self.data_store.empty_selection):
             return self.select_tab(0)
-        elif tab == 2:
-            # refresh region set display
-            self.update_region_callback(self)
+        # elif tab == 2:
+        #     # refresh region set display
+        #     self.update_region_callback(self)
         elif tab == 3:
             if self.tab3.region is not None:
                 region = self.tab3.region
@@ -418,7 +418,8 @@ class GUI:
             self.widget.children[4].v_model = max(tab - 1, 0)
 
         self.tab_value = tab
-        self.color_update_callback(None, 'tab change')
+        print(msg)
+        self.color_update_callback(None, msg)
         self.disable_hde(self, 'select_tab')
 
     # ==================== TAB 1 ==================== #
@@ -473,14 +474,14 @@ class GUI:
 
     @timeit
     def update_region_callback(self, caller):
-        self.vs_hde.figure.display_regionset(self.data_store.region_set)
-        self.es_hde.figure.display_regionset(self.data_store.region_set)
+        # self.vs_hde.figure.display_regionset(self.data_store.region_set)
+        # self.es_hde.figure.display_regionset(self.data_store.region_set)
         self.tab2.update_region_table()
 
     @timeit
     def substitute_model_callback(self, caller, region):
-        self.vs_hde.figure.display_region(region)
-        self.es_hde.figure.display_region(region)
+        # self.vs_hde.figure.display_region(region)
+        # self.es_hde.figure.display_region(region)
         self.select_tab(3, msg='substitute')
         self.tab3.update_region(region)
 
@@ -505,22 +506,25 @@ class GUI:
     # ==================== COLOR HANDLING ==================== #
 
     def color_update_callback(self, widget, event, value="y"):
-        if event == 'tab change':
+        if event == 'tab change' or event == 'front' or event == 'no region selected':
             if self.tab_value == 1:
                 value = "y"
             elif self.tab_value == 2:
-                value = "regions"
+                value = "all_regions"
             elif self.tab_value == 3:
                 value = "y"
 
-        elif event == 'change':
+        elif event == 'change' :
             pass
 
         elif event == 'region selected':
-            pass
+            value = "region_selection"
+
+        elif event == 'substitute':
+            value = "region_selection"
 
         elif event == 'auto_cluster':
-            value = "regions"
+            value = "all_regions"
 
         self.color_switch.update_btn(value)
         self.switch_color(value)
@@ -553,9 +557,16 @@ class GUI:
                 self.data_store.colors = self.data_store.y_pred
             elif value == "residual":
                 self.data_store.colors = self.data_store.y - self.data_store.y_pred
-            elif value == "regions":
+            elif value == "all_regions":
                 self.data_store.colors = self.data_store.region_set.get_color_serie()
             elif value == "rules":
                 self.data_store.colors = self.data_store.rule_selection_color
-            elif value == "region":
-                self.data_store.colors = self.data_store.colors  # TODO fonction multi region colors
+            elif value == "region_selection":
+                self.data_store.colors = self.get_selected_regions_color()
+
+    def get_selected_regions_color(self):
+        region_set_selected = RegionSet(self.data_store.X)
+        selected_regions = [self.tab2.region_set.get(r['Region']) for r in self.tab2.selected_regions]
+        for region in selected_regions:
+            region_set_selected.add(region)
+        return region_set_selected.get_color_serie()

@@ -26,9 +26,14 @@ class Tab2:
         ['Region', 'Rules', 'Average', 'Points', '% dataset', 'Sub-model']
     ]
 
-    def __init__(self, data_store: DataStore, vs_pvs: ProjectedValuesSelector,
-                 es_pvs: ProjectedValuesSelector, edit_callback: Callable,
-                 update_callback: Callable, substitute_callback: Callable, color_update_callback):
+    def __init__(self, data_store: DataStore,
+                 vs_pvs: ProjectedValuesSelector,
+                 es_pvs: ProjectedValuesSelector,
+                 edit_callback: Callable,
+                 update_callback: Callable,
+                 substitute_callback: Callable,
+                 color_update_callback):
+
         self.data_store = data_store
         self.vs_pvs = vs_pvs
         self.es_pvs = es_pvs
@@ -295,6 +300,9 @@ class Tab2:
     def selected_regions(self, value):
         self.region_table_wgt.selected = value
         self.update_btns()
+        print('appel couleur', self.selected_regions)
+        self.color_update_callback(None, 'region selected')
+
 
     @property
     def region_set(self):
@@ -455,18 +463,19 @@ class Tab2:
         self.cluster_num_wgt.disabled = bool(
             self.auto_cluster_checkbox.v_model)
 
+
     def region_selected(self, data):
-        with Log('region_selected', 2):
+        # with Log('region_selected', 2):
             operation = {
                 'type': 'select' if data['value'] else 'unselect',
                 'region_num': data['item']['Region']
             }
             self.update_btns(operation)
-            update_color(self.data_store, )
 
     def clear_selected_regions(self):
         self.selected_regions = []
         self.update_btns(None)
+        #TODO remettre l'affichage des régions entières
 
     @log_errors
     def edit_region_clicked(self, *args):
