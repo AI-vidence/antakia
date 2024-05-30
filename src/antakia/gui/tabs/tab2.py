@@ -28,12 +28,13 @@ class Tab2:
 
     def __init__(self, data_store: DataStore, vs_pvs: ProjectedValuesSelector,
                  es_pvs: ProjectedValuesSelector, edit_callback: Callable,
-                 update_callback: Callable, substitute_callback: Callable):
+                 update_callback: Callable, substitute_callback: Callable, color_update_callback):
         self.data_store = data_store
         self.vs_pvs = vs_pvs
         self.es_pvs = es_pvs
         self.edit_callback = partial(edit_callback, self)
         self.update_callback = partial(update_callback, self)
+        self.color_update_callback = color_update_callback
         self.substitute_callback = partial(substitute_callback, self)
         self.auto_cluster_running = False
 
@@ -342,7 +343,7 @@ class Tab2:
                 # region_set coverage is > 80% : we need to clear it to do another auto-cluster
                 self.region_set.clear_unvalidated()
 
-            # We assemble indices ot all existing regions :
+            # We assemble indices of all existing regions :
             region_set_mask = self.region_set.mask
             not_rules_indexes_list = ~region_set_mask
             # We call the auto_cluster with remaining X and explained(X) :
@@ -360,6 +361,7 @@ class Tab2:
             # We re-enable the button
             self.auto_cluster_running = False
             self.update_btns()
+            self.color_update_callback(None, event = 'auto_cluster')
 
     def num_cluster_changed(self, *args):
         """
@@ -460,6 +462,7 @@ class Tab2:
                 'region_num': data['item']['Region']
             }
             self.update_btns(operation)
+            update_color(self.data_store, )
 
     def clear_selected_regions(self):
         self.selected_regions = []

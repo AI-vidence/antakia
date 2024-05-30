@@ -10,9 +10,9 @@ from antakia.utils.stats import log_errors, stats_logger
 class ColorSwitch:
 
     def __init__(self, data_store: DataStore, update_callback):
-        self.update_callback = partial(update_callback, self)
+        self.update_callback = update_callback
         self.data_store = data_store
-        self.selectable_colors = ["y", "y^", "residual", "regions" ]
+        self.selectable_colors = ["y", "y^", "residual", "regions"]
         self._build_widget()
 
     def _build_widget(self):
@@ -98,50 +98,7 @@ class ColorSwitch:
             ],
         )
 
-        self.widget.on_event("change", self.switch_color)
-
-    def update_color(self, tab : int, event : str):
-        value = "y"
-        if event == 'tab change':
-            if tab == 1:
-                value = "y"
-            elif tab == 2:
-                value = "region"
-            elif tab == 3:
-                value = "y"
-
-        # elif event == 'color selected':
-
-
-
-
-        self.update_btn(value)
-        self.switch_color(value = value)
-        self.update_callback() #refresh color of ES VS and Rule widget
-    @log_errors
-    def switch_color(self, value, widget=None):
-        """
-        Called with the user clicks on the colorChoiceBtnToggle
-        Allows change the color of the dots
-        """
-
-        # Color : a pd.Series with one color value par row
-        with Log('switch_color', 2):
-            color = None
-            stats_logger.log('color_changed', {'color': value})
-            if value == "y":
-                self.data_store.colors = self.data_store.y
-            elif value == "y^":
-                self.data_store.colors = self.data_store.y_pred
-            elif value == "residual":
-                self.data_store.colors = self.data_store.y - self.data_store.y_pred
-            elif value == "regions":
-                self.data_store.colors = self.data_store.region_set.get_color_serie()
-            elif value == "rules":
-                self.data_store.colors = self.data_store.rule_selection_color
-            elif value == "region":
-                self.data_store.colors = self.data_store.colors
-
+        self.widget.on_event("change", self.update_callback)
 
     def update_btn(self, value):
         # Updates the button in the switch if the value parameter is one of the buttons,

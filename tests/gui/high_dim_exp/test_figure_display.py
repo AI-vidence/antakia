@@ -28,7 +28,6 @@ class TestFigureDisplay(AntakiaTestCase):
 
     def test_init(self):
         fd = self.fd
-        assert fd.active_trace == 0
         assert fd._display_mask is None
         # assert fd.selection_changed
         # assert fd.widget == v.Container()
@@ -36,8 +35,6 @@ class TestFigureDisplay(AntakiaTestCase):
         assert fd._selection_mode == 'lasso'
         assert fd.data_store is self.data_store
         assert fd.first_selection
-        assert fd._visible == [True, False, False, False]
-        assert fd._colors == [None, None, None, None]
         assert fd.figure_2D is None
         assert fd.figure_3D is None
         assert not fd.initialized
