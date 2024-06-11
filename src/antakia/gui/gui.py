@@ -108,14 +108,12 @@ class GUI:
                              self.vs_hde.projected_value_selector,
                              self.es_hde.projected_value_selector,
                              self.edit_region_callback,
-                             self.update_region_callback,
                              self.substitute_model_callback,
                              self.color_update_callback)
 
         with Log('building tab3', 2):
             self.tab3 = Tab3(self.data_store, self.model_validation_callback,
                              self.display_model_data)
-
 
         with Log('building widget', 2):
             self._build_widget()
@@ -406,7 +404,6 @@ class GUI:
             return self.select_tab(0)
         # elif tab == 2:
         #     # refresh region set display
-        #     self.update_region_callback(self)
         elif tab == 3:
             if self.tab3.region is not None:
                 region = self.tab3.region
@@ -418,8 +415,7 @@ class GUI:
             self.widget.children[4].v_model = max(tab - 1, 0)
 
         self.tab_value = tab
-        print(msg)
-        self.color_update_callback(None, msg)
+        self.color_update_callback(None, msg, None)
         self.disable_hde(self, 'select_tab')
 
     # ==================== TAB 1 ==================== #
@@ -473,15 +469,7 @@ class GUI:
         self.es_hde.figure.display_rules()
 
     @timeit
-    def update_region_callback(self, caller):
-        # self.vs_hde.figure.display_regionset(self.data_store.region_set)
-        # self.es_hde.figure.display_regionset(self.data_store.region_set)
-        self.tab2.update_region_table()
-
-    @timeit
     def substitute_model_callback(self, caller, region):
-        # self.vs_hde.figure.display_region(region)
-        # self.es_hde.figure.display_region(region)
         self.select_tab(3, msg='substitute')
         self.tab3.update_region(region)
 
@@ -505,7 +493,8 @@ class GUI:
 
     # ==================== COLOR HANDLING ==================== #
 
-    def color_update_callback(self, widget, event, value="y"):
+    def color_update_callback(self, widget, event, value, region_list = None):
+        btn_list = ["y", "y^", "residual", "residual_sub"]
         if event == 'tab change' or event == 'front' or event == 'no region selected':
             if self.tab_value == 1:
                 value = "y"
@@ -514,21 +503,27 @@ class GUI:
             elif self.tab_value == 3:
                 value = "y"
 
-        elif event == 'change' :
+        elif event == 'change':
             pass
-
-        elif event == 'region selected':
-            value = "region_selection"
 
         elif event == 'substitute':
             value = "region_selection"
+            if True : # s'il y a des modèles entrainés
+            #TODO check if models are trained
+                btn_list = ["y", "y^", "residual", "residual_sub"]
+            else :
+                btn_list = ["y", "y^", "residual", "all_regions"]
 
-        elif event == 'auto_cluster':
-            value = "all_regions"
+        if value is None :
+            value = "y"  # par défault lors du build on affiche les target
+            #     #DEBUG
+            #     print("dans le tab ", self.tab_value, "et l'event ", event, ", aucune couleur n'a pu être attribuée")
+        # if btn_list is None:
+        #     btn_list= ["y", "y^", "residual", "all_regions"]
 
-        self.color_switch.update_btn(value)
-        self.switch_color(value)
+        self.switch_color(value, region_list)  # loads the color series in the datastore
         self.figure_refresh_callback()  # refresh color of ES VS and Rule widget
+        self.color_switch.update_btn(value, event, btn_list) #updates the Button toggle matching the displayed color
 
     @log_errors
     def figure_refresh_callback(self):
@@ -539,10 +534,10 @@ class GUI:
         self.vs_hde.figure.refresh_color()
         self.es_hde.figure.refresh_color()
         # AJOUTER ICI L'UPDATE DU RULE WIDGET
-        # self.select_tab(0, msg='color')
 
     @log_errors
-    def switch_color(self, value, widget=None):
+    def switch_color(self, value, widget=None, region_list = None):
+        region_list = []
         """
         Called with the user clicks on the colorChoiceBtnToggle
         Allows change the color of the dots
@@ -562,11 +557,11 @@ class GUI:
             elif value == "rules":
                 self.data_store.colors = self.data_store.rule_selection_color
             elif value == "region_selection":
-                self.data_store.colors = self.get_selected_regions_color()
+                self.data_store.colors = self.get_selected_regions_color(region_list)
 
-    def get_selected_regions_color(self):
+    def get_selected_regions_color(self, region_list):
         region_set_selected = RegionSet(self.data_store.X)
-        selected_regions = [self.tab2.region_set.get(r['Region']) for r in self.tab2.selected_regions]
+        selected_regions = [self.tab2.region_set.get(r['Region']) for r in region_list]
         for region in selected_regions:
             region_set_selected.add(region)
         return region_set_selected.get_color_serie()

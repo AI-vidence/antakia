@@ -147,17 +147,6 @@ class FigureDisplay:
         # self._refresh_color(self.RULES_TRACE)
 
     @timeit
-    def display_regionset(self, region_set: RegionSet):
-        """
-        display a region set, each region in its color
-        Parameters
-        ----------
-        region_set
-
-        """
-        self.data_store.colors = region_set.get_color_serie()
-
-    @timeit
     def display_region(self, region: Region):
         """
         display a single region
@@ -210,10 +199,6 @@ class FigureDisplay:
         Parameters
         ----------
         color
-        trace_id
-
-        Returns
-        -------
 
         """
 
@@ -223,12 +208,12 @@ class FigureDisplay:
             if len(self.figure.data[0].x) == 0:
                 return self._refresh_data()
             with self.figure.batch_update():
-                self.figure.data[0].marker.color = self.data_store.colors[self.display_mask]
+                self.figure.data[0].marker.color = self.data_store.colors
 
     @timeit
     def _refresh_data(self):
         """
-        refresh all traces data, create figure if absent
+        refresh data, create figure if absent
         Returns
         -------
 
@@ -516,4 +501,3 @@ class FigureDisplay:
 
         """
         self.disable_selection(tab >= 1)
-        # self._refresh_color()

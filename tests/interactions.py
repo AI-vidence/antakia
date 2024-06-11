@@ -17,7 +17,7 @@ def select_dim(gui, dim):
 
 @check
 def set_color(gui, color):
-    colors = ['y', 'y^', 'residual']
+    colors = ['y', 'y^', 'residual', 'all_regions']
     wgt = gui.color_switch.widget
     wgt.v_model = colors[color]
     wgt.fire_event('change', wgt.v_model)
