@@ -467,7 +467,6 @@ class Tab2:
     def clear_selected_regions(self):
         self.selected_regions = []
         self.update_btns(None)
-        # TODO remettre l'affichage des régions entières
 
     @log_errors
     def edit_region_clicked(self, *args):

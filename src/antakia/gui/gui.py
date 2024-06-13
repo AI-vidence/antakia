@@ -402,8 +402,8 @@ class GUI:
     def select_tab(self, tab, front=False, msg=None):
         if tab == 1 and (self.data_store.empty_selection):
             return self.select_tab(0)
-        # elif tab == 2:
-        #     # refresh region set display
+        elif tab == 2:
+            self.tab2.clear_selected_regions()
         elif tab == 3:
             if self.tab3.region is not None:  # TODO à remplacer
                 region = self.tab3.region
@@ -503,6 +503,7 @@ class GUI:
             if self.tab_value == 1:
                 value = "y"
             elif self.tab_value == 2:
+
                 value = "all_regions"
             elif self.tab_value == 3:
                 value = "y"
@@ -567,6 +568,8 @@ class GUI:
                 self.data_store.colors = self.get_selected_regions_color(region_list)
 
     def get_selected_regions_color(self, region_list):
+        if region_list is None or len(region_list) == 0:
+            return self.tab2.region_set.get_color_serie() #if no region selected, show all regions
         region_set_selected = RegionSet(self.data_store.X)
         selected_regions = [self.tab2.region_set.get(i) for i in region_list]
         for region in selected_regions:
