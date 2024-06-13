@@ -127,7 +127,7 @@ class Tab3:
         self.model_table_widget = self.widget[0].children[2]
 
         self.model_table_widget.hide()
-
+        self.progressbar_widget.hide()
         # We wire a select event on the 'substitution table' :
         self.model_table.set_callback(self._sub_model_selected_callback)
 
@@ -154,10 +154,10 @@ class Tab3:
         -------
 
         """
-        self.region = region
         if self.region is not None and train:
             # We update the substitution table once to show the name of the region
             self.substitution_model_training = True
+            self.progressbar_widget.show()
             self.progress_bar(0)
             self.update()
             # show tab 3 (and update)

@@ -470,8 +470,9 @@ class GUI:
 
     @timeit
     def substitute_model_callback(self, caller, region):
-        self.tab3.update_region(region)
+        self.tab3.region = region
         self.select_tab(3, msg='substitute')
+        self.tab3.update_region(region)
 
     # ==================== TAB 3 ==================== #
 
