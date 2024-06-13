@@ -56,7 +56,7 @@ atk = AntakIA(
 
 atk.start_gui()
 
-from tests.interactions import change_tab, auto_cluster, clear_region_selection, toggle_select_region, merge, set_color
+from tests.interactions import change_tab, auto_cluster, clear_region_selection, toggle_select_region, merge, set_color, substitute, select_model, validate_model
 
 gui = atk.gui
 # set_color(gui, 1)
@@ -68,16 +68,13 @@ gui = atk.gui
 change_tab(gui, 1)
 auto_cluster(gui)
 toggle_select_region(gui, 1)
-toggle_select_region(gui, 2)
-merge(gui)
-
-# toggle_select_region(gui, 1)
-# clear_region_selection(gui)
-
+substitute(gui)
+print(gui.tab_value)
+select_model(gui, 1)
+validate_model(gui)
 
 
-
-
+#
 # print('repere1')
 # change_tab(gui, 1)
 # print('repere2')

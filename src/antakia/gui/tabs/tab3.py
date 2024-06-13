@@ -143,7 +143,7 @@ class Tab3:
     def selected_sub_model(self, value):
         self.model_table.selected = value
 
-    def update_region(self, region: ModelRegion, train=True):
+    def update_region(self, region: ModelRegion):
         """
         method to update the region of substitution
         Parameters
@@ -154,7 +154,10 @@ class Tab3:
         -------
 
         """
-        if self.region is not None and train:
+        self.progressbar_widget.hide()  # displays the progress bar widget in preparation for the next submodel training
+
+        if self.region is not None and not self.region.trained :
+            self.model_table_widget.hide()  # hides the submodel table
             # We update the substitution table once to show the name of the region
             self.substitution_model_training = True
             self.progressbar_widget.show()
@@ -164,11 +167,11 @@ class Tab3:
             self.region.train_substitution_models(
                 task_type=self.data_store.problem_category)
             self.progressbar_widget.hide() #hides the progress bar widget once submodels trained
-            self.model_table_widget.show() #displays the submodel table once submodels trained
 
             self.progress_bar(100)
             self.substitution_model_training = False
             self.update()
+            self.model_table_widget.show() #displays the submodel table once submodels trained
         else:
             self.update()
 
@@ -312,5 +315,4 @@ class Tab3:
             self.selected_sub_model = []
             # Show tab 2
             self.validate_callback()
-            self.progressbar_widget.show()  # displays the progress bar widget in preparation for the next submodel training
             self.model_table_widget.hide()  # hides the submodel table

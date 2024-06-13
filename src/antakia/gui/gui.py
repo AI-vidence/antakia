@@ -9,7 +9,7 @@ import ipyvuetify as v
 import IPython.display
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
-from antakia_core.data_handler import Region, region_set, RegionSet
+from antakia_core.data_handler import Region, region_set, RegionSet, ModelRegion
 
 from antakia.gui.app_bar.color_switch import ColorSwitch
 
@@ -404,13 +404,6 @@ class GUI:
             return self.select_tab(0)
         elif tab == 2:
             self.tab2.clear_selected_regions()
-        elif tab == 3:
-            if self.tab3.region is not None:  # TODO à remplacer
-                region = self.tab3.region
-                self.es_hde.figure.display_region(region)  # TODO à remplacer
-                self.vs_hde.figure.display_region(region)  # TODO à remplacer
-            else:
-                self.select_tab(2, msg='no region selected')
         if not front:
             self.widget.children[4].v_model = max(tab - 1, 0)
 
@@ -469,7 +462,7 @@ class GUI:
         self.es_hde.figure.display_rules()
 
     @timeit
-    def substitute_model_callback(self, caller, region):
+    def substitute_model_callback(self, caller, region : ModelRegion):
         self.tab3.region = region
         self.select_tab(3, msg='substitute')
         self.tab3.update_region(region)
