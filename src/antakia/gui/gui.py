@@ -411,8 +411,8 @@ class GUI:
                 self.vs_hde.figure.display_region(region)  # TODO à remplacer
             else:
                 self.select_tab(2, msg='no region selected')
-        # if not front:
-        #     self.widget.children[4].v_model = max(tab - 1, 0)
+        if not front:
+            self.widget.children[4].v_model = max(tab - 1, 0)
 
         self.tab_value = tab
         self.color_update_callback(None, msg, None)
@@ -470,8 +470,8 @@ class GUI:
 
     @timeit
     def substitute_model_callback(self, caller, region):
-        self.select_tab(3, msg='substitute')
         self.tab3.update_region(region)
+        self.select_tab(3, msg='substitute')
 
     # ==================== TAB 3 ==================== #
 
@@ -495,7 +495,6 @@ class GUI:
 
     def color_update_callback(self, widget, event, value, region_list=None):
         btn_list = ["y", "y^", "residual", "all_regions"]
-
         if region_list is None:
             region_list = []
 
@@ -506,14 +505,21 @@ class GUI:
                 value = "all_regions"
             elif self.tab_value == 3:
                 value = "y"
-                btn_list = ["y", "y^", "residual", "residual_sub"]
+                if self.tab3.region is not None:
+                    value = 'region_selection'
+                    region_list = [self.tab3.region.num]
+                    btn_list = ["y", "y^", "residual", "residual_sub"]
 
 
         elif event == 'change':
             pass
 
-        elif event == 'substitute':
+        if event == 'substitute':
             value = "region_selection"
+            region_list = [self.tab3.region.num]
+            if not len(region_list):
+                value = "all_regions"
+
             # if True : # s'il y a des modèles entrainés
             # #TODO check if models are trained
             btn_list = ["y", "y^", "residual", "residual_sub"]
