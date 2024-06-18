@@ -487,7 +487,7 @@ class GUI:
 
     # ==================== COLOR HANDLING ==================== #
 
-    def color_update_callback(self, widget, event, value, region_list=None):
+    def color_update_callback(self, widget, event: str, value: str, region_list=None):
         btn_list = ["y", "y^", "residual", "all_regions"]
         if region_list is None:
             region_list = []
@@ -496,7 +496,6 @@ class GUI:
             if self.tab_value == 1:
                 value = "y"
             elif self.tab_value == 2:
-
                 value = "all_regions"
             elif self.tab_value == 3:
                 value = "y"
@@ -561,7 +560,7 @@ class GUI:
                 self.data_store.colors = self.get_selected_regions_color(region_list)
 
     def get_selected_regions_color(self, region_list):
-        if region_list is None or len(region_list) == 0:
+        if not region_list or region_list is None:
             return self.tab2.region_set.get_color_serie() #if no region selected, show all regions
         region_set_selected = RegionSet(self.data_store.X)
         selected_regions = [self.tab2.region_set.get(i) for i in region_list]
