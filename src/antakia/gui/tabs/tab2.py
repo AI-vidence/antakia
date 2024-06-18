@@ -461,13 +461,12 @@ class Tab2:
                 selected_region_nums.append(data['item']['Region'])
             else:  # region unselected
                 selected_region_nums.remove(data['item']['Region'])
-            self.color_update_callback(None, None, 'region_selection', region_list=selected_region_nums)
+            self.color_update_callback(self, 'region_selected', 'region_selection', region_list=selected_region_nums)
             self.update_btns(selected_region_nums)
 
     def clear_selected_regions(self):
         self.selected_regions = []
         self.update_btns(None)
-        # TODO remettre l'affichage des régions entières
 
     @log_errors
     def edit_region_clicked(self, *args):
@@ -498,7 +497,7 @@ class Tab2:
             # There is no more selected region
             self.clear_selected_regions()
             self.update_region_table()
-            self.color_update_callback(None, None, 'all_regions')
+            self.color_update_callback(self, 'divide_region', 'all_regions')
 
     @log_errors
     def merge_region_clicked(self, *args):
@@ -532,7 +531,7 @@ class Tab2:
                 r = self.region_set.add_region(mask=mask)
             self.selected_regions = [{'Region': r.num}]
             self.update_region_table()
-            self.color_update_callback(None, None, 'all_regions')
+            self.color_update_callback(self, 'merge_region', 'all_regions')
 
     @log_errors
     def delete_region_clicked(self, *args):
