@@ -342,6 +342,8 @@ class Tab2:
         # We disable the AC button. Il will be re-enabled when the AC progress is 100%
         with Log('auto_cluster', 2):
             self.auto_cluster_running = True
+            self.update_btns()
+
             if self.region_set.stats()["coverage"] > 80:
                 # UI rules :
                 # region_set coverage is > 80% : we need to clear it to do another auto-cluster
