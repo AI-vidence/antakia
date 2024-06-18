@@ -65,13 +65,16 @@ gui = atk.gui
 # set_color(gui, 3)
 
 
-change_tab(gui, 1)
-auto_cluster(gui)
-toggle_select_region(gui, 1)
-substitute(gui)
-print(gui.tab_value)
-select_model(gui, 1)
-validate_model(gui)
+# change_tab(gui, 1)
+# auto_cluster(gui)
+# toggle_select_region(gui, 1)
+# toggle_select_region(gui, 2)
+# merge(gui)
+
+# toggle_select_region(gui, 1)
+# clear_region_selection(gui)
+
+
 
 
 #

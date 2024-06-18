@@ -231,7 +231,7 @@ def delete(gui):
 
 
 @check
-def select_model(gui, model):
+def select_model(gui, model: int):
     if gui.tab_value != 3:
         raise InteractionError('wrong tab')
     if len(gui.tab2.selected_regions) == 0:
