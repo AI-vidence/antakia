@@ -551,7 +551,7 @@ class Tab2:
             # There is no more selected region
             self.clear_selected_regions()
             self.update_region_table()
-            self.color_update_callback('all_regions')
+            self.color_update_callback(self,'delete_region' , value = 'all_regions')
 
     @log_errors
     def substitute_clicked(self, widget, event, data):
