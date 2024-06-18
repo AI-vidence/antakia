@@ -21,7 +21,6 @@ class ColorSwitch:
 
         self._build_widget()
 
-
     def _build_toggle(self, btn_list, icon_dict) -> v.Col:
         btn_toggle = v.BtnToggle(
             class_="mr-3",

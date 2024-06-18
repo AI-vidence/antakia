@@ -192,10 +192,9 @@ class FigureDisplay:
         self.data_store.colors = color_serie
 
     @timeit
-    def refresh_color(self): # À RENOMMER REFRESH
+    def refresh_color(self): #
         """
-        set the provided color as the scatter point color on the provided trace id
-        do not alter show/hide trace
+        set the provided color and opacity as the scatter point color
         Parameters
         ----------
         color
@@ -209,6 +208,8 @@ class FigureDisplay:
                 return self._refresh_data()
             with self.figure.batch_update():
                 self.figure.data[0].marker.color = self.data_store.colors
+                # self.figure.data[0].marker.opacity = self.data_store.colors
+
 
     @timeit
     def _refresh_data(self):
@@ -322,8 +323,6 @@ class FigureDisplay:
             # selection bug : we need to recreate figure in order to display the selection
         self.create_figure()
         self._refresh_data()
-        # self.figure.data[0][trace_id].update(selectedpoints=[None])
-        # self.figure.data[0][trace_id].selectedpoints = [None]
         self.first_selection |= self.data_store.empty_selection
         stats_logger.log(
             'hde_selection', {
@@ -380,8 +379,7 @@ class FigureDisplay:
 
                 fig.selectedpoints = utils.mask_to_rows(
                     self.data_store.selection_mask[self.display_mask])
-                # fig.update(
-                #      selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.mask]))
+                # fig.update(selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.display_mask]))
 
     @property
     @timeit
