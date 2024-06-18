@@ -156,7 +156,9 @@ class Tab3:
         """
         self.progressbar_widget.hide()  # displays the progress bar widget in preparation for the next submodel training
 
-        if self.region is not None and not self.region.trained :
+        if (self.region is not None and not self.region.trained
+                and not self.region.num_points() < AppConfig.ATK_MIN_POINTS_NUMBER):  # region is not too small
+
             self.model_table_widget.hide()  # hides the submodel table
             # We update the substitution table once to show the name of the region
             self.substitution_model_training = True
