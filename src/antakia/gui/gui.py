@@ -476,12 +476,10 @@ class GUI:
 
     # ==================== COLOR HANDLING ==================== #
 
-    def color_update_callback(self, widget, event: str, value: str | None, region_list=None, selection_mask=None):
+    def color_update_callback(self, widget, event: str, value: str | None, region_list=None):
         btn_list = ["y", "y^", "residual", "all_regions"]
         refresh_color = True
         refresh_selection = True
-        if selection_mask is None:
-            self.data_store.reset_selection_mask()
         if region_list is None:
             region_list = []
 
@@ -557,7 +555,7 @@ class GUI:
     def color_switch_clicked(self, widget, event: str, value: str | None, region_list=None, selection_mask=None):
         # déclenche le changement de couleur
         # resets all the masks and selections
-        self.color_update_callback(widget, event, value, None, selection_mask=None)
+        self.color_update_callback(widget, event, value)
         # self.data_store.reset_rules_and_selection()
         # self.tab1.reset()
 
@@ -586,8 +584,9 @@ class GUI:
             elif value == 'rule':
                 self.data_store.colors = self.data_store.rule_selection_color
 
-    def get_selected_regions_color(self, region_list, viewmode=AppConfig.ATK_REGION_VIEWMODE):
+    def get_selected_regions_color(self, region_list, viewmode=AppConfig.ATK_REGION_VIEWMODE) -> None | pd.Series:
         if not region_list or region_list is None:
+            self.data_store.highlighted_mask = boolean_mask(self.data_store.X, True)
             return self.tab2.region_set.get_color_serie()  # if no region selected, show all regions
         region_set_selected = RegionSet(self.data_store.X)
         selected_regions = [self.tab2.region_set.get(i) for i in region_list]
@@ -595,7 +594,7 @@ class GUI:
             region_set_selected.add(region)
 
         if viewmode == 'highlight':
-            self.data_store.selection_mask = region_set_selected.mask
+            self.data_store.highlighted_mask = region_set_selected.mask
 
         if viewmode == 'grey mask':
             return region_set_selected.get_color_serie()

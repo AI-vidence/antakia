@@ -372,7 +372,7 @@ class FigureDisplay:
             if self.dim == 2:
                 fig = self.figure.data[0]
 
-                fig.selectedpoints = utils.mask_to_rows(self.data_store.selection_mask[self.display_mask])
+                fig.selectedpoints = utils.mask_to_rows(self.data_store.highlighted_mask[self.display_mask])
                 # fig.update(selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.display_mask]))
 
     @property

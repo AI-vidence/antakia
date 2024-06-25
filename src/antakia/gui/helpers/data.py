@@ -30,12 +30,13 @@ class DataStore:
         self.score = score
         self.colors = y
 
+
         self._selection_mask = boolean_mask(X, True)
         self.empty_selection = True
         self._rules_mask = boolean_mask(X, True)
         self._rule_selection_color = get_mask_comparison_color(
             self._rules_mask, self._selection_mask)
-
+        self.highlighted_mask = boolean_mask(X, True)
         self.region_set = ModelRegionSet(self.X, self.y, self.X_test,
                                          self.y_test, self.model, self.score)
         self.pv_bank = ProjectedValueBank(self.y)
