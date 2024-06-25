@@ -360,6 +360,7 @@ class GUI:
                         'es_proj':
                             str(self.es_hde.projected_value_selector.current_proj)
                     })
+
         else:
             stats_logger.log(
                 'selection_gui', {
@@ -371,12 +372,7 @@ class GUI:
                         str(self.es_hde.projected_value_selector.current_proj)
                 })
         self.disable_hde(self, 'selection_changed')
-        if self.tab_value == 1:
-            self.color_update_callback(self, 'selection_changed', None)
-        else:
-            # pass
-            self.vs_hde.display_selection()  # TODO à remplacer
-            self.es_hde.display_selection()  # TODO à remplacer
+        self.color_update_callback(self, 'selection_changed', None)
         if caller != self.tab1:
             self.tab1.refresh()
 
@@ -478,8 +474,8 @@ class GUI:
 
     def color_update_callback(self, widget, event: str, value: str | None, region_list=None):
         btn_list = ["y", "y^", "residual", "all_regions"]
-        refresh_color = True
-        refresh_selection = True
+        # refresh_color = True
+        # refresh_selection = True
         if region_list is None:
             region_list = []
 
@@ -496,11 +492,11 @@ class GUI:
 
         elif event == 'selection_changed':
             value = 'rule_selection'
-            refresh_selection = False
+            # refresh_selection = False
 
         elif event == 'region_selected':
             value = 'region_selection'
-            refresh_color = False
+            # refresh_color = False
 
         elif event == 'find rule':
             value = 'rule'
@@ -511,7 +507,7 @@ class GUI:
         elif event == 'validate':  # when we validate a rule from tab1
             value = "region_selection"
             region_list = [self.data_store.region_set.insert_order[-1]]  # display the newly created region, which is the latest added
-            refresh_color = False
+            # refresh_color = False
 
         elif event == 'substitute':
             value = "region_selection"
@@ -532,23 +528,21 @@ class GUI:
             value = "y"  # par défault lors du build on affiche les target
 
         self.switch_color(value, region_list)  # loads the color series in the datastore
-        self.figure_refresh_callback(refresh_color, refresh_selection)  # refresh color of ES VS and Rule widget
+        self.figure_refresh_callback()  # refresh color of ES VS and Rule widget
         self.color_switch.update_btn_widget(value, btn_list)  # updates the Button toggle matching the displayed color
 
     @log_errors
-    def figure_refresh_callback(self, refresh_color: bool, refresh_selection: bool):
+    def figure_refresh_callback(self):
         """
         Called with the user clicks on the colorChoiceBtnToggle
         Allows change the color of the dots
         """
 
-        if refresh_color:
-            self.vs_hde.figure.refresh_color()
-            self.es_hde.figure.refresh_color()
+        self.vs_hde.figure.refresh_color()
+        self.es_hde.figure.refresh_color()
 
-        if refresh_selection:
-            self.vs_hde.figure.display_selection()
-            self.es_hde.figure.display_selection()
+        self.vs_hde.figure.display_selection()
+        self.es_hde.figure.display_selection()
 
         # TODO AJOUTER ICI L'UPDATE DU RULE WIDGET
 
@@ -573,14 +567,15 @@ class GUI:
                 self.data_store.colors = self.data_store.y_pred
             elif value == "residual":
                 self.data_store.colors = self.data_store.y - self.data_store.y_pred
+
             elif value == "all_regions":
                 self.data_store.colors = self.data_store.region_set.get_color_serie()
-            elif value == "rules":
-                self.data_store.colors = self.data_store.rule_selection_color
             elif value == "region_selection":
                 self.data_store.colors = self.get_selected_regions_color(region_list)
+
             elif value == 'rule_selection':
-                self.data_store.colors = self.data_store.rule_selection_color
+                self.data_store.colors = self.data_store.y
+                self.data_store.highlighted_mask = self.data_store.selection_mask.copy()
             elif value == 'rule':
                 self.data_store.colors = self.data_store.rule_selection_color
 

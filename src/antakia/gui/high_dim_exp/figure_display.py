@@ -330,11 +330,11 @@ class FigureDisplay:
         if not self.data_store.empty_selection:
             self.selection_changed('selection_event')
         else:
-            self._deselection_event(trace_id)
+            self._deselection_event()
 
     @log_errors
     @timeit
-    def _deselection_event(self, trace_id, *args):
+    def _deselection_event(self, *args):
         """
         clear selection -- called by deselection on graph
         synchronize hdes
@@ -348,17 +348,16 @@ class FigureDisplay:
         -------
 
         """
-        if trace_id == self.active_trace:
-            stats_logger.log(
-                'hde_deselection', {
-                    'first_selection': str(self.first_selection),
-                    'space': str(self.space)
-                })
-            # We tell the GUI
-            self.first_selection = False
-            self.data_store.selection_mask = utils.boolean_mask(
-                self.figure_data, True)
-            self.selection_changed('selection_event')
+        stats_logger.log(
+            'hde_deselection', {
+                'first_selection': str(self.first_selection),
+                'space': str(self.space)
+            })
+        # We tell the GUI
+        self.first_selection = False
+        self.data_store.selection_mask = utils.boolean_mask(
+            self.figure_data, True)
+        self.selection_changed('deselection_event')
 
     @timeit
     def display_selection(self):
@@ -369,11 +368,11 @@ class FigureDisplay:
 
         """
         with Log('display_selection ' + self.space, level=3):
-            if self.dim == 2:
-                fig = self.figure.data[0]
+            # if self.dim == 2:
+            fig = self.figure.data[0]
 
-                fig.selectedpoints = utils.mask_to_rows(self.data_store.highlighted_mask[self.display_mask])
-                # fig.update(selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.display_mask]))
+            fig.selectedpoints = utils.mask_to_rows(self.data_store.highlighted_mask[self.display_mask])
+            # fig.update(selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.display_mask]))
 
     @property
     @timeit
