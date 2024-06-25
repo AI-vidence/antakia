@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Callable
+from typing import Callable, Tuple
 
 import pandas as pd
 
@@ -10,6 +10,7 @@ import IPython.display
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
 
 from antakia_core.data_handler import Region, RegionSet, ModelRegion
+from pandas import Series
 
 from antakia.gui.app_bar.color_switch import ColorSwitch
 
@@ -30,7 +31,7 @@ from antakia.gui.helpers.metadata import metadata
 
 import logging
 from antakia.utils.logging_utils import conf_logger, Log
-from antakia_core.utils import boolean_mask, timeit
+from antakia_core.utils import boolean_mask, timeit, BASE_COLOR
 
 from antakia.utils.stats import stats_logger, log_errors
 
@@ -506,7 +507,8 @@ class GUI:
 
         elif event == 'validate':  # when we validate a rule from tab1
             value = "region_selection"
-            region_list = [self.data_store.region_set.insert_order[-1]]  # display the newly created region, which is the latest added
+            region_list = [self.data_store.region_set.insert_order[
+                               -1]]  # display the newly created region, which is the latest added
             # refresh_color = False
 
         elif event == 'substitute':
@@ -571,25 +573,30 @@ class GUI:
             elif value == "all_regions":
                 self.data_store.colors = self.data_store.region_set.get_color_serie()
             elif value == "region_selection":
-                self.data_store.colors = self.get_selected_regions_color(region_list)
+                self.data_store.colors, self.data_store.highlighted_mask = self.get_selected_regions_color(region_list)
 
             elif value == 'rule_selection':
                 self.data_store.colors = self.data_store.y
                 self.data_store.highlighted_mask = self.data_store.selection_mask.copy()
             elif value == 'rule':
                 self.data_store.colors = self.data_store.rule_selection_color
+                self.data_store.highlighted_mask = self.data_store.rule_selection_color != BASE_COLOR
 
-    def get_selected_regions_color(self, region_list, viewmode=AppConfig.ATK_REGION_VIEWMODE) -> None | pd.Series:
-        if not region_list or region_list is None:
-            self.data_store.highlighted_mask = boolean_mask(self.data_store.X, True)
-            return self.tab2.region_set.get_color_serie()  # if no region selected, show all regions
-        region_set_selected = RegionSet(self.data_store.X)
-        selected_regions = [self.tab2.region_set.get(i) for i in region_list]
-        for region in selected_regions:
-            region_set_selected.add(region)
+    def get_selected_regions_color(self, region_list, viewmode=AppConfig.ATK_REGION_VIEWMODE) -> tuple[
+        Series, Series]:
+        mask = boolean_mask(self.data_store.X, True)
+        color = self.tab2.region_set.get_color_serie()  # if no region selected, show all regions
+        if region_list and region_list is not None:
+            region_set_selected = RegionSet(self.data_store.X)
+            selected_regions = [self.tab2.region_set.get(i) for i in region_list]
+            for region in selected_regions:
+                region_set_selected.add(region)
+            mask = region_set_selected.mask
 
-        if viewmode == 'highlight':
-            self.data_store.highlighted_mask = region_set_selected.mask
+            if viewmode == 'highlight':
+                color = self.tab2.region_set.get_color_serie()
 
-        if viewmode == 'grey mask':
-            return region_set_selected.get_color_serie()
+            elif viewmode == 'grey mask':
+                color = region_set_selected.get_color_serie()
+
+        return color, mask
