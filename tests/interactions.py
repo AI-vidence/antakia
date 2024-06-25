@@ -81,7 +81,7 @@ def change_tab(gui, tab):
 
 
 @check
-def select_points(gui, is_value_space, q=(1, 1)):
+def select_points(gui, is_value_space: bool, q=(1, 1)):
     if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     X = gui.vs_hde.figure._get_figure_data(masked=True)
@@ -96,7 +96,6 @@ def select_points(gui, is_value_space, q=(1, 1)):
         hde = gui.es_hde
     points = namedtuple('points', ['point_inds'])
     hde.figure._selection_event(gui.tab_value, '', points(mask_to_rows(b)))
-
 
 @check
 def unselect(gui, is_value_space):

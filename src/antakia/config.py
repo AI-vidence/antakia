@@ -6,13 +6,13 @@ import os
 
 class AppConfig:
     ATK_DEFAULT_EXPLANATION_METHOD = int(
-        os.environ.get('DEFAULT_EXPLANATION_METHOD', 1))
-    ATK_DEFAULT_DIMENSION = int(os.environ.get('DEFAULT_VS_DIMENSION', 2))
+        os.environ.get('ATK_DEFAULT_EXPLANATION_METHOD', 1))
+    ATK_DEFAULT_DIMENSION = int(os.environ.get('ATK_DEFAULT_DIMENSION', 2))
     ATK_DEFAULT_PROJECTION = os.environ.get('ATK_DEFAULT_PROJECTION', 'PaCMAP')
 
     ATK_INIT_FIG_WIDTH = int(os.environ.get('INIT_FIG_WIDTH', 1800))
     ATK_MAX_DOTS = int(os.environ.get('MAX_DOTS', 2000))
-
+    ATK_REGION_VIEWMODE = os.environ.get('ATK_REGION_VIEWMODE', 'highlight')
     # Rule format
     ATK_USE_INTERVALS_FOR_RULES = os.environ.get('USE_INTERVALS_FOR_RULES',
                                                  'True') == 'True'

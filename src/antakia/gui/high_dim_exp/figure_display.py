@@ -40,7 +40,6 @@ class FigureDisplay:
 
     """
 
-
     def __init__(self, data_store: DataStore, selection_changed: Callable,
                  space: str):
         """
@@ -128,23 +127,22 @@ class FigureDisplay:
         if self.dim == 2 and self.figure is not None:
             self.figure.update_layout(dragmode=self._selection_mode)
 
-
-    @timeit
-    def display_rules(self):
-        """
-        display a rule vs a selection
-        Parameters
-        ----------
-        selection_mask: boolean series of selected points
-        rules_mask: boolean series of rule validating points
-
-        Returns
-        -------
-
-        """
-        self.data_store.colors = self.data_store.rule_selection_color
-
-        # self._refresh_color(self.RULES_TRACE)
+    # @timeit
+    # def display_rules(self):
+    #     """
+    #     display a rule vs a selection
+    #     Parameters
+    #     ----------
+    #     selection_mask: boolean series of selected points
+    #     rules_mask: boolean series of rule validating points
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     self.data_store.colors = self.data_store.rule_selection_color
+    #
+    #     # self._refresh_color(self.RULES_TRACE)
 
     @timeit
     def display_region(self, region: Region):
@@ -192,7 +190,7 @@ class FigureDisplay:
         self.data_store.colors = color_serie
 
     @timeit
-    def refresh_color(self): #
+    def refresh_color(self):  #
         """
         set the provided color and opacity as the scatter point color
         Parameters
@@ -208,8 +206,6 @@ class FigureDisplay:
                 return self._refresh_data()
             with self.figure.batch_update():
                 self.figure.data[0].marker.color = self.data_store.colors
-                # self.figure.data[0].marker.opacity = self.data_store.colors
-
 
     @timeit
     def _refresh_data(self):
@@ -231,7 +227,6 @@ class FigureDisplay:
             self.figure.data[0].marker.color = self.data_store.colors[self.display_mask]
             if self.dim == 3:
                 self.figure.data[0].z = projection[2]
-
 
     @timeit
     def update_X(self, X: pd.DataFrame | None):
@@ -320,7 +315,7 @@ class FigureDisplay:
 
         """
         # if trace_id == self.active_trace:
-            # selection bug : we need to recreate figure in order to display the selection
+        # selection bug : we need to recreate figure in order to display the selection
         self.create_figure()
         self._refresh_data()
         self.first_selection |= self.data_store.empty_selection
@@ -377,8 +372,7 @@ class FigureDisplay:
             if self.dim == 2:
                 fig = self.figure.data[0]
 
-                fig.selectedpoints = utils.mask_to_rows(
-                    self.data_store.selection_mask[self.display_mask])
+                fig.selectedpoints = utils.mask_to_rows(self.data_store.selection_mask[self.display_mask])
                 # fig.update(selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.display_mask]))
 
     @property
@@ -433,10 +427,10 @@ class FigureDisplay:
         self.figure.update_traces(selected={"marker": {
             "opacity": 1.0
         }},
-                                  unselected={"marker": {
-                                      "opacity": 0.1
-                                  }},
-                                  selector={'type': "scatter"})
+            unselected={"marker": {
+                "opacity": 0.1
+            }},
+            selector={'type': "scatter"})
         self.figure.update_layout(
             autosize=True,
             margin={

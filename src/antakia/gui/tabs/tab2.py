@@ -31,7 +31,7 @@ class Tab2:
                  es_pvs: ProjectedValuesSelector,
                  edit_callback: Callable,
                  substitute_callback: Callable,
-                 color_update_callback):
+                 color_update_callback: Callable):
 
         self.data_store = data_store
         self.vs_pvs = vs_pvs

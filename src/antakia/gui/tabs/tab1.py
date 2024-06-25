@@ -18,13 +18,16 @@ class Tab1:
     EDIT_RULE = 'edition'
     CREATE_RULE = 'creation'
 
-    def __init__(self, data_store: DataStore, update_callback: Callable,
-                 validate_rules_callback: Callable):
+    def __init__(self, data_store: DataStore,
+                 validate_rules_callback: Callable,
+                 color_update_callback: Callable):
+
         self.data_store = data_store
         self._region = Region(self.data_store.X)
-        self.update_callback = partial(update_callback, self, 'rule_updated')
         self.validate_rules_callback = partial(validate_rules_callback, self,
                                                'rule_validated')
+        self.color_update_callback = color_update_callback
+
 
         self.X_rounded = None
 
@@ -275,7 +278,6 @@ class Tab1:
         self._region = region
         self.data_store._rules_mask = region.mask.copy()  # type: ignore
         self.data_store.selection_mask = region.mask.copy()
-
         self._refresh_title_txt()
         self.vs_rules_wgt.change_rules(region.rules, True)
         self.es_rules_wgt.change_rules(RuleSet(), True)
@@ -296,22 +298,19 @@ class Tab1:
             self.es_rules_wgt.change_rules(es_skr_rules_set, False)
             # compute rules on vs space
 
-            skr_rules_set, skr_score_dict = skope_rules(
-                self.data_store.selection_mask,
-                self.data_store.X,
-                variables=self.data_store.variables)
-            self.data_store.rules_mask = skr_rules_set.get_matching_mask(
-                self.data_store.X)
-            skr_score_dict['target_avg'] = self.data_store.y[
-                self.data_store.selection_mask].mean()
+            skr_rules_set, skr_score_dict = skope_rules(self.data_store.selection_mask,
+                                                        self.data_store.X,
+                                                        variables=self.data_store.variables)
+            self.data_store.rules_mask = skr_rules_set.get_matching_mask(self.data_store.X)
+            skr_score_dict['target_avg'] = self.data_store.y[self.data_store.selection_mask].mean()
             # init vs rules widget
             self.vs_rules_wgt.change_rules(skr_rules_set, False)
             # update widgets and hdes
             self.refresh()
-            self.update_callback()
             stats_logger.log('find_rules', skr_score_dict)
             self.find_rules_btn.disabled = False
             self.find_rule_progress.indeterminate = False
+            self.color_update_callback(self, 'find rule', 'rule')
 
     @log_errors
     @timeit
@@ -327,6 +326,7 @@ class Tab1:
         with Log('cancel_edit', 2):
             self.reset()
             self.update_callback()
+            self.color_update_callback(self, 'cancel rule edit', 'y')
 
     @timeit
     @log_errors

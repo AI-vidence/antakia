@@ -55,7 +55,7 @@ def generate_corner_dataset(num_samples: int,
     return X, y
 
 
-def get_data_from_mixture_distribution(num_samples,
+def get_data_from_mixture_distribution(num_samples : int,
                                        positive_component_rvs: Callable,
                                        negative_component_rvs: Callable):
     d = positive_component_rvs(size=1).shape[0]

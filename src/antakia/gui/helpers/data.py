@@ -15,7 +15,7 @@ class DataStore:
     def __init__(self, X: pd.DataFrame, y: pd.Series, variables: DataVariables,
                  X_exp: pd.DataFrame | None, X_test: pd.DataFrame | None,
                  y_test: pd.Series | None, model,
-                 problem_category: ProblemCategory, score: Callable | str):
+                 problem_category: ProblemCategory | str, score: Callable | str):
         self.X = X
         self.X_scaled: pd.DataFrame | None = None
         self.user_x_exp = X_exp
@@ -46,7 +46,7 @@ class DataStore:
         if self._y_pred is None:
             pred = self.model.predict(self.X)
             if self.problem_category in [
-                    ProblemCategory.classification_with_proba
+                ProblemCategory.classification_with_proba
             ]:
                 pred = self.model.predict_proba(self.X)
 
@@ -68,6 +68,7 @@ class DataStore:
     def X_exp(self, explanation_dataframe):
         self._X_exp = explanation_dataframe
         self._selection_mask = boolean_mask(self.X, True)
+        self.empty_selection = True
         self._rules_mask = boolean_mask(self.X, True)
         self._compute_rule_selection_color()
 

@@ -1,5 +1,6 @@
 import os
-
+from dotenv import load_dotenv
+load_dotenv()
 os.environ['ATK_LOGS_TYPE'] = 'b'
 import pandas as pd
 from antakia.utils.examples import fetch_dataset
@@ -7,7 +8,7 @@ from antakia.utils.examples import fetch_dataset
 df = fetch_dataset('california_housing')
 
 df = df.sample(len(df))
-limit = int(500 / 0.8)
+limit = int(200 / 0.8)
 df = df.iloc[:limit]
 split_row = int(len(df) * 0.8)
 df_train = df[:split_row]
@@ -56,25 +57,35 @@ atk = AntakIA(
 
 atk.start_gui()
 
-from tests.interactions import change_tab, auto_cluster, clear_region_selection, toggle_select_region, merge, set_color, substitute, select_model, validate_model
+from tests.interactions import *
 
 gui = atk.gui
+
+# change_tab(gui, 1)
+# auto_cluster(gui)
+# toggle_select_region(gui, 1)
+# substitute(gui)
+
+#
+#
+#
+select_points(gui, True)
+# print('le suivant')
+find_rules(gui)
+# validate_rules(gui)
+# assert (gui.tab_value == 2)
+
 # set_color(gui, 1)
 #
 # set_color(gui, 0)
 # set_color(gui, 3)
 
 
-# change_tab(gui, 1)
-# auto_cluster(gui)
-# toggle_select_region(gui, 1)
 # toggle_select_region(gui, 2)
 # merge(gui)
 
 # toggle_select_region(gui, 1)
 # clear_region_selection(gui)
-
-
 
 
 #
