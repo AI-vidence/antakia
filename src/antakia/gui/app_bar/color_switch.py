@@ -13,11 +13,21 @@ class ColorSwitch:
         self.update_callback = update_callback
         self.data_store = data_store
         self.btn_list = ["y", "y^", "residual", "all_regions"]
-        self.icon_tooltip_dict = {"y": ("mdi-alpha-y-circle-outline", 'Display target values'),
-                                  "y^": ("mdi-alpha-y-circle", 'Display predicted values'),
-                                  "residual": ("mdi-delta", 'Display residual values'),
-                                  "residual_sub": ("mdi-set-right", "Display residual values of the substitute model"),
-                                  "all_regions": ("mdi-view-dashboard", 'Display regions')}
+        self.btn_dict = {"y": ("mdi-alpha-y-circle-outline", #icon
+                                        'Display target values', #tootltip
+                                        ['y']), #list of colors related to the btn
+                                  "y^": ("mdi-alpha-y-circle",
+                                         'Display predicted values',
+                                         ['y^']),
+                                  "residual": ("mdi-delta",
+                                               'Display residual values',
+                                               ['residual']),
+                                  "residual_sub": ("mdi-set-right",
+                                                   "Display residual values of the substitute model",
+                                                   ['residual_sub']),
+                                  "all_regions": ("mdi-view-dashboard",
+                                                  'Display regions',
+                                                  ['all_regions',"region_selection" ])}
 
         self._build_widget()
 
@@ -51,16 +61,18 @@ class ColorSwitch:
         return v.Col(children=[btn_toggle])
 
     def _build_widget(self):
-        self.widget = self._build_toggle(self.btn_list, self.icon_tooltip_dict)
+        self.widget = self._build_toggle(self.btn_list, self.btn_dict)
         self.widget.children[0].on_event("change", self.update_callback)
 
-    def update_btn_widget(self, value, btn_list):
+    def update_btn_widget(self, color, btn_list):
         # Updates the button in the switch if the value parameter is one of the buttons,
         # else it will disable all buttons
 
-        if btn_list != self.btn_list:
+        if btn_list != self.btn_list: #update the button list
             self.btn_list = btn_list
 
-            self.widget = self._build_toggle(btn_list, self.icon_tooltip_dict)
+            self.widget = self._build_toggle(btn_list, self.btn_dict) #updates the toggle with new btns
 
-        self.widget.children[0].v_model = value
+        for btn_value, colors in self.btn_dict.items() :
+            if color in colors[2] :
+                self.widget.children[0].v_model = btn_value
