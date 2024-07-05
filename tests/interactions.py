@@ -17,10 +17,12 @@ def select_dim(gui, dim):
 
 @check
 def set_color(gui, color):
-    colors = ['y', 'y^', 'residual', 'all_regions']
+    colors = ['y', 'y^', 'residual', 'all_regions', "y^model", "residual_sub"]
     wgt = gui.color_switch.widget
+    if colors[color] not in gui.color_switch.btn_list:
+        raise InteractionError('the selected color is not enabled in this tab')
     wgt.v_model = colors[color]
-    wgt.fire_event('change', wgt.v_model)
+    wgt.children[0].fire_event('change', wgt.children[0].v_model)
 
 
 @check
@@ -243,6 +245,13 @@ def select_model(gui, model: int):
     data = {'value': True, 'item': {'Sub-model': model}}
     gui.tab3._sub_model_selected_callback(data)
 
+@check
+def unselect_model(gui):
+    if gui.tab_value != 3:
+        raise InteractionError('wrong tab')
+    if len(gui.tab2.selected_regions) == 0:
+        raise InteractionError('no region selected')
+    gui.tab3.selected_sub_model = []
 
 @check
 def validate_model(gui):

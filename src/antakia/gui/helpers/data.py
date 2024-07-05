@@ -2,11 +2,16 @@ from typing import Callable
 
 import numpy as np
 import pandas as pd
-from antakia_core.data_handler import ModelRegionSet, ModelRegion
-from antakia_core.utils import ProblemCategory, boolean_mask, get_mask_comparison_color, timeit, DataVariables
+from antakia_core.compute.model_subtitution.model_class import MLModel
+from antakia_core.data_handler import ModelRegionSet, ModelRegion, RegionSet, Region
+from antakia_core.utils import ProblemCategory, boolean_mask, get_mask_comparison_color, timeit, DataVariables, \
+    BASE_COLOR
 
 from antakia.config import AppConfig
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
+
+from antakia.utils.logging_utils import conf_logger, Log
+from antakia.utils.stats import stats_logger, log_errors
 
 
 class DataStore:
@@ -27,9 +32,10 @@ class DataStore:
         self.model = model
         self.problem_category = problem_category
         self._y_pred = None
+        self._y_pred_submodels = {}  # dictionary containing {'model_name' : y_predict_submodel}
         self.score = score
-        self.colors = y
-
+        self.color = 'y' # par défault lors du build on affiche les y target
+        self.color_series = y
 
         self._selection_mask = boolean_mask(X, True)
         self.empty_selection = True
@@ -60,6 +66,26 @@ class DataStore:
                     pred = pred.argmax(axis=1)
             self._y_pred = pd.Series(pred, index=self.X.index)
         return self._y_pred
+
+    def y_pred_submodels(self, model: MLModel) -> pd.Series:
+        """
+        directly returns the prediction from the dictionary
+        computes the required prediction if needed
+
+        Parameters
+        ----------
+        model : model used for the predictions
+
+        Returns
+        the series containing the colors (values) predicted by the model
+        -------
+
+        """
+        if model.name == 'Original Model':
+            return self.y_pred
+        if model.name not in self._y_pred_submodels:
+            self._y_pred_submodels[model.name] = model.predict(self.X)
+        return self._y_pred_submodels[model.name]
 
     @property
     def X_exp(self):
@@ -119,6 +145,83 @@ class DataStore:
     def reset_rules_and_selection(self):
         self._rules_mask = boolean_mask(self.X)
         self.selection_mask = boolean_mask(self.X)
+
+    @log_errors
+    def switch_color(self, region_list: [int], model: MLModel | None, viewmode=AppConfig.ATK_REGION_VIEWMODE):
+        """
+        functions that updates the color_series attribute and the mask attribute
+        Parameters
+        ----------
+        region_list : list of regions to show
+        model
+        viewmode
+
+        Returns
+        pd.Series of colors to display(values)
+        -------
+
+        """
+        with (Log('switch_color', 2)):
+            stats_logger.log('color_changed', {'color': self.color})
+
+            self.highlighted_mask = self.get_selected_mask(region_list)
+
+            # ATTRIBUTION DE LA COULEUR
+            if self.color == "y":
+                self.color_series = self.y
+            elif self.color == "y^":
+                self.color_series = self.y_pred
+            elif self.color == "residual":
+                self.color_series = self.y - self.y_pred
+            elif self.color == "all_regions":
+                self.color_series = self.region_set.get_color_serie()
+            elif self.color == "region_selection":
+                self.color_series = self.region_set.get_color_serie()
+                if viewmode == 'grey mask':
+                    if region_list and region_list is not None:
+                        region_set_selected = RegionSet(self.X)
+                        selected_regions = [self.region_set.get(i) for i in region_list]
+                        for region in selected_regions:
+                            region_set_selected.add(region)
+                        self.color_series = region_set_selected.get_color_serie()
+
+            elif self.color == 'y^model':
+                self.color_series = self.y_pred_submodels(model)
+            elif self.color == 'residual_sub':
+                self.color_series = self.y - self.y_pred_submodels(model)
+
+            elif self.color == 'rule_selection':
+                self.color_series = self.y
+                self.highlighted_mask = self.selection_mask.copy()
+            elif self.color == 'rule':
+                self.color_series = self.rule_selection_color
+                self.highlighted_mask = self.rule_selection_color != BASE_COLOR  # We highlight every point exept those in BASECOLOR (those not included in either selection mask or rule mask)
+
+        return self.color
+
+
+    def get_selected_mask(self, region_list: [Region]) -> pd.Series:
+        """
+
+        Parameters
+        ----------
+        region_list : list of regions to display
+
+        Returns
+        a mask of the regions to display
+        -------
+
+        """
+        mask = boolean_mask(self.X, True)
+        if region_list and region_list is not None:
+            region_set_selected = RegionSet(self.X)
+            selected_regions = [self.region_set.get(i) for i in region_list]
+            for region in selected_regions:
+                region_set_selected.add(region)
+            mask = region_set_selected.mask
+
+        return mask
+
 
     @property
     @timeit

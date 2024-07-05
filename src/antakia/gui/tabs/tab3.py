@@ -25,10 +25,10 @@ class Tab3:
     ]
 
     def __init__(self, data_store: DataStore, validate_callback: Callable,
-                 display_model_data: Callable):
+                 color_update_callback: Callable):
         self.data_store = data_store
         self.validate_callback = validate_callback
-        self.display_model_data = display_model_data
+        self.color_update_callback = color_update_callback
         self.model_explorer = ModelExplorer(self.data_store.X)
         self.region: ModelRegion | None = None
         self.substitution_model_training = False  # tab 3 : training flag
@@ -136,7 +136,7 @@ class Tab3:
         self.update()
 
     @property
-    def selected_sub_model(self):
+    def selected_sub_model(self) -> list[dict]:
         return self.model_table.selected
 
     @selected_sub_model.setter
@@ -282,11 +282,9 @@ class Tab3:
             if is_selected:
                 self.model_explorer.update_selected_model(
                     self.region.get_model(model_name), self.region)
-                self.display_model_data(
-                    self.region, self.region.train_residuals(model_name))
             else:
-                self.display_model_data(self.region, None)
                 self.model_explorer.reset()
+            self.color_update_callback(self,event = 'sub_model_selected')
 
     @log_errors
     def _validate_sub_model(self, *args):

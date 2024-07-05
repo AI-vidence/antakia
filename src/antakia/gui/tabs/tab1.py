@@ -245,7 +245,6 @@ class Tab1:
 
         # data table
         self.data_table.disabled = not self._valid_selection
-        # self.widget[2].children[0].disabled = not self.valid_selection
         self.find_rules_btn.disabled = not self._valid_selection
         self.undo_btn.disabled = empty_history
         self.cancel_btn.disabled = empty_rule_set and empty_history
@@ -310,7 +309,7 @@ class Tab1:
             stats_logger.log('find_rules', skr_score_dict)
             self.find_rules_btn.disabled = False
             self.find_rule_progress.indeterminate = False
-            self.color_update_callback(self, 'find rule', 'rule')
+            self.color_update_callback(self, 'find rule')
 
     @log_errors
     @timeit
@@ -325,7 +324,6 @@ class Tab1:
     def cancel_edit(self, *args):
         with Log('cancel_edit', 2):
             self.reset()
-            self.update_callback()
             self.color_update_callback(self, 'cancel rule edit', 'y')
 
     @timeit
@@ -337,8 +335,6 @@ class Tab1:
         """
         stats_logger.log('rule_changed')
         self.refresh()
-        # We sent to the proper HDE the rules_indexes to render :
-        self.update_callback()
 
     @log_errors
     @timeit

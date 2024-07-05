@@ -127,22 +127,6 @@ class FigureDisplay:
         if self.dim == 2 and self.figure is not None:
             self.figure.update_layout(dragmode=self._selection_mode)
 
-    # @timeit
-    # def display_rules(self):
-    #     """
-    #     display a rule vs a selection
-    #     Parameters
-    #     ----------
-    #     selection_mask: boolean series of selected points
-    #     rules_mask: boolean series of rule validating points
-    #
-    #     Returns
-    #     -------
-    #
-    #     """
-    #     self.data_store.colors = self.data_store.rule_selection_color
-    #
-    #     # self._refresh_color(self.RULES_TRACE)
 
     @timeit
     def display_region(self, region: Region):
@@ -205,7 +189,7 @@ class FigureDisplay:
             if len(self.figure.data[0].x) == 0:
                 return self._refresh_data()
             with self.figure.batch_update():
-                self.figure.data[0].marker.color = self.data_store.colors
+                self.figure.data[0].marker.color = self.data_store.color_series
 
     @timeit
     def _refresh_data(self):
@@ -224,7 +208,7 @@ class FigureDisplay:
             self.figure.data[0].y = projection[1]
             self.figure.data[0].customdata = self.data_store.y[self.display_mask]
 
-            self.figure.data[0].marker.color = self.data_store.colors[self.display_mask]
+            self.figure.data[0].marker.color = self.data_store.color_series[self.display_mask]
             if self.dim == 3:
                 self.figure.data[0].z = projection[2]
 

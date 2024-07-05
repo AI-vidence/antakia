@@ -33,6 +33,7 @@ class Tab2:
                  substitute_callback: Callable,
                  color_update_callback: Callable):
 
+        self.selected_regions_list = []
         self.data_store = data_store
         self.vs_pvs = vs_pvs
         self.es_pvs = es_pvs
@@ -366,7 +367,9 @@ class Tab2:
             # We re-enable the button
             self.auto_cluster_running = False
             self.update_btns()
-            self.color_update_callback(None, None, value="all_regions")
+            self.color_update_callback(self,
+                                       event = 'auto_cluster',
+                                       )
 
     def num_cluster_changed(self, *args):
         """
@@ -463,7 +466,8 @@ class Tab2:
                 selected_region_nums.append(data['item']['Region'])
             else:  # region unselected
                 selected_region_nums.remove(data['item']['Region'])
-            self.color_update_callback(self, 'region_selected', 'region_selection', region_list=selected_region_nums)
+            self.selected_regions_list = selected_region_nums
+            self.color_update_callback(self, 'region_selected', region_list=self.selected_regions_list)
             self.update_btns(selected_region_nums)
 
     def clear_selected_regions(self):
@@ -499,7 +503,9 @@ class Tab2:
             # There is no more selected region
             self.clear_selected_regions()
             self.update_region_table()
-            self.color_update_callback(self, 'divide_region', 'all_regions')
+            self.color_update_callback(self,
+                                       event = 'divide_region',
+                                       )
 
     @log_errors
     def merge_region_clicked(self, *args):
@@ -533,7 +539,7 @@ class Tab2:
                 r = self.region_set.add_region(mask=mask)
             self.selected_regions = [{'Region': r.num}]
             self.update_region_table()
-            self.color_update_callback(self, 'merge_region', 'all_regions')
+            self.color_update_callback(self, 'region_selected')
 
     @log_errors
     def delete_region_clicked(self, *args):
@@ -551,7 +557,7 @@ class Tab2:
             # There is no more selected region
             self.clear_selected_regions()
             self.update_region_table()
-            self.color_update_callback(self,'delete_region' , value = 'all_regions')
+            self.color_update_callback(self,'delete_region' )
 
     @log_errors
     def substitute_clicked(self, widget, event, data):
