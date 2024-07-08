@@ -81,7 +81,7 @@ class GUI:
 
         self.dimension_switch = DimSwitch(self.dimension_update_callback)
         self.color_switch = ColorSwitch(self.data_store,
-                                        self.color_switch_clicked)
+                                        lambda w,e,v:self.color_update_callback(w,e,self.tab2.selected_regions_list))
 
         # first hde
         with Log('building vs hde', 2):
