@@ -91,7 +91,7 @@ class ColorSwitch:
         if btn_list != self.btn_list:  # update the button list
             self.btn_list = btn_list
             self.widget.children = self._build_toggle()  # updates the toggle with new btns
-            self.widget.children[0].on_event("change", self.update_callback)
+            self.widget.children[0].on_event("change", self.color_update_callback)
 
         for btn_value in BTN_DICT:
             if self.data_store.color in BTN_DICT[btn_value]['color_names']:

@@ -81,7 +81,7 @@ class GUI:
 
         self.dimension_switch = DimSwitch(self.dimension_update_callback)
         self.color_switch = ColorSwitch(self.data_store,
-                                        lambda w,e,v:self.color_update_callback(w,e,self.tab2.selected_regions_list))
+                                        lambda w,e,v:self.color_update_callback(w,self.tab2.selected_regions_list))
 
         # first hde
         with Log('building vs hde', 2):
@@ -461,7 +461,6 @@ class GUI:
     # ==================== COLOR MANAGER ==================== #
     def color_update_callback(self,
                               widget,
-                              event: str = None,
                               region_list: list[int] = None,
                               ):
         model = None
@@ -469,7 +468,7 @@ class GUI:
         if region_list is None:
             region_list = []
 
-        if event == 'change':  # when the ColorSwitch btn is changed
+        if isinstance(widget, v.BtnToggle):  # when the ColorSwitch btn is changed
             self.data_store.color = self.color_switch.widget.children[0].v_model
 
         else :
