@@ -5,25 +5,21 @@ from typing import Callable
 
 import pandas as pd
 import numpy as np
-from antakia_core.utils import timeit, boolean_mask
+from antakia_core.utils import timeit
 from plotly.graph_objects import FigureWidget, Scattergl, Scatter3d
-from plotly.express.colors import sample_colorscale
 import ipyvuetify as v
 from sklearn.neighbors import KNeighborsClassifier, NearestNeighbors
 
-from antakia_core.data_handler import Region, RegionSet
 
 import antakia_core.utils as utils
 from antakia.config import AppConfig
 
 import logging as logging
 
-from antakia.gui.app_bar.color_switch import ColorSwitch
 from antakia.gui.helpers.data import DataStore
 from antakia.utils.logging_utils import conf_logger, Log
 from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors, stats_logger
-from antakia.utils.colors import colors
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -127,51 +123,6 @@ class FigureDisplay:
         if self.dim == 2 and self.figure is not None:
             self.figure.update_layout(dragmode=self._selection_mode)
 
-
-    @timeit
-    def display_region(self, region: Region):
-        """
-        display a single region
-        Parameters
-        ----------
-        region
-
-        Returns
-        -------
-
-        """
-        self.data_store.colors = region.get_color_serie()
-
-    @timeit
-    def display_region_value(self, region: Region, y: pd.Series):
-        """
-        display a single region, with target colors
-        Parameters
-        ----------
-        region
-
-        Returns
-        -------
-
-        """
-        if self.figure_data is None:
-            return
-        if y.min() == y.max():
-            y[:] = 0.5
-        else:
-            y = (y + max(-y.min(), y.max())) / (2 * max(-y.min(), y.max()))
-        color_serie = pd.Series(index=self.figure_data.index)
-        color_serie[~region.mask] = colors['gray']
-
-        # cmap = ['blue', 'green', 'red1']
-        # cmap = [colors[c] for c in cmap]
-        cmap = 'Portland'
-
-        color_serie[region.mask] = sample_colorscale(cmap,
-                                                     y[region.mask],
-                                                     low=0,
-                                                     high=1)
-        self.data_store.colors = color_serie
 
     @timeit
     def refresh_color(self):  #
