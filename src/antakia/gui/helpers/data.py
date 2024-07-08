@@ -167,35 +167,35 @@ class DataStore:
             self.highlighted_mask = self.get_selected_mask(region_list)
 
             # ATTRIBUTION DE LA COULEUR
-            if self.color == "y":
-                self.color_series = self.y
-            elif self.color == "y^":
-                self.color_series = self.y_pred
-            elif self.color == "residual":
-                self.color_series = self.y - self.y_pred
-            elif self.color == "all_regions":
-                self.color_series = self.region_set.get_color_serie()
-            elif self.color == "region_selection":
-                self.color_series = self.region_set.get_color_serie()
-                if viewmode == 'grey mask':
-                    if region_list and region_list is not None:
-                        region_set_selected = RegionSet(self.X)
-                        selected_regions = [self.region_set.get(i) for i in region_list]
-                        for region in selected_regions:
-                            region_set_selected.add(region)
-                        self.color_series = region_set_selected.get_color_serie()
+            match self.color :
+                case "y":
+                    self.color_series = self.y
+                case "y^":
+                    self.color_series = self.y_pred
+                case "residual":
+                    self.color_series = self.y - self.y_pred
+                case "all_regions":
+                    self.color_series = self.region_set.get_color_serie()
+                case "region_selection":
+                    self.color_series = self.region_set.get_color_serie()
+                    if viewmode == 'grey mask':
+                        if region_list and region_list is not None:
+                            region_set_selected = RegionSet(self.X)
+                            for i in region_list:
+                                region_set_selected.add(self.region_set.get(i))
+                            self.color_series = region_set_selected.get_color_serie()
 
-            elif self.color == 'y^model':
-                self.color_series = self.y_pred_submodels(model)
-            elif self.color == 'residual_sub':
-                self.color_series = self.y - self.y_pred_submodels(model)
+                case 'y^model':
+                    self.color_series = self.y_pred_submodels(model)
+                case 'residual_sub':
+                    self.color_series = self.y - self.y_pred_submodels(model)
 
-            elif self.color == 'rule_selection':
-                self.color_series = self.y
-                self.highlighted_mask = self.selection_mask.copy()
-            elif self.color == 'rule':
-                self.color_series = self.rule_selection_color
-                self.highlighted_mask = self.rule_selection_color != BASE_COLOR  # We highlight every point exept those in BASECOLOR (those not included in either selection mask or rule mask)
+                case 'rule_selection':
+                    self.color_series = self.y
+                    self.highlighted_mask = self.selection_mask.copy()
+                case 'rule':
+                    self.color_series = self.rule_selection_color
+                    self.highlighted_mask = self.rule_selection_color != BASE_COLOR  # We highlight every point exept those in BASECOLOR (those not included in either selection mask or rule mask)
 
         return self.color
 
@@ -215,9 +215,8 @@ class DataStore:
         mask = boolean_mask(self.X, True)
         if region_list and region_list is not None:
             region_set_selected = RegionSet(self.X)
-            selected_regions = [self.region_set.get(i) for i in region_list]
-            for region in selected_regions:
-                region_set_selected.add(region)
+            for i in region_list:
+                region_set_selected.add(self.region_set.get(i))
             mask = region_set_selected.mask
 
         return mask
