@@ -189,7 +189,7 @@ class FigureDisplay:
             if len(self.figure.data[0].x) == 0:
                 return self._refresh_data()
             with self.figure.batch_update():
-                self.figure.data[0].marker.color = self.data_store.color_series
+                self.figure.data[0].marker.color = self.data_store.color_series[self.data_store.display_mask]
 
     @timeit
     def _refresh_data(self):
