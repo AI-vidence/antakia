@@ -373,7 +373,7 @@ class GUI:
                         str(self.es_hde.projected_value_selector.current_proj)
                 })
         self.disable_hde(self, 'selection_changed')
-        self.color_update_callback(self, 'selection_changed')
+        self.color_update_callback(self)
         if caller != self.tab1:
             self.tab1.refresh()
 
@@ -399,15 +399,12 @@ class GUI:
     @timeit
     def select_tab(self, tab, front=False, msg=None):
         if tab == 1 and (self.data_store.empty_selection):
-            return self.select_tab(0)
-        elif tab == 2:
-            self.tab2.clear_selected_regions()
+            self.select_tab(0)
         if not front:
             self.widget.children[4].v_model = max(tab - 1, 0)
 
         self.tab_value = tab
-        self.color_update_callback(self,
-                                   event=msg)
+        self.color_update_callback(self)
         self.disable_hde(self, 'select_tab')
 
     # ==================== TAB 1 ==================== #
@@ -464,48 +461,13 @@ class GUI:
     # ==================== COLOR MANAGER ==================== #
     def color_update_callback(self,
                               widget,
-                              event: str,
+                              event: str = None,
                               region_list: list[int] = None,
                               ):
         model = None
         btn_list = ["y", "y^", "residual", "all_regions"]
         if region_list is None:
             region_list = []
-
-        if (event == 'tab change' or event == 'front' or
-                event == 'no region selected' or event == 'validate'):
-            if self.tab_value < 2:
-                self.data_store.color = "y"
-            elif self.tab_value == 2:
-                self.data_store.color = 'all_regions'
-            elif self.tab_value == 3:
-                self.data_store.color = "y"
-                if self.tab3.region is not None:
-                    self.data_store.color = 'region_selection'
-                    region_list = [self.tab3.region.num]
-
-        elif event == 'region_selected':
-            self.data_store.color = 'region_selection'
-
-        elif event == 'display model data':
-            self.data_store.color = 'display model data'
-
-        elif event == 'auto_cluster' or event == 'delete_region':
-            self.data_store.color = 'all_regions'
-
-        elif event == 'validate':  # when we validate a rule from tab1
-            self.data_store.color = "region_selection"
-            region_list = [self.data_store.region_set.insert_order[
-                               -1]]  # display the newly created region, which is the latest added
-
-        elif event == 'sub_model_selected':
-            self.data_store.color = 'y^model'
-            self.color_switch.widget.children[0].v_model = 'y^model'
-
-        elif event == 'substitute':
-            self.data_store.color = "y"
-            region_list = self.tab2.selected_regions_list
-
 
         if event == 'change':  # when the ColorSwitch btn is changed
             self.data_store.color = self.color_switch.widget.children[0].v_model
@@ -520,14 +482,23 @@ class GUI:
                 else:
                     self.data_store.color = 'y'
 
+            elif self.tab_value == 2:
+                if self.tab2.selected_regions_list :
+                    region_list = self.tab2.selected_regions_list
+                    self.data_store.color = "region_selection"
+                else:
+                    self.data_store.color = 'all_regions'
+
             elif self.tab_value == 3:
+                self.data_store.color = "y"
                 if self.tab3.region is not None:  # checks that a region is attributed to tab3
                     region_list = [self.tab3.region.num]
-                if self.tab3.selected_sub_model:  # si un modele est selectionné
-                    model = self.tab3.region.interpretable_models.models[self.tab3.selected_sub_model[0]['Sub-model']]
-                    if self.tab3.selected_sub_model[0][
-                        'Sub-model'] != 'Original Model':  # et que ce n'est pas le modèle de base
-                        btn_list = ["y", "y^", "residual", "y^model", "residual_sub"]
+                    if self.tab3.selected_sub_model:  # si un modele est selectionné
+                        model = self.tab3.region.interpretable_models.models[self.tab3.selected_sub_model[0]['Sub-model']]
+                        if self.tab3.selected_sub_model[0][
+                            'Sub-model'] != 'Original Model':  # et que ce n'est pas le modèle de base
+                            btn_list = ["y", "y^", "residual", "y^model", "residual_sub"]
+
 
         self.data_store.switch_color(region_list, model)  # loads the color series in the datastore
         self.figure_refresh_callback()  # refresh color of ES VS and Rule widget
@@ -535,7 +506,7 @@ class GUI:
 
     def color_switch_clicked(self, widget, event: str, value):
         # déclenche le changement de couleur
-        self.color_update_callback(widget, event, self.tab2.selected_regions_list)
+        self.color_update_callback(widget, self.tab2.selected_regions_list)
 
     @log_errors
     def figure_refresh_callback(self):
