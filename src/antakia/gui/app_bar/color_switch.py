@@ -35,6 +35,7 @@ class ColorSwitch:
         self.data_store = data_store
         self.btn_list = ["y", "y^", "residual", "all_regions"]
         self._build_widget()
+        self.data_store.color_switch = self.widget.v_model
 
     def _build_widget(self):
         self.widget = v.Col(children=[])

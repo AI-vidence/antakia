@@ -469,7 +469,9 @@ class GUI:
             region_list = []
 
         if isinstance(widget, v.BtnToggle):  # when the ColorSwitch btn is changed
+            self.data_store.color_switch = self.color_switch.widget.children[0].v_model
             self.data_store.color = self.color_switch.widget.children[0].v_model
+
 
         else :
             if self.tab_value <2:
@@ -478,8 +480,6 @@ class GUI:
                         self.data_store.color = 'rule_selection'
                     else :
                         self.data_store.color = 'rule'
-                else:
-                    self.data_store.color = 'y'
 
             elif self.tab_value == 2:
                 if self.tab2.selected_regions_list :
@@ -498,14 +498,9 @@ class GUI:
                             'Sub-model'] != 'Original Model':  # et que ce n'est pas le modèle de base
                             btn_list = ["y", "y^", "residual", "y^model", "residual_sub"]
 
-
         self.data_store.switch_color(region_list, model)  # loads the color series in the datastore
         self.figure_refresh_callback()  # refresh color of ES VS and Rule widget
         self.color_switch.update_btn_widget(btn_list)  # updates the Button toggle matching the displayed color
-
-    def color_switch_clicked(self, widget, event: str, value):
-        # déclenche le changement de couleur
-        self.color_update_callback(widget, self.tab2.selected_regions_list)
 
     @log_errors
     def figure_refresh_callback(self):

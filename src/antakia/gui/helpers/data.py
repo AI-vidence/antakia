@@ -36,6 +36,7 @@ class DataStore:
         self.score = score
         self.color = 'y' # par défault lors du build on affiche les y target
         self.color_series = y
+        self.color_switch = None #str contains the w_model of the ColorSwitch
 
         self._selection_mask = boolean_mask(X, True)
         self.empty_selection = True
@@ -156,8 +157,6 @@ class DataStore:
         model
         viewmode
 
-        Returns
-        pd.Series of colors to display(values)
         -------
 
         """
@@ -191,13 +190,12 @@ class DataStore:
                     self.color_series = self.y - self.y_pred_submodels(model)
 
                 case 'rule_selection':
-                    self.color_series = self.y
                     self.highlighted_mask = self.selection_mask.copy()
+                    self.color = self.color_switch
                 case 'rule':
                     self.color_series = self.rule_selection_color
                     self.highlighted_mask = self.rule_selection_color != BASE_COLOR  # We highlight every point exept those in BASECOLOR (those not included in either selection mask or rule mask)
 
-        return self.color
 
 
     def get_selected_mask(self, region_list: [Region]) -> pd.Series:
