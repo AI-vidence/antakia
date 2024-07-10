@@ -154,7 +154,6 @@ class Tab3:
         -------
 
         """
-        self.progressbar_widget.hide()  # displays the progress bar widget in preparation for the next submodel training
 
         if (self.region is not None and not self.region.trained
                 and not self.region.num_points() < AppConfig.ATK_MIN_POINTS_NUMBER):  # region is not too small
@@ -162,17 +161,16 @@ class Tab3:
             self.model_table_widget.hide()  # hides the submodel table
             # We update the substitution table once to show the name of the region
             self.substitution_model_training = True
-            self.progressbar_widget.show()
             self.progress_bar(0)
+            self.progressbar_widget.show()
             self.update()
             # show tab 3 (and update)
             self.region.train_substitution_models(
                 task_type=self.data_store.problem_category)
-            self.progressbar_widget.hide() #hides the progress bar widget once submodels trained
-
             self.progress_bar(100)
             self.substitution_model_training = False
             self.update()
+            self.progressbar_widget.hide() #hides the progress bar widget once submodels trained
             self.model_table_widget.show() #displays the submodel table once submodels trained
         else:
             self.update()
@@ -284,7 +282,8 @@ class Tab3:
                     self.region.get_model(model_name), self.region)
             else:
                 self.model_explorer.reset()
-            self.color_update_callback(self,event = 'sub_model_selected')
+                self.selected_sub_model = []
+            self.color_update_callback(self)
 
     @log_errors
     def _validate_sub_model(self, *args):

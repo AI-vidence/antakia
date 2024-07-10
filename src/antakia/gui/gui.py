@@ -492,11 +492,12 @@ class GUI:
                 self.data_store.color = "y"
                 if self.tab3.region is not None:  # checks that a region is attributed to tab3
                     region_list = [self.tab3.region.num]
-                    if self.tab3.selected_sub_model:  # si un modele est selectionné
-                        model = self.tab3.region.interpretable_models.models[self.tab3.selected_sub_model[0]['Sub-model']]
-                        if self.tab3.selected_sub_model[0][
-                            'Sub-model'] != 'Original Model':  # et que ce n'est pas le modèle de base
+                    if self.tab3.region.trained:
+                        # si un modele est selectionné et que ce n'est pas le modèle de base
+                        if self.tab3.selected_sub_model != [] and self.tab3.selected_sub_model[0]['Sub-model'] != 'Original Model':
+                            model = self.tab3.region.interpretable_models.models[self.tab3.selected_sub_model[0]['Sub-model']]
                             btn_list = ["y", "y^", "residual", "y^model", "residual_sub"]
+                            self.data_store.color = 'y^model'
 
         self.data_store.switch_color(region_list, model)  # loads the color series in the datastore
         self.figure_refresh_callback()  # refresh color of ES VS and Rule widget
