@@ -32,7 +32,6 @@ class DataStore:
         self.model = model
         self.problem_category = problem_category
         self._y_pred = None
-        self._y_pred_submodels = {}  # dictionary containing {'model_name' : y_predict_submodel}
         self.score = score
         self.color = 'y' # par défault lors du build on affiche les y target
         self.color_series = y
@@ -50,7 +49,7 @@ class DataStore:
         self._display_mask: pd.Series | None = None
 
     @property
-    def y_pred(self):
+    def y_pred(self) -> pd.Series:
         if self._y_pred is None:
             pred = self.model.predict(self.X)
             if self.problem_category in [
@@ -67,26 +66,6 @@ class DataStore:
                     pred = pred.argmax(axis=1)
             self._y_pred = pd.Series(pred, index=self.X.index)
         return self._y_pred
-
-    def y_pred_submodels(self, model: MLModel) -> pd.Series:
-        """
-        directly returns the prediction from the dictionary
-        computes the required prediction if needed
-
-        Parameters
-        ----------
-        model : model used for the predictions
-
-        Returns
-        the series containing the colors (values) predicted by the model
-        -------
-
-        """
-        if model.name == 'Original Model':
-            return self.y_pred
-        if model.name not in self._y_pred_submodels:
-            self._y_pred_submodels[model.name] = model.predict(self.X)
-        return self._y_pred_submodels[model.name]
 
     @property
     def X_exp(self):
@@ -185,9 +164,9 @@ class DataStore:
                             self.color_series = region_set_selected.get_color_serie()
 
                 case 'y^model':
-                    self.color_series = self.y_pred_submodels(model)
+                    self.color_series = self.get_color_series_from_predict(self.X, region_list, model)
                 case 'residual_sub':
-                    self.color_series = self.y - self.y_pred_submodels(model)
+                    self.color_series = self.y - self.get_color_series_from_predict(region_list, model)
 
                 case 'rule_selection':
                     self.highlighted_mask = self.selection_mask.copy()
@@ -196,7 +175,11 @@ class DataStore:
                     self.color_series = self.rule_selection_color
                     self.highlighted_mask = self.rule_selection_color != BASE_COLOR  # We highlight every point exept those in BASECOLOR (those not included in either selection mask or rule mask)
 
-
+    def get_color_series_from_predict(self, X, region_list:list[int], model:MLModel)->pd.Series:
+        if model.name == 'Original Model':
+            return self.y
+        else:
+            return self.region_set.regions[region_list[0]].interpretable_models.y_pred(X, model)
 
     def get_selected_mask(self, region_list: [Region]) -> pd.Series:
         """
