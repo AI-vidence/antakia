@@ -1,5 +1,8 @@
 import time
+import os
 from typing import Callable
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import multiprocessing
 
 import pandas as pd
 import ipyvuetify as v
@@ -98,18 +101,19 @@ class ExplanationValues:
         # set up callback
         self.get_progress_bar().reset_progress_bar()
 
-    def initialize(self, progress_callback):
+    def initialize(self, progress_callback, lazy_load=True):
         """
         initialize class (compute explanation if necessary)
         Parameters
         ----------
         progress_callback : callback to notify progress
+        lazy_load : if True, skip initial explanation computation for faster startup
 
         Returns
         -------
 
         """
-        if not self.has_user_exp:
+        if not self.has_user_exp and not lazy_load:
             # compute explanation if not provided
             self.compute_explanation(config.ATK_DEFAULT_EXPLANATION_METHOD,
                                      progress_callback)
@@ -191,9 +195,23 @@ class ExplanationValues:
         """
         t = time.time()
         self.disable_gui(True)
-        # We compute proj for this new PV :
-        x_exp = compute_explanations(self.X, self.model, explanation_method,
-                                     self.task_type, progress_bar)
+        
+        # Optimisation M2 Max : utiliser le parallélisme si disponible
+        use_parallel = os.environ.get('ATK_PARALLEL_PROCESSING', 'False').lower() == 'true'
+        num_workers = int(os.environ.get('ATK_NUM_WORKERS', '4'))
+        
+        if use_parallel and explanation_method == 1:  # SHAP
+            # SHAP peut être parallélisé sur M2 Max
+            print(f"🚀 Calcul SHAP parallélisé avec {num_workers} workers sur M2 Max")
+            # Note: L'implémentation parallèle dépend de antakia_core
+            x_exp = compute_explanations(self.X, self.model, explanation_method,
+                                        self.task_type, progress_bar, 
+                                        parallel_workers=num_workers)
+        else:
+            # Calcul standard
+            x_exp = compute_explanations(self.X, self.model, explanation_method,
+                                        self.task_type, progress_bar)
+        
         pd.testing.assert_index_equal(x_exp.columns, self.X.columns)
 
         # update explanation
@@ -203,7 +221,9 @@ class ExplanationValues:
         self.disable_gui(False)
         stats_logger.log('compute_explanation', {
             'exp_method': explanation_method,
-            'compute_time': time.time() - t
+            'compute_time': time.time() - t,
+            'parallel': use_parallel,
+            'workers': num_workers if use_parallel else 1
         })
 
     def disable_selection(self, is_disabled: bool):

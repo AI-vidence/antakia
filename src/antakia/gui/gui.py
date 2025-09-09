@@ -220,7 +220,8 @@ class GUI:
         else:
             msg = f"Imported explained values {self.X.shape}"
         self.splash.set_exp_msg(msg)
-        self.exp_values.initialize(self.splash.exp_progressbar)
+        # Mode lazy pour éviter le calcul SHAP/LIME au démarrage
+        self.exp_values.initialize(self.splash.exp_progressbar, lazy_load=True)
 
         # We trigger VS proj computation :
         self.splash.set_proj_msg(
@@ -228,17 +229,27 @@ class GUI:
         pb1, pb2 = self.splash.proj_progressbar.split(50)
         self.vs_hde.initialize(progress_callback=pb1, X=self.X)
 
-        # THen we trigger ES proj computation :
+        # Then we trigger ES proj computation :
+        # En mode lazy, on utilise X comme fallback si pas d'explications
+        exp_df = self.exp_values.current_exp_df
+        if exp_df is None:
+            # Utiliser X comme explications temporaires (sans calcul coûteux)
+            exp_df = self.X
+            
         self.splash.set_proj_msg(
-            f"{config.ATK_DEFAULT_PROJECTION} on {self.X.shape} 2/2")
-        self.es_hde.initialize(progress_callback=pb2,
-                               X=self.exp_values.current_exp_df)
-        self.tab1.update_X_exp(self.exp_values.current_exp_df)
+            f"{config.ATK_DEFAULT_PROJECTION} on {exp_df.shape} 2/2")
+        self.es_hde.initialize(progress_callback=pb2, X=exp_df)
+        self.tab1.update_X_exp(exp_df)
         self.selection_changed(self, boolean_mask(self.X, True))
 
-        main_variables = self.exp_values.current_exp_df.abs().mean(
-        ).sort_values(ascending=False).iloc[:10].index
-        self.variables.set_main_variables(main_variables.to_list())
+        # Déterminer les variables principales seulement si on a des explications
+        if self.exp_values.current_exp_df is not None:
+            main_variables = self.exp_values.current_exp_df.abs().mean(
+            ).sort_values(ascending=False).iloc[:10].index
+            self.variables.set_main_variables(main_variables.to_list())
+        else:
+            # Utiliser toutes les variables comme principales en mode rapide
+            self.variables.set_main_variables(self.X.columns[:10].to_list())
         self.tab1.initialize()
         self.select_tab(0)
         self.disable_hde()

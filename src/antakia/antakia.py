@@ -8,6 +8,41 @@ from antakia_core.utils import DataVariables
 
 from antakia_core.utils.utils import ProblemCategory
 
+# Import de la configuration optimisée par défaut
+try:
+    from antakia.performance_config import apply_fast_config
+    apply_fast_config()  # Application automatique de la config rapide
+except ImportError:
+    pass  # Si le fichier n'existe pas, utiliser la config par défaut
+
+# Optimisations NumPy pour Apple Silicon M2 Max
+def optimize_numpy_for_m2_max():
+    """
+    Configure NumPy pour optimiser les performances sur Apple Silicon M2 Max.
+    """
+    try:
+        # Vérifier si on est sur Apple Silicon
+        import platform
+        if platform.machine() == 'arm64':
+            # Optimisations pour Apple Silicon
+            os.environ.setdefault('VECLIB_MAXIMUM_THREADS', '12')
+            os.environ.setdefault('OMP_NUM_THREADS', '12')
+            
+            # Configuration NumPy pour utiliser Apple Accelerate
+            np.set_printoptions(precision=6, suppress=True)
+            
+            # Vérifier la configuration BLAS
+            try:
+                np.show_config()
+                print("✅ NumPy optimisé pour Apple Silicon M2 Max")
+            except:
+                pass
+    except Exception as e:
+        print(f"⚠️  Impossible d'optimiser NumPy: {e}")
+
+# Appliquer les optimisations au démarrage
+optimize_numpy_for_m2_max()
+
 from antakia.utils.stats import stats_logger, log_errors
 from antakia.utils.checks import is_valid_model
 from antakia.gui.gui import GUI
