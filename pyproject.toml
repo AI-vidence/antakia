@@ -1,0 +1,72 @@
+[tool.poetry]
+name = "antakia"
+version = "0.4.6"
+description = "AI made Xplainable"
+readme = "README.md"
+authors = [
+    "Pierre HULOT <pierre@ai-vidence.com>",
+    "Laurent MICHEL <laurent@ai-vidence.com>",
+    "David CORTÉS <david@ai-vidence.com>",
+    "Antoine EDY <antoineedy@outlook.fr>"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+keywords = [
+    "XAI",
+    "explainability",
+    "AI",
+    "ML",
+    "machine learning",
+    "artificial intelligence",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+ipyvuetify = "<1.9.0" # do not edit please
+ipywidgets = ">=7.6"
+plotly = "<=5.19.0"# do not edit please
+python-dotenv = "^1.0.0"
+antakia-core = "0.4.6"
+antakia-ac = "^0.2.14"
+#antakia-ac = {path = "../antakia-ac/dist/antakia_ac-0.2.12-cp311-cp311-macosx_13_0_arm64.whl"}
+#antakia-core = {path = "../antakia-core", develop = true}
+requests = "^2.31.0"
+pdpbox = "^0.3.0"
+jupyterlab = ">=3"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.26.0"
+ipython = "^8.17.2"
+pre-commit = "^3.5.0"
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.8"
+jupyterlab-widgets = "^3.0.9"
+mock = "^5.1.0"
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.5.11"
+mkdocstrings = "^0.24.0"
+mkdocstrings-python = "^1.8.0"
+mkdocs-gen-files = "^0.5.0"
+mkdocs-literate-nav = "^0.6.1"
+mypy = "^1.9.0"
+yapf = "^0.40.2"
+pylint = "^3.1.0"
+
+[tool.poetry.group.demo.dependencies]
+jupyter = "^1.0.0"
+jupyterlab = "^4.0.8"
+jupyterlab-widgets = "^3.0.9"
+catboost = "^1.2.2"
+
+[project.urls]
+Website = "https://www.antakia.ai"
+Repository = "https://github.com/AI-vidence/antakia"
+Documentation = "https://doc.antakia.ai"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

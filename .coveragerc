@@ -1,0 +1,2 @@
+[run]
+omit = */dummy_datasets.py, */logging.py
