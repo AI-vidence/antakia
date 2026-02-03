@@ -6,8 +6,17 @@ import numpy as np
 import pandas as pd
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 from antakia_core.data_handler import RegionSet
-from auto_cluster import AutoCluster
 from sklearn.ensemble import IsolationForest
+
+# AutoCluster is optional (Cython module, may need recompilation)
+try:
+    from auto_cluster import AutoCluster
+
+    AUTO_CLUSTER_AVAILABLE = True
+except ImportError as e:
+    AUTO_CLUSTER_AVAILABLE = False
+    print(f"[WARNING] auto_cluster not available: {e}")
+    print("[WARNING] Auto-clustering feature will be disabled")
 
 from antakia.config import AppConfig
 from antakia.gui.graphical_elements.color_table import ColorTable
@@ -487,6 +496,10 @@ class Tab2:
         return cluster_num
 
     def _compute_auto_cluster(self, not_rules_indexes_list, cluster_num="auto"):
+        if not AUTO_CLUSTER_AVAILABLE:
+            print("[ERROR] Auto-clustering not available - module needs recompilation")
+            return
+
         if len(not_rules_indexes_list) > AppConfig.ATK_MIN_POINTS_NUMBER:
             vs_compute = int(not self.vs_pvs.is_computed(dim=3))
             es_compute = int(not self.es_pvs.is_computed(dim=3))
@@ -677,11 +690,21 @@ class Tab2:
         outliers based on the target variable y and creates a mask-only region
         (no rules, since outliers don't fit clean interval rules).
         """
+        # Immediate feedback - button was clicked
+        print("=" * 50)
+        print("[Detect Outliers] Button clicked!")
+        
         with Log("detect_outliers", 1):
             method = self.outlier_method_select.v_model
+            print(f"[Detect Outliers] Method selected: {method}")
+            
             y = self.data_store.y
             X = self.data_store.X
-
+            
+            if y is None:
+                print("[Detect Outliers] ERROR: y is None!")
+                return
+                
             print(f"[Detect Outliers] Method: {method}, Dataset size: {len(y)}")
 
             outlier_mask = self._detect_outliers(y, X, method)

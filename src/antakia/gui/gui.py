@@ -23,6 +23,7 @@ from antakia.gui.splash_screen import SplashScreen
 from antakia.gui.tabs.tab1 import Tab1
 from antakia.gui.tabs.tab2 import Tab2
 from antakia.gui.tabs.tab3 import Tab3
+from antakia.gui.theme import theme
 from antakia.utils.logging_utils import Log, conf_logger
 from antakia.utils.stats import log_errors, stats_logger
 
@@ -111,9 +112,16 @@ class GUI:
         with Log("building widget", 2):
             self._build_widget()
             self.splash = SplashScreen()
+            
+        # Register for theme changes
+        theme.add_observer(self._on_theme_change)
 
     def _build_widget(self):
+        # Determine initial theme class
+        theme_class = "theme--dark grey darken-4" if theme.dark_mode else "theme--light white"
+        
         self.widget = v.Col(
+            class_=theme_class,
             children=[
                 self.topbar.widget,
                 v.Row(  # Top buttons bar # 1
@@ -191,6 +199,34 @@ class GUI:
                 ),  # End of v.Tabs
             ]  # End v.Col children
         )  # End of v.Col
+
+    def _on_theme_change(self, theme_instance):
+        """Handle theme changes (light/dark mode toggle)."""
+        if theme_instance.dark_mode:
+            self.widget.class_ = "theme--dark grey darken-4"
+        else:
+            self.widget.class_ = "theme--light white"
+        
+        # Update plots background color
+        plot_bg = "#1a1a2e" if theme_instance.dark_mode else "#ffffff"
+        paper_bg = "#16213e" if theme_instance.dark_mode else "#ffffff"
+        font_color = "#e8e8e8" if theme_instance.dark_mode else "#212529"
+        
+        try:
+            # Update VS figure
+            self.vs_hde.figure.figure.update_layout(
+                paper_bgcolor=paper_bg,
+                plot_bgcolor=plot_bg,
+                font_color=font_color,
+            )
+            # Update ES figure
+            self.es_hde.figure.figure.update_layout(
+                paper_bgcolor=paper_bg,
+                plot_bgcolor=plot_bg,
+                font_color=font_color,
+            )
+        except Exception:
+            pass  # Figures may not be initialized yet
 
     @timeit
     def compute_base_values(self):

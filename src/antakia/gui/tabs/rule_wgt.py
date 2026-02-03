@@ -104,30 +104,44 @@ class RuleWidget:
     @timeit
     def _build_figure(self):
         """
-        draw the histograms
-        Returns
-        -------
-
+        Draw histograms with background (all points) and foreground (selection).
+        
+        Shows:
+        - Grey semi-transparent histogram: all points in dataset
+        - Orange histogram: selected/region points
         """
-        _, colors_info = self._get_colors()
         if self.type == "histogram":
             base_args = {
                 "bingroup": 1,
                 "nbinsx": 50,
             }
-            h = []
-            for name, color in colors_info.items():
-                h.append(Histogram(name=name, x=[], marker_color=color, **base_args))
+            h = [
+                # Background: all points (grey, semi-transparent)
+                Histogram(
+                    name="All data",
+                    x=[],
+                    marker_color="rgba(180, 180, 180, 0.5)",
+                    **base_args,
+                ),
+                # Foreground: selected points (orange)
+                Histogram(
+                    name="Selection",
+                    x=[],
+                    marker_color="rgba(255, 140, 0, 0.8)",
+                    **base_args,
+                ),
+            ]
             self.figure = FigureWidget(data=h)
             self.figure.update_layout(
-                barmode="stack",
+                barmode="overlay",  # Overlay to show both
                 bargap=0.1,
-                # width=600,
                 showlegend=False,
                 margin={"l": 0, "r": 0, "t": 0, "b": 0},
                 height=200,
             )
         else:
+            # Swarm plot uses original color logic
+            _, colors_info = self._get_colors()
             swarm_plots = []
             for name, color in colors_info.items():
                 fig = self._get_swarm_plot(color, name)
@@ -351,12 +365,28 @@ class RuleWidget:
 
     @timeit
     def _update_data(self):
-        mask_color, colors_info = self._get_colors()
+        """
+        Update histogram data:
+        - Trace 0 (grey): all points
+        - Trace 1 (orange): selected/region points
+        """
         with self.figure.batch_update():
-            for i, color in enumerate(colors_info.values()):
-                to_display = self.data_store.display_mask & (mask_color == color)
-                self.figure.data[i].x = self.X_col[to_display]
-                self.figure.data[i].y = self.selectable_mask[to_display]
+            if self.type == "histogram":
+                # All points (background)
+                all_points_mask = self.data_store.display_mask
+                self.figure.data[0].x = self.X_col[all_points_mask]
+                
+                # Selected points (foreground) - using selection or rules mask
+                selection_mask = self.data_store.selection_mask | self.data_store.rules_mask
+                selected_points_mask = self.data_store.display_mask & selection_mask
+                self.figure.data[1].x = self.X_col[selected_points_mask]
+            else:
+                # Swarm plot - use original logic
+                mask_color, colors_info = self._get_colors()
+                for i, color in enumerate(colors_info.values()):
+                    to_display = self.data_store.display_mask & (mask_color == color)
+                    self.figure.data[i].x = self.X_col[to_display]
+                    self.figure.data[i].y = self.selectable_mask[to_display]
         self.edited = False
 
     @timeit
