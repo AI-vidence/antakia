@@ -405,11 +405,11 @@ class FigureDisplay:
 
         """
         if trace_id == self.active_trace:
-            # selection bug : we need to recreate figure in order to display the selection
-            self.create_figure()
-            self._refresh_data()
-            # self.figure.data[trace_id].update(selectedpoints=[None])
-            # self.figure.data[trace_id].selectedpoints = [None]
+            # Previously: create_figure() + _refresh_data() were used as workaround for
+            # selection not displaying. With batch_update in display_selection(), we rely
+            # on selection_changed -> display_selection() to update both VS and ES figures.
+            # Avoiding figure recreation prevents flicker and ensures the other space
+            # receives the same selection_mask and can display it consistently.
             self.first_selection |= self.data_store.empty_selection
             stats_logger.log(
                 "hde_selection",
@@ -455,20 +455,17 @@ class FigureDisplay:
     @timeit
     def display_selection(self):
         """
-        display selection on figure
-        Returns
-        -------
-
+        Display selection on figure (VS or ES).
+        Uses batch_update so Plotly properly applies selectedpoints and replicates
+        the selection visually. Essential for dyadic exploration: selection in one
+        space must be visible in the other.
         """
+        if self.figure is None:
+            return
         with Log("display_selection " + self.space, level=3):
-            if self.dim == 2:
-                fig = self.figure.data[self.active_trace]
-
-                fig.selectedpoints = utils.mask_to_rows(
-                    self.data_store.selection_mask[self.display_mask]
-                )
-                # fig.update(
-                #      selectedpoints=utils.mask_to_rows(self.data_store.selection_mask[self.mask]))
+            rows = utils.mask_to_rows(self.data_store.selection_mask[self.display_mask])
+            with self.figure.batch_update():
+                self.figure.data[self.active_trace].selectedpoints = rows
 
     @property
     @timeit

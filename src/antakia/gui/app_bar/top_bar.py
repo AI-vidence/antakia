@@ -116,7 +116,10 @@ class TopBar:
 
     def get_version_text(self):
         current_version = metadata.current_version
+        # Override to show RC version for local development
+        display_version = "0.4.7 RC"
+
         if metadata.is_latest_version():
-            return "v" + current_version
+            return "v" + display_version
         else:
-            return "v" + current_version + " - a new version is available !"
+            return "v" + display_version + " - a new version is available !"

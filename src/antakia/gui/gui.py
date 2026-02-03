@@ -155,7 +155,7 @@ class GUI:
                                     class_="mb-3",
                                     children=["Values space"],
                                 ),
-                                self.vs_hde.figure.widget,
+                                self.vs_hde.figure_widget,
                             ],
                         ),
                         v.Col(  # ES HDE placeholder # 21
@@ -168,7 +168,7 @@ class GUI:
                                     class_="mb-3",
                                     children=["Explanations space"],
                                 ),
-                                self.es_hde.figure.widget,
+                                self.es_hde.figure_widget,
                             ],
                         ),
                     ],
@@ -481,11 +481,29 @@ class GUI:
         self.tab2.update_region_table()
 
     @timeit
-    def substitute_model_callback(self, caller, region):
-        self.vs_hde.figure.display_region(region)
-        self.es_hde.figure.display_region(region)
-        self.select_tab(3, msg="substitute")
-        self.tab3.update_region(region)
+    def substitute_model_callback(self, caller, region_or_regions):
+        # Handle both single region and batch substitution
+        if isinstance(region_or_regions, list):
+            # Batch substitution - multiple regions
+            regions = region_or_regions
+            if len(regions) == 1:
+                # Single region in list - treat as single
+                region = regions[0]
+                self.vs_hde.figure.display_region(region)
+                self.es_hde.figure.display_region(region)
+                self.select_tab(3, msg="substitute")
+                self.tab3.update_region(region)
+            else:
+                # Multiple regions - start batch substitution
+                self.select_tab(3, msg="substitute_batch")
+                self.tab3.start_batch_substitution(regions)
+        else:
+            # Single region
+            region = region_or_regions
+            self.vs_hde.figure.display_region(region)
+            self.es_hde.figure.display_region(region)
+            self.select_tab(3, msg="substitute")
+            self.tab3.update_region(region)
 
     # ==================== TAB 3 ==================== #
 

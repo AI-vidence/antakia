@@ -122,6 +122,28 @@ class Tab1:
             ]
         )
         self._data_panel_expanded = False
+        # Légende des couleurs pour la sélection et les règles
+        self.color_legend = v.Sheet(
+            class_="ml-auto mr-3 pa-2 d-flex flex-row align-center",
+            style_="font-size: 12px;",
+            children=[
+                v.Html(tag="span", class_="mr-3 font-weight-bold", children=["Legend:"]),
+                v.Html(
+                    tag="span", style_="color: blue; margin-right: 12px;", children=["● matched"]
+                ),
+                v.Html(
+                    tag="span",
+                    style_="color: orange; margin-right: 12px;",
+                    children=["● rule only"],
+                ),
+                v.Html(
+                    tag="span",
+                    style_="color: red; margin-right: 12px;",
+                    children=["● selection only"],
+                ),
+                v.Html(tag="span", style_="color: grey;", children=["● other"]),
+            ],
+        )
         self.widget = [
             self.title_wgt,
             v.Row(  # buttons row # 430
@@ -161,6 +183,7 @@ class Tab1:
                         ],
                         children=["Promote current rules as a region"],
                     ),
+                    self.color_legend,  # Légende des couleurs
                 ],
             ),  # End Buttons row
             v.Row(  # tab 1 / row #2 : 2 RulesWidgets # 431

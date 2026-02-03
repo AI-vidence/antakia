@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, List
 
 import ipyvuetify as v
 import pandas as pd
@@ -9,6 +9,7 @@ from antakia.config import AppConfig
 from antakia.gui.graphical_elements.sub_model_table import SubModelTable
 from antakia.gui.helpers.data import DataStore
 from antakia.gui.helpers.progress_bar import ProgressBar
+from antakia.gui.tabs.batch_substitution import BatchSubstitutionWidget
 from antakia.gui.tabs.model_explorer import ModelExplorer
 from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors, stats_logger
@@ -31,9 +32,17 @@ class Tab3:
         self.data_store = data_store
         self.validate_callback = validate_callback
         self.display_model_data = display_model_data
-        self.model_explorer = ModelExplorer(self.data_store.X)
+        # Pass original model for PDP comparison
+        self.model_explorer = ModelExplorer(self.data_store.X, original_model=self.data_store.model)
         self.region: ModelRegion | None = None
         self.substitution_model_training = False  # tab 3 : training flag
+
+        # Batch substitution widget
+        self.batch_widget = BatchSubstitutionWidget(
+            data_store=data_store,
+            validate_callback=validate_callback,
+        )
+        self.is_batch_mode = False
 
         self._build_widget()
         self.progress_bar = ProgressBar(self.progress_wgt, indeterminate=True, reset_at_end=True)
@@ -61,6 +70,19 @@ class Tab3:
             headers=self.headers,
             items=[],
         )
+
+        # Region selector dropdown
+        self.region_select = v.Select(
+            v_model=None,
+            items=[],
+            label="Select region",
+            dense=True,
+            outlined=True,
+            style_="max-width: 250px",
+            class_="mr-3",
+        )
+        self.region_select.on_event("change", self._on_region_select_changed)
+
         self.region_prefix_wgt = v.Html(class_="mr-2", tag="h3", children=["Region"])
         self.region_chip_wgt = v.Chip(
             color=BASE_COLOR,
@@ -83,12 +105,13 @@ class Tab3:
                     v.Row(  # Row1 : Title and validate button
                         class_="d-flex",
                         children=[
-                            v.Col(  # Col1 - region table
+                            v.Col(  # Col1 - region selector and info
                                 class_="col-9",
                                 children=[
                                     v.Sheet(
                                         class_="ma-1 d-flex flex-row align-center",
                                         children=[
+                                            self.region_select,
                                             self.region_prefix_wgt,
                                             self.region_chip_wgt,
                                             self.region_title,
@@ -132,8 +155,15 @@ class Tab3:
                 ]
             )
         ]
+
+        # Store reference to single-region widget content
+        self.single_region_content = self.widget[0]
         self.progressbar_widget = self.widget[0].children[1]
         self.model_table_widget = self.widget[0].children[2]
+
+        # Create main container that can switch between single and batch mode
+        self.main_container = v.Container(fluid=True, children=[self.single_region_content])
+        self.widget = [self.main_container]
 
         self.model_table_widget.hide()
 
@@ -163,6 +193,10 @@ class Tab3:
         -------
 
         """
+        # Switch to single-region mode if in batch mode
+        if self.is_batch_mode:
+            self._switch_to_single_mode()
+
         self.region = region
         if self.region is not None and train:
             # We update the substitution table once to show the name of the region
@@ -180,12 +214,79 @@ class Tab3:
         else:
             self.update()
 
+    def start_batch_substitution(self, regions: List[ModelRegion]):
+        """
+        Start batch substitution for multiple regions.
+
+        Trains substitution models for all regions in parallel
+        with progressive UI updates.
+
+        Parameters
+        ----------
+        regions: list of ModelRegion to substitute
+        """
+        self._switch_to_batch_mode()
+        self.batch_widget.start_batch(regions)
+
+    def _switch_to_batch_mode(self):
+        """Switch UI to batch substitution mode."""
+        self.is_batch_mode = True
+        self.main_container.children = self.batch_widget.widget
+
+    def _switch_to_single_mode(self):
+        """Switch UI back to single-region mode."""
+        self.is_batch_mode = False
+        self.main_container.children = [self.single_region_content]
+
     def update(self):
+        self._update_region_selector()
         self._update_substitution_prefix()
         self._update_substitution_title()
         self._update_model_table()
         self._update_selected()
         self._update_validate_btn()
+
+    def _update_region_selector(self):
+        """Update the region dropdown with available regions."""
+        region_set = self.data_store.region_set
+        items = []
+
+        for region in region_set.regions:
+            label = f"Region {region.num}"
+            if hasattr(region, "name") and region.name:
+                label = f"{region.num}: {region.name}"
+            items.append(
+                {
+                    "text": f"{label} ({region.num_points()} pts)",
+                    "value": region.num,
+                }
+            )
+
+        self.region_select.items = items
+
+        # Set current selection
+        if self.region is not None:
+            self.region_select.v_model = self.region.num
+        elif items:
+            # Don't auto-select, let user choose
+            pass
+
+    @log_errors
+    def _on_region_select_changed(self, widget, event, data):
+        """Called when user selects a region from dropdown."""
+        if data is None:
+            return
+
+        with Log("region_select_changed", 2):
+            region_num = data
+            region = self.data_store.region_set.get(region_num)
+
+            if region is not None and region != self.region:
+                stats_logger.log("substitute_region_changed", {"region": region_num})
+                # Update region and train
+                self.update_region(region, train=True)
+                # Update display
+                self.display_model_data(region, None)
 
     def _update_substitution_prefix(self):
         # Region prefix text

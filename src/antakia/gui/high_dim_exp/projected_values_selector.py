@@ -18,16 +18,28 @@ from antakia.utils.stats import log_errors, stats_logger
 
 
 class ProjectedValuesSelector:
-    def __init__(self, pv_bank: ProjectedValueBank, update_callback: Callable, space: str):
+    def __init__(
+        self,
+        pv_bank: ProjectedValueBank,
+        update_callback: Callable,
+        space: str,
+        has_geo_columns: bool = False,
+    ):
         self.widget = None
         self.projected_value: ProjectedValues | None = None
         self._proj_params_cards: dict[int, list[v.Slider]] = {}
         self.update_callback = update_callback
         self.pv_bank = pv_bank
         self.space = space
+        self.has_geo_columns = has_geo_columns
+
+        # Use GeoMap as default if geo columns are available
+        default_method = AppConfig.ATK_DEFAULT_PROJECTION
+        if has_geo_columns:
+            default_method = "GeoMap"
 
         self.current_proj = Proj(
-            DimReducMethod.dimreduc_method_as_int(AppConfig.ATK_DEFAULT_PROJECTION),
+            DimReducMethod.dimreduc_method_as_int(default_method),
             AppConfig.ATK_DEFAULT_DIMENSION,
         )
 
@@ -38,12 +50,22 @@ class ProjectedValuesSelector:
     def current_dim(self):
         return self.current_proj.dimension
 
+    def _get_available_methods(self) -> list[str]:
+        """Get available projection methods based on data."""
+        methods = DimReducMethod.dimreduc_methods_as_str_list()
+        # Only show GeoMap if geo columns are available
+        if not self.has_geo_columns and "GeoMap" in methods:
+            methods = [m for m in methods if m != "GeoMap"]
+        return methods
+
     def _build_widget(self):
+        available_methods = self._get_available_methods()
+
         self.widget = v.Row(
             children=[
                 v.Select(  # Selection of proj method
                     label=f"Projection in the {self.space} :",
-                    items=DimReducMethod.dimreduc_methods_as_str_list(),
+                    items=available_methods,
                     style_="width: 15%",
                     class_="ml-2 mr-2",
                 ),
@@ -314,10 +336,17 @@ class ProjectedValuesSelector:
             dim = self.current_dim
         if progress_callback is None:
             progress_callback = self.progress_bar
-        is_present = self.projected_value.is_present(Proj(self.current_proj.reduction_method, dim))
+
+        # GeoMap is 2D only - fallback to PCA for 3D projections
+        reduction_method = self.current_proj.reduction_method
+        geomap_method = DimReducMethod.dimreduc_method_as_int("GeoMap")
+        if reduction_method == geomap_method and dim == 3:
+            reduction_method = DimReducMethod.dimreduc_method_as_int("PCA")
+
+        is_present = self.projected_value.is_present(Proj(reduction_method, dim))
         t = time.time()
         projection = self.projected_value.get_projection(
-            Proj(self.current_proj.reduction_method, dim), progress_callback
+            Proj(reduction_method, dim), progress_callback
         )
         if not is_present:
             stats_logger.log(

@@ -2,10 +2,12 @@ from functools import partial
 from typing import Callable
 
 import ipyvuetify as v
+import numpy as np
 import pandas as pd
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 from antakia_core.data_handler import RegionSet
 from auto_cluster import AutoCluster
+from sklearn.ensemble import IsolationForest
 
 from antakia.config import AppConfig
 from antakia.gui.graphical_elements.color_table import ColorTable
@@ -66,6 +68,17 @@ class Tab2:
                 "Substitute",
             ],
         )
+        self.substitute_all_btn = v.Btn(  # Batch substitute
+            v_on="tooltip.on",
+            class_="ml-1 mt-8 teal white--text",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=["mdi-swap-horizontal-bold"],
+                ),
+                "Substitute All",
+            ],
+        )
         self.divide_btn = v.Btn(  # 4401100
             v_on="tooltip.on",
             class_="ml-3 mt-8",
@@ -109,6 +122,29 @@ class Tab2:
                 ),
                 "Delete",
             ],
+        )
+        self.detect_outliers_btn = v.Btn(  # Outlier detection
+            v_on="tooltip.on",
+            class_="ml-3 mt-3 orange white--text",
+            children=[
+                v.Icon(
+                    class_="mr-2",
+                    children=["mdi-alert-circle-outline"],
+                ),
+                "Detect Outliers",
+            ],
+        )
+        self.outlier_method_select = v.Select(
+            v_model="iqr",
+            items=[
+                {"text": "IQR (Interquartile Range)", "value": "iqr"},
+                {"text": "Z-Score (>3σ)", "value": "zscore"},
+                {"text": "Isolation Forest", "value": "isolation_forest"},
+            ],
+            label="Method",
+            dense=True,
+            style_="max-width: 200px",
+            class_="ml-3 mt-1",
         )
         self.auto_cluster_btn = v.Btn(  # 4402000
             v_on="tooltip.on",
@@ -160,10 +196,10 @@ class Tab2:
                     ),  # End Col 1
                     v.Col(  # v.Sheet Col 2 = buttons #4401
                         class_="col-2",
-                        style_="size: 50%",
+                        style_="min-width: 280px;",
                         children=[
-                            v.Row(  # 44010
-                                class_="flex-column",
+                            v.Row(  # 44010 - Substitute buttons
+                                class_="flex-row",
                                 children=[
                                     v.Tooltip(  # 440100
                                         bottom=True,
@@ -177,7 +213,18 @@ class Tab2:
                                         children=[
                                             "Find an explicable surrogate model on this region"
                                         ],
-                                    )
+                                    ),
+                                    v.Tooltip(  # 440101 - Batch substitute
+                                        bottom=True,
+                                        v_slots=[
+                                            {
+                                                "name": "activator",
+                                                "variable": "tooltip",
+                                                "children": self.substitute_all_btn,
+                                            }
+                                        ],
+                                        children=["Substitute all selected regions in parallel"],
+                                    ),
                                 ],
                             ),
                             v.Row(  # 44011
@@ -244,6 +291,26 @@ class Tab2:
                                     )
                                 ],
                             ),
+                            v.Divider(class_="my-2"),
+                            v.Row(  # Outlier detection row
+                                class_="flex-column mt-2",
+                                children=[
+                                    v.Tooltip(
+                                        bottom=True,
+                                        v_slots=[
+                                            {
+                                                "name": "activator",
+                                                "variable": "tooltip",
+                                                "children": self.detect_outliers_btn,
+                                            }
+                                        ],
+                                        children=[
+                                            "Detect outliers and create an 'Outliers' region"
+                                        ],
+                                    ),
+                                    self.outlier_method_select,
+                                ],
+                            ),
                         ],  # End v.Sheet Col 2 children
                     ),  # End v.Sheet Col 2 = buttons
                     v.Col(  # v.Sheet Col 3 # 4402
@@ -296,9 +363,11 @@ class Tab2:
     def wire(self):
         self.region_table_wgt.set_callback(self.region_selected)
         self.substitute_btn.on_event("click", self.substitute_clicked)
+        self.substitute_all_btn.on_event("click", self.substitute_all_clicked)
         self.edit_btn.on_event("click", self.edit_region_clicked)
         self.divide_btn.on_event("click", self.divide_region_clicked)
         self.merge_btn.on_event("click", self.merge_region_clicked)
+        self.detect_outliers_btn.on_event("click", self.detect_outliers_clicked)
         self.delete_btn.on_event("click", self.delete_region_clicked)
         self.auto_cluster_btn.on_event("click", self.auto_cluster_clicked)
         self.auto_cluster_checkbox.v_model = True
@@ -356,6 +425,16 @@ class Tab2:
         # We disable the AC button. Il will be re-enabled when the AC progress is 100%
         with Log("auto_cluster", 2):
             self.auto_cluster_running = True
+            # Feedback visuel immédiat : désactiver le bouton et activer la barre de progression
+            self.auto_cluster_btn.disabled = True
+            self.auto_cluster_btn.loading = True
+            self.auto_cluster_btn.children = [
+                v.Icon(class_="mr-2", children=["mdi-loading mdi-spin"]),
+                "Computing...",
+            ]
+            self.auto_cluster_progress.indeterminate = True
+            self.auto_cluster_progress.color = "primary"
+
             if self.region_set.stats()["coverage"] > 80:
                 # UI rules :
                 # region_set coverage is > 80% : we need to clear it to do another auto-cluster
@@ -378,6 +457,15 @@ class Tab2:
             self._compute_auto_cluster(not_rules_indexes_list, cluster_num)
             self.update_region_table()
             self.update_callback()
+            # Restaurer l'état du bouton
+            self.auto_cluster_btn.loading = False
+            self.auto_cluster_btn.children = [
+                v.Icon(class_="mr-2", children=["mdi-auto-fix"]),
+                "Auto-clustering",
+            ]
+            self.auto_cluster_progress.indeterminate = False
+            self.auto_cluster_progress.v_model = 0
+            self.auto_cluster_progress.color = "grey"
             # We re-enable the button
             self.auto_cluster_running = False
             self.update_btns()
@@ -451,8 +539,11 @@ class Tab2:
         else:
             enable_div = False
 
-        # substitute
+        # substitute - single region
         self.substitute_btn.disabled = num_selected_regions != 1
+
+        # substitute all - multiple regions (at least 1)
+        self.substitute_all_btn.disabled = num_selected_regions < 1
 
         # edit
         self.edit_btn.disabled = num_selected_regions != 1
@@ -567,3 +658,102 @@ class Tab2:
             stats_logger.log("substitute_region")
             region = self.region_set.get(self.selected_regions[0]["Region"])
             self.substitute_callback(region)
+
+    @log_errors
+    def substitute_all_clicked(self, widget, event, data):
+        """Called when user clicks 'Substitute All' for batch substitution."""
+        with Log("substitute_all_regions", 2):
+            regions = [self.region_set.get(r["Region"]) for r in self.selected_regions]
+            stats_logger.log("substitute_all_regions", {"num_regions": len(regions)})
+            # Pass all selected regions to the callback
+            self.substitute_callback(regions)
+
+    @log_errors
+    def detect_outliers_clicked(self, widget, event, data):
+        """
+        Detect outliers and create a special 'Outliers' region.
+
+        Uses the selected method (IQR, Z-Score, or Isolation Forest) to detect
+        outliers based on the target variable y and creates a mask-only region
+        (no rules, since outliers don't fit clean interval rules).
+        """
+        with Log("detect_outliers", 1):
+            method = self.outlier_method_select.v_model
+            y = self.data_store.y
+            X = self.data_store.X
+
+            print(f"[Detect Outliers] Method: {method}, Dataset size: {len(y)}")
+
+            outlier_mask = self._detect_outliers(y, X, method)
+            n_outliers = int(outlier_mask.sum())
+
+            print(f"[Detect Outliers] Found {n_outliers} outliers ({100*n_outliers/len(y):.1f}%)")
+
+            if n_outliers == 0:
+                stats_logger.log("detect_outliers", {"method": method, "count": 0})
+                print("[Detect Outliers] No outliers found!")
+                return
+
+            stats_logger.log(
+                "detect_outliers",
+                {"method": method, "count": n_outliers, "pct": 100 * n_outliers / len(y)},
+            )
+
+            # Create region with mask only (no rules)
+            # This allows excluding scattered outliers that don't follow interval patterns
+            region = self.region_set.add_region(
+                mask=outlier_mask,
+                auto_cluster=True,  # Use auto_cluster flag so name shows "auto-cluster"
+            )
+            # Override the auto_cluster name with outliers info
+            region._outlier_method = method  # Store method for display
+
+            self.clear_selected_regions()
+            self.update_region_table()
+            self.update_callback()
+
+            # Log result
+            Log(f"Detected {n_outliers} outliers ({100*n_outliers/len(y):.1f}%) using {method}", 1)
+
+    def _detect_outliers(self, y: pd.Series, X: pd.DataFrame, method: str) -> pd.Series:
+        """
+        Detect outliers using the specified method.
+
+        Parameters
+        ----------
+        y : target variable
+        X : features (used for Isolation Forest)
+        method : 'iqr', 'zscore', or 'isolation_forest'
+
+        Returns
+        -------
+        Boolean Series where True = outlier
+        """
+        if method == "iqr":
+            # Interquartile Range method
+            Q1 = y.quantile(0.25)
+            Q3 = y.quantile(0.75)
+            IQR = Q3 - Q1
+            lower = Q1 - 1.5 * IQR
+            upper = Q3 + 1.5 * IQR
+            return (y < lower) | (y > upper)
+
+        elif method == "zscore":
+            # Z-Score method (>3 standard deviations)
+            z_scores = np.abs((y - y.mean()) / y.std())
+            return z_scores > 3
+
+        elif method == "isolation_forest":
+            # Isolation Forest (unsupervised anomaly detection)
+            # Uses both X and y for detection
+            data = X.copy()
+            data["_target"] = y
+
+            iso_forest = IsolationForest(contamination="auto", random_state=42, n_estimators=100)
+            predictions = iso_forest.fit_predict(data)
+
+            # -1 = outlier, 1 = inlier
+            return pd.Series(predictions == -1, index=y.index)
+
+        else:
+            raise ValueError(f"Unknown outlier detection method: {method}")
