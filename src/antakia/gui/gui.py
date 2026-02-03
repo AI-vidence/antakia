@@ -23,6 +23,7 @@ from antakia.gui.splash_screen import SplashScreen
 from antakia.gui.tabs.tab1 import Tab1
 from antakia.gui.tabs.tab2 import Tab2
 from antakia.gui.tabs.tab3 import Tab3
+from antakia.gui.tabs.tab4 import Tab4
 from antakia.gui.theme import theme
 from antakia.utils.logging_utils import Log, conf_logger
 from antakia.utils.stats import log_errors, stats_logger
@@ -109,6 +110,9 @@ class GUI:
                 self.data_store, self.model_validation_callback, self.display_model_data
             )
 
+        with Log("building tab4", 2):
+            self.tab4 = Tab4(self.data_store)
+
         with Log("building widget", 2):
             self._build_widget()
             self.splash = SplashScreen()
@@ -188,6 +192,10 @@ class GUI:
                         v.Tab(children=["Selection"]),  # 40
                         v.Tab(children=["Regions"]),  # 41
                         v.Tab(children=["Substitution"]),  # 42
+                        v.Tab(children=[
+                            v.Icon(small=True, class_="mr-1", children=["mdi-file-document-outline"]),
+                            "Report"
+                        ]),  # 43
                     ]
                     + [
                         v.TabItem(class_="mt-2", children=self.tab1.widget),  # Tab 1)
@@ -195,6 +203,7 @@ class GUI:
                             children=self.tab2.widget
                         ),  # End of v.TabItem #2
                         v.TabItem(children=self.tab3.widget),  # TabItem #3 Substitution #45
+                        v.TabItem(children=self.tab4.widget),  # TabItem #4 Report #46
                     ],
                 ),  # End of v.Tabs
             ]  # End v.Col children
