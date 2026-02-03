@@ -15,7 +15,9 @@ from antakia.reporting.tessellation_report import (
 from antakia.reporting.visualizations import (
     plot_feature_importance_comparison,
     plot_pdp_comparison,
+    plot_rules_venn,
     plot_shap_summary,
+    plot_tessellation_overview,
 )
 
 __all__ = [
@@ -25,4 +27,6 @@ __all__ = [
     "plot_shap_summary",
     "plot_pdp_comparison",
     "plot_feature_importance_comparison",
+    "plot_tessellation_overview",
+    "plot_rules_venn",
 ]

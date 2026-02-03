@@ -381,7 +381,12 @@ class TessellationReport:
             logger.warning(f"Impossible de calculer PDP pour {feature}: {e}")
             return None
 
-    def export_html(self, path: str) -> None:
+    def export_html(
+        self,
+        path: str,
+        include_visualizations: bool = True,
+        use_template: bool = True,
+    ) -> None:
         """
         Exporte le rapport en HTML interactif.
 
@@ -389,20 +394,148 @@ class TessellationReport:
         ----------
         path : str
             Chemin du fichier HTML
+        include_visualizations : bool
+            Inclure les visualisations (SHAP, PDP) en base64
+        use_template : bool
+            Utiliser le template Jinja2 (True) ou le HTML basique (False)
         """
         result = self.generate_report()
 
-        # TODO: Utiliser Jinja2 pour un template HTML propre
-        html_content = self._render_html(result)
+        if use_template:
+            html_content = self._render_html_jinja(result, include_visualizations)
+        else:
+            html_content = self._render_html_basic(result)
 
         with open(path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
         logger.info(f"Rapport exporté: {path}")
 
-    def _render_html(self, result: TessellationReportResult) -> str:
-        """Génère le HTML du rapport."""
-        # Template HTML basique
+    def _render_html_jinja(
+        self, result: TessellationReportResult, include_visualizations: bool
+    ) -> str:
+        """Génère le HTML du rapport avec Jinja2."""
+        import base64
+        import io
+        from datetime import datetime
+        from pathlib import Path
+
+        try:
+            from jinja2 import Environment, FileSystemLoader
+        except ImportError:
+            logger.warning("jinja2 non installé, utilisation du template basique")
+            return self._render_html_basic(result)
+
+        from antakia.reporting.visualizations import (
+            plot_pdp_comparison,
+            plot_shap_summary,
+            plot_tessellation_overview,
+        )
+
+        # Charger le template
+        template_dir = Path(__file__).parent / "templates"
+        env = Environment(loader=FileSystemLoader(str(template_dir)))
+
+        # Filtre personnalisé pour formater les nombres
+        def format_number(value):
+            if value is None:
+                return "-"
+            if isinstance(value, float):
+                return f"{value:,.2f}"
+            return f"{value:,}"
+
+        env.filters["format_number"] = format_number
+
+        template = env.get_template("report.html.j2")
+
+        # Préparer les données pour le template
+        context = {
+            "model_name": result.model_name,
+            "n_samples": result.n_samples,
+            "n_features": result.n_features,
+            "feature_names": result.feature_names,
+            "total_regions": result.total_regions,
+            "total_coverage_pct": result.total_coverage_pct,
+            "initial_model_score": result.initial_model_score,
+            "ensemble_score": result.ensemble_score,
+            "generation_date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "tesselle_reports": [],
+            "overview_image": None,
+        }
+
+        # Générer l'image overview si visualisations demandées
+        if include_visualizations and result.tesselle_reports:
+            try:
+                region_stats = [
+                    {
+                        "num": tr.region_num,
+                        "color": tr.color,
+                        "coverage": tr.coverage_pct,
+                        "score": tr.surrogate_score or 0,
+                    }
+                    for tr in result.tesselle_reports
+                ]
+                fig = plot_tessellation_overview(region_stats)
+                context["overview_image"] = self._fig_to_base64(fig)
+            except Exception as e:
+                logger.warning(f"Impossible de générer l'overview: {e}")
+
+        # Préparer les rapports de tesselles avec images
+        for tr in result.tesselle_reports:
+            tesselle_data = {
+                "region_num": tr.region_num,
+                "color": tr.color,
+                "n_points": tr.n_points,
+                "coverage_pct": tr.coverage_pct,
+                "mean_y": tr.mean_y,
+                "std_y": tr.std_y,
+                "rules_str": tr.rules_str,
+                "surrogate_model_name": tr.surrogate_model_name,
+                "surrogate_score": tr.surrogate_score,
+                "top_features": tr.top_features,
+                "shap_image": None,
+                "pdp_images": {},
+            }
+
+            if include_visualizations:
+                # SHAP image
+                if tr.shap_values is not None and len(tr.shap_values) > 0:
+                    try:
+                        fig = plot_shap_summary(tr.shap_values, max_features=10)
+                        tesselle_data["shap_image"] = self._fig_to_base64(fig)
+                    except Exception as e:
+                        logger.warning(f"Impossible de générer SHAP plot: {e}")
+
+                # PDP images
+                for feature, (grid, pdp_init, pdp_filt, pdp_surr) in tr.pdp_data.items():
+                    try:
+                        fig = plot_pdp_comparison(
+                            feature, grid, pdp_init, pdp_filt, pdp_surr, tr.region_num
+                        )
+                        tesselle_data["pdp_images"][feature] = self._fig_to_base64(fig)
+                    except Exception as e:
+                        logger.warning(f"Impossible de générer PDP plot pour {feature}: {e}")
+
+            context["tesselle_reports"].append(tesselle_data)
+
+        return template.render(**context)
+
+    def _fig_to_base64(self, fig) -> str:
+        """Convertit une figure matplotlib en base64."""
+        import base64
+        import io
+
+        import matplotlib.pyplot as plt
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+        buf.seek(0)
+        img_base64 = base64.b64encode(buf.read()).decode("utf-8")
+        plt.close(fig)
+        return img_base64
+
+    def _render_html_basic(self, result: TessellationReportResult) -> str:
+        """Génère le HTML du rapport (version basique sans Jinja2)."""
         html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -419,7 +552,7 @@ class TessellationReport:
 </head>
 <body>
     <h1>Rapport de Tessellation</h1>
-    
+
     <div class="stats">
         <p><strong>Modèle:</strong> {result.model_name}</p>
         <p><strong>Dataset:</strong> {result.n_samples} points, {result.n_features} features</p>
@@ -445,23 +578,31 @@ class TessellationReport:
 """
         return html
 
-    def export_pdf(self, path: str) -> None:
+    def export_pdf(self, path: str, include_visualizations: bool = True) -> None:
         """
         Exporte le rapport en PDF.
 
-        Nécessite weasyprint ou pdfkit.
+        Nécessite weasyprint.
 
         Parameters
         ----------
         path : str
             Chemin du fichier PDF
+        include_visualizations : bool
+            Inclure les visualisations (SHAP, PDP)
         """
         try:
             import weasyprint
 
-            html_content = self._render_html(self.generate_report())
+            result = self.generate_report()
+            html_content = self._render_html_jinja(result, include_visualizations)
             weasyprint.HTML(string=html_content).write_pdf(path)
             logger.info(f"Rapport PDF exporté: {path}")
         except ImportError:
-            logger.error("weasyprint non installé. " "Installez avec: pip install weasyprint")
+            logger.error(
+                "weasyprint non installé. Installez avec: pip install weasyprint"
+            )
+            raise
+        except Exception as e:
+            logger.error(f"Erreur lors de l'export PDF: {e}")
             raise
