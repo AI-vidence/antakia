@@ -251,7 +251,8 @@ class Tab3:
         region_set = self.data_store.region_set
         items = []
 
-        for region in region_set.regions:
+        # Iterate over region objects (values), not keys
+        for region in region_set.regions.values():
             label = f"Region {region.num}"
             if hasattr(region, "name") and region.name:
                 label = f"{region.num}: {region.name}"

@@ -5,13 +5,15 @@ import ipyvuetify as v
 from ipywidgets import widgets
 
 from antakia.gui.helpers.metadata import metadata
+from antakia.gui.theme import theme
 
 
 class TopBar:
     def __init__(self):
-        # We count the number of times this GUI has been initialized
-
+        self._dark_mode = False
         self._build_widget()
+        # Register for theme changes
+        theme.add_observer(self._on_theme_change)
 
     def _build_widget(self):
         star_btn = v.Btn(color="primary", children=["Star Antakia"])
@@ -26,7 +28,7 @@ class TopBar:
                         v.CardTitle(
                             class_="headline gray lighten-2",
                             primary_title=True,
-                            children=["Do you like AntakIA 😀 ?"],
+                            children=["Do you like AntakIA ?"],
                         ),
                         v.CardText(
                             children=[
@@ -42,60 +44,115 @@ class TopBar:
             ],
         )
 
-        self.star_dialog.on_event("keydown.stop", lambda *args: None)  # close dialog on escape
+        self.star_dialog.on_event("keydown.stop", lambda *args: None)
 
         self.logo = v.Sheet(
+            class_="transparent",
             children=[
                 widgets.Image(
                     value=self.get_logo(),
-                    height=str(864 / 20) + "px",
-                    width=str(3839 / 20) + "px",
+                    height="43px",
+                    width="192px",
                 ),
                 self.star_dialog,
             ],
         )
 
-        self.widget = v.AppBar(  # Top bar # 0
-            class_="white",
+        # Dark mode toggle button
+        self.dark_mode_icon = v.Icon(children=["mdi-weather-night"])
+        self.dark_mode_btn = v.Btn(
+            icon=True,
+            children=[self.dark_mode_icon],
+            class_="ma-1",
+            elevation="0",
+        )
+        self.dark_mode_btn.on_event("click", self._toggle_dark_mode)
+
+        # Help button
+        self.help_btn = v.Btn(
+            icon=True,
+            children=[v.Icon(children=["mdi-help-circle-outline"])],
+            class_="ma-1",
+            elevation="0",
+        )
+
+        # Settings menu
+        self.settings_menu = v.Menu(
+            v_slots=[
+                {
+                    "name": "activator",
+                    "variable": "props",
+                    "children": v.Btn(
+                        v_on="props.on",
+                        icon=True,
+                        children=[v.Icon(children=["mdi-cog-outline"])],
+                        class_="ma-1",
+                        elevation="0",
+                    ),
+                }
+            ],
+            children=[
+                v.Card(
+                    class_="pa-4",
+                    rounded=True,
+                    children=[
+                        v.CardTitle(children=["Settings"]),
+                        v.Divider(),
+                        v.CardText(
+                            children=[
+                                v.Html(tag="p", children=["Configuration options coming soon..."]),
+                            ]
+                        ),
+                    ],
+                    min_width="300",
+                )
+            ],
+            v_model=False,
+            close_on_content_click=False,
+            offset_y=True,
+        )
+
+        # Version badge
+        self.version_chip = v.Chip(
+            small=True,
+            outlined=True,
+            class_="ml-2",
+            children=[self.get_version_text()],
+        )
+
+        self.widget = v.AppBar(
+            class_="white elevation-1",
+            dense=True,
             children=[
                 self.logo,
-                v.Sheet(children=self.get_version_text()),
-                v.Sheet(class_="flex-fill align-stretch"),  # 02
-                v.Sheet(
-                    children=[
-                        v.Menu(  # 03 # Menu for the figure width
-                            v_slots=[
-                                {
-                                    "name": "activator",
-                                    "variable": "props",
-                                    "children": v.Btn(
-                                        v_on="props.on",
-                                        icon=True,
-                                        size="x-large",
-                                        children=[v.Icon(children=["mdi-tune"])],
-                                        class_="ma-2 pa-3",
-                                        elevation="0",
-                                    ),
-                                }
-                            ],
-                            children=[
-                                v.Card(  # 030 parameters menu
-                                    class_="pa-4",
-                                    rounded=True,
-                                    children=[],
-                                    min_width="500",
-                                )
-                            ],
-                            v_model=False,
-                            close_on_content_click=False,
-                            offset_y=True,
-                        )
-                    ]
-                ),  # End V.Menu
-            ],  # End AppBar children
-        )  # End AppBar
+                self.version_chip,
+                v.Spacer(),
+                self.dark_mode_btn,
+                self.help_btn,
+                self.settings_menu,
+            ],
+        )
 
         self.logo.on_event("click", self.open_web)
+
+    def _toggle_dark_mode(self, widget, event, data):
+        """Toggle dark mode."""
+        is_dark = theme.toggle_dark_mode()
+        self._update_dark_mode_icon(is_dark)
+
+    def _update_dark_mode_icon(self, is_dark: bool):
+        """Update icon based on dark mode state."""
+        icon = "mdi-weather-sunny" if is_dark else "mdi-weather-night"
+        self.dark_mode_icon.children = [icon]
+        # Update AppBar background
+        if is_dark:
+            self.widget.class_ = "grey darken-4 elevation-1"
+        else:
+            self.widget.class_ = "white elevation-1"
+
+    def _on_theme_change(self, theme_instance):
+        """Called when theme changes."""
+        self._update_dark_mode_icon(theme_instance.dark_mode)
 
     def open_web(self, *args):
         webbrowser.open("https://github.com/AI-vidence/antakia")
@@ -115,11 +172,10 @@ class TopBar:
         return open(file, "rb").read()
 
     def get_version_text(self):
-        current_version = metadata.current_version
         # Override to show RC version for local development
-        display_version = "0.4.7 RC"
+        display_version = "5.1 RC"
 
         if metadata.is_latest_version():
-            return "v" + display_version
+            return f"v{display_version}"
         else:
-            return "v" + display_version + " - a new version is available !"
+            return f"v{display_version} (update available)"
