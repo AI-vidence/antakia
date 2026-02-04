@@ -65,10 +65,9 @@ class RulesDisplayToggle:
             children=["Afficher/masquer les règles"],
         )
 
-        # Wire click event
-        self.widget.children[0].v_slots[0]["children"].on_event(
-            "click", lambda *_: self._on_click()
-        )
+        # Wire click event (activator slot is in v_slots, not in children)
+        btn = self.widget.v_slots[0]["children"]
+        btn.on_event("click", lambda *_: self._on_click())
 
         self.refresh()
 

@@ -30,6 +30,7 @@ class DataStore:
         score: Callable | str,
     ):
         self.X = X
+        self.n_initial_points = len(X)  # Count before any outlier removal
         self.X_scaled: pd.DataFrame | None = None
         self.user_x_exp = X_exp
         self._X_exp = X_exp
