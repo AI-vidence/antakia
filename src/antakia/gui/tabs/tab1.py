@@ -230,9 +230,11 @@ class Tab1:
             if self.exp_values is None:
                 return None
             # SHAP du modèle original : priorité SHAP calculé > Imported
-            return self.exp_values.explanations.get("SHAP") or self.exp_values.explanations.get(
-                "Imported"
-            )
+            # Ne pas utiliser "or" : un DataFrame déclencherait "truth value ambiguous"
+            shap_val = self.exp_values.explanations.get("SHAP")
+            if shap_val is not None:
+                return shap_val
+            return self.exp_values.explanations.get("Imported")
 
         self.beeswarm_plot = BeeswarmPlot(
             self.data_store,
@@ -556,56 +558,57 @@ class Tab1:
         self._refresh_data_table()
 
     def _refresh_data_table(self):
-        if not self._data_panel_expanded:
+        """Met à jour le tableau Data selected. Toujours peupler pour refléter la sélection VS/ES."""
+        if self.data_store.X is None:
             self.data_table.items = []
+            return
+        # Sync filter from select (au cas où)
+        self._data_table_category_filter = (
+            getattr(self.data_table_category_select, "v_model", None) or "all"
+        )
+        if self.X_rounded is None:
+            self.X_rounded = self.data_store.X.apply(format_data)
+        # Masque de base : tous les points (pour avoir les 4 catégories)
+        mask_all = self.data_store.display_mask.reindex(
+            self.X_rounded.index, fill_value=False
+        ).astype(bool)
+        # Catégories : matched, rule_only, selection_only, other
+        rules_mask = self.data_store.rules_mask.reindex(
+            self.X_rounded.index, fill_value=False
+        ).astype(bool)
+        selection_mask = self.data_store.selection_mask.reindex(
+            self.X_rounded.index, fill_value=False
+        ).astype(bool)
+        archetype_idx = self.data_store.get_archetype_idx()
+
+        # Catégories depuis les masks (aligné sur rule_selection_color)
+        category_series = pd.Series(index=self.X_rounded.index, dtype=str)
+        category_series[selection_mask & rules_mask] = "matched"
+        category_series[~selection_mask & rules_mask] = "rule_only"
+        category_series[selection_mask & ~rules_mask] = "selection_only"
+        category_series[~selection_mask & ~rules_mask] = "other"
+
+        # Points à afficher : selection | rules (ou tous si filtre "other")
+        show_mask = mask_all & (selection_mask | rules_mask)
+        if self._data_table_category_filter != "all":
+            cat_mask = category_series == self._data_table_category_filter
+            show_mask = mask_all & cat_mask
         else:
-            # Sync filter from select (au cas où)
-            self._data_table_category_filter = (
-                getattr(self.data_table_category_select, "v_model", None) or "all"
-            )
-            if self.X_rounded is None:
-                self.X_rounded = self.data_store.X.apply(format_data)
-            # Masque de base : tous les points (pour avoir les 4 catégories)
-            mask_all = self.data_store.display_mask.reindex(
-                self.X_rounded.index, fill_value=False
-            ).astype(bool)
-            # Catégories : matched, rule_only, selection_only, other
-            rules_mask = self.data_store.rules_mask.reindex(
-                self.X_rounded.index, fill_value=False
-            ).astype(bool)
-            selection_mask = self.data_store.selection_mask.reindex(
-                self.X_rounded.index, fill_value=False
-            ).astype(bool)
-            archetype_idx = self.data_store.get_archetype_idx()
+            show_mask = mask_all
 
-            # Catégories depuis les masks (aligné sur rule_selection_color)
-            category_series = pd.Series(index=self.X_rounded.index, dtype=str)
-            category_series[selection_mask & rules_mask] = "matched"
-            category_series[~selection_mask & rules_mask] = "rule_only"
-            category_series[selection_mask & ~rules_mask] = "selection_only"
-            category_series[~selection_mask & ~rules_mask] = "other"
+        df = self.X_rounded.loc[show_mask].copy()
+        df["__category__"] = category_series.loc[show_mask]
+        df["__index__"] = df.index
+        df["__archetype__"] = df.index == archetype_idx if archetype_idx is not None else False
+        df["__row_class__"] = df.apply(
+            lambda r: self._data_table_row_class_str(
+                r["__category__"], r["__archetype__"]
+            ),
+            axis=1,
+        )
 
-            # Points à afficher : selection | rules (ou tous si filtre "other")
-            show_mask = mask_all & (selection_mask | rules_mask)
-            if self._data_table_category_filter != "all":
-                cat_mask = category_series == self._data_table_category_filter
-                show_mask = mask_all & cat_mask
-            else:
-                show_mask = mask_all
-
-            df = self.X_rounded.loc[show_mask].copy()
-            df["__category__"] = category_series.loc[show_mask]
-            df["__index__"] = df.index
-            df["__archetype__"] = df.index == archetype_idx if archetype_idx is not None else False
-            df["__row_class__"] = df.apply(
-                lambda r: self._data_table_row_class_str(
-                    r["__category__"], r["__archetype__"]
-                ),
-                axis=1,
-            )
-
-            records = df.to_dict("records")
-            self.data_table.items = records
+        records = df.to_dict("records")
+        self.data_table.items = records
 
     @timeit
     def refresh_X_exp(self):

@@ -518,10 +518,10 @@ class Tab3:
         self.region_chip_wgt.children = [str(self.region.num)] if self.region else ["-"]
 
     def _update_model_table(self):
+        # Afficher les modèles même si région "trop petite" (avertissement affiché, substitution permise)
         if (
             self.substitution_model_training
             or not self.region
-            or self.region.num_points() < AppConfig.ATK_MIN_POINTS_NUMBER
             or len(self.region.perfs) == 0
         ):
             self.model_table.items = []
@@ -571,8 +571,10 @@ class Tab3:
             title.class_ = "ml-2 grey--text italic "
             title.children = ["No region selected for substitution"]
         elif self.region.num_points() < AppConfig.ATK_MIN_POINTS_NUMBER:  # region is too small
-            title.class_ = "ml-2 red--text"
-            title.children = ["Region too small for substitution !"]
+            title.class_ = "ml-2 orange--text"
+            title.children = [
+                f"Region too small for substitution ! ({self.region.num_points()} pts) — substitution allowed anyway.",
+            ]
         elif len(self.region.perfs) == 0:  # model not trained
             title.class_ = "ml-2 red--text"
             title.children = ["click on substitute button to train substitution models"]

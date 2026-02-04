@@ -76,11 +76,8 @@ class BatchSubstitutionManager:
             logger.warning("Batch substitution already running")
             return
 
-        self.substitutions = [
-            RegionSubstitution(region=r)
-            for r in regions
-            if r.num_points() >= AppConfig.ATK_MIN_POINTS_NUMBER
-        ]
+        # Inclure toutes les régions (avertissement affiché pour les petites, substitution permise)
+        self.substitutions = [RegionSubstitution(region=r) for r in regions]
 
         if not self.substitutions:
             logger.warning("No valid regions for substitution")
@@ -217,20 +214,23 @@ class BatchSubstitutionWidget:
         ]
 
     def start_batch(self, regions: List[ModelRegion]):
-        """Start batch substitution."""
-        # Initialize table with pending status
+        """Start batch substitution (toutes les régions, y compris petites)."""
+        # Initialize table with pending status pour toutes les régions
         items = []
         for region in regions:
-            if region.num_points() >= AppConfig.ATK_MIN_POINTS_NUMBER:
-                items.append(
-                    {
-                        "region": f"Region {region.num}",
-                        "region_num": region.num,
-                        "status": "⏳ Pending",
-                        "best_model": "-",
-                        "delta": "-",
-                    }
-                )
+            pts = region.num_points()
+            label = f"Region {region.num}" + (
+                f" ⚠️ ({pts} pts)" if pts < AppConfig.ATK_MIN_POINTS_NUMBER else ""
+            )
+            items.append(
+                {
+                    "region": label,
+                    "region_num": region.num,
+                    "status": "⏳ Pending",
+                    "best_model": "-",
+                    "delta": "-",
+                }
+            )
 
         self.results_table.items = items
         self.progress_text.children = [f"Training {len(items)} regions..."]

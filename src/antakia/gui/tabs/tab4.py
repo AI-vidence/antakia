@@ -113,9 +113,9 @@ class Tab4:
             children=[""],
         )
         
-        # Report output area
-        self.report_output = v.Html(
-            tag="div",
+        # Report output area (Container pour afficher correctement les Cards et widgets)
+        self.report_output = v.Container(
+            fluid=True,
             class_="mt-4 pa-4",
             style_="border: 1px solid #ddd; border-radius: 8px; min-height: 200px; background: #fafafa;",
             children=[
@@ -205,8 +205,11 @@ class Tab4:
                     top_n_features=int(self.top_features.v_model),
                 )
                 
-                # Display summary
+                # Display summary (récap + cartes par tesselle)
                 self._display_report_summary()
+                
+                # Afficher aussi le rapport HTML complet avec graphiques (iframe)
+                self._display_report_html_preview()
                 
                 # Enable export buttons
                 self.export_html_btn.disabled = False
@@ -280,6 +283,42 @@ class Tab4:
             summary_items.append(card)
         
         self.report_output.children = summary_items
+
+    def _display_report_html_preview(self):
+        """Affiche le rapport HTML complet (avec graphiques SHAP/PDP) via iframe data URL."""
+        if self._report_result is None:
+            return
+        try:
+            from antakia.reporting import TessellationReport
+            import base64
+
+            report = TessellationReport.__new__(TessellationReport)
+            report.data_store = self.data_store
+            report.X = self.data_store.X
+            report.y = self.data_store.y
+            report.model = self.data_store.model
+            report.region_set = self.data_store.region_set
+            report._shap_cache = {}
+
+            html_content = report._render_html_jinja(
+                self._report_result, include_visualizations=True
+            )
+            b64 = base64.b64encode(html_content.encode("utf-8")).decode("ascii")
+            data_url = f"data:text/html;base64,{b64}"
+            iframe_html = f'<iframe src="{data_url}" style="width:100%; height:800px; border:1px solid #ddd; border-radius:8px;"></iframe>'
+            self.report_output.children = list(self.report_output.children) + [
+                v.Divider(class_="my-4"),
+                v.Html(tag="h4", children=["Rapport complet (avec graphiques)"]),
+                v.Html(tag="div", children=[iframe_html]),
+            ]
+        except Exception as e:
+            self.report_output.children = list(self.report_output.children) + [
+                v.Html(
+                    tag="p",
+                    class_="orange--text",
+                    children=[f"Rapport HTML non affiché: {e}. Utilisez Export HTML."],
+                )
+            ]
 
     def _show_progress(self, show: bool):
         """Show/hide progress indicator."""

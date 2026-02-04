@@ -116,7 +116,20 @@ def create_beeswarm_shap_plot(
 
         shap_vals = shap_vals[idx]
         feat_vals = feat_vals[idx]
-        sel = selection_mask[idx] if selection_mask is not None else np.ones(len(idx), dtype=bool)
+        # idx = positions ; aligner selection_mask (index peut différer de X_exp)
+        if selection_mask is not None:
+            try:
+                # Priorité : alignement par index (X_exp et selection_mask partagent les labels)
+                idx_labels = X_exp.index[idx]
+                sel = selection_mask.reindex(idx_labels, fill_value=False).values.astype(bool)
+            except (AttributeError, TypeError, IndexError):
+                # Fallback : indexation positionnelle si même longueur
+                if hasattr(selection_mask, "iloc") and len(selection_mask) >= len(idx):
+                    sel = np.asarray(selection_mask.iloc[idx]).ravel().astype(bool)
+                else:
+                    sel = np.ones(len(idx), dtype=bool)
+        else:
+            sel = np.ones(len(idx), dtype=bool)
 
         # Compute y jitter
         y_jitter = compute_beeswarm_jitter(shap_vals)
