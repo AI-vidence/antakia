@@ -22,7 +22,16 @@ __author__ = "AI-vidence"
 # Lazy imports pour éviter les dépendances circulaires
 def __getattr__(name):
     """Lazy import des sous-modules."""
-    if name == "tessellation":
+    if name == "AntakIA":
+        from antakia.antakia import AntakIA
+        return AntakIA
+    elif name == "AntakIAAPI":
+        from antakia.api import AntakIAAPI
+        return AntakIAAPI
+    elif name == "quick_tessellate":
+        from antakia.api import quick_tessellate
+        return quick_tessellate
+    elif name == "tessellation":
         from antakia import tessellation
 
         return tessellation

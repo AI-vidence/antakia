@@ -2,10 +2,10 @@
 Beeswarm SHAP plot component for AntakIA.
 
 Displays SHAP values as a beeswarm plot, showing the impact of each feature
-on the model predictions.
+on the model predictions. Utilise toujours les SHAP du modèle original.
 """
 
-from typing import Optional
+from typing import Callable, Optional
 
 import ipyvuetify as v
 import numpy as np
@@ -174,10 +174,15 @@ class BeeswarmPlot:
     Interactive beeswarm SHAP plot widget for AntakIA.
 
     Displays SHAP values as a beeswarm plot and updates
-    when selection changes.
+    when selection changes. Utilise toujours les SHAP du modèle original.
     """
 
-    def __init__(self, data_store: DataStore, height_per_feature: int = 70):
+    def __init__(
+        self,
+        data_store: DataStore,
+        height_per_feature: int = 70,
+        original_model_shap_getter: Optional[Callable[[], Optional[pd.DataFrame]]] = None,
+    ):
         """
         Initialize the beeswarm plot.
 
@@ -187,9 +192,14 @@ class BeeswarmPlot:
             Data store containing X and SHAP values
         height_per_feature : int
             Height per feature in pixels
+        original_model_shap_getter : callable, optional
+            Retourne les SHAP du modèle original. Si fourni, utilisé en priorité
+            pour afficher le beeswarm du modèle original (et non la méthode
+            d'explication actuellement sélectionnée).
         """
         self.data_store = data_store
         self.height_per_feature = height_per_feature
+        self.original_model_shap_getter = original_model_shap_getter
         self._widget = None
         self._figure_widget = None
 
@@ -199,7 +209,13 @@ class BeeswarmPlot:
 
         Returns None if SHAP values are not available.
         """
-        if self.data_store.X_exp is None:
+        # Vérifier getter ou X_exp (le beeswarm peut avoir des SHAP via le getter)
+        x_exp = None
+        if self.original_model_shap_getter is not None:
+            x_exp = self.original_model_shap_getter()
+        if x_exp is None:
+            x_exp = self.data_store.X_exp
+        if x_exp is None or len(x_exp) == 0:
             return None
 
         self._figure_widget = self._create_figure_widget()
@@ -223,9 +239,14 @@ class BeeswarmPlot:
             return None
 
     def _compute_figure(self) -> Optional[go.Figure]:
-        """Compute the beeswarm figure."""
+        """Compute the beeswarm figure. Utilise les SHAP du modèle original."""
         X = self.data_store.X
-        X_exp = self.data_store.X_exp
+        # Priorité : SHAP du modèle original (via getter) > X_exp courant
+        X_exp = None
+        if self.original_model_shap_getter is not None:
+            X_exp = self.original_model_shap_getter()
+        if X_exp is None:
+            X_exp = self.data_store.X_exp
 
         if X_exp is None or len(X_exp) == 0:
             return None

@@ -184,9 +184,16 @@ class FeatureDualView:
         X_exp = self.data_store.X_exp
         if X_exp is None or X is None:
             return None
+        # Quand des règles sont appliquées, inclure rules_mask pour afficher
+        # les distributions (sélection + points matchant les règles)
         selection_mask = None
         if hasattr(self.data_store, "selection_mask") and self.data_store.selection_mask is not None:
             selection_mask = self.data_store.selection_mask
+        if hasattr(self.data_store, "rules_mask") and self.data_store.rules_mask is not None:
+            if selection_mask is not None:
+                selection_mask = selection_mask | self.data_store.rules_mask
+            else:
+                selection_mask = self.data_store.rules_mask
         return create_feature_dual_figure(
             X=X,
             X_exp=X_exp,

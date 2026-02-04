@@ -36,6 +36,7 @@ antakia-ac = "^0.2.14"
 requests = "^2.31.0"
 pdpbox = "^0.3.0"
 jupyterlab = ">=3"
+kaleido = ">=0.2.1"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.26.0"

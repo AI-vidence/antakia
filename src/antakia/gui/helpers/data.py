@@ -148,3 +148,20 @@ class DataStore:
             else:
                 self._display_mask = pd.Series([True] * len(self.X), index=self.X.index)
         return self._display_mask
+
+    def get_archetype_idx(self):
+        """
+        Compute archetype (typical point) index: point closest to centroid of selection.
+        Returns None if no selection or empty selection.
+        """
+        import numpy as np
+
+        mask = self._selection_mask
+        if mask.sum() == 0:
+            return None
+        X_sel = self.X.loc[mask]
+        if len(X_sel) == 1:
+            return X_sel.index[0]
+        centroid = X_sel.mean().values
+        distances = np.linalg.norm(X_sel.values - centroid, axis=1)
+        return X_sel.index[distances.argmin()]

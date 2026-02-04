@@ -81,13 +81,32 @@ class TessellationReportResult:
     global_shap_importance: Optional[pd.Series] = None
 
     def display(self):
-        """Affiche le rapport dans un notebook Jupyter."""
+        """Affiche le rapport dans un notebook Jupyter (Plotly prioritaire, fallback matplotlib)."""
         from IPython.display import Markdown, display
 
-        from antakia.reporting.visualizations import (
-            plot_pdp_comparison,
-            plot_shap_summary,
-        )
+        def _shap_fig(tr):
+            try:
+                from antakia.reporting.plotly_figures import create_shap_summary_figure
+
+                return create_shap_summary_figure(tr.shap_values, max_features=10)
+            except ImportError:
+                from antakia.reporting.visualizations import plot_shap_summary
+
+                return plot_shap_summary(tr.shap_values, max_features=10)
+
+        def _pdp_fig(feature, grid, pdp_init, pdp_filt, pdp_surr, region_num):
+            try:
+                from antakia.reporting.plotly_figures import create_pdp_comparison_figure
+
+                return create_pdp_comparison_figure(
+                    feature, grid, pdp_init, pdp_filt, pdp_surr, region_num=region_num
+                )
+            except ImportError:
+                from antakia.reporting.visualizations import plot_pdp_comparison
+
+                return plot_pdp_comparison(
+                    feature, grid, pdp_init, pdp_filt, pdp_surr, region_num=region_num
+                )
 
         # En-tête
         display(Markdown("# Rapport de Tessellation"))
@@ -123,19 +142,15 @@ class TessellationReportResult:
             if tr.top_features:
                 display(Markdown(f"- **Top features**: {', '.join(tr.top_features[:5])}"))
 
-            # Visualisations
+            # Visualisations (Plotly prioritaire)
             if tr.shap_values is not None and len(tr.shap_values) > 0:
                 display(Markdown("### SHAP Summary"))
-                fig = plot_shap_summary(tr.shap_values, max_features=10)
-                display(fig)
+                display(_shap_fig(tr))
 
             if tr.pdp_data:
                 display(Markdown("### PDP Comparatif"))
                 for feature, (grid, pdp_init, pdp_filt, pdp_surr) in list(tr.pdp_data.items())[:3]:
-                    fig = plot_pdp_comparison(
-                        feature, grid, pdp_init, pdp_filt, pdp_surr, region_num=tr.region_num
-                    )
-                    display(fig)
+                    display(_pdp_fig(feature, grid, pdp_init, pdp_filt, pdp_surr, tr.region_num))
 
             display(Markdown("---"))
 
@@ -209,6 +224,14 @@ class TessellationReport:
         """
         logger.info("Génération du rapport de tessellation...")
 
+        # Vérifier qu'il y a des régions (hors left outs)
+        n_regions = sum(1 for r in self.region_set if r.num != -1)
+        if n_regions == 0:
+            logger.warning(
+                "Aucune tesselle à rapporter (region_set vide ou uniquement 'left outs'). "
+                "Créez des régions dans l'onglet Parcelles avant de générer le rapport."
+            )
+
         # Métadonnées
         result = TessellationReportResult(
             model_name=type(self.model).__name__,
@@ -275,12 +298,13 @@ class TessellationReport:
             rules_list=region.rules.to_dict_list() if hasattr(region.rules, "to_dict_list") else [],
         )
 
-        # Modèle surrogate
-        if region.sub_model is not None:
-            tr.surrogate_model_name = type(region.sub_model).__name__
+        # Modèle surrogate (ModelRegion utilise get_selected_model(), pas sub_model)
+        sub_model = region.get_selected_model() if hasattr(region, "get_selected_model") else None
+        if sub_model is not None:
+            tr.surrogate_model_name = type(sub_model).__name__
             try:
-                tr.surrogate_score = region.sub_model.score(X_region, y_region)
-            except:
+                tr.surrogate_score = sub_model.score(X_region, y_region)
+            except Exception:
                 pass
 
         # SHAP values pour cette tesselle
@@ -290,11 +314,19 @@ class TessellationReport:
                 tr.shap_importance = tr.shap_values.abs().mean().sort_values(ascending=False)
                 tr.top_features = list(tr.shap_importance.head(top_n_features).index)
 
+        # Fallback top_features si SHAP a échoué (feature_importances_ du modèle)
+        if not tr.top_features and hasattr(self.model, "feature_importances_"):
+            imp = self.model.feature_importances_
+            names = getattr(self.model, "feature_names_in_", None) or list(self.X.columns)
+            if len(imp) == len(names):
+                order = np.argsort(imp)[::-1]
+                tr.top_features = [names[i] for i in order[:top_n_features] if names[i] in self.X.columns]
+
         # PDP comparatif pour les top features
         if compute_pdp and tr.top_features:
             for feature in tr.top_features[:3]:  # Top 3 features
                 pdp_data = self._compute_pdp_comparison(
-                    feature, mask, region.sub_model, pdp_grid_resolution
+                    feature, mask, sub_model, pdp_grid_resolution
                 )
                 if pdp_data is not None:
                     tr.pdp_data[feature] = pdp_data
@@ -303,17 +335,28 @@ class TessellationReport:
 
     def _compute_shap_for_region(self, X_region: pd.DataFrame) -> Optional[pd.DataFrame]:
         """Calcule les SHAP values pour les points d'une région."""
+        # TreeExplainer (priorité pour modèles tree-based)
         try:
-            # Utiliser TreeExplainer si possible
             explainer = shap.TreeExplainer(self.model)
             shap_values = explainer.shap_values(X_region)
-
             if isinstance(shap_values, list):
                 shap_values = shap_values[-1]  # Classe positive
-
             return pd.DataFrame(shap_values, columns=X_region.columns, index=X_region.index)
         except Exception as e:
-            logger.warning(f"Impossible de calculer SHAP: {e}")
+            logger.debug(f"TreeExplainer échoué: {e}")
+
+        # KernelExplainer fallback (modèles non tree-based)
+        try:
+            # Échantillonner si trop de points (KernelExplainer coûteux)
+            n_background = min(50, len(self.X), len(X_region))
+            background = self.X.sample(n=n_background, random_state=42) if len(self.X) > n_background else self.X
+            explainer = shap.KernelExplainer(self.model.predict, background)
+            shap_values = explainer.shap_values(X_region, nsamples=min(50, len(X_region) * 2))
+            if isinstance(shap_values, list):
+                shap_values = shap_values[-1] if len(shap_values) > 1 else shap_values[0]
+            return pd.DataFrame(shap_values, columns=X_region.columns, index=X_region.index)
+        except Exception as e:
+            logger.warning(f"Impossible de calculer SHAP (TreeExplainer et KernelExplainer): {e}")
             return None
 
     def _compute_pdp_comparison(
@@ -370,12 +413,29 @@ class TessellationReport:
                 except:
                     pass
 
-            return (
-                pdp_init_all["grid_values"][0],
-                pdp_init_all["average"][0],
-                pdp_init_filtered["average"][0],
-                pdp_surrogate["average"][0] if pdp_surrogate else None,
-            )
+            # sklearn partial_dependence: Bunch (1.3+) avec grid_values et average, ou tuple (ancien)
+            def _extract_pdp_result(res):
+                if hasattr(res, "get"):  # Bunch/dict
+                    grid = np.asarray(res["grid_values"][0]).ravel()
+                    avg = np.asarray(res["average"]).ravel()
+                    return grid, avg
+                # Ancien format: (predictions, grid_values)
+                if isinstance(res, (list, tuple)) and len(res) >= 2:
+                    preds, grids = res[0], res[1]
+                    grid = np.asarray(grids[0]).ravel()
+                    avg = np.asarray(preds).ravel()
+                    return grid, avg
+                raise ValueError(f"Format partial_dependence non reconnu: {type(res)}")
+
+            grid, pdp_all = _extract_pdp_result(pdp_init_all)
+            _, pdp_filt = _extract_pdp_result(pdp_init_filtered)
+            pdp_surr = None
+            if pdp_surrogate is not None:
+                try:
+                    _, pdp_surr = _extract_pdp_result(pdp_surrogate)
+                except Exception as e:
+                    logger.debug(f"PDP surrogate extraction: {e}")
+            return (grid, pdp_all, pdp_filt, pdp_surr)
 
         except Exception as e:
             logger.warning(f"Impossible de calculer PDP pour {feature}: {e}")
@@ -426,12 +486,6 @@ class TessellationReport:
             logger.warning("jinja2 non installé, utilisation du template basique")
             return self._render_html_basic(result)
 
-        from antakia.reporting.visualizations import (
-            plot_pdp_comparison,
-            plot_shap_summary,
-            plot_tessellation_overview,
-        )
-
         # Charger le template
         template_dir = Path(__file__).parent / "templates"
         env = Environment(loader=FileSystemLoader(str(template_dir)))
@@ -475,8 +529,9 @@ class TessellationReport:
                     }
                     for tr in result.tesselle_reports
                 ]
-                fig = plot_tessellation_overview(region_stats)
-                context["overview_image"] = self._fig_to_base64(fig)
+                context["overview_image"] = self._render_fig_to_base64(
+                    "overview", region_stats=region_stats
+                )
             except Exception as e:
                 logger.warning(f"Impossible de générer l'overview: {e}")
 
@@ -498,27 +553,86 @@ class TessellationReport:
             }
 
             if include_visualizations:
-                # SHAP image
+                # SHAP image (Plotly prioritaire, fallback matplotlib)
                 if tr.shap_values is not None and len(tr.shap_values) > 0:
                     try:
-                        fig = plot_shap_summary(tr.shap_values, max_features=10)
-                        tesselle_data["shap_image"] = self._fig_to_base64(fig)
+                        tesselle_data["shap_image"] = self._render_fig_to_base64(
+                            "shap", shap_values=tr.shap_values
+                        )
                     except Exception as e:
-                        logger.warning(f"Impossible de générer SHAP plot: {e}")
+                        logger.warning(f"Tesselle {tr.region_num}: SHAP plot échoué: {e}")
 
-                # PDP images
+                # PDP images (Plotly prioritaire, fallback matplotlib)
                 for feature, (grid, pdp_init, pdp_filt, pdp_surr) in tr.pdp_data.items():
                     try:
-                        fig = plot_pdp_comparison(
-                            feature, grid, pdp_init, pdp_filt, pdp_surr, tr.region_num
+                        tesselle_data["pdp_images"][feature] = self._render_fig_to_base64(
+                            "pdp",
+                            feature=feature,
+                            grid=grid,
+                            pdp_init=pdp_init,
+                            pdp_filt=pdp_filt,
+                            pdp_surr=pdp_surr,
+                            region_num=tr.region_num,
                         )
-                        tesselle_data["pdp_images"][feature] = self._fig_to_base64(fig)
                     except Exception as e:
-                        logger.warning(f"Impossible de générer PDP plot pour {feature}: {e}")
+                        logger.warning(f"Tesselle {tr.region_num}: PDP plot pour {feature} échoué: {e}")
 
             context["tesselle_reports"].append(tesselle_data)
 
         return template.render(**context)
+
+    def _render_fig_to_base64(self, fig_type: str, **kwargs) -> str:
+        """
+        Génère une figure et la convertit en base64.
+        Priorité Plotly (qualité Tab3), fallback matplotlib si kaleido absent.
+        """
+        try:
+            from antakia.reporting import plotly_figures as pf
+
+            if fig_type == "overview":
+                fig = pf.create_tessellation_overview_figure(kwargs["region_stats"])
+            elif fig_type == "shap":
+                fig = pf.create_shap_summary_figure(kwargs["shap_values"], max_features=10)
+            elif fig_type == "pdp":
+                fig = pf.create_pdp_comparison_figure(
+                    kwargs["feature"],
+                    kwargs["grid"],
+                    kwargs["pdp_init"],
+                    kwargs["pdp_filt"],
+                    kwargs.get("pdp_surr"),
+                    region_num=kwargs.get("region_num", 0),
+                )
+            else:
+                raise ValueError(f"Type de figure inconnu: {fig_type}")
+            return pf._plotly_fig_to_base64(fig)
+        except ImportError as e:
+            logger.debug(f"Fallback matplotlib (Plotly/kaleido indisponible): {e}")
+            return self._fig_to_base64_matplotlib(fig_type, **kwargs)
+
+    def _fig_to_base64_matplotlib(self, fig_type: str, **kwargs) -> str:
+        """Fallback : figures matplotlib (moins qualitative que Plotly)."""
+        from antakia.reporting.visualizations import (
+            plot_pdp_comparison,
+            plot_shap_summary,
+            plot_tessellation_overview,
+        )
+
+        if fig_type == "overview":
+            fig = plot_tessellation_overview(kwargs["region_stats"])
+        elif fig_type == "shap":
+            fig = plot_shap_summary(kwargs["shap_values"], max_features=10)
+        elif fig_type == "pdp":
+            fig = plot_pdp_comparison(
+                kwargs["feature"],
+                kwargs["grid"],
+                kwargs["pdp_init"],
+                kwargs["pdp_filt"],
+                kwargs.get("pdp_surr"),
+                region_num=kwargs.get("region_num", 0),
+            )
+        else:
+            raise ValueError(f"Type de figure inconnu: {fig_type}")
+        return self._fig_to_base64(fig)
 
     def _fig_to_base64(self, fig) -> str:
         """Convertit une figure matplotlib en base64."""

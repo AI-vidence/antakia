@@ -389,8 +389,10 @@ class RuleWidget:
                     to_display = self.data_store.display_mask & (mask_color == color)
                     # Align indices (handles mismatch after outlier removal)
                     to_display = to_display.reindex(self.X_col.index, fill_value=False).astype(bool)
+                    # Align selectable_mask to to_display.index to avoid IndexingError
+                    sel_aligned = self.selectable_mask.reindex(to_display.index, fill_value=False).astype(bool)
                     self.figure.data[i].x = self.X_col[to_display]
-                    self.figure.data[i].y = self.selectable_mask[to_display]
+                    self.figure.data[i].y = sel_aligned[to_display]
         self.edited = False
 
     @timeit

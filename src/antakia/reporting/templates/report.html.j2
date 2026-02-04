@@ -349,6 +349,12 @@
     <section class="section">
         <h2 class="section-title">Résumé des tesselles</h2>
         
+        {% if not tesselle_reports %}
+        <p class="rules-box" style="margin-bottom: 20px;">
+            <strong>Aucune tesselle à afficher.</strong> Créez des régions dans l'onglet Parcelles (Tab 2) 
+            avant de générer le rapport. Le rapport affiche les statistiques et graphiques pour chaque région validée.
+        </p>
+        {% else %}
         <table class="data-table">
             <thead>
                 <tr>
@@ -375,12 +381,16 @@
                 {% endfor %}
             </tbody>
         </table>
+        {% endif %}
     </section>
     
     <!-- Detailed Tesselle Reports -->
     <section class="section">
         <h2 class="section-title">Détail par tesselle</h2>
         
+        {% if not tesselle_reports %}
+        <p class="rules-box">Aucune tesselle. Créez et validez des régions dans l'onglet Parcelles.</p>
+        {% else %}
         {% for tr in tesselle_reports %}
         <div class="tesselle-card">
             <div class="tesselle-header">
@@ -453,9 +463,16 @@
                     </div>
                 </div>
                 {% endif %}
+                {% if not tr.shap_image and not tr.pdp_images and tr.top_features %}
+                <p class="rules-box" style="margin-top: 15px; color: #666;">
+                    Aucun graphique SHAP/PDP généré (modèle non tree-based ou erreur de calcul). 
+                    Top features: {% for f in tr.top_features[:5] %}{{ f }}{% if not loop.last %}, {% endif %}{% endfor %}.
+                </p>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
+        {% endif %}
     </section>
     
     <!-- Footer -->

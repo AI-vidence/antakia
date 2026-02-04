@@ -100,6 +100,17 @@ class Tab3:
             indeterminate=True,
             color="blue",
         )
+        self.training_log_wgt = v.Textarea(
+            label="Log des calculs",
+            v_model="",
+            readonly=True,
+            outlined=True,
+            dense=True,
+            rows=4,
+            hide_details=True,
+            class_="mt-2",
+            style_="font-family: monospace; font-size: 0.85em",
+        )
         self.widget = [
             v.Col(
                 children=[
@@ -143,9 +154,12 @@ class Tab3:
                             ),
                         ],
                     ),
-                    v.Row(  # Row2 : Progress bar
+                    v.Row(  # Row2 : Progress bar + log
                         class_=" flex-column align-center",
-                        children=[v.Col(class_="col-5", children=[self.progress_wgt])],
+                        children=[
+                            v.Col(class_="col-12", children=[self.progress_wgt]),
+                            v.Col(class_="col-12", children=[self.training_log_wgt]),
+                        ],
                     ),
                     v.Row(  # Row3 : Model table (gauche) + Model explorer PDP (droite)
                         children=[
@@ -263,10 +277,23 @@ class Tab3:
             elif train:
                 # Need to train models
                 self.substitution_model_training = True
+                self.progressbar_widget.show()
+                self.model_table_widget.hide()
                 self.progress_bar(0)
+                self.training_log_wgt.v_model = ""
                 self.update()
-                # Train substitution models
-                self.region.train_substitution_models(task_type=self.data_store.problem_category)
+
+                def log_callback(msg: str):
+                    current = self.training_log_wgt.v_model or ""
+                    self.training_log_wgt.v_model = current + msg + "\n"
+                    self.update()
+
+                # Train substitution models with log
+                self.region.train_substitution_models(
+                    task_type=self.data_store.problem_category,
+                    progress_callback=log_callback,
+                )
+                log_callback("Terminé.")
                 self.progressbar_widget.hide()
                 self.model_table_widget.show()
                 self.progress_bar(100)

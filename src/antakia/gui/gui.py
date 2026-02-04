@@ -98,6 +98,7 @@ class GUI:
                 self.new_rule_selected_callback,
                 self.validate_rules_callback,
                 retire_outliers_callback=self.retire_outliers_callback,
+                exp_values=self.exp_values,
             )
 
         self._rules_display_mode = True  # True = show rules trace, False = show values trace
@@ -610,7 +611,12 @@ class GUI:
         region.validate()
         self.data_store.region_set.add(region)
         self.tab2.update_region_table()
-        self.select_tab(2, msg="validate")
+        # Passer à l'onglet Tesselles et entraîner la nouvelle région
+        new_region = self.data_store.region_set.regions[
+            self.data_store.region_set.insert_order[-1]
+        ]
+        self.select_tab(3, msg="validate")
+        self.tab3.update_region(new_region, train=True)
 
     @log_errors
     @timeit
