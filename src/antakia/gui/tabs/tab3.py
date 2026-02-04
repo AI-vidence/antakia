@@ -43,6 +43,7 @@ class Tab3:
             validate_callback=validate_callback,
         )
         self.is_batch_mode = False
+        self.is_overview_mode = True  # Start with overview of all regions
 
         self._build_widget()
         self.progress_bar = ProgressBar(self.progress_wgt, indeterminate=True, reset_at_end=True)
@@ -161,8 +162,45 @@ class Tab3:
         self.progressbar_widget = self.widget[0].children[1]
         self.model_table_widget = self.widget[0].children[2]
 
-        # Create main container that can switch between single and batch mode
-        self.main_container = v.Container(fluid=True, children=[self.single_region_content])
+        # Overview panel: all regions + tesselle status
+        self.overview_summary_wgt = v.Html(tag="p", class_="ma-2 grey--text", children=[""])
+        self.overview_list_container = v.Container(fluid=True, class_="pa-0")
+        self.overview_content = v.Container(
+            fluid=True,
+            children=[
+                v.Row(
+                    class_="ma-2",
+                    children=[
+                        v.Html(
+                            tag="h4",
+                            class_="ma-0",
+                            children=["Vue d'ensemble des tesselles"],
+                        ),
+                    ],
+                ),
+                v.Row(children=[self.overview_summary_wgt]),
+                v.Row(children=[v.Col(children=[self.overview_list_container])]),
+            ],
+        )
+
+        # Add "Vue d'ensemble" button to detail view header
+        self.back_to_overview_btn = v.Btn(
+            small=True,
+            outlined=True,
+            class_="ma-1 mr-2",
+            children=[
+                v.Icon(small=True, children=["mdi-arrow-left"]),
+                "Vue d'ensemble",
+            ],
+        )
+        self.back_to_overview_btn.on_event("click", self._switch_to_overview_mode)
+        # Insert back button in Row1 Col1
+        self.single_region_content.children[0].children[0].children[0].children[0].children.insert(
+            0, self.back_to_overview_btn
+        )
+
+        # Create main container that can switch between overview, single and batch mode
+        self.main_container = v.Container(fluid=True, children=[self.overview_content])
         self.widget = [self.main_container]
 
         self.model_table_widget.hide()
@@ -188,29 +226,53 @@ class Tab3:
         Parameters
         ----------
         region: region to substitute
+        train: if True, train models if not already trained
 
         Returns
         -------
 
         """
-        # Switch to single-region mode if in batch mode
+        # Switch to single-region mode if in batch or overview mode
         if self.is_batch_mode:
             self._switch_to_single_mode()
+        elif self.is_overview_mode:
+            self.is_overview_mode = False
+            self.main_container.children = [self.single_region_content]
 
         self.region = region
-        if self.region is not None and train:
-            # We update the substitution table once to show the name of the region
-            self.substitution_model_training = True
-            self.progress_bar(0)
-            self.update()
-            # show tab 3 (and update)
-            self.region.train_substitution_models(task_type=self.data_store.problem_category)
-            self.progressbar_widget.hide()  # hides the progress bar widget once submodels trained
-            self.model_table_widget.show()  # displays the submodel table once submodels trained
 
-            self.progress_bar(100)
-            self.substitution_model_training = False
-            self.update()
+        # Update region selector to reflect current region
+        self._update_region_selector()
+
+        if self.region is not None:
+            # Check if models are already trained
+            models_trained = (
+                hasattr(self.region, "perfs")
+                and self.region.perfs is not None
+                and len(self.region.perfs) > 0
+            )
+
+            if models_trained:
+                # Models already trained, just update UI
+                self.progressbar_widget.hide()
+                self.model_table_widget.show()
+                self.substitution_model_training = False
+                self.update()
+            elif train:
+                # Need to train models
+                self.substitution_model_training = True
+                self.progress_bar(0)
+                self.update()
+                # Train substitution models
+                self.region.train_substitution_models(task_type=self.data_store.problem_category)
+                self.progressbar_widget.hide()
+                self.model_table_widget.show()
+                self.progress_bar(100)
+                self.substitution_model_training = False
+                self.update()
+            else:
+                # No train, no existing models
+                self.update()
         else:
             self.update()
 
@@ -231,14 +293,101 @@ class Tab3:
     def _switch_to_batch_mode(self):
         """Switch UI to batch substitution mode."""
         self.is_batch_mode = True
+        self.is_overview_mode = False
         self.main_container.children = self.batch_widget.widget
 
     def _switch_to_single_mode(self):
-        """Switch UI back to single-region mode."""
+        """Switch UI to single-region (detail) mode."""
         self.is_batch_mode = False
+        self.is_overview_mode = False
         self.main_container.children = [self.single_region_content]
 
+    def _switch_to_overview_mode(self, *args):
+        """Switch UI to overview mode (all regions + tesselle status)."""
+        self.is_batch_mode = False
+        self.is_overview_mode = True
+        self.region = None
+        self.selected_sub_model = []
+        self.model_explorer.reset()
+        self.display_model_data(None, None)
+        self.main_container.children = [self.overview_content]
+        self._update_overview()
+
+    def _switch_to_detail_mode(self, region: ModelRegion):
+        """Switch from overview to detail view for a specific region."""
+        self.is_overview_mode = False
+        self.main_container.children = [self.single_region_content]
+        self.update_region(region, train=True)
+        self.display_model_data(region, None)
+
+    def _update_overview(self):
+        """Update the overview list with all regions and tesselle status."""
+        region_set = self.data_store.region_set
+        list_items = []
+        n_with_tesselle = 0
+
+        for region in region_set.regions.values():
+            has_tesselle = getattr(region, "validated", False)
+            if has_tesselle:
+                n_with_tesselle += 1
+
+            model_str = "-"
+            if has_tesselle and hasattr(region, "interpretable_models"):
+                sel = region.interpretable_models.selected_model
+                if sel:
+                    model_str = region.interpretable_models.selected_model_str()
+
+            name = getattr(region, "name", "") or f"Région {region.num}"
+            tesselle_str = "✓" if has_tesselle else "—"
+            pts = region.num_points()
+
+            def make_click_handler(reg):
+                def handler(*args, _r=reg):
+                    stats_logger.log("tesselle_overview_region_click", {"region": _r.num})
+                    self._switch_to_detail_mode(_r)
+
+                return handler
+
+            li = v.ListItem(
+                class_="mb-1",
+                children=[
+                    v.ListItemContent(
+                        children=[
+                            v.ListItemTitle(
+                                children=[
+                                    f"Région {region.num}: {name} — {pts} pts — Tesselle {tesselle_str}"
+                                ]
+                            ),
+                            v.ListItemSubtitle(
+                                children=[f"Modèle: {model_str}"] if model_str != "-" else []
+                            ),
+                        ]
+                    ),
+                    v.ListItemAction(children=[v.Icon(small=True, children=["mdi-chevron-right"])]),
+                ],
+            )
+            li.on_event("click", make_click_handler(region))
+            list_items.append(li)
+
+        total = len(list_items)
+        if total == 0:
+            self.overview_summary_wgt.children = [
+                "Aucune région. Créez des régions dans l'onglet Régions."
+            ]
+            self.overview_list_container.children = []
+        else:
+            self.overview_summary_wgt.children = [
+                f"{n_with_tesselle} région(s) avec tesselle / {total} total — "
+                f"Cliquez sur une région pour travailler sur la parcelle"
+            ]
+            self.overview_list_container.children = [
+                v.List(class_="py-0", dense=True, children=list_items)
+            ]
+
     def update(self):
+        if self.is_overview_mode:
+            self._update_overview()
+            return
         self._update_region_selector()
         self._update_substitution_prefix()
         self._update_substitution_title()
@@ -284,7 +433,7 @@ class Tab3:
 
             if region is not None and region != self.region:
                 stats_logger.log("substitute_region_changed", {"region": region_num})
-                # Update region and train
+                # Update region - will train only if not already trained
                 self.update_region(region, train=True)
                 # Update display
                 self.display_model_data(region, None)

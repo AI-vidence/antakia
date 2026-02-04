@@ -116,14 +116,14 @@ class GUI:
         with Log("building widget", 2):
             self._build_widget()
             self.splash = SplashScreen()
-            
+
         # Register for theme changes
         theme.add_observer(self._on_theme_change)
 
     def _build_widget(self):
         # Determine initial theme class
         theme_class = "theme--dark grey darken-4" if theme.dark_mode else "theme--light white"
-        
+
         self.widget = v.Col(
             class_=theme_class,
             children=[
@@ -191,11 +191,17 @@ class GUI:
                     children=[
                         v.Tab(children=["Selection"]),  # 40
                         v.Tab(children=["Regions"]),  # 41
-                        v.Tab(children=["Substitution"]),  # 42
-                        v.Tab(children=[
-                            v.Icon(small=True, class_="mr-1", children=["mdi-file-document-outline"]),
-                            "Report"
-                        ]),  # 43
+                        v.Tab(children=["Tesselles"]),  # 42
+                        v.Tab(
+                            children=[
+                                v.Icon(
+                                    small=True,
+                                    class_="mr-1",
+                                    children=["mdi-file-document-outline"],
+                                ),
+                                "Report",
+                            ]
+                        ),  # 43
                     ]
                     + [
                         v.TabItem(class_="mt-2", children=self.tab1.widget),  # Tab 1)
@@ -206,7 +212,7 @@ class GUI:
                         v.TabItem(children=self.tab4.widget),  # TabItem #4 Report #46
                     ],
                 ),  # End of v.Tabs
-            ]  # End v.Col children
+            ],  # End v.Col children
         )  # End of v.Col
 
     def _on_theme_change(self, theme_instance):
@@ -215,12 +221,12 @@ class GUI:
             self.widget.class_ = "theme--dark grey darken-4"
         else:
             self.widget.class_ = "theme--light white"
-        
+
         # Update plots background color
         plot_bg = "#1a1a2e" if theme_instance.dark_mode else "#ffffff"
         paper_bg = "#16213e" if theme_instance.dark_mode else "#ffffff"
         font_color = "#e8e8e8" if theme_instance.dark_mode else "#212529"
-        
+
         try:
             # Update VS figure
             self.vs_hde.figure.figure.update_layout(
@@ -456,12 +462,18 @@ class GUI:
             # refresh region set display
             self.update_region_callback(self)
         elif tab == 3:
-            if self.tab3.region is not None:
+            # Update region selector with available regions
+            self.tab3._update_region_selector()
+            if self.tab3.is_batch_mode:
+                # Batch mode: widget already shown
+                pass
+            elif self.tab3.is_overview_mode or self.tab3.region is None:
+                # Show overview when no region selected
+                self.tab3._switch_to_overview_mode()
+            elif self.tab3.region is not None:
                 region = self.tab3.region
                 self.es_hde.figure.display_region(region)
                 self.vs_hde.figure.display_region(region)
-            else:
-                self.select_tab(2, msg="no region selected")
         if not front:
             self.widget.children[4].v_model = max(tab - 1, 0)
         self.vs_hde.set_tab(tab)
@@ -536,8 +548,8 @@ class GUI:
                 region = regions[0]
                 self.vs_hde.figure.display_region(region)
                 self.es_hde.figure.display_region(region)
-                self.select_tab(3, msg="substitute")
                 self.tab3.update_region(region)
+                self.select_tab(3, msg="substitute")
             else:
                 # Multiple regions - start batch substitution
                 self.select_tab(3, msg="substitute_batch")
@@ -547,8 +559,8 @@ class GUI:
             region = region_or_regions
             self.vs_hde.figure.display_region(region)
             self.es_hde.figure.display_region(region)
-            self.select_tab(3, msg="substitute")
             self.tab3.update_region(region)
+            self.select_tab(3, msg="substitute")
 
     # ==================== TAB 3 ==================== #
 
@@ -561,7 +573,11 @@ class GUI:
 
     @timeit
     def display_model_data(self, region, y=None):
-        if y is None:
+        if region is None:
+            # Overview mode: display full regionset
+            self.vs_hde.figure.display_regionset(self.data_store.region_set)
+            self.es_hde.figure.display_regionset(self.data_store.region_set)
+        elif y is None:
             self.vs_hde.figure.display_region(region)
             self.es_hde.figure.display_region(region)
         else:
