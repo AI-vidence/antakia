@@ -325,11 +325,19 @@ class Tab3:
         region_set = self.data_store.region_set
         list_items = []
         n_with_tesselle = 0
+        n_candidats = 0
 
         for region in region_set.regions.values():
             has_tesselle = getattr(region, "validated", False)
+            has_candidats = (
+                hasattr(region, "perfs")
+                and region.perfs is not None
+                and len(region.perfs) > 0
+            )
             if has_tesselle:
                 n_with_tesselle += 1
+            elif has_candidats:
+                n_candidats += 1
 
             model_str = "-"
             if has_tesselle and hasattr(region, "interpretable_models"):
@@ -338,7 +346,7 @@ class Tab3:
                     model_str = region.interpretable_models.selected_model_str()
 
             name = getattr(region, "name", "") or f"Région {region.num}"
-            tesselle_str = "✓" if has_tesselle else "—"
+            tesselle_str = "✓" if has_tesselle else ("○" if has_candidats else "—")
             pts = region.num_points()
 
             def make_click_handler(reg):
@@ -376,8 +384,11 @@ class Tab3:
             ]
             self.overview_list_container.children = []
         else:
+            parts = [f"{n_with_tesselle} avec tesselle"]
+            if n_candidats:
+                parts.append(f"{n_candidats} candidat(s)")
             self.overview_summary_wgt.children = [
-                f"{n_with_tesselle} région(s) avec tesselle / {total} total — "
+                f"{', '.join(parts)} / {total} total — "
                 f"Cliquez sur une région pour travailler sur la parcelle"
             ]
             self.overview_list_container.children = [

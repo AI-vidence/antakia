@@ -6,6 +6,9 @@ from antakia_core.compute.skope_rule.skope_rule import skope_rules
 from antakia_core.data_handler import Region, RuleSet
 from antakia_core.utils import format_data, timeit
 
+from antakia.gui.components.beeswarm_plot import BeeswarmPlot
+from antakia.gui.components.feature_dual_view import FeatureDualView
+from antakia.gui.components.realtime_rules import RealtimeRulesDebouncer
 from antakia.gui.helpers.data import DataStore
 from antakia.gui.tabs.ruleswidget import RulesWidget
 from antakia.utils.logging_utils import Log
@@ -96,6 +99,12 @@ class Tab1:
             children=["0% of the dataset"]
             # 430010 # selection_status_str_2
         )
+        # Archetype / typical point
+        self.archetype_label = v.Html(
+            tag="li",
+            style_="font-size: 11px; color: #666;",
+            children=["Typical point: -"]
+        )
         self.data_table = v.DataTable(  # 432010
             v_model=[],
             show_select=False,
@@ -122,6 +131,71 @@ class Tab1:
             ]
         )
         self._data_panel_expanded = False
+        
+        # Règles en temps réel
+        self.auto_rules_checkbox = v.Checkbox(
+            v_model=False,
+            label="Règles automatiques",
+            dense=True,
+            hide_details=True,
+            class_="ma-1",
+        )
+        self._realtime_rules_debouncer = RealtimeRulesDebouncer(
+            self._do_compute_skope_rules,
+            delay_seconds=0.6,
+        )
+        
+        # Toggle Vue globale / Vue par feature
+        self.view_mode_toggle = v.BtnToggle(
+            v_model="global",
+            mandatory=True,
+            dense=True,
+            class_="ma-1",
+            children=[
+                v.Btn(value="global", small=True, children=["Vue globale"]),
+                v.Btn(value="feature", small=True, children=["Vue par feature"]),
+            ],
+        )
+        self.view_mode_toggle.on_event("change", self._on_view_mode_changed)
+
+        # Feature dual view (ES | VS par feature)
+        self.feature_dual_view = FeatureDualView(self.data_store, height_per_feature=90)
+        self.feature_dual_widget = self.feature_dual_view.build_widget()
+        self._feature_view_content = (
+            [self.feature_dual_widget]
+            if self.feature_dual_widget is not None
+            else [
+                v.Html(
+                    tag="p",
+                    class_="ml-3 grey--text",
+                    children=["SHAP non disponible — calculez les explications d'abord"],
+                )
+            ]
+        )
+
+        # Beeswarm SHAP - vue par feature (lien VS/ES)
+        self.beeswarm_plot = BeeswarmPlot(self.data_store, height_per_feature=70)
+        self.beeswarm_widget = self.beeswarm_plot.build_widget()
+        _beeswarm_content = (
+            [self.beeswarm_widget]
+            if self.beeswarm_widget is not None
+            else [
+                v.Html(
+                    tag="p",
+                    class_="ml-3 grey--text",
+                    children=["SHAP non disponible — calculez les explications d'abord"],
+                )
+            ]
+        )
+        self.beeswarm_panel = v.ExpansionPanel(
+            children=[
+                v.ExpansionPanelHeader(
+                    class_="grey lighten-3",
+                    children=["Vue SHAP par feature (beeswarm)"],
+                ),
+                v.ExpansionPanelContent(children=_beeswarm_content),
+            ]
+        )
         # Légende des couleurs pour la sélection et les règles
         self.color_legend = v.Sheet(
             class_="ml-auto mr-3 pa-2 d-flex flex-row align-center",
@@ -151,11 +225,12 @@ class Tab1:
                 children=[
                     v.Sheet(  # Selection info # 4300
                         class_="ml-3 mr-3 pa-2 align-top grey lighten-3",
-                        style_="width: 20%",
+                        style_="width: 25%",
                         elevation=1,
                         children=[
                             v.Html(tag="li", children=[self.selection_status_str_1]),  # 43000
                             self.selection_status_str_2,
+                            self.archetype_label,
                         ],
                     ),
                     v.Tooltip(  # 4301
@@ -169,6 +244,8 @@ class Tab1:
                         ],
                         children=["Find a rule to match the selection"],
                     ),
+                    self.view_mode_toggle,
+                    self.auto_rules_checkbox,
                     self.find_rule_progress,
                     self.cancel_btn,
                     self.undo_btn,
@@ -186,15 +263,32 @@ class Tab1:
                     self.color_legend,  # Légende des couleurs
                 ],
             ),  # End Buttons row
-            v.Row(  # tab 1 / row #2 : 2 RulesWidgets # 431
-                class_="d-flex flex-row",
-                children=[self.vs_rules_wgt.widget, self.es_rules_wgt.widget],  # end Row
-            ),
-            v.ExpansionPanels(  # tab 1 / row #3 : datatable with selected rows # 432
-                class_="d-flex flex-row",
-                children=[self.data_panel],
+            v.Container(
+                fluid=True,
+                class_="pa-0",
+                children=[
+                    v.Row(
+                        class_="d-flex flex-row",
+                        children=[
+                            self.vs_rules_wgt.widget,
+                            self.es_rules_wgt.widget,
+                        ],
+                    ),
+                    v.ExpansionPanels(
+                        class_="d-flex flex-row",
+                        children=[self.data_panel, self.beeswarm_panel],
+                    ),
+                ],
             ),
         ]
+        self._global_content = self.widget[2].children
+        self._feature_content = [
+            v.Row(
+                class_="mt-2",
+                children=[v.Col(children=self._feature_view_content)],
+            )
+        ]
+        self._content_container = self.widget[2]
         # get_widget(self.widget[2], "0").disabled = True  # disable datatable
         # We wire the click events
         self.find_rules_btn.on_event("click", self.compute_skope_rules)
@@ -219,15 +313,45 @@ class Tab1:
 
     def _refresh_selection_stat_card(self):
         if self._valid_selection:
-            selection_status_str_1 = f"{self.data_store.selection_mask.sum()} point selected"
+            n_selected = self.data_store.selection_mask.sum()
+            selection_status_str_1 = f"{n_selected} point selected"
             selection_status_str_2 = (
                 f"{100 * self.data_store.selection_mask.mean():.2f}% of the  dataset"
             )
+            # Compute archetype (typical point)
+            archetype_str = self._compute_archetype_str()
         else:
             selection_status_str_1 = "0 point selected"
             selection_status_str_2 = "0% of the  dataset"
+            archetype_str = "Typical point: -"
         self.selection_status_str_1.children = [selection_status_str_1]
         self.selection_status_str_2.children = [selection_status_str_2]
+        self.archetype_label.children = [archetype_str]
+    
+    def _compute_archetype_str(self) -> str:
+        """Compute the archetype (point closest to centroid) for current selection."""
+        import numpy as np
+        
+        mask = self.data_store.selection_mask
+        if mask.sum() == 0:
+            return "Typical point: -"
+        
+        X_sel = self.data_store.X[mask]
+        
+        if len(X_sel) == 1:
+            # Single point selected
+            idx = X_sel.index[0]
+            return f"Typical point: #{idx}"
+        
+        # Compute centroid
+        centroid = X_sel.mean().values
+        
+        # Find closest point
+        distances = np.linalg.norm(X_sel.values - centroid, axis=1)
+        closest_idx = distances.argmin()
+        archetype_idx = X_sel.index[closest_idx]
+        
+        return f"Typical point: #{archetype_idx}"
 
     def _refresh_title_txt(self):
         if self.edit_type == "creation":
@@ -269,6 +393,15 @@ class Tab1:
         self.es_rules_wgt.change_underlying_dataframe(self.data_store.X_exp)
         self.es_rules_wgt.refresh()
 
+    def _on_view_mode_changed(self, widget, event, data):
+        """Switch between global view (rules + data) and feature view (dual ES|VS)."""
+        if data == "feature":
+            self._content_container.children = self._feature_content
+            if self.feature_dual_widget is not None:
+                self.feature_dual_view.refresh()
+        else:
+            self._content_container.children = self._global_content
+
     def _refresh_buttons(self):
         empty_rule_set = len(self.vs_rules_wgt.current_rules_set) == 0
         empty_history = self.vs_rules_wgt.history_size <= 1
@@ -294,6 +427,23 @@ class Tab1:
         self._refresh_data_table()
         self._refresh_selection_stat_card()
         self._refresh_buttons()
+        # Refresh beeswarm SHAP view
+        if self.beeswarm_widget is not None:
+            self.beeswarm_plot.refresh()
+        # Refresh feature dual view when in feature mode
+        if (
+            self.feature_dual_widget is not None
+            and self.view_mode_toggle.v_model == "feature"
+        ):
+            self.feature_dual_view.refresh()
+
+        # Règles en temps réel (debounced) - ne pas déclencher si on est en train de calculer
+        if (
+            self.auto_rules_checkbox.v_model
+            and self._valid_selection
+            and not getattr(self, "_computing_rules", False)
+        ):
+            self._realtime_rules_debouncer.trigger()
 
     @timeit
     def reset(self):
@@ -315,36 +465,42 @@ class Tab1:
         self.refresh()
 
     # ----------- interactions -----------------#
+    
+    def _do_compute_skope_rules(self):
+        """Called by realtime rules debouncer."""
+        self.compute_skope_rules()
+    
     @log_errors
     @timeit
     def compute_skope_rules(self, *args):
         with Log("compute_skope_rules", 2):
+            self._computing_rules = True
             self.find_rule_progress.indeterminate = True
             self.find_rules_btn.disabled = True
-            # compute es rules for info only
-            es_skr_rules_set, _ = skope_rules(
-                self.data_store.selection_mask,
-                self.data_store.X_exp,
-                variables=self.data_store.variables,
-            )
-            self.es_rules_wgt.change_rules(es_skr_rules_set, False)
-            # compute rules on vs space
-
-            skr_rules_set, skr_score_dict = skope_rules(
-                self.data_store.selection_mask,
-                self.data_store.X,
-                variables=self.data_store.variables,
-            )
-            self.data_store.rules_mask = skr_rules_set.get_matching_mask(self.data_store.X)
-            skr_score_dict["target_avg"] = self.data_store.y[self.data_store.selection_mask].mean()
-            # init vs rules widget
-            self.vs_rules_wgt.change_rules(skr_rules_set, False)
-            # update widgets and hdes
-            self.refresh()
-            self.update_callback()
-            stats_logger.log("find_rules", skr_score_dict)
-            self.find_rules_btn.disabled = False
-            self.find_rule_progress.indeterminate = False
+            try:
+                # compute es rules for info only
+                es_skr_rules_set, _ = skope_rules(
+                    self.data_store.selection_mask,
+                    self.data_store.X_exp,
+                    variables=self.data_store.variables,
+                )
+                self.es_rules_wgt.change_rules(es_skr_rules_set, False)
+                # compute rules on vs space
+                skr_rules_set, skr_score_dict = skope_rules(
+                    self.data_store.selection_mask,
+                    self.data_store.X,
+                    variables=self.data_store.variables,
+                )
+                self.data_store.rules_mask = skr_rules_set.get_matching_mask(self.data_store.X)
+                skr_score_dict["target_avg"] = self.data_store.y[self.data_store.selection_mask].mean()
+                self.vs_rules_wgt.change_rules(skr_rules_set, False)
+                self.refresh()
+                self.update_callback()
+                stats_logger.log("find_rules", skr_score_dict)
+            finally:
+                self._computing_rules = False
+                self.find_rules_btn.disabled = False
+                self.find_rule_progress.indeterminate = False
 
     @log_errors
     @timeit
