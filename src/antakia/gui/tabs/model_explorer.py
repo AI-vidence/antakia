@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from antakia_core.compute.model_subtitution.model_class import MLModel
 from antakia_core.data_handler import ModelRegion
-from plotly.graph_objects import Bar, FigureWidget, Scatter
+from plotly.graph_objects import Bar, FigureWidget, Histogram, Scatter
 
 from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors
@@ -18,12 +18,17 @@ class ModelExplorer:
     - Substitution model (on region data)
     """
 
-    def __init__(self, X: pd.DataFrame, original_model=None):
+    def __init__(self, data_store, original_model=None):
         self._build_widget()
+        self.data_store = data_store
         self.model: MLModel | None = None  # Substitution model
         self.original_model = original_model  # Original model for comparison
         self.region: ModelRegion | None = None
-        self.X = X
+
+    @property
+    def X(self) -> pd.DataFrame:
+        """Current X from data_store (survives outlier removal)."""
+        return self.data_store.X
 
     def _build_widget(self):
         self.feature_importance_tab = v.TabItem(  # Tab 1) feature importances # 43
@@ -125,7 +130,10 @@ class ModelExplorer:
         with Log("display pdp comparison with CI and density", 2):
             if self.model is not None and self.region is not None:
                 selected_feature = self.pdp_feature_select.v_model
-                X_region = self.X[self.region.mask].copy()
+                # Align mask to X index (handles mismatch after outlier removal)
+                mask = self.region.mask.reindex(self.X.index, fill_value=False).astype(bool)
+                X_region = self.X[mask].copy()
+                X_outside = self.X[~mask].copy()
 
                 if X_region[selected_feature].nunique() > 1:
                     from plotly.subplots import make_subplots
@@ -140,20 +148,69 @@ class ModelExplorer:
                     )
 
                     feature_values = X_region[selected_feature].values
+                    all_feature_values = self.X[selected_feature].values
+                    
+                    # Compute common bin edges for both histograms
+                    bin_min = all_feature_values.min()
+                    bin_max = all_feature_values.max()
+                    n_bins = 30
+                    bin_edges = np.linspace(bin_min, bin_max, n_bins + 1)
+                    
+                    # Region bounds for PDP display
+                    region_min = feature_values.min()
+                    region_max = feature_values.max()
 
                     # ===== TOP PLOT: PDP with confidence intervals =====
+                    # Compute PDP on FULL data range but show region part opaque, outside transparent
 
-                    # 1. PDP for substitution model with confidence interval
+                    # 1. PDP for substitution model
                     try:
-                        grid_sub, pdp_sub, lower_sub, upper_sub = self._compute_pdp_values(
+                        # Compute on region (opaque)
+                        grid_region, pdp_region, lower_region, upper_region = self._compute_pdp_values(
                             self.model, X_region, selected_feature, compute_ci=True
                         )
+                        
+                        # Compute on outside region (transparent) - use full X for context
+                        grid_full, pdp_full, lower_full, upper_full = self._compute_pdp_values(
+                            self.model, self.X, selected_feature, compute_ci=True
+                        )
+                        
+                        # Split full grid into left/right of region
+                        left_mask = grid_full < region_min
+                        right_mask = grid_full > region_max
+                        
+                        # Left part (transparent)
+                        if left_mask.any():
+                            fig.add_trace(
+                                Scatter(
+                                    x=grid_full[left_mask],
+                                    y=pdp_full[left_mask],
+                                    mode="lines",
+                                    name="Subst. (hors région)",
+                                    line=dict(color="rgba(0, 180, 0, 0.25)", width=2),
+                                    showlegend=False,
+                                ),
+                                row=1, col=1,
+                            )
+                        
+                        # Right part (transparent)
+                        if right_mask.any():
+                            fig.add_trace(
+                                Scatter(
+                                    x=grid_full[right_mask],
+                                    y=pdp_full[right_mask],
+                                    mode="lines",
+                                    line=dict(color="rgba(0, 180, 0, 0.25)", width=2),
+                                    showlegend=False,
+                                ),
+                                row=1, col=1,
+                            )
 
-                        # Confidence interval fill (substitution)
+                        # Confidence interval fill (substitution) - region only
                         fig.add_trace(
                             Scatter(
-                                x=np.concatenate([grid_sub, grid_sub[::-1]]),
-                                y=np.concatenate([upper_sub, lower_sub[::-1]]),
+                                x=np.concatenate([grid_region, grid_region[::-1]]),
+                                y=np.concatenate([upper_region, lower_region[::-1]]),
                                 fill="toself",
                                 fillcolor="rgba(0, 200, 0, 0.15)",
                                 line=dict(color="rgba(255,255,255,0)"),
@@ -161,21 +218,19 @@ class ModelExplorer:
                                 showlegend=False,
                                 name="CI Substitution",
                             ),
-                            row=1,
-                            col=1,
+                            row=1, col=1,
                         )
 
-                        # Mean line (substitution)
+                        # Mean line (substitution) - region, opaque
                         fig.add_trace(
                             Scatter(
-                                x=grid_sub,
-                                y=pdp_sub,
+                                x=grid_region,
+                                y=pdp_region,
                                 mode="lines",
                                 name="Substitution Model",
-                                line=dict(color="green", width=2),
+                                line=dict(color="green", width=2.5),
                             ),
-                            row=1,
-                            col=1,
+                            row=1, col=1,
                         )
                     except Exception as e:
                         Log(f"Error computing substitution PDP: {e}", 1)
@@ -183,14 +238,49 @@ class ModelExplorer:
                     # 2. PDP for original model with confidence interval
                     if self.original_model is not None:
                         try:
-                            grid_orig, pdp_orig, lower_orig, upper_orig = self._compute_pdp_values(
+                            # Compute on region (opaque)
+                            grid_orig_region, pdp_orig_region, lower_orig, upper_orig = self._compute_pdp_values(
                                 self.original_model, X_region, selected_feature, compute_ci=True
                             )
+                            
+                            # Compute on full data (for transparent extensions)
+                            grid_orig_full, pdp_orig_full, _, _ = self._compute_pdp_values(
+                                self.original_model, self.X, selected_feature, compute_ci=False
+                            )
+                            
+                            # Left part (transparent)
+                            left_mask = grid_orig_full < region_min
+                            right_mask = grid_orig_full > region_max
+                            
+                            if left_mask.any():
+                                fig.add_trace(
+                                    Scatter(
+                                        x=grid_orig_full[left_mask],
+                                        y=pdp_orig_full[left_mask],
+                                        mode="lines",
+                                        line=dict(color="rgba(0, 100, 255, 0.25)", width=2, dash="dash"),
+                                        showlegend=False,
+                                    ),
+                                    row=1, col=1,
+                                )
+                            
+                            # Right part (transparent)
+                            if right_mask.any():
+                                fig.add_trace(
+                                    Scatter(
+                                        x=grid_orig_full[right_mask],
+                                        y=pdp_orig_full[right_mask],
+                                        mode="lines",
+                                        line=dict(color="rgba(0, 100, 255, 0.25)", width=2, dash="dash"),
+                                        showlegend=False,
+                                    ),
+                                    row=1, col=1,
+                                )
 
-                            # Confidence interval fill (original)
+                            # Confidence interval fill (original) - region only
                             fig.add_trace(
                                 Scatter(
-                                    x=np.concatenate([grid_orig, grid_orig[::-1]]),
+                                    x=np.concatenate([grid_orig_region, grid_orig_region[::-1]]),
                                     y=np.concatenate([upper_orig, lower_orig[::-1]]),
                                     fill="toself",
                                     fillcolor="rgba(0, 100, 255, 0.15)",
@@ -199,42 +289,58 @@ class ModelExplorer:
                                     showlegend=False,
                                     name="CI Original",
                                 ),
-                                row=1,
-                                col=1,
+                                row=1, col=1,
                             )
 
-                            # Mean line (original)
+                            # Mean line (original) - region, opaque
                             fig.add_trace(
                                 Scatter(
-                                    x=grid_orig,
-                                    y=pdp_orig,
+                                    x=grid_orig_region,
+                                    y=pdp_orig_region,
                                     mode="lines",
                                     name="Original Model",
-                                    line=dict(color="blue", width=2, dash="dash"),
+                                    line=dict(color="blue", width=2.5, dash="dash"),
                                 ),
-                                row=1,
-                                col=1,
+                                row=1, col=1,
                             )
                         except Exception as e:
                             Log(f"Error computing original model PDP: {e}", 1)
 
-                    # ===== BOTTOM PLOT: Data density histogram =====
-                    from plotly.graph_objects import Histogram
+                    # ===== BOTTOM PLOT: Data density histogram (global + region) =====
+                    # Use same bin edges for both histograms
 
+                    # 1. Background: Full dataset (grey, semi-transparent)
                     fig.add_trace(
-                        Histogram(
-                            x=feature_values,
-                            nbinsx=30,
+                        Bar(
+                            x=(bin_edges[:-1] + bin_edges[1:]) / 2,  # Bin centers
+                            y=np.histogram(all_feature_values, bins=bin_edges)[0],
+                            width=(bin_max - bin_min) / n_bins * 0.9,
                             marker=dict(
-                                color="rgba(100, 100, 100, 0.5)",
-                                line=dict(color="rgba(50, 50, 50, 0.8)", width=0.5),
+                                color="rgba(180, 180, 180, 0.5)",
+                                line=dict(color="rgba(150, 150, 150, 0.8)", width=0.5),
                             ),
-                            name=f"Data density (n={len(feature_values)})",
+                            name=f"All data (n={len(all_feature_values)})",
                             showlegend=True,
                             hovertemplate="%{x:.2f}: %{y} points<extra></extra>",
                         ),
-                        row=2,
-                        col=1,
+                        row=2, col=1,
+                    )
+
+                    # 2. Foreground: Region data (orange) - same bins
+                    fig.add_trace(
+                        Bar(
+                            x=(bin_edges[:-1] + bin_edges[1:]) / 2,  # Same bin centers
+                            y=np.histogram(feature_values, bins=bin_edges)[0],
+                            width=(bin_max - bin_min) / n_bins * 0.9,
+                            marker=dict(
+                                color="rgba(255, 140, 0, 0.8)",
+                                line=dict(color="rgba(200, 100, 0, 1)", width=0.5),
+                            ),
+                            name=f"Region (n={len(feature_values)})",
+                            showlegend=True,
+                            hovertemplate="%{x:.2f}: %{y} points<extra></extra>",
+                        ),
+                        row=2, col=1,
                     )
 
                     # Layout
@@ -251,6 +357,7 @@ class ModelExplorer:
                             x=0.01,
                             bgcolor="rgba(255,255,255,0.8)",
                         ),
+                        barmode="overlay",  # Overlay histograms
                         bargap=0.05,
                     )
 

@@ -354,12 +354,12 @@ class RuleWidget:
     @timeit
     def _update_expansion_panel(self):
         if self.expanded:
-            if self.display_sliders:
+            if self.display_sliders and hasattr(self, 'slider') and self.slider is not None:
                 min_val, max_val = self._get_select_widget_values()
                 self.slider.set_value(min_val, max_val)
             if self.edited:
                 self._update_data()
-            self.widget.children[1].children = [self.slider.widget, self.figure]
+            self.widget.children[1].children = [self.select_widget, self.figure]
         else:
             self.widget.children[1].children = []
 
@@ -374,17 +374,21 @@ class RuleWidget:
             if self.type == "histogram":
                 # All points (background)
                 all_points_mask = self.data_store.display_mask
+                all_points_mask = all_points_mask.reindex(self.X_col.index, fill_value=False).astype(bool)
                 self.figure.data[0].x = self.X_col[all_points_mask]
                 
                 # Selected points (foreground) - using selection or rules mask
                 selection_mask = self.data_store.selection_mask | self.data_store.rules_mask
                 selected_points_mask = self.data_store.display_mask & selection_mask
+                selected_points_mask = selected_points_mask.reindex(self.X_col.index, fill_value=False).astype(bool)
                 self.figure.data[1].x = self.X_col[selected_points_mask]
             else:
                 # Swarm plot - use original logic
                 mask_color, colors_info = self._get_colors()
                 for i, color in enumerate(colors_info.values()):
                     to_display = self.data_store.display_mask & (mask_color == color)
+                    # Align indices (handles mismatch after outlier removal)
+                    to_display = to_display.reindex(self.X_col.index, fill_value=False).astype(bool)
                     self.figure.data[i].x = self.X_col[to_display]
                     self.figure.data[i].y = self.selectable_mask[to_display]
         self.edited = False

@@ -32,8 +32,8 @@ class Tab3:
         self.data_store = data_store
         self.validate_callback = validate_callback
         self.display_model_data = display_model_data
-        # Pass original model for PDP comparison
-        self.model_explorer = ModelExplorer(self.data_store.X, original_model=self.data_store.model)
+        # Pass data_store for current X (survives outlier removal), original model for PDP comparison
+        self.model_explorer = ModelExplorer(self.data_store, original_model=self.data_store.model)
         self.region: ModelRegion | None = None
         self.substitution_model_training = False  # tab 3 : training flag
 
@@ -147,11 +147,11 @@ class Tab3:
                         class_=" flex-column align-center",
                         children=[v.Col(class_="col-5", children=[self.progress_wgt])],
                     ),
-                    v.Row(  # Row3 : Model table and explanations table
+                    v.Row(  # Row3 : Model table (gauche) + Model explorer PDP (droite)
                         children=[
-                            v.Col(class_="col-6", children=[self.model_table]),
-                            v.Col(class_="col-6", children=[self.model_explorer.widget]),
-                        ]
+                            v.Col(class_="col-5", children=[self.model_table]),
+                            v.Col(class_="col-7", children=[self.model_explorer.widget]),
+                        ],
                     ),
                 ]
             )
@@ -160,7 +160,9 @@ class Tab3:
         # Store reference to single-region widget content
         self.single_region_content = self.widget[0]
         self.progressbar_widget = self.widget[0].children[1]
-        self.model_table_widget = self.widget[0].children[2]
+        row3 = self.widget[0].children[2]  # Row3 : table (gauche) + PDP (droite)
+        self.model_table_widget = row3.children[0]  # Col : tableau des candidats
+        self.model_explorer_widget = row3.children[1]  # Col : PDP + Feature Importance
 
         # Overview panel: all regions + tesselle status
         self.overview_summary_wgt = v.Html(tag="p", class_="ma-2 grey--text", children=[""])
@@ -203,7 +205,7 @@ class Tab3:
         self.main_container = v.Container(fluid=True, children=[self.overview_content])
         self.widget = [self.main_container]
 
-        self.model_table_widget.hide()
+        self.model_table_widget.hide()  # masque le tableau des candidats jusqu'à entraînement
 
         # We wire a select event on the 'substitution table' :
         self.model_table.set_callback(self._sub_model_selected_callback)
@@ -320,6 +322,30 @@ class Tab3:
         self.update_region(region, train=True)
         self.display_model_data(region, None)
 
+    def _get_tesselle_status_color(self, region) -> tuple[str, str]:
+        """
+        Return (status_label, color) for overview display.
+        - Green: tesselle validée
+        - Green/orange/red: candidats avec gain possible (delta) ou pas
+        - Grey: à traiter
+        """
+        has_tesselle = getattr(region, "validated", False)
+        has_candidats = (
+            hasattr(region, "perfs")
+            and region.perfs is not None
+            and len(region.perfs) > 0
+        )
+        if has_tesselle:
+            return "✓", "green"
+        if has_candidats:
+            best_delta = float(region.perfs["delta"].min())
+            if best_delta < -0.01:
+                return f"○ Δ{best_delta:+.2f}", "green"  # Gain possible
+            if best_delta > 0.01:
+                return f"○ Δ{best_delta:+.2f}", "red"  # Perte
+            return f"○ Δ{best_delta:+.2f}", "orange"  # Neutre
+        return "—", "grey"
+
     def _update_overview(self):
         """Update the overview list with all regions and tesselle status."""
         region_set = self.data_store.region_set
@@ -346,7 +372,7 @@ class Tab3:
                     model_str = region.interpretable_models.selected_model_str()
 
             name = getattr(region, "name", "") or f"Région {region.num}"
-            tesselle_str = "✓" if has_tesselle else ("○" if has_candidats else "—")
+            status_label, status_color = self._get_tesselle_status_color(region)
             pts = region.num_points()
 
             def make_click_handler(reg):
@@ -356,6 +382,12 @@ class Tab3:
 
                 return handler
 
+            status_chip = v.Chip(
+                small=True,
+                color=status_color,
+                class_="mr-2 white--text" if status_color != "grey" else "mr-2",
+                children=[status_label],
+            )
             li = v.ListItem(
                 class_="mb-1",
                 children=[
@@ -363,7 +395,8 @@ class Tab3:
                         children=[
                             v.ListItemTitle(
                                 children=[
-                                    f"Région {region.num}: {name} — {pts} pts — Tesselle {tesselle_str}"
+                                    status_chip,
+                                    f"Région {region.num}: {name} — {pts} pts",
                                 ]
                             ),
                             v.ListItemSubtitle(
@@ -387,8 +420,9 @@ class Tab3:
             parts = [f"{n_with_tesselle} avec tesselle"]
             if n_candidats:
                 parts.append(f"{n_candidats} candidat(s)")
+            legend = " (vert=tesselle/gain, orange=neutre, rouge=perte, gris=à traiter)"
             self.overview_summary_wgt.children = [
-                f"{', '.join(parts)} / {total} total — "
+                f"{', '.join(parts)} / {total} total{legend} — "
                 f"Cliquez sur une région pour travailler sur la parcelle"
             ]
             self.overview_list_container.children = [
@@ -581,5 +615,5 @@ class Tab3:
             self.selected_sub_model = []
             # Show tab 2
             self.validate_callback()
-            self.progressbar_widget.show()  # displays the progress bar widget in preparation for the next submodel training
-            self.model_table_widget.hide()  # hides the submodel table
+            self.progressbar_widget.show()
+            self.model_table_widget.hide()  # masque le tableau des candidats (PDP reste visible via model_explorer_widget)

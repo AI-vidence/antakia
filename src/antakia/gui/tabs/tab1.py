@@ -1,10 +1,13 @@
 from functools import partial
-from typing import Callable
+from typing import Callable, Optional
 
 import ipyvuetify as v
+import numpy as np
+import pandas as pd
 from antakia_core.compute.skope_rule.skope_rule import skope_rules
 from antakia_core.data_handler import Region, RuleSet
 from antakia_core.utils import format_data, timeit
+from sklearn.ensemble import IsolationForest
 
 from antakia.gui.components.beeswarm_plot import BeeswarmPlot
 from antakia.gui.components.feature_dual_view import FeatureDualView
@@ -20,17 +23,23 @@ class Tab1:
     CREATE_RULE = "creation"
 
     def __init__(
-        self, data_store: DataStore, update_callback: Callable, validate_rules_callback: Callable
+        self,
+        data_store: DataStore,
+        update_callback: Callable,
+        validate_rules_callback: Callable,
+        retire_outliers_callback: Optional[Callable] = None,
     ):
         self.data_store = data_store
         self._region = Region(self.data_store.X)
         self.update_callback = partial(update_callback, self, "rule_updated")
         self.validate_rules_callback = partial(validate_rules_callback, self, "rule_validated")
+        self.retire_outliers_callback = retire_outliers_callback
 
         self.X_rounded = None
+        self._outlier_mask: Optional[pd.Series] = None
 
         self.vs_rules_wgt = RulesWidget(self.data_store, True, self.refresh_callback)
-        self.es_rules_wgt = RulesWidget(self.data_store, False)
+        self.es_rules_wgt = RulesWidget(self.data_store, False, self.refresh_callback)
 
         self._build_widget()
 
@@ -98,6 +107,11 @@ class Tab1:
             tag="li",
             children=["0% of the dataset"]
             # 430010 # selection_status_str_2
+        )
+        self.points_count_label = v.Html(
+            tag="li",
+            style_="font-size: 11px; color: #666;",
+            children=["Initial: - pts | Displayed: - pts"],
         )
         # Archetype / typical point
         self.archetype_label = v.Html(
@@ -196,6 +210,38 @@ class Tab1:
                 v.ExpansionPanelContent(children=_beeswarm_content),
             ]
         )
+        # Outliers: méthode, détection, retrait
+        self.outlier_method_select = v.Select(
+            v_model="iqr",
+            items=[
+                {"text": "IQR", "value": "iqr"},
+                {"text": "Z-Score", "value": "zscore"},
+                {"text": "Isolation Forest", "value": "isolation_forest"},
+            ],
+            dense=True,
+            hide_details=True,
+            style_="max-width: 180px;",
+            class_="mt-0 mr-2",
+        )
+        self.detect_outliers_btn = v.Btn(
+            v_on="tooltip.on",
+            class_="ma-1 orange white--text",
+            children=[
+                v.Icon(class_="mr-2", children=["mdi-alert-circle-outline"]),
+                "Detect",
+            ],
+        )
+        self.retire_outliers_btn = v.Btn(
+            v_on="tooltip.on",
+            class_="ma-1 red white--text",
+            disabled=True,
+            children=[
+                v.Icon(class_="mr-2", children=["mdi-delete-sweep"]),
+                "Remove",
+            ],
+        )
+        self.outlier_status = v.Html(tag="span", class_="ml-2 grey--text", children=["-"])
+
         # Légende des couleurs pour la sélection et les règles
         self.color_legend = v.Sheet(
             class_="ml-auto mr-3 pa-2 d-flex flex-row align-center",
@@ -230,6 +276,7 @@ class Tab1:
                         children=[
                             v.Html(tag="li", children=[self.selection_status_str_1]),  # 43000
                             self.selection_status_str_2,
+                            self.points_count_label,
                             self.archetype_label,
                         ],
                     ),
@@ -263,6 +310,31 @@ class Tab1:
                     self.color_legend,  # Légende des couleurs
                 ],
             ),  # End Buttons row
+            v.Row(
+                class_="d-flex flex-row align-center mt-2 ml-3",
+                children=[
+                    v.Html(tag="strong", class_="mr-2", children=["Outliers:"]),
+                    self.outlier_method_select,
+                    v.Tooltip(
+                        bottom=True,
+                        v_slots=[
+                            {"name": "activator", "variable": "tooltip", "children": self.detect_outliers_btn},
+                        ],
+                        children=["Detect outliers (y or X+y depending on method)"],
+                    ),
+                    v.Tooltip(
+                        bottom=True,
+                        v_slots=[
+                            {"name": "activator", "variable": "tooltip", "children": self.retire_outliers_btn},
+                        ],
+                        children=[
+                            "Remove outliers from dataset and regenerate graphs. "
+                            "Regions (Parcels tab) will be created on displayed points (excluding outliers)."
+                        ],
+                    ),
+                    self.outlier_status,
+                ],
+            ),
             v.Container(
                 fluid=True,
                 class_="pa-0",
@@ -281,14 +353,14 @@ class Tab1:
                 ],
             ),
         ]
-        self._global_content = self.widget[2].children
+        self._global_content = self.widget[3].children
         self._feature_content = [
             v.Row(
                 class_="mt-2",
                 children=[v.Col(children=self._feature_view_content)],
             )
         ]
-        self._content_container = self.widget[2]
+        self._content_container = self.widget[3]
         # get_widget(self.widget[2], "0").disabled = True  # disable datatable
         # We wire the click events
         self.find_rules_btn.on_event("click", self.compute_skope_rules)
@@ -296,12 +368,15 @@ class Tab1:
         self.cancel_btn.on_event("click", self.cancel_edit)
         self.validate_btn.on_event("click", self.validate_rules)
         self.data_panel.on_event("click", self.data_panel_changed)
+        self.detect_outliers_btn.on_event("click", self._detect_outliers_clicked)
+        self.retire_outliers_btn.on_event("click", self._retire_outliers_clicked)
         self._refresh_buttons()
 
     @timeit
     def initialize(self):
         self.vs_rules_wgt.initialize()
         self.es_rules_wgt.initialize()
+        self._refresh_points_count()
 
     @property
     def _valid_selection(self) -> bool:
@@ -310,6 +385,15 @@ class Tab1:
     @property
     def edit_type(self) -> str:
         return self.CREATE_RULE if self._region.num == -1 else self.EDIT_RULE
+
+    def _refresh_points_count(self):
+        """Display initial and displayed point counts (excluding outliers if removed)."""
+        n_init = self.data_store.n_initial_points
+        n_curr = len(self.data_store.X)
+        suffix = " (outliers removed)" if n_init != n_curr else ""
+        self.points_count_label.children = [
+            f"Initial: {n_init:,} pts | Displayed: {n_curr:,} pts{suffix}"
+        ]
 
     def _refresh_selection_stat_card(self):
         if self._valid_selection:
@@ -327,6 +411,7 @@ class Tab1:
         self.selection_status_str_1.children = [selection_status_str_1]
         self.selection_status_str_2.children = [selection_status_str_2]
         self.archetype_label.children = [archetype_str]
+        self._refresh_points_count()
     
     def _compute_archetype_str(self) -> str:
         """Compute the archetype (point closest to centroid) for current selection."""
@@ -377,21 +462,44 @@ class Tab1:
                 )
             ]
 
+    def _refresh_beeswarm_content(self):
+        """Rebuild beeswarm widget if X_exp available. Refresh rebuilds (Plotly forbids data assign)."""
+        if self.data_store.X_exp is None or self.data_store.X is None:
+            return
+        self.beeswarm_plot.refresh()
+        # Refresh rebuilds the widget; update panel and reference
+        self.beeswarm_widget = self.beeswarm_plot._widget
+        if self.beeswarm_widget is not None:
+            self.beeswarm_panel.children[1].children = [self.beeswarm_widget]
+
+    def _refresh_feature_dual_content(self):
+        """Rebuild feature dual view if X_exp just became available."""
+        if self.feature_dual_widget is not None:
+            return
+        if self.data_store.X_exp is not None and self.data_store.X is not None:
+            self.feature_dual_widget = self.feature_dual_view.build_widget()
+            if self.feature_dual_widget is not None:
+                self._feature_view_content = [self.feature_dual_widget]
+                self._feature_content[0].children[0].children = self._feature_view_content
+
     def _refresh_data_table(self):
-        if self.X_rounded is None or not self._data_panel_expanded:
+        if not self._data_panel_expanded:
             self.data_table.items = []
         else:
-            # TODO : loader
             if self.X_rounded is None:
                 self.X_rounded = self.data_store.X.apply(format_data)
-            self.data_table.items = self.X_rounded.loc[self.data_store.selection_mask].to_dict(
-                "records"
-            )
+            # Align mask to X index (handles outlier removal)
+            mask = self.data_store.selection_mask.reindex(
+                self.X_rounded.index, fill_value=False
+            ).astype(bool)
+            self.data_table.items = self.X_rounded.loc[mask].to_dict("records")
 
     @timeit
     def refresh_X_exp(self):
         self.es_rules_wgt.change_underlying_dataframe(self.data_store.X_exp)
         self.es_rules_wgt.refresh()
+        self._refresh_beeswarm_content()
+        self._refresh_feature_dual_content()
 
     def _on_view_mode_changed(self, widget, event, data):
         """Switch between global view (rules + data) and feature view (dual ES|VS)."""
@@ -427,15 +535,13 @@ class Tab1:
         self._refresh_data_table()
         self._refresh_selection_stat_card()
         self._refresh_buttons()
-        # Refresh beeswarm SHAP view
-        if self.beeswarm_widget is not None:
-            self.beeswarm_plot.refresh()
+        # Refresh beeswarm SHAP view (rebuild if X_exp just became available)
+        self._refresh_beeswarm_content()
         # Refresh feature dual view when in feature mode
-        if (
-            self.feature_dual_widget is not None
-            and self.view_mode_toggle.v_model == "feature"
-        ):
-            self.feature_dual_view.refresh()
+        if self.view_mode_toggle.v_model == "feature":
+            self._refresh_feature_dual_content()
+            if self.feature_dual_widget is not None:
+                self.feature_dual_view.refresh()
 
         # Règles en temps réel (debounced) - ne pas déclencher si on est en train de calculer
         if (
@@ -448,6 +554,7 @@ class Tab1:
     @timeit
     def reset(self):
         self._region = Region(self.data_store.X)
+        self.X_rounded = None  # Recompute after data change (e.g. outlier removal)
         self.data_store.reset_rules_mask()
         self.vs_rules_wgt.change_rules(RuleSet(), True)
         self.es_rules_wgt.change_rules(RuleSet(), True)
@@ -549,6 +656,56 @@ class Tab1:
             self.validate_rules_callback(self._region)
             # we reset the tab
             self.reset()
+
+    @log_errors
+    def _detect_outliers_clicked(self, widget, event, data):
+        """Detect outliers and enable the Remove button."""
+        X = self.data_store.X
+        y = self.data_store.y
+        if y is None or len(y) == 0:
+            self.outlier_status.children = ["y missing"]
+            return
+        method = getattr(self.outlier_method_select, "v_model", "iqr") or "iqr"
+        self._outlier_mask = self._detect_outliers(y, X, method)
+        n_out = int(self._outlier_mask.sum())
+        if n_out == 0:
+            self.outlier_status.children = ["No outliers detected"]
+            self.retire_outliers_btn.disabled = True
+        else:
+            pct = 100 * n_out / len(y)
+            self.outlier_status.children = [f"{n_out} outliers ({pct:.1f}%)"]
+            self.retire_outliers_btn.disabled = False
+
+    def _detect_outliers(self, y: pd.Series, X: pd.DataFrame, method: str) -> pd.Series:
+        """Return a boolean mask where True = outlier."""
+        if method == "iqr":
+            Q1, Q3 = y.quantile(0.25), y.quantile(0.75)
+            IQR = Q3 - Q1
+            lower, upper = Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
+            return (y < lower) | (y > upper)
+        elif method == "zscore":
+            z = np.abs((y - y.mean()) / y.std())
+            return z > 3
+        elif method == "isolation_forest":
+            data = X.copy()
+            data["_target"] = y
+            iso = IsolationForest(contamination="auto", random_state=42, n_estimators=100)
+            pred = iso.fit_predict(data)
+            return pd.Series(pred == -1, index=y.index)
+        raise ValueError(f"Unknown method: {method}")
+
+    @log_errors
+    def _retire_outliers_clicked(self, widget, event, data):
+        """Remove outliers and regenerate VS/ES graphs."""
+        if self._outlier_mask is None or self._outlier_mask.sum() == 0:
+            return
+        if self.retire_outliers_callback is None:
+            self.outlier_status.children = ["Callback not configured"]
+            return
+        self.retire_outliers_callback(self._outlier_mask)
+        self._outlier_mask = None
+        self.retire_outliers_btn.disabled = True
+        self.outlier_status.children = ["Outliers removed, graphs regenerated"]
 
     @timeit
     def data_panel_changed(self, *args):
