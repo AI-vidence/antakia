@@ -8,6 +8,22 @@ AntakIA is available on [PyPI](https://pypi.org/project/antakia/) :
 pip install antakia
 ```
 
+## Optional dependencies
+
+Some features require additional packages:
+
+| Feature | Package | Notes |
+|---------|---------|-------|
+| **Report graphs** (SHAP, PDP in tessellation reports) | `kaleido` | Included by default. Required for PNG export of Plotly figures. |
+| **PDF export** | `xhtml2pdf` | Included by default. Pure Python, no system dependencies. Works on macOS without extra setup. |
+| **PDF export** (alternative) | `weasyprint` | Optional. Better CSS fidelity. On macOS, requires: `brew install pango glib`. May fail with `libgobject-2.0-0` if GTK/Pango are not installed. |
+
+If PDF export fails with WeasyPrint (e.g. `cannot load library 'libgobject-2.0-0'`), the code automatically falls back to `xhtml2pdf`. Ensure `xhtml2pdf` is installed:
+
+```
+pip install xhtml2pdf
+```
+
 ## Running example notebooks
 
 Once you've installed `antakia`, you can download some of our notebook examples from our repo [here](https://github.com/AI-vidence/antakia/tree/main/examples).

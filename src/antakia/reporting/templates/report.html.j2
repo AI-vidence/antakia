@@ -340,7 +340,7 @@
         {% if overview_image %}
         <div class="viz-container">
             <div class="viz-title">Distribution des tesselles</div>
-            <img src="data:image/png;base64,{{ overview_image }}" class="viz-image" alt="Vue d'ensemble">
+            <img src="data:image/png;base64,{{ overview_image }}" class="viz-image" alt="Vue d'ensemble" width="800" height="450">
         </div>
         {% endif %}
     </section>
@@ -447,7 +447,7 @@
                 {% if tr.shap_image %}
                 <div class="viz-container">
                     <div class="viz-title">Importance des features (SHAP)</div>
-                    <img src="data:image/png;base64,{{ tr.shap_image }}" class="viz-image" alt="SHAP Summary">
+                    <img src="data:image/png;base64,{{ tr.shap_image }}" class="viz-image" alt="SHAP Summary" width="800" height="450">
                 </div>
                 {% endif %}
                 
@@ -457,7 +457,7 @@
                     <div class="viz-row">
                         {% for feature, img in tr.pdp_images.items() %}
                         <div>
-                            <img src="data:image/png;base64,{{ img }}" class="viz-image" alt="PDP {{ feature }}">
+                            <img src="data:image/png;base64,{{ img }}" class="viz-image" alt="PDP {{ feature }}" width="800" height="450">
                         </div>
                         {% endfor %}
                     </div>

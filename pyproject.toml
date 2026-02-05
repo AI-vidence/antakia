@@ -43,6 +43,7 @@ requests = "^2.31.0"
 pdpbox = "^0.3.0"
 jupyterlab = ">=3"
 kaleido = ">=0.2.1"
+xhtml2pdf = "^0.2.13"  # export PDF (pur Python, évite libgobject sur macOS)
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.26.0"

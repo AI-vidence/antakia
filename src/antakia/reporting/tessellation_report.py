@@ -696,7 +696,8 @@ class TessellationReport:
         """
         Exporte le rapport en PDF.
 
-        Nécessite weasyprint.
+        Essaie weasyprint en premier ; si échec (ex. libgobject sur macOS),
+        utilise xhtml2pdf (pur Python, sans dépendances système).
 
         Parameters
         ----------
@@ -705,18 +706,39 @@ class TessellationReport:
         include_visualizations : bool
             Inclure les visualisations (SHAP, PDP)
         """
+        result = self.generate_report()
+        html_content = self._render_html_jinja(result, include_visualizations)
+
+        # 1. Essayer weasyprint (meilleure fidélité CSS)
         try:
             import weasyprint
 
-            result = self.generate_report()
-            html_content = self._render_html_jinja(result, include_visualizations)
             weasyprint.HTML(string=html_content).write_pdf(path)
             logger.info(f"Rapport PDF exporté: {path}")
+            return
         except ImportError:
-            logger.error(
-                "weasyprint non installé. Installez avec: pip install weasyprint"
-            )
-            raise
+            pass  # weasyprint non installé, essayer xhtml2pdf
         except Exception as e:
-            logger.error(f"Erreur lors de l'export PDF: {e}")
-            raise
+            if "gobject" in str(e).lower() or "dlopen" in str(e).lower():
+                logger.warning(
+                    f"WeasyPrint échoué (dépendances système manquantes): {e}. "
+                    "Utilisation de xhtml2pdf en secours."
+                )
+            else:
+                raise
+
+        # 2. Fallback : xhtml2pdf (pur Python, pas de libgobject)
+        try:
+            from xhtml2pdf import pisa
+
+            with open(path, "w+b") as dest:
+                status = pisa.CreatePDF(html_content, dest=dest, encoding="utf-8")
+            if status.err:
+                raise RuntimeError(f"xhtml2pdf a rencontré des erreurs: {status.err}")
+            logger.info(f"Rapport PDF exporté: {path} (via xhtml2pdf)")
+        except ImportError:
+            raise ImportError(
+                "Aucun moteur PDF disponible. Installez l'un des deux:\n"
+                "  pip install weasyprint   # meilleur rendu, nécessite pango/glib (brew install pango glib)\n"
+                "  pip install xhtml2pdf    # pur Python, pas de dépendances système"
+            ) from None

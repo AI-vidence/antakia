@@ -285,12 +285,15 @@ class Tab4:
         self.report_output.children = summary_items
 
     def _display_report_html_preview(self):
-        """Affiche le rapport HTML complet (avec graphiques SHAP/PDP) via iframe data URL."""
+        """Affiche le rapport HTML complet (avec graphiques SHAP/PDP) dans le notebook.
+
+        Utilise IPython.display.HTML car l'iframe avec data URL est souvent bloquée
+        par la politique de sécurité (CSP) de Jupyter, ce qui rendait les graphiques vides.
+        """
         if self._report_result is None:
             return
         try:
             from antakia.reporting import TessellationReport
-            import base64
 
             report = TessellationReport.__new__(TessellationReport)
             report.data_store = self.data_store
@@ -303,13 +306,17 @@ class Tab4:
             html_content = report._render_html_jinja(
                 self._report_result, include_visualizations=True
             )
-            b64 = base64.b64encode(html_content.encode("utf-8")).decode("ascii")
-            data_url = f"data:text/html;base64,{b64}"
-            iframe_html = f'<iframe src="{data_url}" style="width:100%; height:800px; border:1px solid #ddd; border-radius:8px;"></iframe>'
+            # Affichage direct dans le notebook (évite le blocage CSP des iframes)
+            display(HTML(html_content))
             self.report_output.children = list(self.report_output.children) + [
                 v.Divider(class_="my-4"),
-                v.Html(tag="h4", children=["Rapport complet (avec graphiques)"]),
-                v.Html(tag="div", children=[iframe_html]),
+                v.Html(
+                    tag="p",
+                    class_="grey--text",
+                    children=[
+                        "Rapport complet affiché ci-dessus. Utilisez « Export HTML » pour sauvegarder."
+                    ],
+                ),
             ]
         except Exception as e:
             self.report_output.children = list(self.report_output.children) + [
@@ -381,7 +388,9 @@ class Tab4:
             
             self.status.children = [f"✅ PDF exported: {output_path}"]
             
-        except ImportError:
-            self.status.children = ["❌ weasyprint not installed. Run: pip install weasyprint"]
+        except ImportError as e:
+            self.status.children = [
+                "❌ Aucun moteur PDF. Installez: pip install xhtml2pdf"
+            ]
         except Exception as e:
             self.status.children = [f"❌ Export failed: {str(e)}"]
