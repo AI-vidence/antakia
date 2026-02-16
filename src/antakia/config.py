@@ -8,7 +8,7 @@ class AppConfig:
     ATK_DEFAULT_EXPLANATION_METHOD = int(
         os.environ.get('DEFAULT_EXPLANATION_METHOD', 1))
     ATK_DEFAULT_DIMENSION = int(os.environ.get('DEFAULT_VS_DIMENSION', 2))
-    ATK_DEFAULT_PROJECTION = 'PaCMAP'
+    ATK_DEFAULT_PROJECTION = 'UMAP'
 
     ATK_INIT_FIG_WIDTH = int(os.environ.get('INIT_FIG_WIDTH', 1800))
     ATK_MAX_DOTS = int(os.environ.get('MAX_DOTS', 2000))
