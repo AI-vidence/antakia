@@ -8,7 +8,7 @@ from antakia.gui.high_dim_exp.figure_display import FigureDisplay
 from antakia.utils.dummy_datasets import generate_corner_dataset
 from tests.antakia_test_case import AntakiaTestCase
 
-trace_name = FigureDisplay.trace_name
+# trace_name = FigureDisplay.trace_name
 
 
 class TestFigureDisplay(AntakiaTestCase):
@@ -19,16 +19,15 @@ class TestFigureDisplay(AntakiaTestCase):
         self.X_proj = pd.DataFrame(self.data_store.X.values,
                                    index=self.data_store.X.index)
 
-    def test_trace_name(self):
-        assert trace_name(0) == 'values trace'
-        assert trace_name(1) == 'rules trace'
-        assert trace_name(2) == 'regionset trace'
-        assert trace_name(3) == 'region trace'
-        assert trace_name(8) == 'unknown trace'
+    # def test_trace_name(self):
+    #     assert trace_name(0) == 'values trace'
+    #     assert trace_name(1) == 'rules trace'
+    #     assert trace_name(2) == 'regionset trace'
+    #     assert trace_name(3) == 'region trace'
+    #     assert trace_name(8) == 'unknown trace'
 
     def test_init(self):
         fd = self.fd
-        assert fd.active_trace == 0
         assert fd._display_mask is None
         # assert fd.selection_changed
         # assert fd.widget == v.Container()
@@ -36,8 +35,6 @@ class TestFigureDisplay(AntakiaTestCase):
         assert fd._selection_mode == 'lasso'
         assert fd.data_store is self.data_store
         assert fd.first_selection
-        assert fd._visible == [True, False, False, False]
-        assert fd._colors == [None, None, None, None]
         assert fd.figure_2D is None
         assert fd.figure_3D is None
         assert not fd.initialized

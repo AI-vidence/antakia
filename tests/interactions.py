@@ -17,10 +17,12 @@ def select_dim(gui, dim):
 
 @check
 def set_color(gui, color):
-    colors = ['y', 'y^', 'residual']
+    colors = ['y', 'y^', 'residual', 'all_regions', "y^model", "residual_sub"]
     wgt = gui.color_switch.widget
+    if colors[color] not in gui.color_switch.btn_list:
+        raise InteractionError('the selected color is not enabled in this tab')
     wgt.v_model = colors[color]
-    wgt.fire_event('change', wgt.v_model)
+    wgt.children[0].fire_event('change', wgt.children[0].v_model)
 
 
 @check
@@ -81,7 +83,7 @@ def change_tab(gui, tab):
 
 
 @check
-def select_points(gui, is_value_space, q=(1, 1)):
+def select_points(gui, is_value_space: bool, q=(1, 1)):
     if gui.tab_value > 1:
         raise InteractionError('wrong tab')
     X = gui.vs_hde.figure._get_figure_data(masked=True)
@@ -96,7 +98,6 @@ def select_points(gui, is_value_space, q=(1, 1)):
         hde = gui.es_hde
     points = namedtuple('points', ['point_inds'])
     hde.figure._selection_event(gui.tab_value, '', points(mask_to_rows(b)))
-
 
 @check
 def unselect(gui, is_value_space):
@@ -231,7 +232,7 @@ def delete(gui):
 
 
 @check
-def select_model(gui, model):
+def select_model(gui, model: int):
     if gui.tab_value != 3:
         raise InteractionError('wrong tab')
     if len(gui.tab2.selected_regions) == 0:
@@ -244,6 +245,13 @@ def select_model(gui, model):
     data = {'value': True, 'item': {'Sub-model': model}}
     gui.tab3._sub_model_selected_callback(data)
 
+@check
+def unselect_model(gui):
+    if gui.tab_value != 3:
+        raise InteractionError('wrong tab')
+    if len(gui.tab2.selected_regions) == 0:
+        raise InteractionError('no region selected')
+    gui.tab3.selected_sub_model = []
 
 @check
 def validate_model(gui):

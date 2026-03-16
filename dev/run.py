@@ -36,4 +36,6 @@ x_exp.iloc[:, 0] = (X.iloc[:, 0] > 0.5) * 0.5
 x_exp.iloc[:, 1] = (X.iloc[:, 1] > 0.5) * 0.5
 
 atk = AntakIA(X, y, regression_DT)
+atk.start_gui()
 run_antakia(atk, True)
+

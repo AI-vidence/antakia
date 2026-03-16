@@ -26,14 +26,19 @@ class Tab2:
         ['Region', 'Rules', 'Average', 'Points', '% dataset', 'Sub-model']
     ]
 
-    def __init__(self, data_store: DataStore, vs_pvs: ProjectedValuesSelector,
-                 es_pvs: ProjectedValuesSelector, edit_callback: Callable,
-                 update_callback: Callable, substitute_callback: Callable):
+    def __init__(self, data_store: DataStore,
+                 vs_pvs: ProjectedValuesSelector,
+                 es_pvs: ProjectedValuesSelector,
+                 edit_callback: Callable,
+                 substitute_callback: Callable,
+                 color_update_callback: Callable):
+
+        self.selected_regions_list = []
         self.data_store = data_store
         self.vs_pvs = vs_pvs
         self.es_pvs = es_pvs
         self.edit_callback = partial(edit_callback, self)
-        self.update_callback = partial(update_callback, self)
+        self.color_update_callback = color_update_callback
         self.substitute_callback = partial(substitute_callback, self)
         self.auto_cluster_running = False
 
@@ -162,11 +167,11 @@ class Tab2:
                                         bottom=True,
                                         v_slots=[{
                                             'name':
-                                            'activator',
+                                                'activator',
                                             'variable':
-                                            'tooltip',
+                                                'tooltip',
                                             'children':
-                                            self.substitute_btn
+                                                self.substitute_btn
                                         }],
                                         children=[
                                             'Find an explicable surrogate model on this region'
@@ -235,11 +240,11 @@ class Tab2:
                                         bottom=True,
                                         v_slots=[{
                                             'name':
-                                            'activator',
+                                                'activator',
                                             'variable':
-                                            'tooltip',
+                                                'tooltip',
                                             'children':
-                                            self.auto_cluster_btn
+                                                self.auto_cluster_btn
                                         }],
                                         children=[
                                             'Find homogeneous regions in both spaces'
@@ -252,11 +257,11 @@ class Tab2:
                                         bottom=True,
                                         v_slots=[{
                                             'name':
-                                            'activator',
+                                                'activator',
                                             'variable':
-                                            'tooltip',
+                                                'tooltip',
                                             'children':
-                                            self.cluster_num_wgt,
+                                                self.cluster_num_wgt,
                                         }],
                                         children=[
                                             'Number of clusters you expect to find'
@@ -275,6 +280,7 @@ class Tab2:
 
     def wire(self):
         self.region_table_wgt.set_callback(self.region_selected)
+
         self.substitute_btn.on_event("click", self.substitute_clicked)
         self.edit_btn.on_event("click", self.edit_region_clicked)
         self.divide_btn.on_event("click", self.divide_region_clicked)
@@ -337,12 +343,14 @@ class Tab2:
         # We disable the AC button. Il will be re-enabled when the AC progress is 100%
         with Log('auto_cluster', 2):
             self.auto_cluster_running = True
+            self.update_btns()
+
             if self.region_set.stats()["coverage"] > 80:
                 # UI rules :
                 # region_set coverage is > 80% : we need to clear it to do another auto-cluster
                 self.region_set.clear_unvalidated()
 
-            # We assemble indices ot all existing regions :
+            # We assemble indices of all existing regions :
             region_set_mask = self.region_set.mask
             not_rules_indexes_list = ~region_set_mask
             # We call the auto_cluster with remaining X and explained(X) :
@@ -356,10 +364,12 @@ class Tab2:
 
             self._compute_auto_cluster(not_rules_indexes_list, cluster_num)
             self.update_region_table()
-            self.update_callback()
             # We re-enable the button
             self.auto_cluster_running = False
             self.update_btns()
+            self.color_update_callback(self,
+                                       event = 'auto_cluster',
+                                       )
 
     def num_cluster_changed(self, *args):
         """
@@ -411,19 +421,15 @@ class Tab2:
                 found_regions.add_region(mask=pd.Series(
                     [True] * n_points,
                     index=vs_proj_3d_df.loc[not_rules_indexes_list].index),
-                                         auto_cluster=True)
+                    auto_cluster=True)
             self.region_set.extend(found_regions)
             progress_bar(100)
         else:
             print('not enough points to cluster')
 
-    def update_btns(self, current_operation=None):
-        selected_region_nums = [x['Region'] for x in self.selected_regions]
-        if current_operation:
-            if current_operation['type'] == 'select':
-                selected_region_nums.append(current_operation['region_num'])
-            elif current_operation['type'] == 'unselect':
-                selected_region_nums.remove(current_operation['region_num'])
+    def update_btns(self, selected_region_nums=None):
+        if selected_region_nums is None:
+            selected_region_nums = [x['Region'] for x in self.selected_regions]
         num_selected_regions = len(selected_region_nums)
         if num_selected_regions:
             first_region = self.region_set.get(selected_region_nums[0])
@@ -455,11 +461,14 @@ class Tab2:
 
     def region_selected(self, data):
         with Log('region_selected', 2):
-            operation = {
-                'type': 'select' if data['value'] else 'unselect',
-                'region_num': data['item']['Region']
-            }
-            self.update_btns(operation)
+            selected_region_nums = [x['Region'] for x in self.selected_regions]
+            if data['value']:  # region selected
+                selected_region_nums.append(data['item']['Region'])
+            else:  # region unselected
+                selected_region_nums.remove(data['item']['Region'])
+            self.selected_regions_list = selected_region_nums
+            self.color_update_callback(self, 'region_selected', region_list=self.selected_regions_list)
+            self.update_btns(selected_region_nums)
 
     def clear_selected_regions(self):
         self.selected_regions = []
@@ -494,7 +503,9 @@ class Tab2:
             # There is no more selected region
             self.clear_selected_regions()
             self.update_region_table()
-            self.update_callback()
+            self.color_update_callback(self,
+                                       event = 'divide_region',
+                                       )
 
     @log_errors
     def merge_region_clicked(self, *args):
@@ -528,7 +539,7 @@ class Tab2:
                 r = self.region_set.add_region(mask=mask)
             self.selected_regions = [{'Region': r.num}]
             self.update_region_table()
-            self.update_callback()
+            self.color_update_callback(self, 'region_selected')
 
     @log_errors
     def delete_region_clicked(self, *args):
@@ -546,7 +557,7 @@ class Tab2:
             # There is no more selected region
             self.clear_selected_regions()
             self.update_region_table()
-            self.update_callback()
+            self.color_update_callback(self,'delete_region' )
 
     @log_errors
     def substitute_clicked(self, widget, event, data):

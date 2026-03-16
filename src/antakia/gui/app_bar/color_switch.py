@@ -1,98 +1,99 @@
-from functools import partial
-
 import ipyvuetify as v
+from ipyvuetify import BtnToggle
 
 from antakia.gui.helpers.data import DataStore
-from antakia.utils.logging_utils import Log
-from antakia.utils.stats import log_errors, stats_logger
 
+BTN_DICT = {"y": {'icon':"mdi-alpha-y-circle-outline",  # icon
+                  'tooltip':'Display target values',  # tootltip
+                  'color_names':['y' ]},  # list of colors related to the btn
+
+
+             "y^": {'icon':"mdi-alpha-y-circle",  # icon
+                  'tooltip':'Display predicted values',  # tootltip
+                  'color_names':['residual']},
+
+             "residual": {'icon':"mdi-delta",  # icon
+                  'tooltip':'Display residual values',  # tootltip
+                  'color_names':['residual']},
+
+             "y^model": {'icon':"mdi-alpha-y-box-outline",  # icon
+                  'tooltip':"Display predicted values of the substitute model",  # tootltip
+                  'color_names':['y^model']},
+
+             "residual_sub": {'icon':"mdi-delta",  # icon
+                  'tooltip':"Display residual values of the substitute model",  # tootltip
+                  'color_names':['residual_sub']},
+
+             "all_regions": {'icon':"mdi-view-dashboard",  # icon
+                  'tooltip':'Display regions',  # tootltip
+                  'color_names':['all_regions', "region_selection"]}}
 
 class ColorSwitch:
 
     def __init__(self, data_store: DataStore, update_callback):
+        self.color_update_callback = update_callback
         self.data_store = data_store
-        self.update_callback = partial(update_callback, self)
+        self.btn_list = ["y", "y^", "residual", "all_regions"]
         self._build_widget()
+        self.data_store.color_switch = self.widget.v_model
 
     def _build_widget(self):
-        self.widget = v.BtnToggle(  # 11
+        self.widget = v.Col(children=[])
+        self.widget.children = self._build_toggle()
+        self.widget.children[0].on_event("change", self.color_update_callback)
+
+    def _build_toggle(self) -> list[BtnToggle]:
+        """
+
+        Parameters
+        ----------
+        btn_list : list of buttons to display
+        icon_dict : dict containing btns and their matching icon, tooltip
+
+        Returns
+        BtnToggle Widget
+        -------
+
+        """
+        btn_toggle = v.BtnToggle(
             class_="mr-3",
             mandatory=True,
-            v_model="Y",
-            children=[
-                v.Tooltip(  # 110
-                    bottom=True,
-                    v_slots=[{
-                        'name':
+            disabled=False,
+            children=[]
+        )
+        btn_widget_list = []
+        for btn in self.btn_list:
+            icon, tooltip = BTN_DICT[btn]['icon'], BTN_DICT[btn]['tooltip']
+            btn_widget_list.append(v.Tooltip(  # 110
+                bottom=True,
+                v_slots=[{
+                    'name':
                         'activator',
-                        'variable':
+                    'variable':
                         'tooltip',
-                        'children':
+                    'children':
                         v.Btn(  # 1100
                             v_on='tooltip.on',
                             icon=True,
-                            children=[
-                                v.Icon(children=["mdi-alpha-y-circle-outline"])
-                            ],
-                            value="y",
+                            children=[v.Icon(children=[icon])],
+                            value=btn,
                             v_model=True,
                         ),
-                    }],
-                    children=['Display target values']),
-                v.Tooltip(  # 111
-                    bottom=True,
-                    v_slots=[{
-                        'name':
-                        'activator',
-                        'variable':
-                        'tooltip',
-                        'children':
-                        v.Btn(  # 1110
-                            v_on='tooltip.on',
-                            icon=True,
-                            children=[v.Icon(children=["mdi-alpha-y-circle"])],
-                            value="y^",
-                            v_model=True,
-                        ),
-                    }],
-                    children=['Display predicted values']),
-                v.Tooltip(  # 112
-                    bottom=True,
-                    v_slots=[{
-                        'name':
-                        'activator',
-                        'variable':
-                        'tooltip',
-                        'children':
-                        v.Btn(  # 1120
-                            v_on='tooltip.on',
-                            icon=True,
-                            children=[v.Icon(children=["mdi-delta"])],
-                            value="residual",
-                            v_model=True,
-                        ),
-                    }],
-                    children=['Display residual values']),
-            ],
-        )
+                }],
+                children=tooltip))
+        btn_toggle.children = btn_widget_list
+        return [btn_toggle]
 
-        self.widget.on_event("change", self.switch_color)
 
-    @log_errors
-    def switch_color(self, widget, event, data):
-        """
-        Called with the user clicks on the colorChoiceBtnToggle
-        Allows change the color of the dots
-        """
+    def update_btn_widget(self, btn_list):
+        # Updates the button in the switch if the value parameter is one of the buttons,
+        # else it will disable all buttons
 
-        # Color : a pd.Series with one color value par row
-        with Log('switch_color', 2):
-            color = None
-            stats_logger.log('color_changed', {'color': data})
-            if data == "y":
-                color = self.data_store.y
-            elif data == "y^":
-                color = self.data_store.y_pred
-            elif data == "residual":
-                color = self.data_store.y - self.data_store.y_pred
-            self.update_callback(color)
+        if btn_list != self.btn_list:  # update the button list
+            self.btn_list = btn_list
+            self.widget.children = self._build_toggle()  # updates the toggle with new btns
+            self.widget.children[0].on_event("change", self.color_update_callback)
+
+        for btn_value in BTN_DICT:
+            if self.data_store.color in BTN_DICT[btn_value]['color_names']:
+                self.widget.children[0].v_model = btn_value
