@@ -36,7 +36,11 @@ class ProjectedValuesSelector:
         # Use GeoMap as default if geo columns are available
         default_method = AppConfig.ATK_DEFAULT_PROJECTION
         if has_geo_columns:
-            default_method = "GeoMap"
+            try:
+                DimReducMethod.dimreduc_method_as_int("GeoMap")
+                default_method = "GeoMap"
+            except ValueError:
+                pass
 
         self.current_proj = Proj(
             DimReducMethod.dimreduc_method_as_int(default_method),
@@ -339,8 +343,11 @@ class ProjectedValuesSelector:
 
         # GeoMap is 2D only - fallback to PCA for 3D projections
         reduction_method = self.current_proj.reduction_method
-        geomap_method = DimReducMethod.dimreduc_method_as_int("GeoMap")
-        if reduction_method == geomap_method and dim == 3:
+        try:
+            geomap_method = DimReducMethod.dimreduc_method_as_int("GeoMap")
+        except ValueError:
+            geomap_method = None
+        if geomap_method is not None and reduction_method == geomap_method and dim == 3:
             reduction_method = DimReducMethod.dimreduc_method_as_int("PCA")
 
         is_present = self.projected_value.is_present(Proj(reduction_method, dim))

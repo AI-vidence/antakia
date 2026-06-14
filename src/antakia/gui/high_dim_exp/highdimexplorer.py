@@ -17,8 +17,11 @@ from antakia.utils.other_utils import NotInitialized
 logger = logging.getLogger(__name__)
 conf_logger(logger)
 
-# GeoMap method ID
-GEOMAP_METHOD = DimReducMethod.dimreduc_method_as_int("GeoMap")
+# GeoMap method ID (antakia-core >= 0.4.7 ; absent on PyPI 0.4.6)
+try:
+    GEOMAP_METHOD = DimReducMethod.dimreduc_method_as_int("GeoMap")
+except ValueError:
+    GEOMAP_METHOD = None
 
 
 class HighDimExplorer:
@@ -153,7 +156,8 @@ class HighDimExplorer:
 
         # Check if we need to switch figure type (only for VS with geo columns)
         is_geomap = (
-            self.projected_value_selector.projection_method == GEOMAP_METHOD
+            GEOMAP_METHOD is not None
+            and self.projected_value_selector.projection_method == GEOMAP_METHOD
             and self._map_figure is not None
         )
         self._switch_to_map(is_geomap)
