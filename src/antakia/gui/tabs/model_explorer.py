@@ -5,8 +5,18 @@ from antakia_core.compute.model_subtitution.model_class import MLModel
 from antakia_core.data_handler import ModelRegion
 from plotly.graph_objects import Bar, FigureWidget, Histogram, Scatter
 
+from antakia.config import AppConfig
 from antakia.utils.logging_utils import Log
 from antakia.utils.stats import log_errors
+
+_FI_TOP_N_ITEMS = [
+    {"text": "Top 10", "value": 10},
+    {"text": "Top 25", "value": 25},
+    {"text": "Top 50", "value": 50},
+    {"text": "Top 100", "value": 100},
+    {"text": "Top 200", "value": 200},
+    {"text": "Toutes", "value": -1},
+]
 
 
 class ModelExplorer:
@@ -19,11 +29,13 @@ class ModelExplorer:
     """
 
     def __init__(self, data_store, original_model=None):
-        self._build_widget()
         self.data_store = data_store
         self.model: MLModel | None = None  # Substitution model
         self.original_model = original_model  # Original model for comparison
         self.region: ModelRegion | None = None
+        self._fi_top_n = AppConfig.ATK_FI_TOP_N
+        self._fi_bar_height = AppConfig.ATK_FI_BAR_HEIGHT
+        self._build_widget()
 
     @property
     def X(self) -> pd.DataFrame:
@@ -31,8 +43,40 @@ class ModelExplorer:
         return self.data_store.X
 
     def _build_widget(self):
-        self.feature_importance_tab = v.TabItem(  # Tab 1) feature importances # 43
-            class_="mt-2", children=[]
+        _valid_top_n = {i["value"] for i in _FI_TOP_N_ITEMS}
+        self.fi_top_n_select = v.Select(
+            label="Features affichées",
+            items=_FI_TOP_N_ITEMS,
+            v_model=self._fi_top_n if self._fi_top_n in _valid_top_n else 25,
+            dense=True,
+            style_="max-width: 180px;",
+        )
+        self.fi_bar_height_slider = v.Slider(
+            label="Hauteur / barre (px)",
+            min=12,
+            max=36,
+            step=2,
+            v_model=self._fi_bar_height,
+            thumb_label="always",
+            style_="max-width: 260px;",
+        )
+        self.fi_scroll = v.Container(
+            class_="pa-0",
+            style_=f"max-height: {AppConfig.ATK_FI_MAX_HEIGHT}px; overflow-y: auto; overflow-x: hidden; width: 100%;",
+            children=[],
+        )
+        self.feature_importance_tab = v.TabItem(
+            class_="mt-2",
+            children=[
+                v.Row(
+                    class_="align-center flex-wrap px-2",
+                    children=[
+                        v.Col(cols=12, md=4, children=[self.fi_top_n_select]),
+                        v.Col(cols=12, md=6, children=[self.fi_bar_height_slider]),
+                    ],
+                ),
+                self.fi_scroll,
+            ],
         )
         self.pdp_feature_select = v.Select()
         self.pdp_figure = v.Container()
@@ -50,6 +94,22 @@ class ModelExplorer:
             ],
         )
         self.pdp_feature_select.on_event("change", self.display_pdp)
+        self.fi_top_n_select.on_event("change", self._on_fi_controls_changed)
+        self.fi_bar_height_slider.on_event("end", self._on_fi_controls_changed)
+
+    def _on_fi_controls_changed(self, *args):
+        self._fi_top_n = int(self.fi_top_n_select.v_model)
+        self._fi_bar_height = int(self.fi_bar_height_slider.v_model)
+        self.update_feature_importances()
+
+    def _slice_feature_importances(self, feature_importances: pd.Series) -> pd.Series:
+        top_n = self._fi_top_n
+        if top_n is None or top_n < 0:
+            return feature_importances.sort_values(ascending=True)
+        top_n = min(int(top_n), len(feature_importances))
+        return feature_importances.sort_values(ascending=False).head(top_n).sort_values(
+            ascending=True
+        )
 
     def update_selected_model(self, model: MLModel, region: ModelRegion):
         self.model = model
@@ -59,18 +119,32 @@ class ModelExplorer:
 
     def update_feature_importances(self):
         if self.model is not None:
-            feature_importances = self.model.feature_importances_.sort_values(ascending=True)
+            feature_importances = self._slice_feature_importances(
+                self.model.feature_importances_
+            )
+            n_bars = len(feature_importances)
+            bar_h = max(12, int(self._fi_bar_height))
+            fig_height = max(220, n_bars * bar_h + 60)
+            max_label_len = max((len(str(i)) for i in feature_importances.index), default=10)
+            left_margin = min(420, max(AppConfig.ATK_FI_LABEL_WIDTH, max_label_len * 7))
+
             fig = Bar(x=feature_importances, y=feature_importances.index, orientation="h")
             self.figure_fi = FigureWidget(data=[fig])
             self.figure_fi.update_layout(
+                height=fig_height,
                 autosize=True,
-                margin={"t": 0, "b": 0, "l": 0, "r": 0},
+                margin={"t": 8, "b": 8, "l": left_margin, "r": 16},
+                yaxis={"tickfont": {"size": 11}, "automargin": True},
+                xaxis={"title": "importance"},
             )
-            self.figure_fi._config = self.figure_fi._config | {"displaylogo": False}
+            self.figure_fi._config = self.figure_fi._config | {
+                "displaylogo": False,
+                "scrollZoom": True,
+            }
 
-            self.feature_importance_tab.children = [self.figure_fi]
+            self.fi_scroll.children = [self.figure_fi]
         else:
-            self.feature_importance_tab.children = []
+            self.fi_scroll.children = []
 
     def update_pdp_tab(self):
         if self.pdp_feature_select.v_model not in self.X.columns and self.model is not None:

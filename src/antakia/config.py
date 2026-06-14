@@ -21,6 +21,12 @@ class AppConfig:
     # Auto cluster
     ATK_MIN_POINTS_NUMBER = 100
 
+    # Substitution tab — Feature Importance (nombreuses variables)
+    ATK_FI_TOP_N = int(os.environ.get("ATK_FI_TOP_N", 25))
+    ATK_FI_BAR_HEIGHT = int(os.environ.get("ATK_FI_BAR_HEIGHT", 20))
+    ATK_FI_MAX_HEIGHT = int(os.environ.get("ATK_FI_MAX_HEIGHT", 900))
+    ATK_FI_LABEL_WIDTH = int(os.environ.get("ATK_FI_LABEL_WIDTH", 220))
+
     ATK_SEND_LOG = os.environ.get("SEND_ANONYMOUS_LOGS", "True") != "0"
     verbose = 3
     log_with_time = True
