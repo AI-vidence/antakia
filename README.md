@@ -20,6 +20,8 @@ AntakIA is available on [PyPI](https://pypi.org/project/antakia/) :
 pip install antakia
 ```
 
+**Optional:** For PDF export of tessellation reports, `xhtml2pdf` is included (pure Python). On macOS, if you prefer WeasyPrint for better CSS rendering, run `brew install pango glib` first. See [Getting started](https://doc.antakia.ai/getting_started/) for details.
+
 ## Running example notebooks
 
 Once you've installed `antakia`, you can download some of our notebook examples from our repo [here](https://github.com/AI-vidence/antakia/tree/main/examples).

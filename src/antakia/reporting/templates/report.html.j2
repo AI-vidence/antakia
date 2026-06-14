@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport de Tessellation - {{ model_name }}</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #fff;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        /* Header */
+        .report-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 40px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .report-header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .report-header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .report-header .date {
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-top: 15px;
+        }
+        
+        /* Summary Stats */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            border-left: 4px solid var(--secondary-color);
+        }
+        
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .stat-card .label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .stat-card.success { border-left-color: var(--success-color); }
+        .stat-card.warning { border-left-color: var(--warning-color); }
+        .stat-card.danger { border-left-color: var(--danger-color); }
+        
+        /* Section */
+        .section {
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        /* Tesselle Card */
+        .tesselle-card {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            margin-bottom: 30px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        .tesselle-header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .tesselle-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .tesselle-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.2);
+        }
+        
+        .tesselle-num {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .tesselle-coverage {
+            background: var(--secondary-color);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        .tesselle-body {
+            padding: 20px;
+        }
+        
+        .tesselle-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .mini-stat {
+            background: var(--light-bg);
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .mini-stat .label {
+            font-size: 0.8em;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .mini-stat .value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        /* Rules */
+        .rules-box {
+            background: #f0f4f8;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.95em;
+            border-radius: 0 5px 5px 0;
+            overflow-x: auto;
+        }
+        
+        /* Top Features */
+        .top-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-tag {
+            background: var(--primary-color);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+        
+        .feature-tag:first-child {
+            background: var(--success-color);
+        }
+        
+        /* Visualizations */
+        .viz-container {
+            margin: 20px 0;
+        }
+        
+        .viz-title {
+            font-size: 1.1em;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+        
+        .viz-image {
+            max-width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .viz-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .data-table th {
+            background: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .data-table tr:hover {
+            background: var(--light-bg);
+        }
+        
+        .data-table .num-col {
+            text-align: right;
+            font-family: 'Consolas', monospace;
+        }
+        
+        /* Footer */
+        .report-footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        /* Print styles */
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .report-header {
+                background: var(--primary-color) !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .tesselle-card {
+                break-inside: avoid;
+            }
+            
+            .viz-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="report-header">
+        <h1>Rapport de Tessellation</h1>
+        <div class="subtitle">Modèle : {{ model_name }}</div>
+        <div class="date">Généré le {{ generation_date }}</div>
+    </header>
+    
+    <!-- Summary Statistics -->
+    <section class="section">
+        <h2 class="section-title">Vue d'ensemble</h2>
+        
+        <div class="summary-grid">
+            <div class="stat-card">
+                <div class="value">{{ n_samples | format_number }}</div>
+                <div class="label">Observations</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">{{ n_features }}</div>
+                <div class="label">Features</div>
+            </div>
+            <div class="stat-card success">
+                <div class="value">{{ total_regions }}</div>
+                <div class="label">Tesselles</div>
+            </div>
+            <div class="stat-card warning">
+                <div class="value">{{ "%.1f"|format(total_coverage_pct) }}%</div>
+                <div class="label">Couverture</div>
+            </div>
+            {% if initial_model_score is not none %}
+            <div class="stat-card">
+                <div class="value">{{ "%.4f"|format(initial_model_score) }}</div>
+                <div class="label">Score Modèle Initial</div>
+            </div>
+            {% endif %}
+            {% if ensemble_score is not none %}
+            <div class="stat-card success">
+                <div class="value">{{ "%.4f"|format(ensemble_score) }}</div>
+                <div class="label">Score Ensembliste</div>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if overview_image %}
+        <div class="viz-container">
+            <div class="viz-title">Distribution des tesselles</div>
+            <img src="data:image/png;base64,{{ overview_image }}" class="viz-image" alt="Vue d'ensemble" width="800" height="450">
+        </div>
+        {% endif %}
+    </section>
+    
+    <!-- Summary Table -->
+    <section class="section">
+        <h2 class="section-title">Résumé des tesselles</h2>
+        
+        {% if not tesselle_reports %}
+        <p class="rules-box" style="margin-bottom: 20px;">
+            <strong>Aucune tesselle à afficher.</strong> Créez des régions dans l'onglet Parcelles (Tab 2) 
+            avant de générer le rapport. Le rapport affiche les statistiques et graphiques pour chaque région validée.
+        </p>
+        {% else %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tesselle</th>
+                    <th>Couleur</th>
+                    <th class="num-col">Points</th>
+                    <th class="num-col">Couverture</th>
+                    <th class="num-col">y moyen</th>
+                    <th>Surrogate</th>
+                    <th class="num-col">Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tr in tesselle_reports %}
+                <tr>
+                    <td><strong>{{ tr.region_num }}</strong></td>
+                    <td><span style="color: {{ tr.color }}; font-size: 1.5em;">●</span></td>
+                    <td class="num-col">{{ tr.n_points | format_number }}</td>
+                    <td class="num-col">{{ "%.1f"|format(tr.coverage_pct) }}%</td>
+                    <td class="num-col">{{ "%.3f"|format(tr.mean_y) }} ± {{ "%.3f"|format(tr.std_y) }}</td>
+                    <td>{{ tr.surrogate_model_name or "-" }}</td>
+                    <td class="num-col">{{ "%.4f"|format(tr.surrogate_score) if tr.surrogate_score else "-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </section>
+    
+    <!-- Detailed Tesselle Reports -->
+    <section class="section">
+        <h2 class="section-title">Détail par tesselle</h2>
+        
+        {% if not tesselle_reports %}
+        <p class="rules-box">Aucune tesselle. Créez et validez des régions dans l'onglet Parcelles.</p>
+        {% else %}
+        {% for tr in tesselle_reports %}
+        <div class="tesselle-card">
+            <div class="tesselle-header">
+                <div class="tesselle-title">
+                    <div class="tesselle-color" style="background-color: {{ tr.color }};"></div>
+                    <span class="tesselle-num">Tesselle {{ tr.region_num }}</span>
+                </div>
+                <span class="tesselle-coverage">{{ "%.1f"|format(tr.coverage_pct) }}%</span>
+            </div>
+            
+            <div class="tesselle-body">
+                <!-- Stats -->
+                <div class="tesselle-stats">
+                    <div class="mini-stat">
+                        <div class="label">Points</div>
+                        <div class="value">{{ tr.n_points | format_number }}</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="label">y moyen</div>
+                        <div class="value">{{ "%.3f"|format(tr.mean_y) }}</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="label">Écart-type</div>
+                        <div class="value">{{ "%.3f"|format(tr.std_y) }}</div>
+                    </div>
+                    {% if tr.surrogate_model_name %}
+                    <div class="mini-stat">
+                        <div class="label">Surrogate</div>
+                        <div class="value">{{ tr.surrogate_model_name }}</div>
+                    </div>
+                    <div class="mini-stat">
+                        <div class="label">Score</div>
+                        <div class="value">{{ "%.4f"|format(tr.surrogate_score) if tr.surrogate_score else "N/A" }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Rules -->
+                <div class="rules-box">
+                    <strong>Règles :</strong> {{ tr.rules_str or "Aucune règle (masque direct)" }}
+                </div>
+                
+                <!-- Top Features -->
+                {% if tr.top_features %}
+                <div class="viz-title">Top Features (SHAP)</div>
+                <div class="top-features">
+                    {% for feature in tr.top_features[:5] %}
+                    <span class="feature-tag">{{ feature }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <!-- Visualizations -->
+                {% if tr.shap_image %}
+                <div class="viz-container">
+                    <div class="viz-title">Importance des features (SHAP)</div>
+                    <img src="data:image/png;base64,{{ tr.shap_image }}" class="viz-image" alt="SHAP Summary" width="800" height="450">
+                </div>
+                {% endif %}
+                
+                {% if tr.pdp_images %}
+                <div class="viz-container">
+                    <div class="viz-title">PDP Comparatif</div>
+                    <div class="viz-row">
+                        {% for feature, img in tr.pdp_images.items() %}
+                        <div>
+                            <img src="data:image/png;base64,{{ img }}" class="viz-image" alt="PDP {{ feature }}" width="800" height="450">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% if not tr.shap_image and not tr.pdp_images and tr.top_features %}
+                <p class="rules-box" style="margin-top: 15px; color: #666;">
+                    Aucun graphique SHAP/PDP généré (modèle non tree-based ou erreur de calcul). 
+                    Top features: {% for f in tr.top_features[:5] %}{{ f }}{% if not loop.last %}, {% endif %}{% endfor %}.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </section>
+    
+    <!-- Footer -->
+    <footer class="report-footer">
+        <p>Rapport généré par <strong>AntakIA</strong></p>
+        <p>{{ generation_date }} | {{ n_samples }} observations | {{ total_regions }} tesselles</p>
+    </footer>
+</body>
+</html>

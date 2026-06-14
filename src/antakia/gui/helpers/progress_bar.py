@@ -8,16 +8,17 @@ from antakia.utils.logging_utils import Log
 
 
 class ProgressBar(ProgressCallback):
-
-    def __init__(self,
-                 widget,
-                 indeterminate: bool = False,
-                 active_color='blue',
-                 unactive_color='grey',
-                 reset_at_end=True,
-                 min: float = 0,
-                 max: float = 100,
-                 log: Log | None = None):
+    def __init__(
+        self,
+        widget,
+        indeterminate: bool = False,
+        active_color="blue",
+        unactive_color="grey",
+        reset_at_end=True,
+        min: float = 0,
+        max: float = 100,
+        log: Log | None = None,
+    ):
         """
         generic progress bar update
         Parameters
@@ -74,7 +75,7 @@ class ProgressBar(ProgressCallback):
 
     @property
     def progress(self):
-        if self.widget.v_model == '!!disabled!!':
+        if self.widget.v_model == "!!disabled!!":
             self.progress = 0
         return self.widget.v_model
 
@@ -91,22 +92,26 @@ class ProgressBar(ProgressCallback):
 
     def _split_val(self, value: float):
         new_value = self.min + value / 100 * (self.max - self.min)
-        first = ProgressBar(self.widget,
-                            self.indeterminate,
-                            self.active_color,
-                            self.unactive_color,
-                            self.reset_at_end,
-                            min=self.min,
-                            max=new_value,
-                            log=self._log)
-        second = ProgressBar(self.widget,
-                             self.indeterminate,
-                             self.active_color,
-                             self.unactive_color,
-                             self.reset_at_end,
-                             min=new_value,
-                             max=self.max,
-                             log=self._log)
+        first = ProgressBar(
+            self.widget,
+            self.indeterminate,
+            self.active_color,
+            self.unactive_color,
+            self.reset_at_end,
+            min=self.min,
+            max=new_value,
+            log=self._log,
+        )
+        second = ProgressBar(
+            self.widget,
+            self.indeterminate,
+            self.active_color,
+            self.unactive_color,
+            self.reset_at_end,
+            min=new_value,
+            max=self.max,
+            log=self._log,
+        )
         return [first, second]
 
     def split_list(self, value_list: list[float]):
@@ -115,11 +120,10 @@ class ProgressBar(ProgressCallback):
         if len(value_list) == 1:
             return self._split_val(value_list[0])
         progress_bars = self.split_list(value_list[1:])
-        progress_bars = progress_bars[0]._split_val(
-            value_list[0]) + progress_bars[1:]
+        progress_bars = progress_bars[0]._split_val(value_list[0]) + progress_bars[1:]
         return progress_bars
 
-    def split(self, value: float | list[float]) -> list['ProgressBar']:
+    def split(self, value: float | list[float]) -> list["ProgressBar"]:
         if isinstance(value, list):
             value.sort()
             self.sub_progress_bar = self.split_list(value)

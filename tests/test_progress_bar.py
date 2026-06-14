@@ -1,13 +1,11 @@
 from unittest import TestCase
 
-import pytest
 import ipyvuetify as v
 
 from antakia.gui.helpers.progress_bar import ProgressBar
 
 
 class TestProgressBar(TestCase):
-
     def setUp(self):
         self.progress_bar = ProgressBar(v.ProgressLinear())
 

@@ -1,12 +1,12 @@
+from importlib.resources import files
+
 import ipyvuetify as v
 from ipywidgets import Layout, widgets
-from importlib.resources import files
 
 from antakia.gui.helpers.progress_bar import ProgressBar
 
 
 class SplashScreen:
-
     def __init__(self):
         self._build_widget()
 
@@ -19,9 +19,9 @@ class SplashScreen:
             height="15",
             striped=True,
         )
-        self.exp_progressbar = ProgressBar(exp_progressbar_wgt,
-                                           unactive_color="light blue",
-                                           reset_at_end=False)
+        self.exp_progressbar = ProgressBar(
+            exp_progressbar_wgt, unactive_color="light blue", reset_at_end=False
+        )
 
         proj_progressbar_wgt = v.ProgressLinear(  # 110
             style_="width: 80%",
@@ -31,9 +31,9 @@ class SplashScreen:
             height="15",
             striped=True,
         )
-        self.proj_progressbar = ProgressBar(proj_progressbar_wgt,
-                                            unactive_color="light blue",
-                                            reset_at_end=False)
+        self.proj_progressbar = ProgressBar(
+            proj_progressbar_wgt, unactive_color="light blue", reset_at_end=False
+        )
 
         self.exp_txt = v.TextField(  # 120
             variant="plain",
@@ -53,7 +53,8 @@ class SplashScreen:
             children=[
                 widgets.Image(  # 0
                     value=widgets.Image._load_file_value(
-                        files("antakia").joinpath("assets/logo_antakia.png")),
+                        files("antakia").joinpath("assets/logo_antakia.png")
+                    ),
                     layout=Layout(width="230px"),
                 ),
                 v.Row(  # 1
@@ -64,17 +65,15 @@ class SplashScreen:
                                 v.Html(
                                     tag="h3",
                                     class_="mt-2 text-right",
-                                    children=[
-                                        "Computation of explanation values"
-                                    ],
+                                    children=["Computation of explanation values"],
                                 )
-                            ]),
+                            ]
+                        ),
                         v.Col(  # 11
                             class_="mt-3",
                             children=[exp_progressbar_wgt],
                         ),
-                        v.Col(  # #12
-                            children=[self.exp_txt]),
+                        v.Col(children=[self.exp_txt]),  # #12
                     ],
                 ),
                 v.Row(  # 2
@@ -85,17 +84,15 @@ class SplashScreen:
                                 v.Html(
                                     tag="h3",
                                     class_="mt-2 text-right",
-                                    children=[
-                                        "Computation of dimension reduction values"
-                                    ],
+                                    children=["Computation of dimension reduction values"],
                                 )
-                            ]),
+                            ]
+                        ),
                         v.Col(  # 21
                             class_="mt-3",
                             children=[proj_progressbar_wgt],
                         ),
-                        v.Col(  # 22
-                            children=[self.proj_txt]),
+                        v.Col(children=[self.proj_txt]),  # 22
                     ],
                 ),
             ],

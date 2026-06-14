@@ -1,5 +1,5 @@
-import pandas as pd
 import ipyvuetify as v
+import pandas as pd
 from pandas.api.types import is_bool_dtype
 
 from antakia.gui.helpers.progress_bar import ProgressBar
@@ -20,7 +20,6 @@ test_progress_bar = ProgressBar(v.ProgressLinear(), reset_at_end=False)
 
 
 class DummyModel:
-
     def predict(self, X):
         if isinstance(X, pd.DataFrame):
             return ((X.iloc[:, 0] > 0.5) & (X.iloc[:, 1] > 0.5)).astype(int)
@@ -34,5 +33,8 @@ class DummyModel:
 
 
 def is_mask_of_X(mask, X):
-    return (isinstance(mask, pd.Series) and is_bool_dtype(mask)
-            and pd.testing.assert_index_equal(mask.index, X.index))
+    return (
+        isinstance(mask, pd.Series)
+        and is_bool_dtype(mask)
+        and pd.testing.assert_index_equal(mask.index, X.index)
+    )

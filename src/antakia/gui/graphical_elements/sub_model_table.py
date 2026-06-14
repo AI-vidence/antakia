@@ -1,13 +1,15 @@
 from typing import Callable
-from traitlets.traitlets import List, Unicode
+
 import ipyvuetify as v
+from traitlets.traitlets import List, Unicode
 
 
 class SubModelTable(v.VuetifyTemplate):
     headers: List = List([]).tag(sync=True, allow_null=True)
     items: List = List([]).tag(sync=True, allow_null=True)
     selected: List = List([]).tag(sync=True, allow_null=True)
-    template: Unicode = Unicode('''
+    template: Unicode = Unicode(
+        """
         <template>
             <v-data-table
                 v-model="selected"
@@ -27,7 +29,10 @@ class SubModelTable(v.VuetifyTemplate):
             </template>
             </v-data-table>
         </template>
-        ''').tag(sync=True)  # type: ignore
+        """
+    ).tag(
+        sync=True
+    )  # type: ignore
     disable_sort = False
 
     def __init__(self, **kwargs):

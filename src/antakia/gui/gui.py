@@ -1,37 +1,34 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable
 
-import pandas as pd
-
-import ipyvuetify as v
 import IPython.display
+import ipyvuetify as v
 from antakia_core.compute.dim_reduction.dim_reduc_method import DimReducMethod
+from antakia_core.data_handler import ModelRegionSet, Region
+from antakia_core.explanation import ExplanationMethod
+from antakia_core.utils import boolean_mask, timeit
 
-from antakia_core.data_handler import Region
-
+from antakia.config import AppConfig
 from antakia.gui.app_bar.color_switch import ColorSwitch
 from antakia.gui.app_bar.dimension_switch import DimSwitch
-from antakia.gui.helpers.data import DataStore
-from antakia.gui.splash_screen import SplashScreen
-from antakia.gui.app_bar.top_bar import TopBar
+from antakia.gui.app_bar.rules_display_toggle import RulesDisplayToggle
 from antakia.gui.app_bar.explanation_values import ExplanationValues
-from antakia_core.explanation import ExplanationMethod
-from antakia.config import AppConfig
-
+from antakia.gui.app_bar.top_bar import TopBar
+from antakia.gui.components.notifications import notifications
+from antakia.gui.helpers.data import DataStore
+from antakia.gui.helpers.metadata import metadata
+from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
+from antakia.gui.splash_screen import SplashScreen
 from antakia.gui.tabs.tab1 import Tab1
 from antakia.gui.tabs.tab2 import Tab2
 from antakia.gui.tabs.tab3 import Tab3
-from antakia.gui.high_dim_exp.highdimexplorer import HighDimExplorer
-
-from antakia.gui.helpers.metadata import metadata
-
-import logging
-from antakia.utils.logging_utils import conf_logger, Log
-from antakia_core.utils import boolean_mask, timeit
-
-from antakia.utils.stats import stats_logger, log_errors
+from antakia.gui.tabs.tab4 import Tab4
+from antakia.gui.theme import theme
+from antakia.utils.logging_utils import Log, conf_logger
+from antakia.utils.stats import log_errors, stats_logger
 
 logger = logging.getLogger(__name__)
 conf_logger(logger)
@@ -78,128 +75,220 @@ class GUI:
         self.topbar = TopBar()
 
         self.dimension_switch = DimSwitch(self.dimension_update_callback)
-        self.color_switch = ColorSwitch(self.data_store,
-                                        self.color_update_callback)
+        self.color_switch = ColorSwitch(self.data_store, self.color_update_callback)
 
         # first hde
-        with Log('building vs hde', 2):
-            self.vs_hde = HighDimExplorer(self.data_store,
-                                          self.selection_changed, 'VS')
+        with Log("building vs hde", 2):
+            self.vs_hde = HighDimExplorer(self.data_store, self.selection_changed, "VS")
 
         # init Explanation space
         # first explanation getter/compute
-        with Log('building exp values', 2):
+        with Log("building exp values", 2):
             self.exp_values = ExplanationValues(
-                self.data_store, self.explanation_changed_callback,
-                self.disable_hde)
+                self.data_store, self.explanation_changed_callback, self.disable_hde
+            )
         # then hde
-        with Log('building es hde', 2):
-            self.es_hde = HighDimExplorer(self.data_store,
-                                          self.selection_changed, 'ES')
+        with Log("building es hde", 2):
+            self.es_hde = HighDimExplorer(self.data_store, self.selection_changed, "ES")
 
         # init tabs
-        with Log('building tab1', 2):
-            self.tab1 = Tab1(self.data_store, self.new_rule_selected_callback,
-                             self.validate_rules_callback)
+        with Log("building tab1", 2):
+            self.tab1 = Tab1(
+                self.data_store,
+                self.new_rule_selected_callback,
+                self.validate_rules_callback,
+                retire_outliers_callback=self.retire_outliers_callback,
+                exp_values=self.exp_values,
+            )
 
-        with Log('building tab2', 2):
-            self.tab2 = Tab2(self.data_store,
-                             self.vs_hde.projected_value_selector,
-                             self.es_hde.projected_value_selector,
-                             self.edit_region_callback,
-                             self.update_region_callback,
-                             self.substitute_model_callback)
+        self._rules_display_mode = True  # True = show rules trace, False = show values trace
+        self.rules_display_toggle = RulesDisplayToggle(
+            has_rules_getter=lambda: len(self.tab1.vs_rules_wgt.current_rules_set) > 0,
+            show_rules_getter=lambda: self.tab_value == 1 and self._rules_display_mode,
+            toggle_callback=self._toggle_rules_display,
+        )
 
-        with Log('building tab3', 2):
-            self.tab3 = Tab3(self.data_store, self.model_validation_callback,
-                             self.display_model_data)
+        with Log("building tab2", 2):
+            self.tab2 = Tab2(
+                self.data_store,
+                self.vs_hde.projected_value_selector,
+                self.es_hde.projected_value_selector,
+                self.edit_region_callback,
+                self.update_region_callback,
+                self.substitute_model_callback,
+            )
 
-        with Log('building widget', 2):
+        with Log("building tab3", 2):
+            self.tab3 = Tab3(
+                self.data_store, self.model_validation_callback, self.display_model_data
+            )
+
+        with Log("building tab4", 2):
+            self.tab4 = Tab4(self.data_store)
+
+        self.refresh_projections_btn = v.Btn(
+            class_="ma-1",
+            children=[
+                v.Icon(class_="mr-2", children=["mdi-refresh"]),
+                "Rafraîchir VS/ES",
+            ],
+        )
+        self.refresh_projections_btn.on_event("click", self._on_refresh_projections_clicked)
+
+        with Log("building widget", 2):
             self._build_widget()
             self.splash = SplashScreen()
 
+        # Register for theme changes
+        theme.add_observer(self._on_theme_change)
+
     def _build_widget(self):
-        self.widget = v.Col(children=[
-            self.topbar.widget,
-            v.Row(  # Top buttons bar # 1
-                class_="mt-3 align-center",
-                children=[
-                    v.Tooltip(  # 10
-                        bottom=True,
-                        v_slots=[{
-                            'name': 'activator',
-                            'variable': 'tooltip',
-                            'children': self.dimension_switch.widget
-                        }  # End v_slots dict
-                                 ],  # End v_slots list
-                        children=['Change dimensions']),  # End v.Tooltip
-                    self.color_switch.widget,
-                    v.Col(  # 12
-                        class_="ml-4 mr-4",
-                        children=[self.exp_values.widget]),
-                    v.Col(  # 13 VS proj Select
-                        class_="ml-6 mr-6",
-                        children=[self.vs_hde.projected_value_selector.widget
-                                  ]),
-                    v.Col(  # 14 ES proj Select
-                        class_="ml-6 mr-6",
-                        children=[self.es_hde.projected_value_selector.widget
-                                  ]),
-                ]),
-            v.Row(  # The two HighDimExplorer # 2
-                class_="d-flex",
-                children=[
-                    v.Col(  # VS HDE # 20
-                        style_="width: 50%",
-                        class_="d-flex flex-column justify-center",
-                        children=[
-                            v.Html(  # 200
-                                tag="h3",
-                                style_="align-self: center",
-                                class_="mb-3",
-                                children=["Values space"]),
-                            self.vs_hde.figure.widget,
-                        ],
-                    ),
-                    v.Col(  # ES HDE placeholder # 21
-                        style_="width: 50%",
-                        class_="d-flex flex-column justify-center",
-                        children=[
-                            v.Html(  # 210
-                                tag="h3",
-                                style_="align-self: center",
-                                class_="mb-3",
-                                children=["Explanations space"]),
-                            self.es_hde.figure.widget
-                        ],
-                    ),
-                ],
-            ),
-            v.Divider(),  # 3
-            v.Tabs(  # 4
-                v_model=0,  # default active tab
-                children=[
-                    v.Tab(children=["Selection"]),  # 40
-                    v.Tab(children=["Regions"]),  # 41
-                    v.Tab(children=["Substitution"]),  # 42
-                ] + [
-                    v.TabItem(  # Tab 1)
-                        class_="mt-2", children=self.tab1.widget),
-                    v.TabItem(  # Tab 2) Regions #44
-                        children=self.tab2.widget),  # End of v.TabItem #2
-                    v.TabItem(  # TabItem #3 Substitution #45
-                        children=self.tab3.widget)
-                ])  # End of v.Tabs
-        ]  # End v.Col children
-                            )  # End of v.Col
+        # Determine initial theme class
+        theme_class = "theme--dark grey darken-4" if theme.dark_mode else "theme--light white"
+
+        self.widget = v.Col(
+            class_=theme_class,
+            children=[
+                self.topbar.widget,
+                v.Row(  # Top buttons bar # 1
+                    class_="mt-3 align-center",
+                    children=[
+                        v.Tooltip(  # 10
+                            bottom=True,
+                            v_slots=[
+                                {
+                                    "name": "activator",
+                                    "variable": "tooltip",
+                                    "children": self.dimension_switch.widget,
+                                }  # End v_slots dict
+                            ],  # End v_slots list
+                            children=["Change dimensions"],
+                        ),  # End v.Tooltip
+                        self.color_switch.widget,
+                        self.rules_display_toggle.widget,
+                        v.Col(class_="ml-4 mr-4", children=[self.exp_values.widget]),  # 12
+                        v.Col(  # 13 VS proj Select
+                            class_="ml-6 mr-6",
+                            children=[self.vs_hde.projected_value_selector.widget],
+                        ),
+                        v.Col(  # 14 ES proj Select
+                            class_="ml-6 mr-6",
+                            children=[self.es_hde.projected_value_selector.widget],
+                        ),
+                        v.Tooltip(
+                            bottom=True,
+                            v_slots=[
+                                {
+                                    "name": "activator",
+                                    "variable": "tooltip",
+                                    "children": self.refresh_projections_btn,
+                                }
+                            ],
+                            children=[
+                                "Recalculer les projections UMAP/PACMAP sur les données actuelles "
+                                "(useful after outlier removal or data change)"
+                            ],
+                        ),
+                    ],
+                ),
+                v.Row(  # The two HighDimExplorer # 2
+                    class_="d-flex",
+                    children=[
+                        v.Col(  # VS HDE # 20
+                            style_="width: 50%",
+                            class_="d-flex flex-column justify-center",
+                            children=[
+                                v.Html(  # 200
+                                    tag="h3",
+                                    style_="align-self: center",
+                                    class_="mb-3",
+                                    children=["Values space"],
+                                ),
+                                self.vs_hde.figure_widget,
+                            ],
+                        ),
+                        v.Col(  # ES HDE placeholder # 21
+                            style_="width: 50%",
+                            class_="d-flex flex-column justify-center",
+                            children=[
+                                v.Html(  # 210
+                                    tag="h3",
+                                    style_="align-self: center",
+                                    class_="mb-3",
+                                    children=["Explanations space"],
+                                ),
+                                self.es_hde.figure_widget,
+                            ],
+                        ),
+                    ],
+                ),
+                v.Divider(),  # 3
+                v.Tabs(  # 4
+                    v_model=0,  # default active tab
+                    children=[
+                        v.Tab(children=["Selection"]),  # 40
+                        v.Tab(children=["Parcelles"]),  # 41
+                        v.Tab(children=["Tesselles"]),  # 42
+                        v.Tab(
+                            children=[
+                                v.Icon(
+                                    small=True,
+                                    class_="mr-1",
+                                    children=["mdi-file-document-outline"],
+                                ),
+                                "Report",
+                            ]
+                        ),  # 43
+                    ]
+                    + [
+                        v.TabItem(class_="mt-2", children=self.tab1.widget),  # Tab 1)
+                        v.TabItem(  # Tab 2) Regions #44
+                            children=self.tab2.widget
+                        ),  # End of v.TabItem #2
+                        v.TabItem(children=self.tab3.widget),  # TabItem #3 Substitution #45
+                        v.TabItem(children=self.tab4.widget),  # TabItem #4 Report #46
+                    ],
+                ),  # End of v.Tabs
+                notifications.widget,
+            ],  # End v.Col children
+        )  # End of v.Col
+
+    def _on_theme_change(self, theme_instance):
+        """Handle theme changes (light/dark mode toggle)."""
+        if theme_instance.dark_mode:
+            self.widget.class_ = "theme--dark grey darken-4"
+        else:
+            self.widget.class_ = "theme--light white"
+
+        # Update plots background color
+        plot_bg = "#1a1a2e" if theme_instance.dark_mode else "#ffffff"
+        paper_bg = "#16213e" if theme_instance.dark_mode else "#ffffff"
+        font_color = "#e8e8e8" if theme_instance.dark_mode else "#212529"
+
+        try:
+            # Update VS figure
+            self.vs_hde.figure.figure.update_layout(
+                paper_bgcolor=paper_bg,
+                plot_bgcolor=plot_bg,
+                font_color=font_color,
+            )
+            # Update ES figure
+            self.es_hde.figure.figure.update_layout(
+                paper_bgcolor=paper_bg,
+                plot_bgcolor=plot_bg,
+                font_color=font_color,
+            )
+        except Exception:
+            pass  # Figures may not be initialized yet
 
     @timeit
     def compute_base_values(self):
         # We trigger ES explain computation if needed :
-        with Log('initializing explanations', 1) as log:
+        with Log("initializing explanations", 1) as log:
             if not self.exp_values.has_user_exp:  # No imported explanation values
                 exp_method = ExplanationMethod.explain_method_as_str(
-                    AppConfig.ATK_DEFAULT_EXPLANATION_METHOD)
+                    AppConfig.ATK_DEFAULT_EXPLANATION_METHOD
+                )
                 msg = f"Computing {exp_method} on {self.data_store.X.shape}"
             else:
                 msg = f"Imported explained values {self.data_store.X.shape}"
@@ -209,42 +298,45 @@ class GUI:
 
         # We trigger VS proj computation :
         scale_pb, vs_pb, es_pb = self.splash.proj_progressbar.split([33, 66])
-        with Log('preparing data', 1) as log:
-            self.splash.set_proj_msg(f"preparing data")
+        with Log("preparing data", 1) as log:
+            self.splash.set_proj_msg("preparing data")
             scale_pb.set_log(log)
             self.data_store.X_scaled = DimReducMethod.scale_value_space(
-                self.data_store.X, self.data_store.y, scale_pb)
+                self.data_store.X, self.data_store.y, scale_pb
+            )
 
-        with Log('projecting Value space', 1) as log:
+        with Log("projecting Value space", 1) as log:
             self.splash.set_proj_msg(
                 f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape}"
             )
             vs_pb.set_log(log)
-            self.vs_hde.initialize(progress_callback=vs_pb,
-                                   X=self.data_store.X_scaled)
+            self.vs_hde.initialize(progress_callback=vs_pb, X=self.data_store.X_scaled)
 
         # THen we trigger ES proj computation :
-        with Log('projecting Explanation space', 1) as log:
+        with Log("projecting Explanation space", 1) as log:
             self.splash.set_proj_msg(
                 f"{AppConfig.ATK_DEFAULT_PROJECTION} on {self.data_store.X.shape}"
             )
             es_pb.set_log(log)
-            self.es_hde.initialize(progress_callback=es_pb,
-                                   X=self.exp_values.current_exp_df)
-        step = 'updating es rules'
+            self.es_hde.initialize(progress_callback=es_pb, X=self.exp_values.current_exp_df)
+        step = "updating es rules"
         with Log(step, 1):
             self.splash.set_proj_msg(step)
             self.tab1.refresh_X_exp()
-        step = 'refreshing rule_widget'
+        step = "refreshing rule_widget"
         with Log(step, 1):
             self.splash.set_proj_msg(step)
-            main_variables = self.exp_values.current_exp_df.abs().mean(
-            ).sort_values(ascending=False).iloc[:10].index
-            self.data_store.variables.set_main_variables(
-                main_variables.to_list())
+            main_variables = (
+                self.exp_values.current_exp_df.abs()
+                .mean()
+                .sort_values(ascending=False)
+                .iloc[:10]
+                .index
+            )
+            self.data_store.variables.set_main_variables(main_variables.to_list())
             self.tab1.initialize()
         self.select_tab(0)
-        self.disable_hde(self, 'compute_base_values')
+        self.disable_hde(self, "compute_base_values")
 
         if metadata.counter == 10:
             self.topbar.open()
@@ -265,10 +357,10 @@ class GUI:
         self.splash.widget.hide()
         self.widget.show()
         # redraw figures once app is displayed to be able to autosize it
-        with Log('refreshing figures', 2):
+        with Log("refreshing figures", 2):
             self.vs_hde.figure.rebuild()
             self.es_hde.figure.rebuild()
-        stats_logger.log('gui_init_end', {'load_time': time.time() - t})
+        stats_logger.log("gui_init_end", {"load_time": time.time() - t})
 
     def wire(self):
         """
@@ -287,11 +379,9 @@ class GUI:
 
     @log_errors
     @timeit
-    def explanation_changed_callback(self,
-                                     caller,
-                                     event,
-                                     progress_callback: Callable
-                                     | None = None):
+    def explanation_changed_callback(
+        self, caller, event, progress_callback: Callable | None = None
+    ):
         """
         on explanation change, synchronizes es_hde and tab1
         Parameters
@@ -310,11 +400,9 @@ class GUI:
 
     @log_errors
     @timeit
-    def disable_hde(self, caller, event, disable='auto'):
-        if disable == 'auto':
-
-            disable_proj = bool((self.tab_value == 0)
-                                and not self.data_store.empty_selection)
+    def disable_hde(self, caller, event, disable="auto"):
+        if disable == "auto":
+            disable_proj = bool((self.tab_value == 0) and not self.data_store.empty_selection)
             disable_figure = bool(self.tab_value > 1)
         else:
             disable_proj = disable
@@ -342,33 +430,31 @@ class GUI:
         if self.data_store.empty_selection:
             # Selection is empty
             if self.tab1.edit_type == self.tab1.CREATE_RULE:
-                self.select_tab(0, msg='unselect')
+                self.select_tab(0, msg="unselect")
                 self.tab1.reset()
             else:
-                self.select_tab(1, msg='unselect')
+                self.select_tab(1, msg="unselect")
                 # reset to tab1 region
                 self.tab1.refresh()
                 caller = None
                 stats_logger.log(
-                    'deselection', {
-                        'exp_method':
-                        self.exp_values.current_exp,
-                        'vs_proj':
-                        str(self.vs_hde.projected_value_selector.current_proj),
-                        'es_proj':
-                        str(self.es_hde.projected_value_selector.current_proj)
-                    })
+                    "deselection",
+                    {
+                        "exp_method": self.exp_values.current_exp,
+                        "vs_proj": str(self.vs_hde.projected_value_selector.current_proj),
+                        "es_proj": str(self.es_hde.projected_value_selector.current_proj),
+                    },
+                )
         else:
             stats_logger.log(
-                'selection_gui', {
-                    'exp_method':
-                    self.exp_values.current_exp,
-                    'vs_proj':
-                    str(self.vs_hde.projected_value_selector.current_proj),
-                    'es_proj':
-                    str(self.es_hde.projected_value_selector.current_proj)
-                })
-        self.disable_hde(self, 'selection_changed')
+                "selection_gui",
+                {
+                    "exp_method": self.exp_values.current_exp,
+                    "vs_proj": str(self.vs_hde.projected_value_selector.current_proj),
+                    "es_proj": str(self.es_hde.projected_value_selector.current_proj),
+                },
+            )
+        self.disable_hde(self, "selection_changed")
         if self.tab_value == 1:
             self.vs_hde.figure.display_rules()
             self.es_hde.figure.display_rules()
@@ -377,13 +463,30 @@ class GUI:
             self.es_hde.display_selection()
         if caller != self.tab1:
             self.tab1.refresh()
+        self.rules_display_toggle.refresh()
 
     # ==================== top bar ==================== #
 
     def dimension_update_callback(self, caller, dim):
         self.vs_hde.set_dim(dim)
         self.es_hde.set_dim(dim)
-        self.disable_hde(caller, 'dimension_changed')
+        self.disable_hde(caller, "dimension_changed")
+
+    def _toggle_rules_display(self):
+        """Toggle entre affichage règles et affichage valeurs (onglet Sélection)."""
+        if self.tab_value != 1:
+            return
+        self._rules_display_mode = not self._rules_display_mode
+        figure_tab = 1 if self._rules_display_mode else 0
+        self.vs_hde.set_tab(figure_tab)
+        self.es_hde.set_tab(figure_tab)
+        if self._rules_display_mode:
+            self.vs_hde.figure.display_rules()
+            self.es_hde.figure.display_rules()
+        else:
+            self.vs_hde.figure.display_selection()
+            self.es_hde.figure.display_selection()
+        self.rules_display_toggle.refresh()
 
     @log_errors
     def color_update_callback(self, caller, color):
@@ -393,54 +496,95 @@ class GUI:
         """
         self.vs_hde.figure.set_color(color, 0)
         self.es_hde.figure.set_color(color, 0)
-        self.select_tab(0, msg='color')
+        self.select_tab(0, msg="color")
 
     # ==================== TAB handling ==================== #
 
     def select_tab_front(self, tab):
-
         @log_errors
         def call_fct(*args):
-            with Log(f'front_tab_{tab}_selected', 2):
-                stats_logger.log('tab_selected', {'tab': tab})
-                self.select_tab(tab, front=True, msg='front')
+            with Log(f"front_tab_{tab}_selected", 2):
+                stats_logger.log("tab_selected", {"tab": tab})
+                self.select_tab(tab, front=True, msg="front")
 
         return call_fct
 
     @timeit
     def select_tab(self, tab, front=False, msg=None):
-        if tab == 1 and (self.data_store.empty_selection):
-            return self.select_tab(0)
+        if tab == 1:
+            # Restaurer les règles de la dernière région si le widget est vide (après validate)
+            self._restore_rules_if_needed()
+            # Rediriger vers tab 0 seulement si pas de règles à afficher (ni restaurées)
+            if self.data_store.empty_selection and len(self.tab1.vs_rules_wgt.current_rules_set) == 0:
+                return self.select_tab(0)
         elif tab == 2:
             # refresh region set display
             self.update_region_callback(self)
         elif tab == 3:
-            if self.tab3.region is not None:
+            # Update region selector with available regions
+            self.tab3._update_region_selector()
+            if self.tab3.is_batch_mode:
+                # Batch mode: widget already shown
+                pass
+            elif self.tab3.is_overview_mode or self.tab3.region is None:
+                # Show overview when no region selected
+                self.tab3._switch_to_overview_mode()
+            elif self.tab3.region is not None:
                 region = self.tab3.region
                 self.es_hde.figure.display_region(region)
                 self.vs_hde.figure.display_region(region)
-            else:
-                self.select_tab(2, msg='no region selected')
         if not front:
             self.widget.children[4].v_model = max(tab - 1, 0)
-        self.vs_hde.set_tab(tab)
-        self.es_hde.set_tab(tab)
+        # When tab 1 (Selection): show rules trace (1) or values trace (0) per _rules_display_mode
+        figure_tab = tab
+        if tab == 1:
+            figure_tab = 1 if self._rules_display_mode else 0
+        self.vs_hde.set_tab(figure_tab)
+        self.es_hde.set_tab(figure_tab)
         self.tab_value = tab
-        self.disable_hde(self, 'select_tab')
+        self.rules_display_toggle.refresh()
+        self.disable_hde(self, "select_tab")
 
     # ==================== TAB 1 ==================== #
 
+    def _restore_rules_if_needed(self):
+        """
+        Restaure les règles de la dernière région validée si le widget est vide.
+        Permet d'afficher les règles (et le toggle) après un retour sur l'onglet Sélection.
+        """
+        if len(self.tab1.vs_rules_wgt.current_rules_set) > 0:
+            return
+        region_set = self.data_store.region_set
+        if len(region_set.regions) == 0 or len(region_set.insert_order) == 0:
+            return
+        for num in reversed(region_set.insert_order):
+            if num == -1:
+                continue
+            region = region_set.get(num)
+            if region is not None and hasattr(region, "rules") and len(region.rules) > 0:
+                self.tab1.vs_rules_wgt.change_rules(region.rules, True)
+                self.data_store.rules_mask = region.rules.get_matching_mask(self.data_store.X)
+                self.vs_hde.figure.display_rules()
+                self.es_hde.figure.display_rules()
+                break
+
     @timeit
     def new_rule_selected_callback(self, caller, event: str):
-        if self.data_store.empty_selection:
-            # no selection mode - we edit keep the self selection mask clean
-            self.vs_hde.figure.display_selection()
-            self.es_hde.figure.display_selection()
-            self.select_tab(0, msg='new_rule')
-        else:
-            self.select_tab(1, msg='new_rule')
+        """Update global VS/ES figures when rules are edited (sliders)."""
+        has_rules = len(self.tab1.vs_rules_wgt.current_rules_set) > 0
+        if has_rules:
+            self.select_tab(1, msg="new_rule")
             self.vs_hde.figure.display_rules()
             self.es_hde.figure.display_rules()
+        else:
+            if self.data_store.empty_selection:
+                self.vs_hde.figure.display_selection()
+                self.es_hde.figure.display_selection()
+                self.select_tab(0, msg="new_rule")
+            else:
+                self.select_tab(1, msg="new_rule")
+                self.vs_hde.figure.display_selection()
+                self.es_hde.figure.display_selection()
 
     @timeit
     def validate_rules_callback(self, caller, event: str, region: Region):
@@ -467,14 +611,140 @@ class GUI:
         region.validate()
         self.data_store.region_set.add(region)
         self.tab2.update_region_table()
-        self.select_tab(2, msg='validate')
+        # Passer à l'onglet Tesselles et entraîner la nouvelle région
+        new_region = self.data_store.region_set.regions[
+            self.data_store.region_set.insert_order[-1]
+        ]
+        self.select_tab(3, msg="validate")
+        self.tab3.update_region(new_region, train=True)
+
+    @log_errors
+    @timeit
+    def retire_outliers_callback(self, outlier_mask):
+        """
+        Retire les outliers du dataset, reconstruit le region_set,
+        et régénère les graphes VS/ES (UMAP ou autre projection).
+        """
+        ds = self.data_store
+        inlier_mask = ~outlier_mask
+
+        # Filtrer les données
+        X_new = ds.X.loc[inlier_mask].copy()
+        y_new = ds.y.loc[inlier_mask].copy()
+        X_exp_new = ds.X_exp.loc[inlier_mask].copy() if ds.X_exp is not None else None
+        # X_test/y_test : filtrer si les index chevauchent X, sinon garder tel quel
+        X_test_new = ds.X_test
+        y_test_new = ds.y_test
+        if ds.X_test is not None and len(ds.X_test) > 0 and ds.X_test.index.isin(X_new.index).any():
+            X_test_new = ds.X_test.loc[ds.X_test.index.isin(X_new.index)].copy()
+        if ds.y_test is not None and len(ds.y_test) > 0 and ds.y_test.index.isin(y_new.index).any():
+            y_test_new = ds.y_test.loc[ds.y_test.index.isin(y_new.index)].copy()
+
+        # Mettre à jour le data_store
+        ds.X = X_new
+        ds.y = y_new
+        ds._X_exp = X_exp_new
+        ds.user_x_exp = X_exp_new
+        ds.X_test = X_test_new
+        ds.y_test = y_test_new
+        ds.X_scaled = None
+        ds._display_mask = None
+        ds._y_pred = None
+        ds.pv_bank.y = y_new
+        ds.pv_bank.projected_values.clear()
+        ds._selection_mask = boolean_mask(X_new, True)
+        ds._rules_mask = boolean_mask(X_new, True)
+        ds.empty_selection = True
+
+        # Nouveau region_set vide (toutes les régions sont perdues)
+        ds.region_set = ModelRegionSet(
+            ds.X, ds.y, ds.X_test, ds.y_test, ds.model, ds.score
+        )
+
+        # Mettre à jour les explications si disponibles (current_exp_df est une propriété dérivée)
+        if X_exp_new is not None and len(self.exp_values.available_exp) > 0:
+            key = self.exp_values.current_exp
+            self.exp_values.explanations[key] = X_exp_new
+
+        # Régénérer les projections VS et ES (UMAP/PACMAP recalculés sur les données sans outliers)
+        self._refresh_projections_after_outlier_removal()
+        notifications.success(
+            f"Outliers removed. VS/ES projections regenerated on {len(X_new):,} points.",
+            timeout=5000,
+        )
+
+        # Rafraîchir les onglets
+        self.tab1._region = Region(ds.X)
+        self.tab1.reset()
+        self.tab1.initialize()
+        self.tab2.update_region_table()
+        self.tab3._switch_to_overview_mode()
+        self.vs_hde.figure.display_regionset(ds.region_set)
+        self.es_hde.figure.display_regionset(ds.region_set)
+
+    def _on_refresh_projections_clicked(self, widget, event, data):
+        """Callback du bouton Rafraîchir VS/ES - recalcul des projections."""
+        self.refresh_projections(show_notification=True)
+
+    def refresh_projections(self, show_notification: bool = False):
+        """
+        Recalcule les projections VS et ES (UMAP/PACMAP) sur les données actuelles.
+        Utile après retrait d'outliers ou changement de données.
+        """
+        with Log("refreshing projections VS/ES", 1):
+            ds = self.data_store
+            if show_notification:
+                notifications.info(
+                    "Recalcul des projections UMAP/PACMAP en cours...",
+                    timeout=0,
+                )
+            # Forcer le recalcul en vidant le cache des projections
+            ds.pv_bank.projected_values.clear()
+            ds._display_mask = None
+            try:
+                self._refresh_projections_after_outlier_removal()
+                if show_notification:
+                    notifications.clear()
+                    notifications.success(
+                        "VS/ES projections regenerated (UMAP/PACMAP recalculated on current data)",
+                        timeout=5000,
+                    )
+            except Exception as e:
+                if show_notification:
+                    notifications.clear()
+                    notifications.error(f"Erreur lors du rafraîchissement: {e}", timeout=8000)
+                # Réactiver les sélecteurs en cas d'erreur
+                self.vs_hde.disable(False, False)
+                self.es_hde.disable(False, False)
+                raise
+
+    def _refresh_projections_after_outlier_removal(self):
+        """Régénère les projections UMAP/autre pour VS et ES sans splash."""
+        with Log("refreshing projections after outlier removal", 1):
+            # Scale VS
+            self.data_store.X_scaled = DimReducMethod.scale_value_space(
+                self.data_store.X, self.data_store.y, progress_callback=None
+            )
+            # Réinitialiser VS HDE
+            self.vs_hde.initialize(progress_callback=None, X=self.data_store.X_scaled)
+            # Réinitialiser ES HDE si X_exp disponible
+            X_exp = self.exp_values.current_exp_df
+            if X_exp is not None and len(X_exp) > 0:
+                self.es_hde.initialize(progress_callback=None, X=X_exp)
+                main_variables = (
+                    X_exp.abs().mean().sort_values(ascending=False).iloc[:10].index.tolist()
+                )
+                self.data_store.variables.set_main_variables(main_variables)
+            self.tab1.refresh_X_exp()
+            self.vs_hde.figure.rebuild()
+            self.es_hde.figure.rebuild()
 
     # ==================== TAB 2 ==================== #
 
     @timeit
     def edit_region_callback(self, caller, region):
         self.tab1.update_region(region)
-        self.select_tab(1, msg='edit_Region')
+        self.select_tab(1, msg="edit_Region")
         self.vs_hde.figure.display_rules()
         self.es_hde.figure.display_rules()
 
@@ -485,11 +755,29 @@ class GUI:
         self.tab2.update_region_table()
 
     @timeit
-    def substitute_model_callback(self, caller, region):
-        self.vs_hde.figure.display_region(region)
-        self.es_hde.figure.display_region(region)
-        self.select_tab(3, msg='substitute')
-        self.tab3.update_region(region)
+    def substitute_model_callback(self, caller, region_or_regions):
+        # Handle both single region and batch substitution
+        if isinstance(region_or_regions, list):
+            # Batch substitution - multiple regions
+            regions = region_or_regions
+            if len(regions) == 1:
+                # Single region in list - treat as single
+                region = regions[0]
+                self.vs_hde.figure.display_region(region)
+                self.es_hde.figure.display_region(region)
+                self.tab3.update_region(region)
+                self.select_tab(3, msg="substitute")
+            else:
+                # Multiple regions - start batch substitution
+                self.select_tab(3, msg="substitute_batch")
+                self.tab3.start_batch_substitution(regions)
+        else:
+            # Single region
+            region = region_or_regions
+            self.vs_hde.figure.display_region(region)
+            self.es_hde.figure.display_region(region)
+            self.tab3.update_region(region)
+            self.select_tab(3, msg="substitute")
 
     # ==================== TAB 3 ==================== #
 
@@ -498,11 +786,17 @@ class GUI:
     def model_validation_callback(self, *args):
         self.tab2.update_region_table()
         self.tab2.selected_regions = []
-        self.select_tab(2, msg='model_validated')
+        # Stay on Tesselles tab and return to overview list
+        self.tab3._switch_to_overview_mode()
+        self.select_tab(3, msg="model_validated")
 
     @timeit
     def display_model_data(self, region, y=None):
-        if y is None:
+        if region is None:
+            # Overview mode: display full regionset
+            self.vs_hde.figure.display_regionset(self.data_store.region_set)
+            self.es_hde.figure.display_regionset(self.data_store.region_set)
+        elif y is None:
             self.vs_hde.figure.display_region(region)
             self.es_hde.figure.display_region(region)
         else:

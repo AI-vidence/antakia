@@ -4,7 +4,6 @@ from antakia_core.utils import timeit
 
 
 class ProjectedValueBank:
-
     def __init__(self, y: pd.Series):
         self.projected_values: dict[int, ProjectedValues] = {}
         self.y = y

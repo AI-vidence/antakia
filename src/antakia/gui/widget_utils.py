@@ -1,5 +1,5 @@
-from ipywidgets.widgets import Widget
 import ipyvuetify as v
+from ipywidgets.widgets import Widget
 
 
 def get_widget(root_widget: Widget, address: str | list[int]) -> Widget:
@@ -19,9 +19,7 @@ def get_widget(root_widget: Widget, address: str | list[int]) -> Widget:
     try:
         return recursive_get_widget(root_widget, address)
     except:
-        raise IndexError(
-            f"Nothing found @{address} in this {root_widget.__class__.__name__}"
-        )
+        raise IndexError(f"Nothing found @{address} in this {root_widget.__class__.__name__}")
 
 
 def recursive_get_widget(root_widget: Widget, address: list[int]):
@@ -44,7 +42,7 @@ def change_widget(root_widget: Widget, address: str, new_widget):
     """
 
     if not address:
-        raise ValueError('must provide at least the parent widget')
+        raise ValueError("must provide at least the parent widget")
 
     parent_widget = get_widget(root_widget, address[:-1])
     new_children = list(parent_widget.children)

@@ -1,18 +1,15 @@
 from functools import partial
 from typing import Callable
 
-import numpy as np
-import pandas as pd
 import ipyvuetify as v
+import pandas as pd
 from antakia_core.data_handler import Rule
 from antakia_core.utils import boolean_mask, compute_step, timeit
-from plotly.graph_objs import Histogram, FigureWidget, Box
+from plotly.graph_objs import Box, FigureWidget, Histogram
 
-from antakia.config import AppConfig
 from antakia.gui.graphical_elements.rule_slider import RuleSlider
 from antakia.gui.helpers.data import DataStore
 from antakia.utils.logging_utils import Log
-from antakia.utils.other_utils import NotInitialized
 from antakia.utils.stats import log_errors
 
 
@@ -24,10 +21,16 @@ class RuleWidget:
     Attributes :
     """
 
-    def __init__(self, rule: Rule, data_store: DataStore, X: pd.DataFrame,
-                 values_space: bool, rule_updated_callback: Callable,
-                 _reset_expanded_callback: Callable):
-        '''
+    def __init__(
+        self,
+        rule: Rule,
+        data_store: DataStore,
+        X: pd.DataFrame,
+        values_space: bool,
+        rule_updated_callback: Callable,
+        _reset_expanded_callback: Callable,
+    ):
+        """
 
         Parameters
         ----------
@@ -39,7 +42,7 @@ class RuleWidget:
         init_rules_mask : reference rules mask
         selectable_mask : list of point that could be selected using the current rule
         rule_updated_callback : callable called on update
-        '''
+        """
         self.display_sliders: bool = values_space  # enable rule edit
         self.idx: float | None = None
         self.rule: Rule = rule
@@ -47,15 +50,15 @@ class RuleWidget:
         self.data_store: DataStore = data_store
         self.X_col = X.loc[:, rule.variable.column_name]
         self.values_space: bool = values_space
-        self.rule_updated_callback: Callable = partial(rule_updated_callback,
-                                                       self, 'updated')
-        self._reset_expanded_callback = partial(_reset_expanded_callback, self,
-                                                'expanded_switch', {})
+        self.rule_updated_callback: Callable = partial(rule_updated_callback, self, "updated")
+        self._reset_expanded_callback = partial(
+            _reset_expanded_callback, self, "expanded_switch", {}
+        )
         self.widget = None
         self.init_mask = boolean_mask(X, True)
         self.selectable_mask = boolean_mask(X, True)
         self._display_mask = None
-        self.type = 'auto'
+        self.type = "auto"
         self.expanded = False
         self.edited = True
         self._resolve_type()
@@ -74,139 +77,134 @@ class RuleWidget:
         self.select_widget = self._get_select_widget()
         # build figure
         self._build_figure()
-        self.title = v.ExpansionPanelHeader(class_="grey lighten-4",
-                                            children=[self._get_panel_title()])
+        self.title = v.ExpansionPanelHeader(
+            class_="grey lighten-4", children=[self._get_panel_title()]
+        )
 
         # root_widget is an ExpansionPanel
-        self.widget = v.ExpansionPanel(children=[
-            self.title,
-            v.ExpansionPanelContent(children=[]),
-        ])
-        self.widget.on_event('click', self.panel_changed_callback)
+        self.widget = v.ExpansionPanel(
+            children=[
+                self.title,
+                v.ExpansionPanelContent(children=[]),
+            ]
+        )
+        self.widget.on_event("click", self.panel_changed_callback)
 
         # The variable name bg (ExpansionPanelHeader) is light blue
         # get_widget(self.root_widget, "0").class_ = "blue lighten-4"
 
     @timeit
     def _resolve_type(self):
-        if self.type == 'auto':
+        if self.type == "auto":
             if self.X_col.nunique() > 15:
-                self.type = 'swarm'
+                self.type = "swarm"
             else:
-                self.type = 'histogram'
+                self.type = "histogram"
 
     @timeit
     def _build_figure(self):
         """
-        draw the histograms
-        Returns
-        -------
-
+        Draw histograms with background (all points) and foreground (selection).
+        
+        Shows:
+        - Grey semi-transparent histogram: all points in dataset
+        - Orange histogram: selected/region points
         """
-        _, colors_info = self._get_colors()
-        if self.type == 'histogram':
+        if self.type == "histogram":
             base_args = {
-                'bingroup': 1,
-                'nbinsx': 50,
+                "bingroup": 1,
+                "nbinsx": 50,
             }
-            h = []
-            for name, color in colors_info.items():
-                h.append(
-                    Histogram(name=name, x=[], marker_color=color,
-                              **base_args))
+            h = [
+                # Background: all points (grey, semi-transparent)
+                Histogram(
+                    name="All data",
+                    x=[],
+                    marker_color="rgba(180, 180, 180, 0.5)",
+                    **base_args,
+                ),
+                # Foreground: selected points (orange)
+                Histogram(
+                    name="Selection",
+                    x=[],
+                    marker_color="rgba(255, 140, 0, 0.8)",
+                    **base_args,
+                ),
+            ]
             self.figure = FigureWidget(data=h)
             self.figure.update_layout(
-                barmode="stack",
+                barmode="overlay",  # Overlay to show both
                 bargap=0.1,
-                # width=600,
                 showlegend=False,
-                margin={
-                    'l': 0,
-                    'r': 0,
-                    't': 0,
-                    'b': 0
-                },
+                margin={"l": 0, "r": 0, "t": 0, "b": 0},
                 height=200,
             )
         else:
+            # Swarm plot uses original color logic
+            _, colors_info = self._get_colors()
             swarm_plots = []
             for name, color in colors_info.items():
                 fig = self._get_swarm_plot(color, name)
                 # fig.update_yaxes(showticklabels=False)
                 swarm_plots.append(fig)
             self.figure = FigureWidget(data=swarm_plots)
-            self.figure.update_layout({
-                'boxgap': 0,
-                'boxmode': 'overlay',
-                # 'legend': {
-                #     'title': {
-                #         'text': None
-                #     }
-                # }
-            })
+            self.figure.update_layout(
+                {
+                    "boxgap": 0,
+                    "boxmode": "overlay",
+                    # 'legend': {
+                    #     'title': {
+                    #         'text': None
+                    #     }
+                    # }
+                }
+            )
             # data = pd.DataFrame([self.X_col, mask_color.replace({v: k for k, v in colors_info.items()})],
             #                     index=[self.X_col.name, 'color']).T
             #
             # fig = px.strip(data, x=self.X_col.name, color="color", stripmode='overlay', color_discrete_map=colors_info)
             # fig = fig.update_layout(boxgap=0).update_traces(jitter=1)
             # self.figure = FigureWidget(fig)
-        self.figure.update_layout({
-            'showlegend': False,
-            'legend': {
-                'title': {
-                    'text': None
-                }
-            },
-            'margin': {
-                't': 0,
-                'b': 0,
-                'l': 0,
-                'r': 0
-            },
-            'xaxis': {
-                'showticklabels': True,
-                'title': {
-                    'text': self.rule.variable.column_name
+        self.figure.update_layout(
+            {
+                "showlegend": False,
+                "legend": {"title": {"text": None}},
+                "margin": {"t": 0, "b": 0, "l": 0, "r": 0},
+                "xaxis": {
+                    "showticklabels": True,
+                    "title": {"text": self.rule.variable.column_name},
+                    "categoryorder": "category ascending",
                 },
-                'categoryorder': 'category ascending'
-            },
-            'yaxis': {
-                'showticklabels': False,
-                'title': {
-                    'text': 'selectable'
-                }
+                "yaxis": {"showticklabels": False, "title": {"text": "selectable"}},
             }
-        })
+        )
 
     @timeit
     def _get_swarm_plot(self, color, name):
-        box = Box({
-            'alignmentgroup': 'True',
-            'boxpoints': 'all',
-            'fillcolor': 'rgba(255,255,255,0)',
-            'hoveron': 'points',
-            'hovertemplate':
-            f'match={name}<br>{self.X_col.name}' + '=%{x}<extra></extra>',
-            'jitter': 1,
-            'legendgroup': name,
-            'line': {
-                'color': 'rgba(255,255,255,0)'
-            },
-            'marker': {
-                'color': color
-            },
-            'name': name,
-            'offsetgroup': name,
-            'orientation': 'h',
-            'pointpos': 0,
-            'showlegend': True,
-            'x': [],
-            'x0': ' ',
-            'xaxis': 'x',
-            'y': [],
-            'y0': ' ',
-            'yaxis': 'y'
-        })
+        box = Box(
+            {
+                "alignmentgroup": "True",
+                "boxpoints": "all",
+                "fillcolor": "rgba(255,255,255,0)",
+                "hoveron": "points",
+                "hovertemplate": f"match={name}<br>{self.X_col.name}" + "=%{x}<extra></extra>",
+                "jitter": 1,
+                "legendgroup": name,
+                "line": {"color": "rgba(255,255,255,0)"},
+                "marker": {"color": color},
+                "name": name,
+                "offsetgroup": name,
+                "orientation": "h",
+                "pointpos": 0,
+                "showlegend": True,
+                "x": [],
+                "x0": " ",
+                "xaxis": "x",
+                "y": [],
+                "y0": " ",
+                "yaxis": "y",
+            }
+        )
         return box
 
     @timeit
@@ -239,8 +237,7 @@ class RuleWidget:
             if self.rule.is_categorical_rule:
                 return v.Select(
                     label=self.rule.variable.display_name,
-                    items=self.X[
-                        self.rule.variable.column_name].unique().tolist(),
+                    items=self.X[self.rule.variable.column_name].unique().tolist(),
                     style_="width: 150px",
                     multiple=True,
                 )
@@ -256,15 +253,15 @@ class RuleWidget:
                 step,
                 value_min=current_min,
                 value_max=current_max,
-                change_callback=self._widget_value_changed)
+                change_callback=self._widget_value_changed,
+            )
 
             return self.slider.widget
         else:
             return v.Col()
 
     @timeit
-    def _get_select_widget_values(
-            self) -> tuple[float | None, float | None] | list[str]:
+    def _get_select_widget_values(self) -> tuple[float | None, float | None] | list[str]:
         """
         sets the selection values
         Returns
@@ -301,13 +298,18 @@ class RuleWidget:
             min_ = max_ = None
         else:
             min_, max_ = data
-        new_rule = Rule(self.rule.variable, min_, self.rule.includes_min, max_,
-                        self.rule.includes_max, cat_values)
+        new_rule = Rule(
+            self.rule.variable,
+            min_,
+            self.rule.includes_min,
+            max_,
+            self.rule.includes_max,
+            cat_values,
+        )
         self.rule = new_rule
 
         if self.values_space:
-            self.data_store.rules_mask = self.selectable_mask & self.rule(
-                self.X_col)
+            self.data_store.rules_mask = self.selectable_mask & self.rule(self.X_col)
 
         self._update_panel_title()
         self._update_data()
@@ -337,8 +339,8 @@ class RuleWidget:
     @timeit
     def update(self, selectable_mask: pd.Series, rule: Rule = None):
         """
-            used to update the display (sliders and histogram) to match the new rule
-            (called from outside th object to synchronize it)
+        used to update the display (sliders and histogram) to match the new rule
+        (called from outside th object to synchronize it)
         """
 
         if rule is not None:
@@ -352,24 +354,45 @@ class RuleWidget:
     @timeit
     def _update_expansion_panel(self):
         if self.expanded:
-            if self.display_sliders:
+            if self.display_sliders and hasattr(self, 'slider') and self.slider is not None:
                 min_val, max_val = self._get_select_widget_values()
                 self.slider.set_value(min_val, max_val)
             if self.edited:
                 self._update_data()
-            self.widget.children[1].children = [self.slider.widget, self.figure]
+            self.widget.children[1].children = [self.select_widget, self.figure]
         else:
             self.widget.children[1].children = []
 
     @timeit
     def _update_data(self):
-        mask_color, colors_info = self._get_colors()
+        """
+        Update histogram data:
+        - Trace 0 (grey): all points
+        - Trace 1 (orange): selected/region points
+        """
         with self.figure.batch_update():
-            for i, color in enumerate(colors_info.values()):
-                to_display = self.data_store.display_mask & (mask_color
-                                                             == color)
-                self.figure.data[i].x = self.X_col[to_display]
-                self.figure.data[i].y = self.selectable_mask[to_display]
+            if self.type == "histogram":
+                # All points (background)
+                all_points_mask = self.data_store.display_mask
+                all_points_mask = all_points_mask.reindex(self.X_col.index, fill_value=False).astype(bool)
+                self.figure.data[0].x = self.X_col[all_points_mask]
+                
+                # Selected points (foreground) - using selection or rules mask
+                selection_mask = self.data_store.selection_mask | self.data_store.rules_mask
+                selected_points_mask = self.data_store.display_mask & selection_mask
+                selected_points_mask = selected_points_mask.reindex(self.X_col.index, fill_value=False).astype(bool)
+                self.figure.data[1].x = self.X_col[selected_points_mask]
+            else:
+                # Swarm plot - use original logic
+                mask_color, colors_info = self._get_colors()
+                for i, color in enumerate(colors_info.values()):
+                    to_display = self.data_store.display_mask & (mask_color == color)
+                    # Align indices (handles mismatch after outlier removal)
+                    to_display = to_display.reindex(self.X_col.index, fill_value=False).astype(bool)
+                    # Align selectable_mask to to_display.index to avoid IndexingError
+                    sel_aligned = self.selectable_mask.reindex(to_display.index, fill_value=False).astype(bool)
+                    self.figure.data[i].x = self.X_col[to_display]
+                    self.figure.data[i].y = sel_aligned[to_display]
         self.edited = False
 
     @timeit
@@ -380,7 +403,7 @@ class RuleWidget:
 
     @timeit
     def panel_changed_callback(self, *args):
-        with Log('panel_changed_callback', 2):
+        with Log("panel_changed_callback", 2):
             self.expanded = not self.expanded
             self._reset_expanded_callback()
             self._update_expansion_panel()

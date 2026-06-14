@@ -2,22 +2,35 @@ from typing import Callable
 
 import numpy as np
 import pandas as pd
-from antakia_core.data_handler import ModelRegionSet, ModelRegion
-from antakia_core.utils import ProblemCategory, boolean_mask, get_mask_comparison_color, timeit
-from auto_cluster import DataVariables
+from antakia_core.data_handler import ModelRegionSet
+from antakia_core.utils import (
+    DataVariables,
+    ProblemCategory,
+    boolean_mask,
+    get_mask_comparison_color,
+    timeit,
+)
 
 from antakia.config import AppConfig
 from antakia.gui.high_dim_exp.projected_value_bank import ProjectedValueBank
 
 
 class DataStore:
-
     @timeit
-    def __init__(self, X: pd.DataFrame, y: pd.Series, variables: DataVariables,
-                 X_exp: pd.DataFrame | None, X_test: pd.DataFrame | None,
-                 y_test: pd.Series | None, model,
-                 problem_category: ProblemCategory, score: Callable | str):
+    def __init__(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        variables: DataVariables,
+        X_exp: pd.DataFrame | None,
+        X_test: pd.DataFrame | None,
+        y_test: pd.Series | None,
+        model,
+        problem_category: ProblemCategory,
+        score: Callable | str,
+    ):
         self.X = X
+        self.n_initial_points = len(X)  # Count before any outlier removal
         self.X_scaled: pd.DataFrame | None = None
         self.user_x_exp = X_exp
         self._X_exp = X_exp
@@ -34,10 +47,12 @@ class DataStore:
         self.empty_selection = True
         self._rules_mask = boolean_mask(X, True)
         self._rule_selection_color = get_mask_comparison_color(
-            self._rules_mask, self._selection_mask)
+            self._rules_mask, self._selection_mask
+        )
 
-        self.region_set = ModelRegionSet(self.X, self.y, self.X_test,
-                                         self.y_test, self.model, self.score)
+        self.region_set = ModelRegionSet(
+            self.X, self.y, self.X_test, self.y_test, self.model, self.score
+        )
         self.pv_bank = ProjectedValueBank(self.y)
         self._display_mask: pd.Series | None = None
 
@@ -45,9 +60,7 @@ class DataStore:
     def y_pred(self):
         if self._y_pred is None:
             pred = self.model.predict(self.X)
-            if self.problem_category in [
-                    ProblemCategory.classification_with_proba
-            ]:
+            if self.problem_category in [ProblemCategory.classification_with_proba]:
                 pred = self.model.predict_proba(self.X)
 
             if len(pred.shape) > 1:
@@ -86,10 +99,12 @@ class DataStore:
     def _compute_rule_selection_color(self):
         if self.empty_selection:
             self._rule_selection_color = get_mask_comparison_color(
-                self._rules_mask, self._rules_mask)
+                self._rules_mask, self._rules_mask
+            )
         else:
             self._rule_selection_color = get_mask_comparison_color(
-                self._rules_mask, self._selection_mask)
+                self._rules_mask, self._selection_mask
+            )
 
     @property
     def rules_mask(self) -> pd.Series:
@@ -127,13 +142,26 @@ class DataStore:
         if self._display_mask is None:
             limit = int(AppConfig.ATK_MAX_DOTS)
             if len(self.X) > limit:
-                self._display_mask = pd.Series([False] * len(self.X),
-                                               index=self.X.index)
-                indices = np.random.choice(self.X.index,
-                                           size=limit,
-                                           replace=False)
+                self._display_mask = pd.Series([False] * len(self.X), index=self.X.index)
+                indices = np.random.choice(self.X.index, size=limit, replace=False)
                 self._display_mask.loc[indices] = True
             else:
-                self._display_mask = pd.Series([True] * len(self.X),
-                                               index=self.X.index)
+                self._display_mask = pd.Series([True] * len(self.X), index=self.X.index)
         return self._display_mask
+
+    def get_archetype_idx(self):
+        """
+        Compute archetype (typical point) index: point closest to centroid of selection.
+        Returns None if no selection or empty selection.
+        """
+        import numpy as np
+
+        mask = self._selection_mask
+        if mask.sum() == 0:
+            return None
+        X_sel = self.X.loc[mask]
+        if len(X_sel) == 1:
+            return X_sel.index[0]
+        centroid = X_sel.mean().values
+        distances = np.linalg.norm(X_sel.values - centroid, axis=1)
+        return X_sel.index[distances.argmin()]

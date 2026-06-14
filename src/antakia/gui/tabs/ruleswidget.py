@@ -1,14 +1,12 @@
 from __future__ import annotations
+
 from functools import partial
 from typing import Callable
 
-import pandas as pd
 import ipyvuetify as v
-
+import pandas as pd
 from antakia_core.data_handler import Rule, RuleSet
-
-from antakia_core.utils import boolean_mask, timeit
-from antakia_core.utils import Variable
+from antakia_core.utils import Variable, boolean_mask, timeit
 
 from antakia.gui.helpers.data import DataStore
 from antakia.gui.tabs.rule_wgt import RuleWidget
@@ -66,8 +64,7 @@ class RulesWidget:
         self.data_store = data_store
         self.is_value_space = values_space
         if update_callback is not None:
-            self.update_callback: Callable | None = partial(
-                update_callback, self)
+            self.update_callback: Callable | None = partial(update_callback, self)
         else:
             self.update_callback = None
 
@@ -84,15 +81,11 @@ class RulesWidget:
 
     # ------------------- widget init -------------#
     def _build_widget(self):
-        self._title_wgt = v.Html(class_="ml-3",
-                                 tag="h2",
-                                 children=["not initialized"])
+        self._title_wgt = v.Html(class_="ml-3", tag="h2", children=["not initialized"])
         self._stats_wgt = v.Html(  # 431001 / 01
-            class_="ml-7",
-            tag="li",
-            children=["not initialized"])
-        self._rules_txt_wgt = v.Html(  # 431002 / 02
-            class_="ml-7", tag="li", children=['N/A'])
+            class_="ml-7", tag="li", children=["not initialized"]
+        )
+        self._rules_txt_wgt = v.Html(class_="ml-7", tag="li", children=["N/A"])  # 431002 / 02
 
         self._region_stat_card = v.Col(  # 43100 / 0
             children=[
@@ -100,15 +93,16 @@ class RulesWidget:
                     children=[
                         v.Icon(children=["mdi-target"]),  #
                         self._title_wgt,
-                    ]),
+                    ]
+                ),
                 self._stats_wgt,
                 self._rules_txt_wgt,
-            ])
+            ]
+        )
         self._rules_widgets = v.ExpansionPanels(  # Holds VS RuleWidgets  # 43101 / 1
             style_="max-width: 95%",
-            children=[
-                rw.widget for rw in self.rule_widget_collection.values()
-            ])
+            children=[rw.widget for rw in self.rule_widget_collection.values()],
+        )
         self.widget = v.Col(  # placeholder for the VS RulesWidget (RsW) # 4310
             class_="col-6",
             children=[self._region_stat_card, self._rules_widgets],
@@ -131,8 +125,7 @@ class RulesWidget:
         self._rules_widgets.children = []
         if self.rule_data is not None:
             for variable in self.data_store.variables.variables.values():
-                if variable.main_feature or self.current_rules_set.get_rule(
-                        variable) is not None:
+                if variable.main_feature or self.current_rules_set.get_rule(variable) is not None:
                     self._add_rule_widget(variable)
 
     @property
@@ -145,25 +138,32 @@ class RulesWidget:
 
     def _add_rule_widget(self, variable: Variable):
         if self.rule_data is not None:
-            rw = RuleWidget(Rule(variable), self.data_store, self.rule_data,
-                            self.is_value_space, self.sync_rule_widgets,
-                            self._reset_expanded_callback)
+            rw = RuleWidget(
+                Rule(variable),
+                self.data_store,
+                self.rule_data,
+                self.is_value_space,
+                self.sync_rule_widgets,
+                self._reset_expanded_callback,
+            )
             self.rule_widget_collection[variable] = rw
 
     def _reorder_rule_widgets(self, all: bool = False):
         # TODO desactiviate if slow
         rule_widgets = list(self.rule_widget_collection.values())
         if all:
-            rule_widgets.sort(
-                key=lambda x: x.rule.get_matching_mask(self.rule_data).mean())
+            rule_widgets.sort(key=lambda x: x.rule.get_matching_mask(self.rule_data).mean())
             for i, rw in enumerate(rule_widgets):
                 if rw.rule.rule_type >= 0:
                     rw.idx = i / len(rule_widgets)
                 else:
                     break
         else:
-            rule_widgets.sort(key=lambda x: x.idx if x.idx is not None else 1 +
-                              x.rule.get_matching_mask(self.rule_data).mean())
+            rule_widgets.sort(
+                key=lambda x: x.idx
+                if x.idx is not None
+                else 1 + x.rule.get_matching_mask(self.rule_data).mean()
+            )
             for i, rw in enumerate(rule_widgets):
                 if rw.rule.rule_type >= 0 and not rw.idx:
                     rw.idx = i / len(rule_widgets)
@@ -194,19 +194,20 @@ class RulesWidget:
         if self.data_store.selection_mask is None or self.is_disabled:
             scores_txt = "Precision = n/a, recall = n/a, f1_score = n/a"
             css = "ml-7 grey--text"
-        elif current_scores_dict['num_points'] == 0:
+        elif current_scores_dict["num_points"] == 0:
             scores_txt = "No point of the dataset matches the new rules"
             css = "ml-7 red--text"
         else:
             precision, recall, f1, target_avg = (
-                current_scores_dict['precision'],
-                current_scores_dict['recall'],
-                current_scores_dict['f1'],
-                current_scores_dict['target_avg'],
+                current_scores_dict["precision"],
+                current_scores_dict["recall"],
+                current_scores_dict["f1"],
+                current_scores_dict["target_avg"],
             )
             scores_txt = (
-                f"Precision : {precision:.2f}, recall :{recall:.2f} ," +
-                f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}")
+                f"Precision : {precision:.2f}, recall :{recall:.2f} ,"
+                + f" f1_score : {f1:.2f}, target_avg : {target_avg:.2f}"
+            )
             css = "ml-7 black--text"
         self._stats_wgt.children = [scores_txt]
         self._stats_wgt.class_ = css
@@ -218,7 +219,7 @@ class RulesWidget:
         -------
 
         """
-        if (len(self.current_rules_set) == 0 or self.is_disabled):
+        if len(self.current_rules_set) == 0 or self.is_disabled:
             rules_txt = "N/A"
             css = "ml-7 grey--text"
         else:
@@ -251,7 +252,8 @@ class RulesWidget:
         for var, rule_wgt in self.rule_widget_collection.items():
             rule_wgt.update(
                 selectable_masks.get(var, self.data_store.rules_mask),
-                self.current_rules_set.get_rule(var))
+                self.current_rules_set.get_rule(var),
+            )
         self._reorder_rule_widgets()
 
     def refresh(self):
@@ -333,9 +335,7 @@ class RulesWidget:
         """
         res = {}
         for rule in self.current_rules_set.rules.values():
-            rules_minus_r = [
-                r for r in self.current_rules_set.rules.values() if r != rule
-            ]
+            rules_minus_r = [r for r in self.current_rules_set.rules.values() if r != rule]
             mask = RuleSet(rules_minus_r).get_matching_mask(self.X)
             res[rule.variable] = mask
         return res
@@ -378,12 +378,11 @@ class RulesWidget:
         # We remove last rules item from the db and update rule mask:
         if len(self.rules_history) > 1:
             self.rules_history.pop(-1)
-            self.data_store.rules_mask = self.current_rules_set.get_matching_mask(
-                self.X)
+            self.data_store.rules_mask = self.current_rules_set.get_matching_mask(self.X)
 
         # We notify the parent class and tell there are new rules to draw if necessary
         if self.update_callback is not None:
-            self.update_callback('undo')
+            self.update_callback("undo")
 
     @property
     def current_rules_set(self) -> RuleSet:
@@ -424,11 +423,11 @@ class RulesWidget:
         f1 = 2 * (precision * recall) / (precision + recall)
 
         return {
-            'num_points': rules_mask.sum(),
-            'target_avg': self.data_store.y[rules_mask].mean(),
-            'precision': precision,
-            'recall': recall,
-            'f1': f1
+            "num_points": rules_mask.sum(),
+            "target_avg": self.data_store.y[rules_mask].mean(),
+            "precision": precision,
+            "recall": recall,
+            "f1": f1,
         }
 
     @property
