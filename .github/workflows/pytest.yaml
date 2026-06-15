@@ -17,8 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - uses: astral-sh/setup-uv@v5
-      - name: Install and test
-        run: |
-          uv pip install --system "antakia==0.5.1" pytest pytest-cov mock
-          python -m pytest --cov=antakia --cov-report term-missing tests
+      - name: Install dependencies
+        run: bash .github/ci/install-deps.sh
+      - name: Install test tools
+        run: pip install mock pytest pytest-cov
+      - name: Run pytest
+        run: python -m pytest --cov=antakia --cov-report term-missing tests

@@ -17,8 +17,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install antakia and pylint
-        run: |
-          pip install "antakia==0.5.1" pylint
-      - name: Lint installed package
+      - name: Install dependencies
+        run: bash .github/ci/install-deps.sh
+      - name: Install pylint
+        run: pip install pylint
+      - name: Lint source
         run: pylint src/antakia --disable=C,R || true
