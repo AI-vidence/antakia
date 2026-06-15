@@ -14,18 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: AI-vidence/sope-rules-antakia
-          ref: v0.1.0
-          path: _deps/sope-rules-antakia
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/checkout@v4
-        with:
-          repository: AI-vidence/antakia-core
-          ref: release/0.4.9
-          path: _deps/antakia-core
-          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
