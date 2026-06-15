@@ -173,7 +173,7 @@ class TopBar:
 
     def get_version_text(self):
         # Override to show RC version for local development
-        display_version = "5.1 RC"
+        display_version = "6.0 RC7"
 
         if metadata.is_latest_version():
             return f"v{display_version}"

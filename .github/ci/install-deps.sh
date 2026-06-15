@@ -20,7 +20,7 @@ install_skope_rules() {
 }
 
 install_antakia_core() {
-  if pip install "antakia-core>=0.4.10,<0.5" 2>/dev/null; then
+  if pip install "antakia-core>=0.4.11,<0.5" 2>/dev/null; then
     echo "antakia-core installé depuis PyPI"
     return
   fi

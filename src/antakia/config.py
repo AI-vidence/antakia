@@ -21,6 +21,9 @@ class AppConfig:
     # Auto cluster
     ATK_MIN_POINTS_NUMBER = 100
 
+    # RC7 — règles descriptives multi-view (VS + ES conjoint)
+    ATK_MULTIVIEW_RULES_DEFAULT = os.environ.get("ATK_MULTIVIEW_RULES", "True") == "True"
+
     # Substitution tab — Feature Importance (nombreuses variables)
     ATK_FI_TOP_N = int(os.environ.get("ATK_FI_TOP_N", 25))
     ATK_FI_BAR_HEIGHT = int(os.environ.get("ATK_FI_BAR_HEIGHT", 20))

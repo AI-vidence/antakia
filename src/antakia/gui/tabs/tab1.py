@@ -4,11 +4,16 @@ from typing import Callable, Optional
 import ipyvuetify as v
 import numpy as np
 import pandas as pd
-from antakia_core.compute.skope_rule.skope_rule import skope_rules
+from antakia.gui.helpers.skope_multiview import (
+    find_descriptive_rules,
+    format_multiview_status,
+    multiview_available,
+)
 from antakia_core.data_handler import Region, RuleSet
 from antakia_core.utils import format_data, timeit
 from sklearn.ensemble import IsolationForest
 
+from antakia.config import AppConfig
 from antakia.gui.components.beeswarm_plot import BeeswarmPlot
 from antakia.gui.components.feature_dual_view import FeatureDualView
 from antakia.gui.components.styled_data_table import StyledDataTable
@@ -196,6 +201,36 @@ class Tab1:
             self._do_compute_skope_rules,
             delay_seconds=0.6,
         )
+        self._multiview_meta = None
+
+        self.multiview_rules_checkbox = v.Checkbox(
+            v_model=self.data_store.multiview_rules_enabled,
+            label="Multi-view RC7",
+            dense=True,
+            hide_details=True,
+            class_="ma-1",
+        )
+        self.multiview_mode_select = v.Select(
+            v_model=self.data_store.multiview_rules_mode,
+            items=[
+                {"text": "VS∧ES conjoint (recommandé)", "value": "conjoint"},
+                {"text": "VS seul", "value": "vs_only"},
+                {"text": "ES seul", "value": "es_only"},
+            ],
+            dense=True,
+            hide_details=True,
+            style_="max-width: 220px;",
+            class_="ma-1",
+            disabled=not self.data_store.multiview_rules_enabled
+            or not multiview_available(self.data_store.X_exp),
+        )
+        self.multiview_status = v.Html(
+            tag="span",
+            class_="ml-2 grey--text text-caption",
+            children=[""],
+        )
+        self.multiview_rules_checkbox.on_event("change", self._on_multiview_rules_toggle)
+        self.multiview_mode_select.on_event("change", self._on_multiview_mode_changed)
         
         # Toggle Vue globale / Vue par feature
         self.view_mode_toggle = v.BtnToggle(
@@ -345,6 +380,9 @@ class Tab1:
                     ),
                     self.view_mode_toggle,
                     self.auto_rules_checkbox,
+                    self.multiview_rules_checkbox,
+                    self.multiview_mode_select,
+                    self.multiview_status,
                     self.find_rule_progress,
                     self.cancel_btn,
                     self.undo_btn,
@@ -428,6 +466,9 @@ class Tab1:
     def initialize(self):
         self.vs_rules_wgt.initialize()
         self.es_rules_wgt.initialize()
+        self.multiview_rules_checkbox.v_model = self.data_store.multiview_rules_enabled
+        self.multiview_mode_select.v_model = self.data_store.multiview_rules_mode
+        self._refresh_multiview_controls()
         self._refresh_points_count()
 
     @property
@@ -616,6 +657,7 @@ class Tab1:
         self.es_rules_wgt.refresh()
         self._refresh_beeswarm_content()
         self._refresh_feature_dual_content()
+        self._refresh_multiview_controls()
 
     def _on_view_mode_changed(self, widget, event, data):
         """Switch between global view (rules + data) and feature view (dual ES|VS)."""
@@ -693,6 +735,60 @@ class Tab1:
         """Called by realtime rules debouncer."""
         self.compute_skope_rules()
     
+    def _on_multiview_rules_toggle(self, widget, event, data):
+        enabled = bool(self.multiview_rules_checkbox.v_model)
+        self.data_store.multiview_rules_enabled = enabled
+        es_ok = multiview_available(self.data_store.X_exp)
+        self.multiview_mode_select.disabled = not enabled or not es_ok
+        if enabled and not es_ok:
+            self.multiview_status.children = [
+                "Multi-view : calculez les explications (ES) d'abord"
+            ]
+
+    def _on_multiview_mode_changed(self, widget, event, data):
+        mode = self.multiview_mode_select.v_model or "conjoint"
+        self.data_store.multiview_rules_mode = mode
+        if self._multiview_meta and self.data_store.multiview_rules_enabled:
+            self._apply_multiview_from_cache(mode)
+
+    def _apply_multiview_from_cache(self, mode: str):
+        from antakia.gui.helpers.skope_multiview import apply_multiview_mode
+
+        vs_rules, es_rules, score = apply_multiview_mode(
+            self.vs_rules_wgt.current_rules_set,
+            self.es_rules_wgt.current_rules_set,
+            self._multiview_meta,
+            mode,
+        )
+        self.vs_rules_wgt.change_rules(vs_rules, False)
+        self.es_rules_wgt.change_rules(es_rules, False)
+        self._update_rules_mask(vs_rules, es_rules)
+        self.multiview_status.children = [format_multiview_status({**score, "multiview": True, "multiview_mode": mode})]
+        self.refresh()
+        self.update_callback()
+
+    def _update_rules_mask(self, vs_rules: RuleSet, es_rules: RuleSet):
+        if (
+            self.data_store.multiview_rules_enabled
+            and multiview_available(self.data_store.X_exp)
+            and len(es_rules) > 0
+        ):
+            self.data_store.rules_mask = vs_rules.get_matching_mask(
+                self.data_store.X
+            ) & es_rules.get_matching_mask(self.data_store.X_exp)
+        else:
+            self.data_store.rules_mask = vs_rules.get_matching_mask(self.data_store.X)
+
+    def _refresh_multiview_controls(self):
+        es_ok = multiview_available(self.data_store.X_exp)
+        enabled = bool(self.data_store.multiview_rules_enabled)
+        self.multiview_rules_checkbox.v_model = enabled
+        self.multiview_mode_select.disabled = not enabled or not es_ok
+        if enabled and not es_ok:
+            self.multiview_status.children = [
+                "Multi-view : ES indisponible — mode VS seul"
+            ]
+
     @log_errors
     @timeit
     def compute_skope_rules(self, *args):
@@ -701,25 +797,26 @@ class Tab1:
             self.find_rule_progress.indeterminate = True
             self.find_rules_btn.disabled = True
             try:
-                # compute es rules for info only
-                es_skr_rules_set, _ = skope_rules(
-                    self.data_store.selection_mask,
-                    self.data_store.X_exp,
-                    variables=self.data_store.variables,
-                )
-                self.es_rules_wgt.change_rules(es_skr_rules_set, False)
-                # compute rules on vs space
-                skr_rules_set, skr_score_dict = skope_rules(
+                mode = self.multiview_mode_select.v_model or "conjoint"
+                vs_rules, es_rules, score_dict, meta = find_descriptive_rules(
                     self.data_store.selection_mask,
                     self.data_store.X,
+                    self.data_store.X_exp,
                     variables=self.data_store.variables,
+                    multiview=self.data_store.multiview_rules_enabled,
+                    mode=mode,
                 )
-                self.data_store.rules_mask = skr_rules_set.get_matching_mask(self.data_store.X)
-                skr_score_dict["target_avg"] = self.data_store.y[self.data_store.selection_mask].mean()
-                self.vs_rules_wgt.change_rules(skr_rules_set, False)
+                self._multiview_meta = meta
+                self._update_rules_mask(vs_rules, es_rules)
+                score_dict["target_avg"] = self.data_store.y[
+                    self.data_store.selection_mask
+                ].mean()
+                self.vs_rules_wgt.change_rules(vs_rules, False)
+                self.es_rules_wgt.change_rules(es_rules, False)
+                self.multiview_status.children = [format_multiview_status(score_dict)]
                 self.refresh()
                 self.update_callback()
-                stats_logger.log("find_rules", skr_score_dict)
+                stats_logger.log("find_rules", score_dict)
             finally:
                 self._computing_rules = False
                 self.find_rules_btn.disabled = False

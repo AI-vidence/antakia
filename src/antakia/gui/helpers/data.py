@@ -34,6 +34,8 @@ class DataStore:
         self.X_scaled: pd.DataFrame | None = None
         self.user_x_exp = X_exp
         self._X_exp = X_exp
+        self.multiview_rules_enabled = AppConfig.ATK_MULTIVIEW_RULES_DEFAULT
+        self.multiview_rules_mode = "conjoint"
         self.variables = variables
         self.y = y
         self.X_test = X_test

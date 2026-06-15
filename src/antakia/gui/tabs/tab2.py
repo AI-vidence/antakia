@@ -5,7 +5,7 @@ import ipyvuetify as v
 import ipywidgets as widgets
 import numpy as np
 import pandas as pd
-from antakia_core.compute.skope_rule.skope_rule import skope_rules
+from antakia.gui.helpers.skope_multiview import find_descriptive_rules
 from antakia_core.data_handler import RegionSet
 from sklearn.ensemble import IsolationForest
 
@@ -281,6 +281,12 @@ class Tab2:
         self.auto_cluster_checkbox = v.Checkbox(  # 440211
             class_="px-3", v_model=True, label="Automatic number of clusters"
         )
+        self.multiview_rules_checkbox = v.Checkbox(
+            class_="px-3",
+            v_model=self.data_store.multiview_rules_enabled,
+            label="Règles descriptives multi-view (RC7)",
+        )
+        self.multiview_rules_checkbox.on_event("change", self._on_multiview_rules_toggle)
         self.auto_cluster_progress = v.ProgressLinear(  # 440212
             style_="width: 100%",
             class_="px-3",
@@ -498,6 +504,7 @@ class Tab2:
                                         children=["Number of clusters you expect to find"],
                                     ),
                                     self.auto_cluster_checkbox,
+                                    self.multiview_rules_checkbox,
                                     self.auto_cluster_progress,
                                 ],
                             ),
@@ -708,6 +715,11 @@ class Tab2:
             return "⚠⚠"  # High risk
 
     @log_errors
+    def _on_multiview_rules_toggle(self, widget, event, data):
+        self.data_store.multiview_rules_enabled = bool(
+            self.multiview_rules_checkbox.v_model
+        )
+
     def checkbox_auto_cluster_clicked(self, widget, event, data):
         """
         Called when the user clicks on the 'auto-cluster' checkbox
@@ -1146,8 +1158,17 @@ class Tab2:
                 else:
                     mask |= region.mask
 
-            # compute skope rules
-            skr_rules_list, _ = skope_rules(mask, self.data_store.X, self.data_store.variables)
+            # compute descriptive rules (multi-view RC7 si activé)
+            vs_rules, _, score_dict, _ = find_descriptive_rules(
+                mask,
+                self.data_store.X,
+                self.data_store.X_exp,
+                variables=self.data_store.variables,
+                multiview=self.data_store.multiview_rules_enabled,
+                mode=self.data_store.multiview_rules_mode,
+            )
+            skr_rules_list = vs_rules
+            stats_logger.log("merge_region_rules", score_dict)
 
             # delete regions
             for region in selected_regions:
