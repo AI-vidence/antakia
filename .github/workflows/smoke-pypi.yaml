@@ -14,17 +14,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install release wheel from PyPI (no-deps workaround)
+      - name: Install release from PyPI and smoke import
         run: |
           VER="${{ github.event.release.tag_name }}"
           VER="${VER#v}"
           echo "Smoke test antakia==${VER}"
           pip install -U pip
           pip install "numba>=0.59" "llvmlite>=0.42" --only-binary=numba,llvmlite
-          pip install \
-            "numpy>=2" "shap==0.51.0" "pandas>=2.2,<3" "scikit-learn>=1.4,<2" scipy \
-            "interpret>=0.6" "lime>=0.2,<0.3" "pygam>=0.9" "umap-learn>=0.5.5,<0.6"
-          pip install "antakia-core==0.4.8" "skope-rules-temp==0.2.6" "antakia-ac==0.2.14" --no-deps
-          pip install "ipyvuetify<1.9" ipywidgets "plotly<=5.19" python-dotenv requests pdpbox kaleido xhtml2pdf
-          pip install "antakia==${VER}" --no-deps
+          pip install "sope-rules-antakia @ git+https://github.com/AI-vidence/sope-rules-antakia.git@v0.1.0"
+          pip install "antakia==${VER}" pytest
           python -c "import antakia; print('OK', antakia.__version__)"
