@@ -1,0 +1,33 @@
+name: Publish skope-rules-antakia to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag ou branche skope-rules-antakia"
+        required: false
+        default: "v0.1.2"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: AI-vidence/skope-rules-antakia
+          ref: ${{ inputs.ref }}
+          path: skope-rules-antakia
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install poetry
+      - working-directory: skope-rules-antakia
+        run: poetry build
+      - uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          packages-dir: skope-rules-antakia/dist/
