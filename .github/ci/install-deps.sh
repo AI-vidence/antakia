@@ -5,22 +5,22 @@ set -euo pipefail
 pip install -U pip
 pip install "numba>=0.59" "llvmlite>=0.42" --only-binary=numba,llvmlite
 
-install_sope_rules() {
-  if pip install "sope-rules-antakia>=0.1.1" 2>/dev/null; then
-    echo "sope-rules-antakia installé depuis PyPI"
+install_skope_rules() {
+  if pip install "skope-rules-antakia>=0.1.2" 2>/dev/null; then
+    echo "skope-rules-antakia installé depuis PyPI"
     return
   fi
-  if [ -d _deps/sope-rules-antakia ]; then
-    echo "Fallback checkout local: sope-rules-antakia"
-    pip install ./_deps/sope-rules-antakia
+  if [ -d _deps/skope-rules-antakia ]; then
+    echo "Fallback checkout local: skope-rules-antakia"
+    pip install ./_deps/skope-rules-antakia
     return
   fi
-  echo "ERREUR: sope-rules-antakia absent de PyPI et pas de checkout _deps/"
+  echo "ERREUR: skope-rules-antakia absent de PyPI et pas de checkout _deps/"
   exit 1
 }
 
 install_antakia_core() {
-  if pip install "antakia-core>=0.4.9,<0.5" 2>/dev/null; then
+  if pip install "antakia-core>=0.4.10,<0.5" 2>/dev/null; then
     echo "antakia-core installé depuis PyPI"
     return
   fi
@@ -29,11 +29,11 @@ install_antakia_core() {
     pip install -e _deps/antakia-core --no-deps
     return
   fi
-  echo "ERREUR: antakia-core>=0.4.9 absent de PyPI et pas de checkout _deps/"
+  echo "ERREUR: antakia-core>=0.4.10 absent de PyPI et pas de checkout _deps/"
   exit 1
 }
 
-install_sope_rules
+install_skope_rules
 
 pip install \
   "numpy>=2" \

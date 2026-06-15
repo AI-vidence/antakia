@@ -21,6 +21,6 @@ jobs:
           echo "Smoke test antakia==${VER}"
           pip install -U pip
           pip install "numba>=0.59" "llvmlite>=0.42" --only-binary=numba,llvmlite
-          pip install "sope-rules-antakia>=0.1.1" || pip install "sope-rules-antakia @ git+https://github.com/AI-vidence/sope-rules-antakia.git@v0.1.1"
+          pip install "skope-rules-antakia>=0.1.2" || pip install "skope-rules-antakia @ git+https://github.com/AI-vidence/skope-rules-antakia.git@v0.1.2"
           pip install "antakia==${VER}" pytest
           python -c "import antakia; print('OK', antakia.__version__)"
