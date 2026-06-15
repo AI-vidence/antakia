@@ -1,12 +1,12 @@
 [project]
 name = "antakia"
-version = "0.5.0"
+version = "0.5.1"
 description = "AI made Xplainable"
 requires-python = ">=3.10,<3.12"
 
 [tool.poetry]
 name = "antakia"
-version = "0.5.0"
+version = "0.5.1"
 description = "AI made Xplainable"
 readme = "README.md"
 authors = [
