@@ -1,8 +1,8 @@
-from ipywidgets.widgets import Widget
 import ipyvuetify as v
+from ipywidgets.widgets import Widget
 
 
-def get_widget(root_widget: Widget, address: str) -> Widget:
+def get_widget(root_widget: Widget, address: str | list[int]) -> Widget:
     """
     Returns a sub widget of root_widget. Address is a sequence of childhood ranks as a string
     Return sub_widget may be modified, it's still the same sub_widget of the root_widget
@@ -35,8 +35,14 @@ def recursive_get_widget(root_widget: Widget, address: list[int]):
 
 
 def change_widget(root_widget: Widget, address: str, new_widget):
+    """
+    Substitutes a sub_widget in a root_widget.
+    Address is a sequence of childhood ranks as a string, root_widget first child address is  '0'
+    The root_widget is altered but the object remains the same
+    """
+
     if not address:
-        raise ValueError('must provide at least the parent widget')
+        raise ValueError("must provide at least the parent widget")
 
     parent_widget = get_widget(root_widget, address[:-1])
     new_children = list(parent_widget.children)

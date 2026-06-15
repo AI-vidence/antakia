@@ -1,28 +1,22 @@
 from __future__ import annotations
 
-from typing import List, Dict, Any
+from typing import Any, Callable, Dict, List
 
 import numpy as np
 import pandas as pd
+from antakia_core.utils import DataVariables
+from antakia_core.utils.utils import ProblemCategory, timeit
 
-from dotenv import load_dotenv
-
-from antakia_core.utils.utils import ProblemCategory
-
-load_dotenv()
-
-from antakia.utils.checks import is_valid_model
-from antakia_core.utils.variable import Variable, DataVariables
+from antakia.config import AppConfig
 from antakia.gui.gui import GUI
-
-import importlib.metadata
-
-__version__ = importlib.metadata.version("antakia")
-__author__ = "AI-vidence"
+from antakia.gui.helpers.data import DataStore
+from antakia.utils.checks import is_valid_model
+from antakia.utils.logging_utils import Log
+from antakia.utils.stats import log_errors, stats_logger
 
 
 class AntakIA:
-    """AntakIA class. 
+    """AntakIA class.
 
     Antakia instances provide data and methods to explain a ML model.
 
@@ -38,17 +32,20 @@ class AntakIA:
     score : reference scoring function
     """
 
+    @log_errors
+    @timeit
     def __init__(
-            self,
-            X: pd.DataFrame,
-            y: pd.Series,
-            model,
-            variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
-            X_test: pd.DataFrame = None,
-            y_test: pd.Series = None,
-            X_exp: pd.DataFrame | None = None,
-            score: callable | str = 'auto',
-            problem_category: str = 'auto'
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
+        X_test: pd.DataFrame | None = None,
+        y_test: pd.Series | None = None,
+        X_exp: pd.DataFrame | None = None,
+        score: Callable | str = "auto",
+        problem_category: str = "auto",
+        verbose=0,
     ):
         """
         AntakiIA constructor.
@@ -63,65 +60,97 @@ class AntakIA:
             y_test : pd.Series the test target value
             score : reference scoring function
         """
-
-        load_dotenv()
+        stats_logger.log("launched", {})
+        AppConfig.verbose = verbose
 
         if not is_valid_model(model):
             raise ValueError(model, " should implement predict and score methods")
-        X, y, X_exp = self._preprocess_data(X, y, X_exp)
-        X_test, y_test, _ = self._preprocess_data(X_test, y_test, None)
-
-        self.X = X
-        if y.ndim > 1:
-            y = y.squeeze()
-        self.y = y.astype(float)
-
-        self.X_test = X_test
-        if y_test is not None and y_test.ndim > 1:
-            y_test = y_test.squeeze()
-        self.y_test = y_test
-
-        self.model = model
-
-        self.X_exp = X_exp
-
-        self.problem_category = self._preprocess_problem_category(problem_category, model, X)
-        self.score = self._preprocess_score(score, self.problem_category)
-
-        self.set_variables(X, variables)
-
-        self.gui = GUI(
-            self.X,
-            self.y,
-            self.model,
-            self.variables,
-            self.X_test,
-            self.y_test,
-            self.X_exp,
-            self.score,
-            self.problem_category
+        self.data_store = self._get_data_store(
+            X=X,
+            X_exp=X_exp,
+            X_test=X_test,
+            model=model,
+            problem_category=problem_category,
+            score=score,
+            variables=variables,
+            y=y,
+            y_test=y_test,
         )
 
-    def set_variables(self, X, variables):
-        if variables is not None:
-            if isinstance(variables, list):
-                self.variables: DataVariables = Variable.import_variable_list(variables)
-                if len(self.variables) != len(X.columns):
-                    raise ValueError("Provided variable list must be the same length of the dataframe")
-            elif isinstance(variables, pd.DataFrame):
-                self.variables = Variable.import_variable_df(variables)
-            else:
-                raise ValueError("Provided variable list must be a list or a pandas DataFrame")
-        else:
-            self.variables = Variable.guess_variables(X)
+        with Log("building GUI", 1):
+            self.gui = GUI(self.data_store)
+        stats_logger.log(
+            "launch_info",
+            {
+                "data_dim": str(self.data_store.X.shape),
+                "category": str(self.data_store.problem_category),
+                "provided_exp": self.data_store.X_exp is not None,
+                "test_dataset": self.data_store.X_test is not None,
+            },
+        )
 
+    @classmethod
+    def _get_data_store(
+        cls,
+        X: pd.DataFrame,
+        y: pd.Series,
+        model,
+        X_exp: pd.DataFrame | None = None,
+        X_test: pd.DataFrame | None = None,
+        problem_category: str = "auto",
+        score: Callable | str = "auto",
+        variables: DataVariables | List[Dict[str, Any]] | pd.DataFrame | None = None,
+        y_test=None,
+    ):
+        with Log("cleaning data", 2):
+            X, y, X_exp = cls._preprocess_data(X, y, X_exp)
+            if X_test is not None:
+                X_test, y_test, _ = cls._preprocess_data(X_test, y_test, None)
+        if y.ndim > 1:
+            y = y.squeeze()  # type:ignore
+        y = y.astype(float)
+        if y_test is not None and y_test.ndim > 1:
+            y_test = y_test.squeeze()  # type:ignore
+        problem_category = cls._preprocess_problem_category(problem_category, model, X)
+        score = cls._preprocess_score(score, problem_category)
+        with Log("building variables", 2):
+            variables = cls.preprocess_variables(X, variables)
+        return DataStore(
+            X=X,
+            y=y,
+            variables=variables,
+            X_exp=X_exp,
+            X_test=X_test,
+            y_test=y_test,
+            model=model,
+            problem_category=problem_category,
+            score=score,
+        )
+
+    @classmethod
+    @timeit
+    def preprocess_variables(cls, X, variables) -> DataVariables:
+        """
+        Set variables attribute according to variable input and X
+        """
+        if variables is not None and not isinstance(variables, (list, pd.DataFrame)):
+            raise ValueError("Provided variable list must be a list or a pandas DataFrame")
+        return DataVariables.build_variables(X, variables)
+
+    @timeit
     def start_gui(self) -> GUI:
-        return self.gui.show_splash_screen()
+        return self.gui.initialize()
 
+    @timeit
     def export_regions(self):
-        return self.gui.region_set
+        """
+        get region set from modeling
+        """
+        return self.data_store.region_set
 
-    def _preprocess_data(self, X: pd.DataFrame, y, X_exp: pd.DataFrame | None):
+    @classmethod
+    @timeit
+    def _preprocess_data(cls, X: pd.DataFrame, y, X_exp: pd.DataFrame | None):
         if isinstance(X, np.ndarray):
             X = pd.DataFrame(X)
         if isinstance(X_exp, np.ndarray):
@@ -129,41 +158,58 @@ class AntakIA:
         if isinstance(y, np.ndarray):
             y = pd.Series(y)
 
-        X.columns = [str(col) for col in X.columns]
+        X.columns = [str(col) for col in X.columns]  # type:ignore
         if X_exp is not None:
             X_exp.columns = X.columns
 
         if X_exp is not None:
-            pd.testing.assert_index_equal(X.index, X_exp.index, check_names=False)
+            pd.testing.assert_index_equal(X.index, X_exp.index, check_names=False)  # type:ignore
             if X.reindex(X_exp.index).iloc[:, 0].isna().sum() != X.iloc[:, 0].isna().sum():
-                raise IndexError('X and X_exp must share the same index')
-        pd.testing.assert_index_equal(X.index, y.index, check_names=False)
+                raise IndexError("X and X_exp must share the same index")
+        pd.testing.assert_index_equal(X.index, y.index, check_names=False)  # type:ignore
         return X, y, X_exp
 
-    def _preprocess_problem_category(self, problem_category: str, model, X: pd.DataFrame) -> ProblemCategory:
+    @classmethod
+    @timeit
+    def _preprocess_problem_category(
+        cls, problem_category: str, model, X: pd.DataFrame
+    ) -> ProblemCategory:
         if problem_category not in [e.name for e in ProblemCategory]:
-            raise ValueError('Invalid problem category')
-        if problem_category == 'auto':
-            if hasattr(model, 'predict_proba'):
-                return ProblemCategory['classification_with_proba']
-            pred = self.model.predict(self.X.sample(min(100, len(self.X))))
-            if len(pred.shape) > 1 and pred.shape[1] > 1:
-                return ProblemCategory['classification_proba']
-            return ProblemCategory['regression']
-        if problem_category == 'classification':
-            if hasattr(model, 'prodict_proba'):
-                return ProblemCategory['classification_with_proba']
-            pred = model.predict(X.sample(min(100, len(X))))
-            if len(pred.shape) > 1 and pred.shape[1] > 1:
-                return ProblemCategory['classification_proba']
-            return ProblemCategory['classification_label_only']
-        return ProblemCategory[problem_category]
+            raise ValueError("Invalid problem category")
+        with Log("Preprocessing problem category", 2):
+            if problem_category == "auto":
+                if hasattr(model, "predict_proba"):
+                    return ProblemCategory["classification_with_proba"]
+                pred = model.predict(X.sample(min(100, len(X))))
+                if len(pred.shape) > 1 and pred.shape[1] > 1:
+                    return ProblemCategory["classification_proba"]
+                return ProblemCategory["regression"]
+            if problem_category == "classification":
+                if hasattr(model, "prodict_proba"):
+                    return ProblemCategory["classification_with_proba"]
+                pred = model.predict(X.sample(min(100, len(X))))
+                if len(pred.shape) > 1 and pred.shape[1] > 1:
+                    return ProblemCategory["classification_proba"]
+                return ProblemCategory["classification_label_only"]
+            return ProblemCategory[problem_category]
 
-    def _preprocess_score(self, score, problem_category):
+    @classmethod
+    @timeit
+    def _preprocess_score(cls, score, problem_category):
+        """
+        preprocess score to imput default score if not provided
+        """
         if callable(score):
             return score
-        if score != 'auto':
+        if score != "auto":
             return score
         if problem_category == ProblemCategory.regression:
-            return 'mse'
-        return 'accuracy'
+            return "mse"
+        return "accuracy"
+
+    @timeit
+    def predict(self, X):
+        """
+        predict the result using the region_set
+        """
+        return self.gui.data_store.region_set.predict(X)

@@ -1,13 +1,19 @@
+[project]
+name = "antakia"
+version = "0.5.1"
+description = "AI made Xplainable"
+requires-python = ">=3.10,<3.12"
+
 [tool.poetry]
 name = "antakia"
-version = "0.2.9"
+version = "0.5.1"
 description = "AI made Xplainable"
 readme = "README.md"
 authors = [
-    "Antoine EDY <antoineedy@outlook.fr>",
     "Pierre HULOT <pierre@ai-vidence.com>",
     "Laurent MICHEL <laurent@ai-vidence.com>",
-    "David CORTÉS <david@ai-vidence.com>"
+    "David CORTÉS <david@ai-vidence.com>",
+    "Antoine EDY <antoineedy@outlook.fr>"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -23,18 +29,19 @@ keywords = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.11,<3.12"
-ipyvuetify = "*"
-ipywidgets = "^8.1.1"
-plotly = "^5.18.0"
-lime = "^0.2.0.1"
-shap = "^0.43.0"
+python = ">=3.10,<3.12"
+ipyvuetify = "<1.9.0" # do not edit please
+ipywidgets = ">=7.6"
+plotly = "<=5.19.0"# do not edit please
 python-dotenv = "^1.0.0"
-antakia-core = "*"
-antakia-ac = ">=0.2.4"
-#antakia-ac = {path = "../antakia-ac", develop = true}
-#antakia-core = {path = "../antakia-core", develop = true}
+shap = ">=0.50.0"
+antakia-core = ">=0.4.8,<0.5.0"
+antakia-ac = "^0.2.14"
 requests = "^2.31.0"
+pdpbox = "^0.3.0"
+jupyterlab = ">=3"
+kaleido = ">=0.2.1"
+xhtml2pdf = "^0.2.13"  # export PDF (pur Python, évite libgobject sur macOS)
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.26.0"
@@ -52,6 +59,9 @@ mkdocstrings = "^0.24.0"
 mkdocstrings-python = "^1.8.0"
 mkdocs-gen-files = "^0.5.0"
 mkdocs-literate-nav = "^0.6.1"
+mypy = "^1.9.0"
+yapf = "^0.40.2"
+pylint = "^3.1.0"
 
 [tool.poetry.group.demo.dependencies]
 jupyter = "^1.0.0"

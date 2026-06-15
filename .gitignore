@@ -3,6 +3,8 @@
 
 # AntakIA
 *metadata.json
+*logs.json
+*test.json
 
 # IDE
 .vscode/
@@ -28,6 +30,9 @@ ipython_config.py
 # docs
 site/
 
+# Documentation scientifique (à synchroniser vers artist-plateforme)
+docs/science/
+
 # test
 .coverage.*
 *.pytest_cache/
@@ -35,3 +40,15 @@ site/
 
 # poetry
 poetry.lock
+
+# Outputs et rapports générés (notebooks, tessellation)
+examples/outputs/
+examples/reports/
+examples/*.html
+
+# Credentials Scaleway (déploiement GPU)
+scripts/.scaleway_instance_id
+scripts/.scaleway_ip
+
+# Cursor / IDE local
+.cursor/
