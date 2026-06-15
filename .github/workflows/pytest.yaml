@@ -1,8 +1,6 @@
 name: Run pytest
 
 on:
-  release:
-    types: [published]
   pull_request:
     branches: [main, dev]
   push:
@@ -19,16 +17,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install antakia (PyPI) and test tools
+      - uses: astral-sh/setup-uv@v5
+      - name: Install and test
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            VER="${{ github.event.release.tag_name }}"
-            VER="${VER#v}"
-          else
-            VER="0.5.1"
-          fi
-          echo "Testing antakia==${VER}"
-          pip install "numba>=0.59.0" "llvmlite>=0.42.0" --only-binary=numba,llvmlite
-          pip install "antakia==${VER}" pytest pytest-cov mock --only-binary=numba,llvmlite
-      - name: Run pytest
-        run: python -m pytest --cov=antakia --cov-report term-missing tests
+          uv pip install --system "antakia==0.5.1" pytest pytest-cov mock
+          python -m pytest --cov=antakia --cov-report term-missing tests

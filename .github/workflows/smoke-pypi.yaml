@@ -1,0 +1,24 @@
+name: Smoke test PyPI release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v5
+      - name: Install release from PyPI and smoke import
+        run: |
+          VER="${{ github.event.release.tag_name }}"
+          VER="${VER#v}"
+          echo "Smoke test antakia==${VER}"
+          uv pip install --system "antakia==${VER}"
+          python -c "import antakia; print('OK', antakia.__version__)"
