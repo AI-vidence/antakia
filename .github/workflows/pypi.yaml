@@ -1,10 +1,11 @@
-# Publish to PyPI when a release is published (Trusted Publisher or PYPI_API_TOKEN).
+# Publish to PyPI when a release is published.
 
 name: Publish to PyPI
 
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,8 +19,10 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install build
-        run: python -m pip install --upgrade pip build
+        run: python -m pip install --upgrade pip build poetry
       - name: Build package
-        run: python -m build
+        run: poetry build
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
