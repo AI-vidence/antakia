@@ -28,6 +28,7 @@ jobs:
             VER="0.5.1"
           fi
           echo "Testing antakia==${VER}"
+          pip install "numba>=0.59.0" "llvmlite>=0.42.0"
           pip install "antakia==${VER}" pytest pytest-cov mock
       - name: Run pytest
         run: python -m pytest --cov=antakia --cov-report term-missing tests
