@@ -1,29 +1,21 @@
 name: Format with yapf
 
 on:
-  release:
-    types: [published]
+  pull_request:
+    branches: [main, dev]
+
+permissions:
+  contents: read
 
 jobs:
-  autoyapf:
+  yapf:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          ref: ${{ github.head_ref }}
-      - name: autoyapf
-        id: autoyapf
-        uses: mritunjaysharma394/autoyapf@v2
-        with:
-          args: --style pep8 --recursive --in-place .
-      - name: Check for modified files
-        id: git-check
-        run: echo ::set-output name=modified::$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)
-      - name: Push changes
-        if: steps.git-check.outputs.modified == 'true'
+          python-version: "3.11"
+      - name: Check yapf formatting
         run: |
-          git config --global user.name 'github-actions' 
-          git config --global user.email 'github-actions@github.com' 
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          git commit -am "Automated autoyapf fixes"
-          git push
+          pip install yapf
+          yapf --diff --recursive --style pep8 src tests
