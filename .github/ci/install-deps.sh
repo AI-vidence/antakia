@@ -10,8 +10,13 @@ install_sope_rules() {
     echo "sope-rules-antakia installé depuis PyPI"
     return
   fi
-  echo "Fallback git: sope-rules-antakia@v0.1.1"
-  pip install "sope-rules-antakia @ git+https://github.com/AI-vidence/sope-rules-antakia.git@v0.1.1"
+  if [ -d _deps/sope-rules-antakia ]; then
+    echo "Fallback checkout local: sope-rules-antakia"
+    pip install ./_deps/sope-rules-antakia
+    return
+  fi
+  echo "ERREUR: sope-rules-antakia absent de PyPI et pas de checkout _deps/"
+  exit 1
 }
 
 install_antakia_core() {
@@ -19,10 +24,13 @@ install_antakia_core() {
     echo "antakia-core installé depuis PyPI"
     return
   fi
-  echo "Fallback git: antakia-core release/0.4.9"
-  git clone --depth 1 --branch release/0.4.9 \
-    https://github.com/AI-vidence/antakia-core.git /tmp/antakia-core
-  pip install /tmp/antakia-core --no-deps
+  if [ -d _deps/antakia-core ]; then
+    echo "Fallback checkout local: antakia-core"
+    pip install -e _deps/antakia-core --no-deps
+    return
+  fi
+  echo "ERREUR: antakia-core>=0.4.9 absent de PyPI et pas de checkout _deps/"
+  exit 1
 }
 
 install_sope_rules
